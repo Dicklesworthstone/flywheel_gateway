@@ -9736,6 +9736,60 @@ export const auditLogs = sqliteTable('audit_logs', {
   resourceType: text('resource_type'),
   resourceId: text('resource_id'),
 });
+
+// DCG (Destructive Command Guard) tables
+export const dcgBlocks = sqliteTable('dcg_blocks', {
+  id: text('id').primaryKey(),
+  timestamp: integer('timestamp', { mode: 'timestamp' }).notNull(),
+  agentId: text('agent_id').references(() => agents.id),
+  command: text('command').notNull(),
+  pack: text('pack').notNull(),
+  pattern: text('pattern').notNull(),
+  ruleId: text('rule_id').notNull(),
+  severity: text('severity').notNull(),  // critical, high, medium, low
+  reason: text('reason').notNull(),
+  contextClassification: text('context_classification'),  // executed, data, ambiguous
+  falsePositive: integer('false_positive', { mode: 'boolean' }).default(false),
+});
+
+export const dcgAllowlist = sqliteTable('dcg_allowlist', {
+  id: text('id').primaryKey(),
+  ruleId: text('rule_id').notNull().unique(),
+  pattern: text('pattern').notNull(),
+  addedAt: integer('added_at', { mode: 'timestamp' }).notNull(),
+  addedBy: text('added_by').notNull(),
+  reason: text('reason'),
+  expiresAt: integer('expires_at', { mode: 'timestamp' }),
+  condition: text('condition'),  // Optional condition like "CI=true"
+});
+
+// Fleet/RU tables
+export const fleetRepos = sqliteTable('fleet_repos', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  owner: text('owner').notNull(),
+  path: text('path').notNull().unique(),
+  branch: text('branch').notNull(),
+  status: text('status').notNull(),  // current, behind, ahead, diverged, dirty, conflict
+  lastSyncAt: integer('last_sync_at', { mode: 'timestamp' }),
+  lastAgentSweepAt: integer('last_agent_sweep_at', { mode: 'timestamp' }),
+  assignedAgent: text('assigned_agent'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const agentSweeps = sqliteTable('agent_sweeps', {
+  id: text('id').primaryKey(),
+  repositoryId: text('repository_id').notNull().references(() => fleetRepos.id),
+  status: text('status').notNull(),  // pending, phase1, phase2, phase3, completed, failed
+  phase1Result: text('phase1_result', { mode: 'json' }),
+  phase2Result: text('phase2_result', { mode: 'json' }),
+  phase3Result: text('phase3_result', { mode: 'json' }),
+  agentId: text('agent_id').references(() => agents.id),
+  startedAt: integer('started_at', { mode: 'timestamp' }),
+  completedAt: integer('completed_at', { mode: 'timestamp' }),
+  error: text('error'),
+});
 ```
 
 ### 29.2 API Error Codes
@@ -9758,6 +9812,14 @@ export const auditLogs = sqliteTable('audit_logs', {
 | `EMAIL_NOT_VERIFIED` | 412 | Email must be verified before provisioning |
 | `INVALID_REQUEST` | 400 | Request validation failed |
 | `INTERNAL_ERROR` | 500 | Unexpected server error |
+| `DCG_BLOCKED` | 403 | Command blocked by Destructive Command Guard |
+| `DCG_PACK_NOT_FOUND` | 404 | DCG pack does not exist |
+| `FLEET_REPO_NOT_FOUND` | 404 | Repository not in fleet |
+| `FLEET_SYNC_IN_PROGRESS` | 409 | Sync already in progress for this repository |
+| `SWEEP_NOT_FOUND` | 404 | Agent-sweep run does not exist |
+| `SWEEP_APPROVAL_REQUIRED` | 202 | Agent-sweep phase 3 requires approval |
+| `UTILITY_NOT_FOUND` | 404 | Developer utility not recognized |
+| `UTILITY_INSTALL_FAILED` | 500 | Failed to install developer utility |
 
 ---
 
@@ -9969,10 +10031,73 @@ When implementing features, consult these references for patterns and data struc
 | Metrics | `GET /metrics` | `metrics` |
 | Audit log | `GET /audit` | — |
 
+### A.17 Fleet/RU Operations
+
+| Operation | REST Endpoint | WebSocket Topic |
+|-----------|---------------|-----------------|
+| List repos | `GET /fleet/repos` | — |
+| Get repo | `GET /fleet/repos/{id}` | — |
+| Fleet sync | `POST /fleet/sync` | `fleet` |
+| Repo sync | `POST /fleet/repos/{id}/sync` | `fleet` |
+| Fleet status | `GET /fleet/status` | — |
+| Start agent-sweep | `POST /fleet/agent-sweep` | `fleet.sweep` |
+| Get sweep status | `GET /fleet/agent-sweep/{id}` | — |
+| Approve sweep | `POST /fleet/agent-sweep/{id}/approve` | `fleet.sweep` |
+| Sweep history | `GET /fleet/agent-sweep/history` | — |
+
+### A.18 DCG Operations
+
+| Operation | REST Endpoint | WebSocket Topic |
+|-----------|---------------|-----------------|
+| Get config | `GET /dcg/config` | — |
+| Update config | `PUT /dcg/config` | — |
+| List packs | `GET /dcg/packs` | — |
+| Enable pack | `POST /dcg/packs/{pack}/enable` | — |
+| Disable pack | `POST /dcg/packs/{pack}/disable` | — |
+| List blocks | `GET /dcg/blocks` | `dcg` |
+| Mark false positive | `POST /dcg/blocks/{id}/false-positive` | — |
+| List allowlist | `GET /dcg/allowlist` | — |
+| Add allowlist | `POST /dcg/allowlist` | — |
+| Remove allowlist | `DELETE /dcg/allowlist/{ruleId}` | — |
+| Get stats | `GET /dcg/stats` | — |
+
+### A.19 Developer Utilities Operations
+
+| Operation | REST Endpoint | WebSocket Topic |
+|-----------|---------------|-----------------|
+| List utilities | `GET /utilities` | — |
+| Install utility | `POST /utilities/{name}/install` | — |
+| Update utility | `POST /utilities/{name}/update` | — |
+| Utilities doctor | `GET /utilities/doctor` | — |
+
 ---
 
-*Plan Version: 3.6.0 — Open Source Focus Edition*
+*Plan Version: 3.7.0 — Open Source Focus Edition*
 *Last Updated: January 8, 2026*
+
+**Changelog v3.7.0:**
+- **Major: Expanded Flywheel Ecosystem Tools**
+  - Added §17.5 RU (Repo Updater) Integration
+    - Fleet management for multi-repo sync and status
+    - Agent-sweep orchestration (three-phase: analyze → plan → execute)
+    - REST API endpoints and WebSocket events for fleet operations
+    - Integration with SLB for plan approval workflow
+  - Added §17.6 DCG (Destructive Command Guard) Integration
+    - Pre-execution hook integration for command safety
+    - Block event capture and statistics dashboard
+    - Allowlist management via UI
+    - Integration with SLB and CM for false positive learning
+  - Added §17.7 Developer Utilities Integration
+    - Auto-install system for giil and csctf
+    - giil: Cloud photo download for AI visual analysis
+    - csctf: AI chat conversation archival to Markdown/HTML
+- Updated §2.2 The Flywheel Tools table (now 10 core tools + 2 utilities)
+- Updated preface: Added tools #10 (RU), #11 (DCG), and Developer Utilities section
+- Updated §27 Implementation Phases:
+  - Phase 1: Added DCG integration and utilities auto-install
+  - Phase 3: Added RU integration and DCG advanced features
+- Added API Parity Matrix entries (A.17-A.19) for Fleet, DCG, Utilities
+- DCG replaces the simpler Python-based approach with sub-millisecond Rust performance
 
 **Changelog v3.5.0:**
 - **Major: Advanced Analytics & Notification System**
