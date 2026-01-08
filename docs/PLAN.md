@@ -4825,6 +4825,7 @@ interface CaamRunner {
 - Gateway records only metadata (status, hashes, timestamps).
 - Rotation happens at runtime by selecting the healthiest profile.
 - Runner implementation should wrap the `caam` CLI from `/data/projects/coding_agent_account_manager` and keep auth paths aligned with `caam paths` output.
+- CAAM enforces Codex file-based storage by writing `cli_auth_credentials_store = "file"` in `config.toml` within the profile's `CODEX_HOME`.
 
 ### 16.4 Provider Auth Flows (BYOA)
 
@@ -4838,13 +4839,14 @@ interface CaamRunner {
 **Codex (GPT Pro)**
 - Standard login: `codex login` (local browser flow).
 - Device code login: `codex login --device-auth` (headless-friendly).
-- Auth cache stored in `~/.codex/auth.json` by default or OS credential store; set `cli_auth_credentials_store=file` for CAAM.
+- Auth cache stored in `~/.codex/auth.json`; CAAM enforces file mode by writing `cli_auth_credentials_store = "file"` in `config.toml`.
 - CAAM uses `CODEX_HOME` to isolate profiles per agent.
 
 **Claude Code (Claude Max)**
 - Login is initiated in CLI via `/login`.
 - Credentials are stored locally by the CLI; file locations can change between releases.
 - CAAM detects the **actual** auth artifacts and records hashes.
+- API key mode is supported via `~/.claude/settings.json` with `apiKeyHelper`.
 
 **Gemini CLI**
 - Settings live in `~/.gemini/settings.json` or project `.gemini/settings.json`.
@@ -4861,9 +4863,9 @@ CAAM does **not** hardcode auth file paths as the source of truth. It discovers 
 
 | Provider | Typical Auth Artifacts (Tenant‑local) | Isolation Anchor | Notes |
 |----------|----------------------------------------|------------------|-------|
-| **Codex** | `~/.codex/auth.json` (or `$CODEX_HOME/auth.json`) | `HOME`, `CODEX_HOME` | CLI can use OS credential store; CAAM forces file mode inside workspace. |
-| **Claude** | `~/.claude.json`, `~/.config/claude-code/auth.json` | `HOME`, `XDG_CONFIG_HOME` | Files may change by release; CAAM tracks actual writes. |
-| **Gemini** | `~/.gemini/settings.json` (or project `.gemini/settings.json`) | `HOME`, `XDG_CONFIG_HOME` | OAuth or API key mode; settings location is stable. |
+| **Codex** | `~/.codex/auth.json` (or `$CODEX_HOME/auth.json`) | `HOME`, `CODEX_HOME` | CAAM enforces `cli_auth_credentials_store = "file"` in `config.toml`. |
+| **Claude** | `~/.claude.json`, `~/.config/claude-code/auth.json`, `~/.claude/settings.json` | `HOME`, `XDG_CONFIG_HOME` | API key mode uses `settings.json` (apiKeyHelper). |
+| **Gemini** | `~/.gemini/settings.json` (or project `.gemini/settings.json`), `~/.gemini/.env` | `HOME`, `XDG_CONFIG_HOME` | OAuth or API key mode; settings location is stable. |
 
 **Normalization rules:**
 - Track only hashes + modified timestamps (never contents).
@@ -4882,6 +4884,10 @@ CAAM does **not** hardcode auth file paths as the source of truth. It discovers 
 
 **Slash Command (Claude Code):**
 - User runs `/login` in the CLI; CAAM waits for new auth artifacts.
+
+**API Key / ADC (Gemini, Claude):**
+- Gemini: set `GEMINI_API_KEY` (or `.gemini/.env`) or use Vertex ADC.
+- Claude: apiKeyHelper in `~/.claude/settings.json` (no OAuth artifacts).
 
 **Manual Copy (Codex fallback):**
 - User logs in on their own machine.
@@ -4915,9 +4921,10 @@ Some CLIs can store credentials in a system keyring. This is **not** suitable fo
 
 **Policy:**
 - Enforce file‑based storage inside workspace containers.
-- For Codex CLI, set `cli_auth_credentials_store=file` in `~/.codex/config.json` (or `$CODEX_HOME`).
+- For Codex CLI, set `cli_auth_credentials_store = "file"` in `~/.codex/config.toml` (or `$CODEX_HOME`).
 - If keyring storage is detected, CAAM switches to file mode (provider‑specific).
 - Gateway stores `storageMode` metadata for visibility.
+- API key modes can be valid with optional-only artifacts (e.g., `.claude/settings.json`, `.gemini/.env`).
 
 #### 16.4.5 Account Multiplicity Guidance
 
