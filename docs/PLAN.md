@@ -102,9 +102,9 @@ The **Agent Flywheel** is a self-improving development cycle where AI coding age
 
 The flywheel is **self-reinforcing**: each cycle generates knowledge that makes the next cycle faster and higher quality. Over time, the agents become more effective because they're building on accumulated intelligence rather than starting fresh each time.
 
-### The Eight Tools of the Flywheel
+### The Flywheel Tools
 
-The Agent Flywheel is implemented through eight interconnected tools. Understanding each tool is essential to understanding this plan.
+The Agent Flywheel is implemented through interconnected tools organized into core orchestration components and developer utilities. Understanding each tool is essential to understanding this plan.
 
 #### 1. Flywheel Gateway (This Project)
 
@@ -393,9 +393,81 @@ Results:
 
 **Why it matters:** Autonomous agents are powerful but can make catastrophic mistakes. SLB ensures humans stay in the loop for irreversible actions.
 
+#### 10. RU (Repo Updater)
+
+**What it is:** A production-grade Bash CLI (~17,700 LOC) for managing large collections of GitHub repositories with AI-assisted review and agent automation capabilities.
+
+**Key capabilities:**
+- **Multi-repo sync:** Clone & pull 100+ repos with parallel processing (`-j N`)
+- **AI code review:** Orchestrates Claude Code sessions via ntm for PR/issue review
+- **Agent-sweep:** Three-phase automated workflow per repository (analyze → plan → execute)
+- **Conflict detection:** Identifies diverged, dirty, and conflicted repos with actionable resolution
+- **Preflight safety:** Blocks unsafe states (detached HEAD, merge in progress, secrets detected)
+
+**Agent-sweep workflow:**
+```
+Phase 1: Deep Understanding (300s)
+    ↓ Agent reads AGENTS.md, README.md, git log
+Phase 2: Plan Generation (600s)
+    ↓ Agent produces commit/release plans in structured JSON
+Phase 3: Validation & Execution (300s)
+    ↓ RU validates plans, runs preflight checks, executes git operations
+```
+
+**Why it matters:** Managing dozens of repositories manually is tedious and error-prone. RU automates sync, enables AI-driven maintenance across entire repository fleets, and integrates with ntm for session orchestration.
+
+#### 11. DCG (Destructive Command Guard)
+
+**What it is:** A high-performance Rust pre-execution hook (<1ms latency) for Claude Code that blocks catastrophic commands before they run.
+
+**Key capabilities:**
+- **Modular pack system:** git, filesystem, database, containers, kubernetes, cloud, terraform
+- **Context-aware:** Distinguishes executed code from data strings (dramatically reduces false positives)
+- **Severity tiers:** Critical (always block), High (allowlistable), Medium (warn), Low (log)
+- **Claude Code integration:** PreToolUse hook that intercepts Bash commands
+
+**Example blocked operations:**
+| Command | Pack | Severity |
+|---------|------|----------|
+| `git reset --hard` | core.git | Critical |
+| `rm -rf ./` | core.filesystem | Critical |
+| `docker system prune -af` | containers.docker | High |
+| `DROP DATABASE production` | database.postgresql | Critical |
+| `kubectl delete namespace prod` | kubernetes.kubectl | Critical |
+
+**Why it matters:** DCG is the mechanical enforcement layer that protects against honest mistakes. Unlike AGENTS.md instructions which agents might ignore, DCG physically prevents destructive commands from executing. It replaces simpler Python-based approaches with sub-millisecond Rust performance.
+
+#### Developer Utilities
+
+These tools enhance AI agent workflows and should be auto-installed in agent environments:
+
+#### giil (Get Image from Internet Link)
+
+**What it is:** A zero-setup CLI that downloads full-resolution images from cloud photo sharing services.
+
+**Key capabilities:**
+- **4-tier capture strategy:** Download button → CDN interception → element screenshot → viewport
+- **Supported platforms:** iCloud, Dropbox, Google Photos, Google Drive
+- **Image processing:** MozJPEG compression, EXIF datetime extraction, HEIC conversion
+- **Remote-friendly:** Perfect for SSH sessions where agents need to analyze screenshots
+
+**Why it matters:** When debugging UI issues remotely, agents need to see screenshots. giil bridges the gap—paste an iCloud link, run one command, agent immediately analyzes the image.
+
+#### csctf (Chat Shared Conversation to File)
+
+**What it is:** A single-binary CLI for converting public AI chat share links into clean Markdown and HTML transcripts.
+
+**Key capabilities:**
+- **Multi-provider:** ChatGPT, Gemini, Grok, Claude.ai
+- **Code-preserving:** Fenced blocks with language detection
+- **GitHub Pages:** One-command publish to static microsite
+- **Deterministic:** Collision-proof filenames, atomic writes
+
+**Why it matters:** AI conversations contain valuable problem-solving context. csctf captures this knowledge as searchable, archivable documents that can feed back into CASS for future retrieval.
+
 ### How the Tools Work Together
 
-The eight tools form a cohesive system where each tool amplifies the others:
+The flywheel tools form a cohesive system where each tool amplifies the others:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -772,7 +844,9 @@ The Agent Flywheel is a **self-improving development cycle** where:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 The Eight Tools of the Flywheel
+### 2.2 The Flywheel Tools
+
+#### Core Orchestration Tools
 
 | # | Tool | Purpose | Integration Priority |
 |---|------|---------|---------------------|
@@ -784,6 +858,17 @@ The Agent Flywheel is a **self-improving development cycle** where:
 | 6 | **CM** | Procedural memory for agents | High |
 | 7 | **CAAM** | BYOA/BYOK account profile rotation | Medium |
 | 8 | **SLB** | Safety guardrails (two-person rule) | Medium |
+| 9 | **RU** | Multi-repo sync & AI agent-sweep automation | High |
+| 10 | **DCG** | Pre-execution hook blocking catastrophic commands | Critical |
+
+#### Developer Utilities
+
+These tools enhance AI agent workflows and should be auto-installed in agent environments:
+
+| Tool | Purpose | Auto-Install |
+|------|---------|--------------|
+| **giil** | Download cloud photos (iCloud, Dropbox, Google) for AI visual analysis | Yes |
+| **csctf** | Convert AI chat share links to Markdown/HTML transcripts | Yes |
 
 ### 2.3 How The Web UI Accelerates The Flywheel
 
@@ -5192,6 +5277,411 @@ export function ApprovalQueue() {
 
 ---
 
+## 17.5 RU (Repo Updater) Integration
+
+RU provides multi-repository management, AI-assisted code review, and automated agent-sweep capabilities. Gateway integrates with RU to orchestrate work across entire repository fleets.
+
+### 17.5.1 Integration Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     RU ↔ GATEWAY INTEGRATION                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  RU (Bash CLI, ~17,700 LOC)                                                 │
+│  ├── ru sync          →  Gateway monitors sync status via WebSocket         │
+│  ├── ru review        →  Gateway spawns Claude Code sessions (via ntm)      │
+│  ├── ru agent-sweep   →  Gateway orchestrates multi-repo agent workflows    │
+│  └── ru status        →  Gateway displays fleet health dashboard            │
+│                                                                             │
+│  GATEWAY RESPONSIBILITIES:                                                  │
+│  ├── Spawn agents for ru review/agent-sweep sessions                        │
+│  ├── Track session progress via Agent Mail coordination                     │
+│  ├── Display fleet status in web UI                                         │
+│  ├── Route agent-sweep plans through approval workflow (SLB integration)    │
+│  └── Archive agent-sweep results to CASS for learning                       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 17.5.2 Fleet Management Data Model
+
+```typescript
+// packages/shared/src/types/fleet.ts
+
+interface Repository {
+  id: string;
+  name: string;                    // e.g., "mcp_agent_mail"
+  owner: string;                   // e.g., "Dicklesworthstone"
+  path: string;                    // Local path: /data/projects/mcp_agent_mail
+  branch: string;                  // Current branch
+  status: RepoStatus;
+  lastSyncAt?: Date;
+  lastAgentSweepAt?: Date;
+  assignedAgent?: string;          // Agent Mail identity
+}
+
+type RepoStatus =
+  | 'current'                      // Up to date with remote
+  | 'behind'                       // Remote has new commits
+  | 'ahead'                        // Local has unpushed commits
+  | 'diverged'                     // Both local and remote have new commits
+  | 'dirty'                        // Uncommitted changes
+  | 'conflict'                     // Merge conflict detected
+  | 'syncing'                      // Sync in progress
+  | 'sweeping';                    // Agent-sweep in progress
+
+interface AgentSweepRun {
+  id: string;
+  repositoryId: string;
+  status: 'pending' | 'phase1' | 'phase2' | 'phase3' | 'completed' | 'failed';
+  phase1Result?: {                 // Deep understanding
+    analysisComplete: boolean;
+    issuesIdentified: number;
+    duration: number;
+  };
+  phase2Result?: {                 // Plan generation
+    commitsPlanned: number;
+    releasePlanned: boolean;
+    planJson: string;
+  };
+  phase3Result?: {                 // Execution
+    commitsCreated: number;
+    releaseCreated?: string;
+    pushStatus: 'success' | 'failed' | 'skipped';
+  };
+  startedAt: Date;
+  completedAt?: Date;
+  agentId?: string;
+  error?: string;
+}
+```
+
+### 17.5.3 REST API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/fleet/repos` | List all tracked repositories |
+| `GET` | `/fleet/repos/{id}` | Get repository details |
+| `POST` | `/fleet/sync` | Trigger fleet-wide sync |
+| `POST` | `/fleet/repos/{id}/sync` | Sync single repository |
+| `GET` | `/fleet/status` | Fleet health summary |
+| `POST` | `/fleet/agent-sweep` | Start agent-sweep across repos |
+| `GET` | `/fleet/agent-sweep/{id}` | Get agent-sweep run status |
+| `POST` | `/fleet/agent-sweep/{id}/approve` | Approve phase 3 execution |
+| `GET` | `/fleet/agent-sweep/history` | List past agent-sweep runs |
+
+### 17.5.4 WebSocket Events
+
+```typescript
+interface FleetEvent {
+  type:
+    | 'repo.sync_started'
+    | 'repo.sync_completed'
+    | 'repo.status_changed'
+    | 'sweep.started'
+    | 'sweep.phase_changed'
+    | 'sweep.completed'
+    | 'sweep.approval_required';
+  data: {
+    repositoryId: string;
+    status?: RepoStatus;
+    sweepId?: string;
+    phase?: number;
+  };
+}
+```
+
+---
+
+## 17.6 DCG (Destructive Command Guard) Integration
+
+DCG is a critical safety layer that mechanically enforces command safety at the execution boundary. Gateway integrates DCG to provide visibility into blocked commands and manage allowlisting.
+
+### 17.6.1 Integration Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     DCG ↔ GATEWAY INTEGRATION                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  DCG (Rust binary, <1ms latency)                                            │
+│  ├── PreToolUse Hook  →  Intercepts Bash commands before execution          │
+│  ├── Pack System      →  Modular pattern groups (git, db, k8s, cloud)       │
+│  ├── Context Analysis →  Distinguishes code from data strings               │
+│  └── Severity Tiers   →  Critical/High/Medium/Low classification            │
+│                                                                             │
+│  GATEWAY RESPONSIBILITIES:                                                  │
+│  ├── Display DCG blocks in agent output stream (annotated)                  │
+│  ├── Aggregate block statistics per agent/model/pack                        │
+│  ├── Manage per-project/per-agent allowlists via UI                         │
+│  ├── Route High-severity blocks to approval queue (SLB integration)         │
+│  └── Feed block patterns to CM for learning (false positive reduction)      │
+│                                                                             │
+│  DCG → SLB INTEGRATION:                                                     │
+│  ├── Critical blocks  →  Always denied, logged to audit trail               │
+│  ├── High blocks      →  Can be allowlisted by rule ID via Gateway UI       │
+│  ├── Medium blocks    →  Warnings displayed, execution allowed              │
+│  └── Low blocks       →  Logged only, useful for pattern learning           │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 17.6.2 Block Event Data Model
+
+```typescript
+// packages/shared/src/types/dcg.ts
+
+interface DCGBlockEvent {
+  id: string;
+  timestamp: Date;
+  agentId: string;
+  command: string;                 // The blocked command
+  pack: string;                    // e.g., "core.git", "database.postgresql"
+  pattern: string;                 // The pattern that matched
+  ruleId: string;                  // Unique rule identifier for allowlisting
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  reason: string;                  // Human-readable explanation
+  contextClassification: 'executed' | 'data' | 'ambiguous';
+  falsePositive?: boolean;         // User feedback
+  allowlisted?: boolean;           // If this rule was later allowlisted
+}
+
+interface DCGConfig {
+  enabledPacks: string[];          // e.g., ["core.git", "database.postgresql"]
+  disabledPacks: string[];
+  allowlist: DCGAllowlistEntry[];
+  blockHistory: DCGBlockEvent[];
+}
+
+interface DCGAllowlistEntry {
+  ruleId: string;
+  pattern: string;
+  addedAt: Date;
+  addedBy: string;                 // User or agent who added
+  reason: string;
+  expiresAt?: Date;                // Optional expiration
+  condition?: string;              // e.g., "CI=true"
+}
+
+interface DCGStats {
+  totalBlocks: number;
+  blocksByPack: Record<string, number>;
+  blocksBySeverity: Record<string, number>;
+  falsePositiveRate: number;
+  topBlockedCommands: Array<{ command: string; count: number }>;
+}
+```
+
+### 17.6.3 REST API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/dcg/config` | Get DCG configuration |
+| `PUT` | `/dcg/config` | Update DCG configuration |
+| `GET` | `/dcg/packs` | List available packs |
+| `POST` | `/dcg/packs/{pack}/enable` | Enable a pack |
+| `POST` | `/dcg/packs/{pack}/disable` | Disable a pack |
+| `GET` | `/dcg/blocks` | List block history |
+| `POST` | `/dcg/blocks/{id}/false-positive` | Mark as false positive |
+| `GET` | `/dcg/allowlist` | List allowlist entries |
+| `POST` | `/dcg/allowlist` | Add allowlist entry |
+| `DELETE` | `/dcg/allowlist/{ruleId}` | Remove allowlist entry |
+| `GET` | `/dcg/stats` | Get block statistics |
+
+### 17.6.4 WebSocket Events
+
+```typescript
+interface DCGEvent {
+  type: 'dcg.block' | 'dcg.warn' | 'dcg.allowlist_added' | 'dcg.false_positive';
+  data: DCGBlockEvent | DCGAllowlistEntry;
+}
+```
+
+### 17.6.5 DCG Dashboard Component
+
+```tsx
+// apps/web/src/components/safety/DCGDashboard.tsx
+
+export function DCGDashboard() {
+  const { data: stats } = useDCGStats();
+  const { data: recentBlocks } = useDCGBlocks({ limit: 20 });
+  const markFalsePositive = useMarkFalsePositive();
+  const addAllowlist = useAddAllowlist();
+
+  return (
+    <div className="space-y-6">
+      {/* Stats Overview */}
+      <div className="grid grid-cols-4 gap-4">
+        <StatCard
+          title="Total Blocks"
+          value={stats?.totalBlocks}
+          icon={<ShieldIcon />}
+        />
+        <StatCard
+          title="False Positive Rate"
+          value={`${(stats?.falsePositiveRate * 100).toFixed(1)}%`}
+          trend={stats?.falsePositiveRate < 0.05 ? 'good' : 'warning'}
+        />
+        <StatCard
+          title="Packs Enabled"
+          value={stats?.enabledPacks?.length}
+        />
+        <StatCard
+          title="Allowlist Rules"
+          value={stats?.allowlistCount}
+        />
+      </div>
+
+      {/* Blocks by Pack */}
+      <div className="bg-slate-900 rounded-xl p-6 border border-slate-800">
+        <h3 className="text-lg font-semibold text-white mb-4">Blocks by Pack</h3>
+        <BarChart data={Object.entries(stats?.blocksByPack || {})} />
+      </div>
+
+      {/* Recent Blocks */}
+      <div className="bg-slate-900 rounded-xl border border-slate-800">
+        <div className="p-4 border-b border-slate-800">
+          <h3 className="text-lg font-semibold text-white">Recent Blocks</h3>
+        </div>
+        <div className="divide-y divide-slate-800">
+          {recentBlocks?.map(block => (
+            <div key={block.id} className="p-4 flex items-start justify-between">
+              <div>
+                <code className="text-sm text-red-400 bg-slate-800 px-2 py-1 rounded">
+                  {block.command}
+                </code>
+                <p className="text-sm text-slate-400 mt-1">{block.reason}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <Badge variant={severityVariant(block.severity)}>
+                    {block.severity}
+                  </Badge>
+                  <span className="text-xs text-slate-500">{block.pack}</span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => markFalsePositive.mutate(block.id)}
+                >
+                  False Positive
+                </Button>
+                {block.severity !== 'critical' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => addAllowlist.mutate({ ruleId: block.ruleId })}
+                  >
+                    Allowlist
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## 17.7 Developer Utilities Integration
+
+Gateway provides auto-installation and configuration for developer utilities that enhance AI agent workflows.
+
+### 17.7.1 Utility Management
+
+```typescript
+// packages/shared/src/types/utilities.ts
+
+interface DeveloperUtility {
+  name: string;                    // e.g., "giil", "csctf"
+  description: string;
+  version: string;
+  installCommand: string;          // One-liner install
+  checkCommand: string;            // Command to verify installation
+  installed: boolean;
+  installedVersion?: string;
+  lastCheckedAt?: Date;
+}
+
+const UTILITIES: DeveloperUtility[] = [
+  {
+    name: 'giil',
+    description: 'Download cloud photos for AI visual analysis',
+    version: '3.1.0',
+    installCommand: 'curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/giil/main/install.sh | bash',
+    checkCommand: 'giil --version',
+  },
+  {
+    name: 'csctf',
+    description: 'Convert AI chat share links to Markdown/HTML',
+    version: '0.4.5',
+    installCommand: 'curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/chat_shared_conversation_to_file/main/install.sh | bash',
+    checkCommand: 'csctf --version',
+  },
+];
+```
+
+### 17.7.2 REST API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/utilities` | List all utilities with install status |
+| `POST` | `/utilities/{name}/install` | Install a utility |
+| `POST` | `/utilities/{name}/update` | Update a utility |
+| `GET` | `/utilities/doctor` | Check all utilities health |
+
+### 17.7.3 giil Integration
+
+giil enables agents to analyze screenshots shared via cloud links:
+
+```typescript
+// Gateway can invoke giil for agents
+interface GiilRequest {
+  url: string;                     // iCloud/Dropbox/Google share URL
+  outputDir?: string;
+  format?: 'file' | 'json' | 'base64';
+}
+
+interface GiilResponse {
+  success: boolean;
+  path?: string;
+  width?: number;
+  height?: number;
+  captureMethod?: 'download' | 'cdn' | 'element' | 'viewport';
+  error?: string;
+}
+```
+
+### 17.7.4 csctf Integration
+
+csctf enables archiving AI conversations for knowledge management:
+
+```typescript
+// Gateway can invoke csctf for conversation archival
+interface CsctfRequest {
+  url: string;                     // ChatGPT/Gemini/Grok/Claude share URL
+  outputDir?: string;
+  formats?: ('md' | 'html')[];
+  publishToGhPages?: boolean;
+}
+
+interface CsctfResponse {
+  success: boolean;
+  markdownPath?: string;
+  htmlPath?: string;
+  title?: string;
+  messageCount?: number;
+  error?: string;
+}
+```
+
+---
+
 ## 18. Git Coordination
 
 Git coordination ensures multiple agents can work on the same repository without conflicts.
@@ -9011,8 +9501,10 @@ This ensures that:
 - [ ] Basic REST API (spawn, terminate, list) generated from registry
 - [ ] Output streaming
 - [ ] Basic web UI shell with mock-data mode
+- [ ] **DCG integration** (§17.6) - Pre-execution hook setup, block event capture, basic dashboard
+- [ ] **Developer utilities auto-install** (§17.7) - giil, csctf detection and installation
 
-**Deliverable**: Spawn a Claude agent, send prompts, and view durable streaming output through parity-checked APIs and a working UI shell
+**Deliverable**: Spawn a Claude agent, send prompts, and view durable streaming output through parity-checked APIs and a working UI shell with DCG safety protection enabled
 
 ### Phase 2: Core Features (Weeks 4-6)
 
@@ -9045,8 +9537,10 @@ This ensures that:
 - [ ] Real-Time Agent Collaboration Graph (§22.4) - live visualization of coordination
 - [ ] Safety guardrails (SLB)
 - [ ] Git coordination
+- [ ] **RU integration** (§17.5) - Fleet management, multi-repo sync status, agent-sweep orchestration
+- [ ] **DCG advanced features** - Allowlist management UI, false positive feedback loop, pack configuration
 
-**Deliverable**: Complete flywheel loop operational with AI-assisted conflict resolution, seamless agent handoffs, and real-time collaboration visibility
+**Deliverable**: Complete flywheel loop operational with AI-assisted conflict resolution, seamless agent handoffs, real-time collaboration visibility, and fleet-wide agent orchestration via RU
 
 ### Phase 4: Production Ready (Weeks 10-12)
 

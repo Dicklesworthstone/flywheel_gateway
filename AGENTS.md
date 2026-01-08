@@ -48,6 +48,25 @@ Rules:
 
 If that audit trail is missing, then you must act as if the operation never happened.
 
+### DCG (Destructive Command Guard)
+
+DCG is a high-performance Rust pre-execution hook that provides **mechanical enforcement** of command safety. Unlike these AGENTS.md instructions which you might ignore, DCG physically blocks dangerous commands before execution.
+
+**What DCG blocks:**
+- Git destructive ops: `git reset --hard`, `git push --force`, `git clean -f`
+- Filesystem ops: `rm -rf` outside safe temp directories
+- Database ops: `DROP`, `TRUNCATE`, `DELETE` without WHERE
+- Container ops: `docker system prune`, `kubectl delete namespace`
+- Cloud ops: destructive AWS/GCP/Azure commands
+
+**If DCG blocks you:**
+1. Do NOT attempt to bypass or rephrase the command
+2. Read the block reason carefully
+3. If you believe it's a false positive, ask the user for explicit approval
+4. The user can allowlist specific patterns via the Gateway UI
+
+DCG is your safety net—work with it, not against it.
+
 ---
 
 ## Tech Stack
@@ -429,6 +448,73 @@ See `/reference/ntm/` for reference implementations from the NTM project that in
 - `context/` — Context pack building algorithms
 
 When implementing features, consult these references for patterns and data structures, but implement in idiomatic TypeScript.
+
+---
+
+## RU (Repo Updater) — Fleet Management
+
+RU is a production-grade Bash CLI for managing large collections of GitHub repositories with AI-assisted review and agent automation.
+
+**Key Commands:**
+```bash
+ru sync                     # Clone missing + pull updates for all repos
+ru sync --parallel 4        # Parallel sync (4 workers)
+ru status                   # Show repo status across fleet
+ru review --plan            # AI-assisted PR/issue review (via ntm)
+ru agent-sweep              # Three-phase automated maintenance
+```
+
+**Agent-sweep workflow:**
+- Phase 1: Agent reads AGENTS.md, README.md, git log (300s)
+- Phase 2: Agent produces commit/release plans in JSON (600s)
+- Phase 3: RU validates and executes plans deterministically (300s)
+
+**Integration with Gateway:**
+- Gateway displays fleet status dashboard
+- Gateway spawns agents for ru review/agent-sweep sessions
+- Gateway routes agent-sweep plans through SLB approval workflow
+- Gateway archives results to CASS for learning
+
+---
+
+## Developer Utilities
+
+These utilities enhance AI agent workflows and should be available in all agent environments.
+
+### giil — Get Image from Internet Link
+
+Zero-setup CLI for downloading full-resolution images from cloud photo services.
+
+**Use case:** Debugging UI issues remotely—paste an iCloud/Dropbox/Google Photos link, run one command, analyze the screenshot.
+
+```bash
+giil "https://share.icloud.com/photos/xxx"           # Download image
+giil "https://share.icloud.com/photos/xxx" --json    # Get metadata + path
+giil "https://share.icloud.com/photos/xxx" --base64  # Base64 for API submission
+```
+
+**Supported platforms:** iCloud, Dropbox, Google Photos, Google Drive
+
+**4-tier capture strategy:** Download button → CDN interception → element screenshot → viewport (always succeeds)
+
+### csctf — Chat Shared Conversation to File
+
+Single-binary CLI for converting public AI chat share links into clean Markdown and HTML transcripts.
+
+**Use case:** Archiving valuable AI conversations for knowledge management and CASS indexing.
+
+```bash
+csctf "https://chatgpt.com/share/xxx"                # Convert to .md + .html
+csctf "https://chatgpt.com/share/xxx" --md-only      # Markdown only
+csctf "https://chatgpt.com/share/xxx" --publish-to-gh-pages  # Publish to GitHub Pages
+```
+
+**Supported providers:** ChatGPT, Gemini, Grok, Claude.ai
+
+**Features:**
+- Code-preserving export with language-tagged fences
+- Deterministic, collision-proof filenames
+- Optional GitHub Pages publishing for team sharing
 
 ## Landing the Plane (Session Completion)
 
