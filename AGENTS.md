@@ -12,6 +12,21 @@ Treat "never delete files without permission" as a hard invariant.
 
 ---
 
+## RULE 2 – PUBLIC/PRIVATE SEPARATION
+
+This is a **PUBLIC open source repository**. Never add content about:
+
+- Pricing, tiers, plans, billing, revenue, MRR/ARR
+- Hosting business operations (fleet management, workspace quotas, automation ops)
+- Server providers, procurement, capacity planning
+- Customer segments, competitive analysis, go-to-market
+
+**All business content belongs in `private_business/`** (a separate private git repo).
+
+If you're unsure whether something is business content, ask first.
+
+---
+
 ### IRREVERSIBLE GIT & FILESYSTEM ACTIONS
 
 Absolutely forbidden unless I give the **exact command and explicit approval** in the same message:
