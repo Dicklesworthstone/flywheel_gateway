@@ -347,7 +347,7 @@ Results:
 **What it is:** A system for managing **BYOA subscription accounts** (Claude Max, GPT Pro, Gemini) with optional BYOK (API key) support.
 
 **Key capabilities:**
-- **Profile Vault:** Tenant‑local OAuth artifacts managed by CAAM (never centralized)
+- **Profile Vault:** Workspace‑local OAuth artifacts managed by CAAM (never centralized)
 - **Pool Management:** Multiple profiles per provider for rotation
 - **Auto‑Rotation:** When an account hits a limit, switch to the next profile
 - **Usage Tracking:** Track rate limits and cooldowns by profile
@@ -651,13 +651,13 @@ Rather than trying to prevent all mistakes (impossible), we focus on:
 - Requiring approval for dangerous operations (SLB)
 - Maintaining audit trails for review
 
-#### 5. Self-Hosting and Control
+#### 5. Self-Management and Control
 
-The flywheel is designed to run on your infrastructure:
+The flywheel is designed to run under your control:
 - No vendor lock-in; BYOA (Bring Your Own Account) with optional BYOK (API keys)
-- All data stays on your servers
+- Data stays within your environment
 - Open protocols (MCP, ACP) for interoperability
-- Can run on cheap bare-metal (any VPS or dedicated server provider)
+- Portable across deployment environments
 
 ### How to Read This Document
 
@@ -4733,7 +4733,7 @@ CAAM (Coding Agent Account Manager) is the **account/profile orchestration layer
 
 1. **BYOA first** — subscription accounts (Claude Max, GPT Pro, Gemini) are the default path.
 2. **No credential custody** — Gateway never sees Google/Anthropic/OpenAI logins or passwords.
-3. **Tenant‑local auth artifacts** — tokens remain inside the workspace container/volume.
+3. **Workspace‑local auth artifacts** — tokens remain inside the workspace container/volume.
 4. **Minimum requirement** — at least one verified provider to activate/assign; recommended: 1× Claude Max + 1× GPT Pro.
 5. **Provider parity** — Claude, Codex, and Gemini are all supported.
 6. **Autonomous rotation** — cooldown + rotation is automated via CAAM.
@@ -4784,7 +4784,7 @@ interface AccountPool {
   maxRetries: number;
 }
 
-interface TenantAuthState {
+interface WorkspaceAuthState {
   workspaceId: string;
   byoaStatus: 'unlinked' | 'pending' | 'verified' | 'failed';
   verifiedProviders: ProviderId[];
@@ -4811,7 +4811,7 @@ interface LoginChallenge {
 
 interface CaamRunner {
   listProfiles(workspaceId: string): Promise<AccountProfile[]>;
-  getStatus(workspaceId: string, provider?: ProviderId): Promise<TenantAuthState>;
+  getStatus(workspaceId: string, provider?: ProviderId): Promise<WorkspaceAuthState>;
   startLogin(workspaceId: string, provider: ProviderId, mode?: AuthMode): Promise<LoginChallenge>;
   completeLogin(workspaceId: string, provider: ProviderId): Promise<{ status: 'linked' | 'failed' }>;
   activateProfile(workspaceId: string, profileId: string): Promise<void>;
@@ -4861,7 +4861,7 @@ interface CaamRunner {
 
 CAAM does **not** hardcode auth file paths as the source of truth. It discovers and normalizes artifacts at runtime and stores **metadata only** (hash + timestamps) in Gateway.
 
-| Provider | Typical Auth Artifacts (Tenant‑local) | Isolation Anchor | Notes |
+| Provider | Typical Auth Artifacts (Workspace‑local) | Isolation Anchor | Notes |
 |----------|----------------------------------------|------------------|-------|
 | **Codex** | `~/.codex/auth.json` (or `$CODEX_HOME/auth.json`) | `HOME`, `CODEX_HOME` | CAAM enforces `cli_auth_credentials_store = "file"` in `config.toml`. |
 | **Claude** | `~/.claude.json`, `~/.config/claude-code/auth.json`, `~/.claude/settings.json` | `HOME`, `XDG_CONFIG_HOME` | API key mode uses `settings.json` (apiKeyHelper). |
@@ -4936,7 +4936,7 @@ Scale‑up guidance: add additional accounts per provider as concurrency grows (
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/accounts/byoa-status` | Tenant BYOA readiness (verified providers, status) |
+| `GET` | `/accounts/byoa-status` | Workspace BYOA readiness (verified providers, status) |
 | `GET` | `/accounts/profiles` | List CAAM profiles (metadata only) |
 | `POST` | `/accounts/providers/{provider}/login/start` | Start OAuth or device‑code flow |
 | `POST` | `/accounts/providers/{provider}/login/complete` | Confirm login completion |
@@ -4976,7 +4976,7 @@ The UI prioritizes **BYOA readiness**:
 1. User signs up and verifies email.
 2. Provisioning request is created (queue).
 3. Manual onboarding approval when `onboarding_mode=manual`.
-4. Tenant container is provisioned + verified.
+4. Workspace container is provisioned + verified.
 5. UI forces **Link Accounts** step (BYOA gate).
 6. At least one provider verified → workspace assigned.
 
@@ -9818,7 +9818,7 @@ export const agentSweeps = sqliteTable('agent_sweeps', {
 | `RATE_LIMITED` | 429 | Too many requests |
 | `SAFETY_VIOLATION` | 403 | Blocked by safety guardrails |
 | `APPROVAL_REQUIRED` | 202 | Operation requires user approval |
-| `BYOA_REQUIRED` | 412 | Tenant must link at least one account before assignment |
+| `BYOA_REQUIRED` | 412 | Workspace must link at least one account before assignment |
 | `EMAIL_NOT_VERIFIED` | 412 | Email must be verified before provisioning |
 | `INVALID_REQUEST` | 400 | Request validation failed |
 | `INTERNAL_ERROR` | 500 | Unexpected server error |
@@ -10174,8 +10174,8 @@ When implementing features, consult these references for patterns and data struc
 - Added API Parity Matrix entries (A.8-A.10) for Handoffs, Collaboration Graph, Context Health
 
 **Changelog v3.6.0:**
-- Moved Multi-Tenant Hosted Mode architecture (former §31) to private business documentation
-- Removed managed-specific content: workspace models, fleet management, automation ops, ops configs
+- Moved Multi-Workspace managed Mode architecture (former §31) to private business documentation
+- Removed deployment-specific content: workspace models, fleet management, automation ops, ops configurations
 - This document now focuses purely on Flywheel Gateway as open source software
 
 **Changelog v2.1.0:**
