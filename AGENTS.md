@@ -16,7 +16,16 @@ Treat "never delete files without permission" as a hard invariant.
 
 This is a **PUBLIC open source repository**. Never add business content here.
 
-**All business content belongs in `private_business/`** (a separate private git repo).
+**All business content belongs in the sibling private repo** at `/data/projects/flywheel_private/`.
+
+This follows the "Workspace Root, Sibling Repos" pattern:
+```
+/data/projects/                    (non-git workspace root)
+├── flywheel_gateway/              (public repo - YOU ARE HERE)
+└── flywheel_private/              (private repo - business content)
+```
+
+The public repo's `.gitignore` blocks `private_business/` as defense-in-depth, but the private repo should NEVER be nested inside this repo.
 
 If you're unsure whether something is business content, ask first.
 
