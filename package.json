@@ -1,0 +1,26 @@
+{
+  "name": "flywheel-gateway",
+  "private": true,
+  "type": "module",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "bun run dev:gateway & bun run dev:web",
+    "dev:gateway": "bun run --filter @flywheel/gateway dev",
+    "dev:web": "bun run --filter @flywheel/web dev",
+    "build": "bun run --filter '*' build",
+    "test": "bun test",
+    "test:integration": "bun test --filter 'tests/integration/**'",
+    "test:e2e": "bunx playwright test",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "bun db:generate",
+    "db:migrate": "bun db:migrate",
+    "db:studio": "bun db:studio"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.0.0",
+    "typescript": "^5.9.3"
+  }
+}

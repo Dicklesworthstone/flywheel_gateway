@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "exactOptionalPropertyTypes": true,
+    "baseUrl": ".",
+    "paths": {
+      "@flywheel/shared": ["packages/shared/src/index.ts"],
+      "@flywheel/shared/*": ["packages/shared/src/*"],
+      "@flywheel/agent-drivers": ["packages/agent-drivers/src/index.ts"],
+      "@flywheel/agent-drivers/*": ["packages/agent-drivers/src/*"],
+      "@flywheel/flywheel-clients": ["packages/flywheel-clients/src/index.ts"],
+      "@flywheel/flywheel-clients/*": ["packages/flywheel-clients/src/*"],
+      "@flywheel/test-utils": ["packages/test-utils/src/index.ts"],
+      "@flywheel/test-utils/*": ["packages/test-utils/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist", "build", ".turbo"]
+}
