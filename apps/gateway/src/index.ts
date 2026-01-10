@@ -1,25 +1,17 @@
 import { Hono } from "hono";
-import {
-  correlationMiddleware,
-  getCorrelationId,
-} from "./middleware/correlation";
+import { correlationMiddleware } from "./middleware/correlation";
 import { loggingMiddleware } from "./middleware/logging";
+import { routes } from "./routes";
 import { logger } from "./services/logger";
 
 const app = new Hono();
 
-// Apply middlewares
+// Apply global middlewares
 app.use("*", correlationMiddleware());
 app.use("*", loggingMiddleware());
 
-// Health endpoint - includes correlation ID in response
-app.get("/health", (c) => {
-  return c.json({
-    ok: true,
-    timestamp: new Date().toISOString(),
-    correlationId: getCorrelationId(),
-  });
-});
+// Mount all routes
+app.route("/", routes);
 
 export default app;
 

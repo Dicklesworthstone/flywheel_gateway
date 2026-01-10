@@ -1,4 +1,6 @@
 import { getCorrelationId, getLogger } from "../middleware/correlation";
+import { db } from "../db";
+import { auditLogs } from "../db/schema";
 
 /**
  * Auditable actions in the system.
@@ -104,8 +106,22 @@ export function audit(options: AuditEventOptions): AuditEvent {
     `[AUDIT] ${options.action} ${options.resourceType}:${options.resource} → ${options.outcome}`,
   );
 
-  // TODO: Persist to audit table when database is set up
-  // await db.insert(auditEvents).values(event);
+  // Persist to audit table (fire-and-forget to avoid blocking the request)
+  db.insert(auditLogs)
+    .values({
+      id: event.id,
+      correlationId: event.correlationId,
+      accountId: options.userId,
+      action: event.action,
+      resource: event.resource,
+      resourceType: event.resourceType,
+      outcome: event.outcome,
+      metadata: options.metadata,
+      createdAt: new Date(),
+    })
+    .catch((error) => {
+      log.error({ error }, "Failed to persist audit event to database");
+    });
 
   return event;
 }
