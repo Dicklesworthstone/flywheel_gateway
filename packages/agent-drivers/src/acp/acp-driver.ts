@@ -214,6 +214,7 @@ export class AcpDriver extends BaseDriver {
       process: agentProcess,
       rpcId: 0,
       pendingRequests: new Map(),
+      pendingToolCalls: new Map(),
       checkpoints: new Map(),
       conversationHistory: [],
       inputBuffer: "",
@@ -722,6 +723,12 @@ export class AcpDriver extends BaseDriver {
       input: event["input"] as Record<string, unknown>,
     };
 
+    // Track this tool call for correlation with result
+    session.pendingToolCalls.set(toolCall.tool_id, {
+      name: toolCall.tool_name,
+      startTime: Date.now(),
+    });
+
     this.updateState(agentId, { activityState: "tool_calling" });
 
     this.emitEvent(agentId, {
@@ -754,15 +761,23 @@ export class AcpDriver extends BaseDriver {
       is_error: event["is_error"] as boolean ?? false,
     };
 
+    // Look up the tool call info for name and duration calculation
+    const toolCallInfo = session.pendingToolCalls.get(toolResult.tool_id);
+    const toolName = toolCallInfo?.name ?? "unknown";
+    const durationMs = toolCallInfo ? Date.now() - toolCallInfo.startTime : 0;
+
+    // Clean up the pending tool call
+    session.pendingToolCalls.delete(toolResult.tool_id);
+
     this.emitEvent(agentId, {
       type: "tool_call_end",
       agentId,
       timestamp: new Date(),
-      toolName: "", // We don't have the tool name from the result
+      toolName,
       toolId: toolResult.tool_id,
       output: toolResult.output,
       success: !toolResult.is_error,
-      durationMs: 0, // We don't track duration currently
+      durationMs,
     });
 
     this.updateState(agentId, { activityState: "working" });

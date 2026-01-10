@@ -125,17 +125,17 @@ export class TmuxDriver extends BaseDriver {
       agentCommand.push("--model", config.model);
     }
 
-    // Build environment string for tmux
-    const envString = Object.entries({
+    // Build environment string for tmux (properly quoted)
+    const envPairs = Object.entries({
       ...this.agentEnv,
       ...(config.accountId ? { FLYWHEEL_ACCOUNT_ID: config.accountId } : {}),
-    })
-      .map(([k, v]) => `${k}=${v}`)
-      .join(" ");
+    }).map(([k, v]) => `${k}=${this.shellQuote(v)}`);
 
-    const fullCommand = envString
-      ? `env ${envString} ${agentCommand.join(" ")}`
-      : agentCommand.join(" ");
+    const envPrefix = envPairs.length > 0 ? `env ${envPairs.join(" ")} ` : "";
+
+    // Build command with proper quoting for each argument
+    const quotedArgs = agentCommand.map((arg) => this.shellQuote(arg));
+    const fullCommand = envPrefix + quotedArgs.join(" ");
 
     // Create new tmux session
     const createResult = await this.runTmux([
@@ -210,16 +210,23 @@ export class TmuxDriver extends BaseDriver {
 
     const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-    // Send keys to tmux session
-    // We need to escape special characters and send the message
-    const escapedMessage = message.replace(/'/g, "'\\''");
-
+    // Send keys to tmux session using -l flag for literal interpretation
+    // This prevents tmux from interpreting special key sequences
     const result = await this.runTmux([
       "send-keys",
+      "-l",  // Literal mode - disable special key name lookup
       "-t", `${session.sessionName}:${session.windowName}`,
-      escapedMessage,
-      "Enter",
+      message,
     ]);
+
+    // Send Enter separately (not literal, so it's interpreted as the key)
+    if (result.success) {
+      await this.runTmux([
+        "send-keys",
+        "-t", `${session.sessionName}:${session.windowName}`,
+        "Enter",
+      ]);
+    }
 
     if (!result.success) {
       throw new Error(`Failed to send keys to tmux: ${result.stderr}`);
@@ -386,6 +393,19 @@ export class TmuxDriver extends BaseDriver {
         stderr: String(err),
       };
     }
+  }
+
+  /**
+   * Quote a string for safe use in shell commands.
+   * Uses single quotes and escapes any embedded single quotes.
+   */
+  private shellQuote(str: string): string {
+    // If string contains no special characters, return as-is
+    if (/^[a-zA-Z0-9._\-/=]+$/.test(str)) {
+      return str;
+    }
+    // Use single quotes and escape embedded single quotes
+    return `'${str.replace(/'/g, "'\\''")}'`;
   }
 
   /**
