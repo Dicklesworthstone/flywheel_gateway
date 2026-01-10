@@ -10,6 +10,8 @@
 
 import { getLogger, getCorrelationId } from "../middleware/correlation";
 import type { Checkpoint, CheckpointMetadata, TokenUsage } from "@flywheel/agent-drivers";
+import { eq, desc, and, lt, inArray } from "drizzle-orm";
+import { db, checkpoints as checkpointsTable } from "../db";
 
 // ============================================================================
 // Types
@@ -77,10 +79,6 @@ export interface ExportedCheckpoint {
 // Storage
 // ============================================================================
 
-/** In-memory checkpoint storage (should be SQLite in production) */
-const checkpoints = new Map<string, DeltaCheckpoint>();
-const agentCheckpoints = new Map<string, string[]>(); // agentId -> checkpoint IDs
-
 // ============================================================================
 // Checkpoint Creation
 // ============================================================================
@@ -115,9 +113,9 @@ export async function createCheckpoint(
   const checkpointId = generateCheckpointId();
   const now = new Date();
 
-  // Get agent's checkpoint history
-  const agentChkList = agentCheckpoints.get(agentId) || [];
-  const lastCheckpointId = agentChkList[agentChkList.length - 1];
+  // Get latest checkpoint for delta
+  const lastCheckpoint = await getLatestCheckpoint(agentId);
+  const lastCheckpointId = lastCheckpoint?.id;
 
   // Build checkpoint
   const checkpoint: DeltaCheckpoint = {
@@ -134,24 +132,19 @@ export async function createCheckpoint(
     parentCheckpointId: undefined,
   };
 
-  // If delta mode and we have a parent, only store differences
+  // If delta mode and we have a parent
   if (options.delta && lastCheckpointId) {
-    const parentCheckpoint = checkpoints.get(lastCheckpointId);
-    if (parentCheckpoint) {
-      checkpoint.isDelta = true;
-      checkpoint.parentCheckpointId = lastCheckpointId;
-      // In delta mode, we only store new entries since parent
-      // For simplicity, we store full history but mark as delta
-      // A real implementation would compute the delta
-    }
+    checkpoint.isDelta = true;
+    checkpoint.parentCheckpointId = lastCheckpointId;
   }
 
-  // Store checkpoint
-  checkpoints.set(checkpointId, checkpoint);
-
-  // Update agent's checkpoint list
-  agentChkList.push(checkpointId);
-  agentCheckpoints.set(agentId, agentChkList);
+  // Persist to DB
+  await db.insert(checkpointsTable).values({
+    id: checkpointId,
+    agentId,
+    state: checkpoint,
+    createdAt: now,
+  });
 
   log.info(
     {
@@ -183,40 +176,49 @@ export async function createCheckpoint(
  * Get a checkpoint by ID.
  */
 export async function getCheckpoint(checkpointId: string): Promise<Checkpoint | undefined> {
-  return checkpoints.get(checkpointId);
+  const result = await db.select()
+    .from(checkpointsTable)
+    .where(eq(checkpointsTable.id, checkpointId))
+    .limit(1);
+
+  if (result.length === 0) return undefined;
+  return result[0].state as Checkpoint;
 }
 
 /**
  * Get all checkpoints for an agent.
  */
 export async function getAgentCheckpoints(agentId: string): Promise<CheckpointMetadata[]> {
-  const ids = agentCheckpoints.get(agentId) || [];
-  const result: CheckpointMetadata[] = [];
+  const results = await db.select()
+    .from(checkpointsTable)
+    .where(eq(checkpointsTable.agentId, agentId))
+    .orderBy(desc(checkpointsTable.createdAt));
 
-  for (const id of ids) {
-    const chk = checkpoints.get(id);
-    if (chk) {
-      result.push({
-        id: chk.id,
-        agentId: chk.agentId,
-        createdAt: chk.createdAt,
-        tokenUsage: chk.tokenUsage,
-        description: chk.description,
-        tags: chk.tags,
-      });
-    }
-  }
-
-  return result;
+  return results.map(row => {
+    const chk = row.state as Checkpoint;
+    return {
+      id: chk.id,
+      agentId: chk.agentId,
+      createdAt: chk.createdAt,
+      tokenUsage: chk.tokenUsage,
+      description: chk.description,
+      tags: chk.tags,
+    };
+  });
 }
 
 /**
  * Get the latest checkpoint for an agent.
  */
 export async function getLatestCheckpoint(agentId: string): Promise<Checkpoint | undefined> {
-  const ids = agentCheckpoints.get(agentId) || [];
-  const lastId = ids[ids.length - 1];
-  return lastId ? checkpoints.get(lastId) : undefined;
+  const result = await db.select()
+    .from(checkpointsTable)
+    .where(eq(checkpointsTable.agentId, agentId))
+    .orderBy(desc(checkpointsTable.createdAt))
+    .limit(1);
+
+  if (result.length === 0) return undefined;
+  return result[0].state as Checkpoint;
 }
 
 // ============================================================================
@@ -232,7 +234,7 @@ async function resolveDeltaCheckpoint(checkpoint: DeltaCheckpoint): Promise<Chec
     return checkpoint;
   }
 
-  const parent = checkpoints.get(checkpoint.parentCheckpointId);
+  const parent = await getCheckpoint(checkpoint.parentCheckpointId);
   if (!parent) {
     throw new CheckpointError(
       "PARENT_NOT_FOUND",
@@ -241,7 +243,7 @@ async function resolveDeltaCheckpoint(checkpoint: DeltaCheckpoint): Promise<Chec
   }
 
   // Recursively resolve parent if it's also a delta
-  const resolvedParent = await resolveDeltaCheckpoint(parent);
+  const resolvedParent = await resolveDeltaCheckpoint(parent as DeltaCheckpoint);
 
   // Merge checkpoint onto parent
   // In a real implementation, this would apply delta entries
@@ -273,7 +275,7 @@ export async function restoreCheckpoint(
   const log = getLogger();
   const correlationId = getCorrelationId();
 
-  const checkpoint = checkpoints.get(checkpointId);
+  const checkpoint = await getCheckpoint(checkpointId);
   if (!checkpoint) {
     throw new CheckpointError("CHECKPOINT_NOT_FOUND", `Checkpoint ${checkpointId} not found`);
   }
@@ -290,7 +292,7 @@ export async function restoreCheckpoint(
   }
 
   // Resolve delta chain if needed
-  const resolvedCheckpoint = await resolveDeltaCheckpoint(checkpoint);
+  const resolvedCheckpoint = await resolveDeltaCheckpoint(checkpoint as DeltaCheckpoint);
 
   log.info(
     {
@@ -314,7 +316,7 @@ export async function restoreCheckpoint(
  * Verify checkpoint integrity.
  */
 export async function verifyCheckpoint(checkpointId: string): Promise<VerifyResult> {
-  const checkpoint = checkpoints.get(checkpointId);
+  const checkpoint = await getCheckpoint(checkpointId) as DeltaCheckpoint | undefined;
 
   if (!checkpoint) {
     return {
@@ -340,7 +342,7 @@ export async function verifyCheckpoint(checkpointId: string): Promise<VerifyResu
 
   // Check delta chain integrity
   if (checkpoint.isDelta && checkpoint.parentCheckpointId) {
-    const parent = checkpoints.get(checkpoint.parentCheckpointId);
+    const parent = await getCheckpoint(checkpoint.parentCheckpointId);
     if (!parent) {
       errors.push(`Parent checkpoint ${checkpoint.parentCheckpointId} not found`);
     }
@@ -369,13 +371,13 @@ export async function verifyCheckpoint(checkpointId: string): Promise<VerifyResu
  * Export a checkpoint to a portable format.
  */
 export async function exportCheckpoint(checkpointId: string): Promise<ExportedCheckpoint> {
-  const checkpoint = checkpoints.get(checkpointId);
+  const checkpoint = await getCheckpoint(checkpointId);
   if (!checkpoint) {
     throw new CheckpointError("CHECKPOINT_NOT_FOUND", `Checkpoint ${checkpointId} not found`);
   }
 
   // Resolve delta to full checkpoint for export
-  const fullCheckpoint = await resolveDeltaCheckpoint(checkpoint);
+  const fullCheckpoint = await resolveDeltaCheckpoint(checkpoint as DeltaCheckpoint);
 
   // Compute hash for integrity
   const hash = await computeCheckpointHash(fullCheckpoint);
@@ -416,12 +418,12 @@ export async function importCheckpoint(
   };
 
   // Store
-  checkpoints.set(newId, importedCheckpoint);
-
-  // Update agent's checkpoint list
-  const agentChkList = agentCheckpoints.get(agentId) || [];
-  agentChkList.push(newId);
-  agentCheckpoints.set(agentId, agentChkList);
+  await db.insert(checkpointsTable).values({
+    id: newId,
+    agentId,
+    state: importedCheckpoint,
+    createdAt: new Date(),
+  });
 
   log.info(
     {
