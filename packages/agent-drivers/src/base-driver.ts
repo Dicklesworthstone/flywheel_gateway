@@ -24,6 +24,30 @@ import type {
 } from "./types";
 import type { AgentDriver, DriverOptions } from "./interface";
 
+type DriverLogLevel = "debug" | "info" | "warn" | "error";
+type DriverLogger = (
+  level: DriverLogLevel,
+  message: string,
+  context?: Record<string, unknown>
+) => void;
+const DRIVER_DEBUG_ENABLED = process.env["FLYWHEEL_DRIVER_DEBUG"] === "1";
+let driverLogger: DriverLogger | undefined;
+
+export function logDriver(
+  level: DriverLogLevel,
+  driverType: AgentDriverType,
+  message: string,
+  context?: Record<string, unknown>
+): void {
+  if (!DRIVER_DEBUG_ENABLED || !driverLogger) return;
+  const formatted = `[DRIVER] ${driverType} ${message}`;
+  driverLogger(level, formatted, context);
+}
+
+export function setDriverLogger(logger: DriverLogger | undefined): void {
+  driverLogger = logger;
+}
+
 /**
  * Configuration for base driver.
  */
@@ -34,6 +58,7 @@ export interface BaseDriverConfig {
   maxConcurrentAgents: number;
   outputBufferSize: number;
   stallThresholdMs: number;
+  onEventError?: (error: unknown, event: AgentEvent) => void;
 }
 
 /**
@@ -200,8 +225,20 @@ export abstract class BaseDriver implements AgentDriver {
     // Update state
     this.updateState(agentId, { activityState: "thinking" });
 
-    // Send via concrete implementation
-    return this.doSend(agentId, message);
+    try {
+      // Send via concrete implementation
+      return await this.doSend(agentId, message);
+    } catch (err) {
+      this.emitEvent(agentId, {
+        type: "error",
+        agentId,
+        timestamp: new Date(),
+        error: err instanceof Error ? err : new Error(String(err)),
+        recoverable: true,
+      });
+      this.updateState(agentId, { activityState: "error" });
+      throw err;
+    }
   }
 
   async interrupt(agentId: string): Promise<void> {
@@ -351,7 +388,13 @@ export abstract class BaseDriver implements AgentDriver {
     const state = this.agents.get(agentId);
     if (!state) return;
 
-    state.tokenUsage = { ...state.tokenUsage, ...usage };
+    const nextUsage: TokenUsage = { ...state.tokenUsage, ...usage };
+    if (usage.totalTokens === undefined) {
+      const promptTokens = nextUsage.promptTokens ?? 0;
+      const completionTokens = nextUsage.completionTokens ?? 0;
+      nextUsage.totalTokens = promptTokens + completionTokens;
+    }
+    state.tokenUsage = nextUsage;
 
     // Calculate context health
     const maxTokens = state.config.maxTokens ?? 100000;
@@ -394,7 +437,7 @@ export abstract class BaseDriver implements AgentDriver {
       try {
         subscriber(event);
       } catch (err) {
-        console.error(`Error in event subscriber for ${agentId}:`, err);
+        this.config.onEventError?.(err, event);
       }
     }
   }

@@ -19,7 +19,7 @@
  */
 
 import { spawn, type Subprocess } from "bun";
-import { BaseDriver, createDriverOptions, type BaseDriverConfig } from "../base-driver";
+import { BaseDriver, createDriverOptions, logDriver, type BaseDriverConfig } from "../base-driver";
 import type {
   Agent,
   AgentConfig,
@@ -177,7 +177,7 @@ export class TmuxDriver extends BaseDriver {
     );
 
     // Log spawn
-    console.info("[DRIVER] action=spawn driver=tmux", {
+    logDriver("info", this.driverType, "action=spawn", {
       agentId: config.id,
       sessionName,
       workingDirectory: config.workingDirectory,
@@ -249,7 +249,7 @@ export class TmuxDriver extends BaseDriver {
     }
 
     // Log termination
-    console.info("[DRIVER] action=terminate driver=tmux", {
+    logDriver("info", this.driverType, "action=terminate", {
       agentId,
       sessionName: session.sessionName,
       graceful,
@@ -294,7 +294,7 @@ export class TmuxDriver extends BaseDriver {
       throw new Error(`Failed to send interrupt to tmux: ${result.stderr}`);
     }
 
-    console.info("[DRIVER] action=interrupt driver=tmux", {
+    logDriver("info", this.driverType, "action=interrupt", {
       agentId,
       sessionName: session.sessionName,
     });
@@ -418,15 +418,23 @@ export class TmuxDriver extends BaseDriver {
 
       // Only emit if there's new content
       if (output !== session.lastCapturedOutput) {
-        // Find the new lines
-        const oldLines = session.lastCapturedOutput.split("\n");
-        const newLines = output.split("\n");
+        let newContentLines: string[];
+        if (output.startsWith(session.lastCapturedOutput)) {
+          const delta = output.slice(session.lastCapturedOutput.length);
+          newContentLines = delta.split("\n");
+        } else {
+          const oldLines = session.lastCapturedOutput.split("\n");
+          const newLines = output.split("\n");
+          if (newLines.length < oldLines.length) {
+            // Output buffer rotated/truncated; treat current output as new.
+            newContentLines = newLines;
+          } else {
+            const startIndex = Math.max(0, oldLines.length);
+            newContentLines = newLines.slice(startIndex);
+          }
+        }
 
-        // Simple diff: find lines that are new
-        const startIndex = Math.max(0, oldLines.length - 1);
-        const newContent = newLines.slice(startIndex);
-
-        for (const line of newContent) {
+        for (const line of newContentLines) {
           if (line.trim()) {
             this.addOutput(agentId, {
               timestamp: new Date(),
@@ -488,7 +496,7 @@ export class TmuxDriver extends BaseDriver {
       this.updateState(agentId, { activityState: "idle" });
     } else if (lastLines.includes("thinking") || lastLines.includes("...")) {
       this.updateState(agentId, { activityState: "thinking" });
-    } else if (lastLines.includes("error:") || lastLines.includes("Error:")) {
+    } else if (lastLines.includes("error:")) {
       this.updateState(agentId, { activityState: "error" });
     } else {
       // Assume working if there's recent output
@@ -509,7 +517,9 @@ export async function createTmuxDriver(options?: TmuxDriverOptions): Promise<Tmu
 
   // Verify health
   if (!(await driver.isHealthy())) {
-    console.warn("[DRIVER] Tmux driver created but tmux binary not found");
+    logDriver("warn", "tmux", "driver_unhealthy", {
+      reason: "tmux_binary_unavailable",
+    });
   }
 
   return driver;

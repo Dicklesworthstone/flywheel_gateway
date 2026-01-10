@@ -9,7 +9,7 @@
  * - Checkpointing
  */
 
-import { BaseDriver, createDriverOptions, type BaseDriverConfig } from "../base-driver";
+import { BaseDriver, createDriverOptions, logDriver, type BaseDriverConfig } from "../base-driver";
 import type {
   Agent,
   AgentConfig,
@@ -104,7 +104,7 @@ export class ClaudeSDKDriver extends BaseDriver {
     this.sessions.set(config.id, session);
 
     // Log spawn
-    console.info("[DRIVER] action=spawn", {
+    logDriver("info", this.driverType, "action=spawn", {
       agentId: config.id,
       model: config.model,
       workingDirectory: config.workingDirectory,
@@ -151,7 +151,10 @@ export class ClaudeSDKDriver extends BaseDriver {
     // Start async response processing
     this.processRequest(agentId, session, controller.signal).catch((err) => {
       if (err.name !== "AbortError") {
-        console.error("[DRIVER] Request processing error:", err);
+        logDriver("error", this.driverType, "request_processing_error", {
+          agentId,
+          error: String(err),
+        });
         this.emitEvent(agentId, {
           type: "error",
           agentId,
@@ -176,7 +179,7 @@ export class ClaudeSDKDriver extends BaseDriver {
     }
 
     // Log termination
-    console.info("[DRIVER] action=terminate", {
+    logDriver("info", this.driverType, "action=terminate", {
       agentId,
       graceful,
       historyLength: session.conversationHistory.length,
@@ -198,7 +201,7 @@ export class ClaudeSDKDriver extends BaseDriver {
       session.currentRequestController = undefined;
     }
 
-    console.info("[DRIVER] action=interrupt", { agentId });
+    logDriver("info", this.driverType, "action=interrupt", { agentId });
   }
 
   // ============================================================================
@@ -232,7 +235,7 @@ export class ClaudeSDKDriver extends BaseDriver {
 
     session.checkpoints.set(checkpointId, checkpoint);
 
-    console.info("[DRIVER] action=checkpoint_create", {
+    logDriver("info", this.driverType, "action=checkpoint_create", {
       agentId,
       checkpointId,
       historyLength: session.conversationHistory.length,
@@ -302,7 +305,7 @@ export class ClaudeSDKDriver extends BaseDriver {
     // Update token usage
     this.updateTokenUsage(agentId, checkpoint.tokenUsage);
 
-    console.info("[DRIVER] action=checkpoint_restore", {
+    logDriver("info", this.driverType, "action=checkpoint_restore", {
       agentId,
       checkpointId,
       historyLength: session.conversationHistory.length,
@@ -390,8 +393,14 @@ export class ClaudeSDKDriver extends BaseDriver {
    */
   private delay(ms: number, signal: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
+      if (signal.aborted) {
+        reject(new DOMException("Aborted", "AbortError"));
+        return;
+      }
+
       const abortHandler = () => {
         clearTimeout(timeout);
+        signal.removeEventListener("abort", abortHandler);
         reject(new DOMException("Aborted", "AbortError"));
       };
 
@@ -414,7 +423,7 @@ export async function createClaudeDriver(options?: ClaudeDriverOptions): Promise
 
   // Verify health
   if (!(await driver.isHealthy())) {
-    console.warn("[DRIVER] Claude SDK driver created but API key not configured");
+    logDriver("warn", "sdk", "driver_unhealthy", { reason: "missing_api_key" });
   }
 
   return driver;

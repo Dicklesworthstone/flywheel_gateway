@@ -53,10 +53,10 @@ export interface DriverLogger {
  * Default console logger.
  */
 const defaultLogger: DriverLogger = {
-  debug: (msg, ctx) => console.debug(`[DRIVER] ${msg}`, ctx),
-  info: (msg, ctx) => console.info(`[DRIVER] ${msg}`, ctx),
-  warn: (msg, ctx) => console.warn(`[DRIVER] ${msg}`, ctx),
-  error: (msg, ctx) => console.error(`[DRIVER] ${msg}`, ctx),
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
 };
 
 /**

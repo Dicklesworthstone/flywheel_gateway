@@ -15,7 +15,7 @@
  */
 
 import { spawn, type Subprocess } from "bun";
-import { BaseDriver, createDriverOptions, type BaseDriverConfig } from "../base-driver";
+import { BaseDriver, createDriverOptions, logDriver, type BaseDriverConfig } from "../base-driver";
 import type {
   Agent,
   AgentConfig,
@@ -231,7 +231,7 @@ export class AcpDriver extends BaseDriver {
     this.readProcessOutput(config.id, session);
 
     // Log spawn
-    console.info("[DRIVER] action=spawn driver=acp", {
+    logDriver("info", this.driverType, "action=spawn", {
       agentId: config.id,
       binary: this.agentBinary,
       workingDirectory: config.workingDirectory,
@@ -276,7 +276,9 @@ export class AcpDriver extends BaseDriver {
       const stdin = session.process.stdin;
       if (stdin && typeof stdin !== "number") {
         stdin.write(stdinMessage);
-        stdin.flush();
+        if (typeof stdin.flush === "function") {
+          stdin.flush();
+        }
       } else {
         throw new Error("stdin not available");
       }
@@ -301,7 +303,7 @@ export class AcpDriver extends BaseDriver {
     session.pendingRequests.clear();
 
     // Log termination
-    console.info("[DRIVER] action=terminate driver=acp", {
+    logDriver("info", this.driverType, "action=terminate", {
       agentId,
       graceful,
       pid: session.process.pid,
@@ -334,7 +336,7 @@ export class AcpDriver extends BaseDriver {
     // Send SIGINT to interrupt current operation
     session.process.kill("SIGINT");
 
-    console.info("[DRIVER] action=interrupt driver=acp", {
+    logDriver("info", this.driverType, "action=interrupt", {
       agentId,
       pid: session.process.pid,
     });
@@ -371,7 +373,7 @@ export class AcpDriver extends BaseDriver {
 
     session.checkpoints.set(checkpointId, checkpoint);
 
-    console.info("[DRIVER] action=checkpoint_create driver=acp", {
+    logDriver("info", this.driverType, "action=checkpoint_create", {
       agentId,
       checkpointId,
       historyLength: session.conversationHistory.length,
@@ -442,7 +444,7 @@ export class AcpDriver extends BaseDriver {
     // Update token usage in base driver
     this.updateTokenUsage(agentId, checkpoint.tokenUsage);
 
-    console.info("[DRIVER] action=checkpoint_restore driver=acp", {
+    logDriver("info", this.driverType, "action=checkpoint_restore", {
       agentId,
       checkpointId,
       historyLength: session.conversationHistory.length,
@@ -481,6 +483,13 @@ export class AcpDriver extends BaseDriver {
     // Handle process exit
     session.process.exited.then((exitCode) => {
       if (this.sessions.has(agentId)) {
+        // Reject any pending RPC requests
+        for (const [, pending] of session.pendingRequests) {
+          clearTimeout(pending.timeout);
+          pending.reject(new Error("Agent process exited"));
+        }
+        session.pendingRequests.clear();
+
         // Emit terminated event first (while agents Map still has subscribers)
         this.emitEvent(agentId, {
           type: "terminated",
@@ -545,7 +554,7 @@ export class AcpDriver extends BaseDriver {
         }
       } catch (err) {
         if (!this.sessions.has(agentId)) return; // Session was terminated
-        console.error(`[DRIVER] ${type} read error:`, err);
+        logDriver("error", this.driverType, `${type}_read_error`, { agentId, error: String(err) });
       } finally {
         reader.releaseLock();
       }
@@ -572,6 +581,9 @@ export class AcpDriver extends BaseDriver {
       // Try to parse as JSON (stream-json format)
       try {
         const event = JSON.parse(line);
+        if (this.handleJsonRpcResponse(session, event)) {
+          continue;
+        }
         this.handleAcpEvent(agentId, session, event);
       } catch {
         // Not JSON, treat as plain text output
@@ -602,7 +614,7 @@ export class AcpDriver extends BaseDriver {
    */
   private handleAcpEvent(agentId: string, session: AcpAgentSession, event: Record<string, unknown>): void {
     if (this.verboseProtocol) {
-      console.debug("[DRIVER] acp_event:", JSON.stringify(event));
+      logDriver("debug", this.driverType, "acp_event", { event });
     }
 
     const eventType = event["type"] as string;
@@ -647,9 +659,37 @@ export class AcpDriver extends BaseDriver {
       default:
         // Unknown event type, log for debugging
         if (this.verboseProtocol) {
-          console.debug("[DRIVER] unknown acp event:", eventType);
+          logDriver("debug", this.driverType, "unknown_acp_event", { eventType });
         }
     }
+  }
+
+  private handleJsonRpcResponse(session: AcpAgentSession, event: Record<string, unknown>): boolean {
+    if (event["jsonrpc"] !== "2.0" || !("id" in event)) {
+      return false;
+    }
+
+    const id = event["id"] as number | string | null;
+    if (id === null || id === undefined) {
+      return true;
+    }
+
+    const pending = session.pendingRequests.get(id);
+    if (!pending) {
+      return true;
+    }
+
+    clearTimeout(pending.timeout);
+    session.pendingRequests.delete(id);
+
+    if ("error" in event && event["error"]) {
+      const error = event["error"] as JsonRpcError;
+      pending.reject(new Error(error.message));
+      return true;
+    }
+
+    pending.resolve(event["result"]);
+    return true;
   }
 
   private handleContentBlockStart(agentId: string, session: AcpAgentSession, event: Record<string, unknown>): void {
@@ -659,16 +699,8 @@ export class AcpDriver extends BaseDriver {
     const blockType = contentBlock["type"] as string;
 
     if (blockType === "tool_use") {
-      // Starting a tool call
+      // Starting a tool call (tool_call_start emitted when tool_use event arrives)
       this.updateState(agentId, { activityState: "tool_calling" });
-      this.emitEvent(agentId, {
-        type: "tool_call_start",
-        agentId,
-        timestamp: new Date(),
-        toolName: contentBlock["name"] as string,
-        toolId: contentBlock["id"] as string,
-        input: {},
-      });
     }
   }
 
@@ -700,7 +732,9 @@ export class AcpDriver extends BaseDriver {
       // Tool input being streamed - we could accumulate this
       // For now, just log in verbose mode
       if (this.verboseProtocol) {
-        console.debug("[DRIVER] tool input delta:", delta["partial_json"]);
+        logDriver("debug", this.driverType, "tool_input_delta", {
+          partial: delta["partial_json"],
+        });
       }
     }
   }
@@ -709,7 +743,7 @@ export class AcpDriver extends BaseDriver {
     // Content block completed
     const index = event["index"] as number;
     if (this.verboseProtocol) {
-      console.debug("[DRIVER] content block stop:", index);
+      logDriver("debug", this.driverType, "content_block_stop", { index });
     }
   }
 
@@ -799,7 +833,10 @@ export class AcpDriver extends BaseDriver {
     this.addOutput(agentId, {
       timestamp: new Date(),
       type: "tool_result",
-      content: typeof toolResult.output === "string" ? toolResult.output : JSON.stringify(toolResult.output),
+      content:
+        typeof toolResult.output === "string"
+          ? toolResult.output
+          : this.safeStringify(toolResult.output),
       metadata: { toolId: toolResult.tool_id, isError: toolResult.is_error },
     });
   }
@@ -854,6 +891,14 @@ export class AcpDriver extends BaseDriver {
     });
   }
 
+  private safeStringify(value: unknown): string {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "[unserializable output]";
+    }
+  }
+
   // ============================================================================
   // JSON-RPC Helpers (for future bidirectional protocol support)
   // ============================================================================
@@ -888,7 +933,9 @@ export class AcpDriver extends BaseDriver {
         const stdin = session.process.stdin;
         if (stdin && typeof stdin !== "number") {
           stdin.write(JSON.stringify(request) + "\n");
-          stdin.flush();
+          if (typeof stdin.flush === "function") {
+            stdin.flush();
+          }
         } else {
           throw new Error("stdin not available");
         }
@@ -918,12 +965,16 @@ export class AcpDriver extends BaseDriver {
       const stdin = session.process.stdin;
       if (stdin && typeof stdin !== "number") {
         stdin.write(JSON.stringify(notification) + "\n");
-        stdin.flush();
+        if (typeof stdin.flush === "function") {
+          stdin.flush();
+        }
       } else {
-        console.error("[DRIVER] stdin not available for notification");
+        logDriver("error", this.driverType, "stdin_not_available");
       }
     } catch (err) {
-      console.error("[DRIVER] Failed to send RPC notification:", err);
+      logDriver("error", this.driverType, "rpc_notification_failed", {
+        error: String(err),
+      });
     }
   }
 }
@@ -937,7 +988,9 @@ export async function createAcpDriver(options?: AcpDriverOptions): Promise<AcpDr
 
   // Verify health
   if (!(await driver.isHealthy())) {
-    console.warn("[DRIVER] ACP driver created but agent binary not found or not executable");
+    logDriver("warn", "acp", "driver_unhealthy", {
+      reason: "agent_binary_unavailable",
+    });
   }
 
   return driver;
