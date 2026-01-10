@@ -20,6 +20,7 @@ export const ErrorCodes = {
     message: "Agent is processing another request",
   },
   AGENT_TIMEOUT: { httpStatus: 408, message: "Agent response timed out" },
+  AGENT_ERROR_STATE: { httpStatus: 409, message: "Agent is in error state" },
 
   // Spawn
   SPAWN_FAILED: { httpStatus: 500, message: "Failed to spawn agent" },

@@ -102,6 +102,15 @@ export function generateClientSDK(
   lines.push("      throw new Error(error.message ?? 'Request failed: ' + response.status);");
   lines.push("    }");
   lines.push("");
+  lines.push("    if (response.status === 204) {");
+  lines.push("      return undefined as T;");
+  lines.push("    }");
+  lines.push("");
+  lines.push("    const contentType = response.headers.get('content-type') ?? '';");
+  lines.push("    if (!contentType.includes('application/json')) {");
+  lines.push("      return (await response.text()) as unknown as T;");
+  lines.push("    }");
+  lines.push("");
   lines.push("    return response.json();");
   lines.push("  }");
   lines.push("");
@@ -142,23 +151,25 @@ function generateMethodCode(method: GeneratedClientMethod, baseUrlVar: string): 
   // Build path with parameter substitution
   let pathExpr = "'" + path + "'";
   for (const param of pathParams) {
-    pathExpr = pathExpr.replace(":" + param, "' + " + param + " + '");
+    pathExpr = pathExpr.replace(":" + param, "' + encodeURIComponent(" + param + ") + '");
   }
   // Clean up empty string concatenations
   pathExpr = pathExpr.replace(/ \+ ''$/g, "").replace(/^'' \+ /g, "");
 
-  // Build query string for GET/DELETE (methods without body)
-  let urlExpr = pathExpr;
-  if (!needsBody) {
-    urlExpr = pathExpr + " + (params ? '?' + new URLSearchParams(params as Record<string, string>).toString() : '')";
-  }
+  const queryExpr =
+    "params ? new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== null).map(([key, value]) => [key, String(value)] as [string, string])).toString() : ''";
 
   const lines: string[] = [];
   lines.push("  /** " + method.commandName + " */");
 
   if (streaming) {
     lines.push("  async *" + methodName + "(" + params.join(", ") + "): AsyncGenerator<unknown> {");
-    lines.push("    const response = await this.fetchFn(this." + baseUrlVar + " + " + urlExpr + ", {");
+    if (!needsBody) {
+      lines.push("    const query = " + queryExpr + ";");
+      lines.push("    const url = " + pathExpr + " + (query ? '?' + query : '');");
+    }
+    const streamingUrlExpr = needsBody ? pathExpr : "url";
+    lines.push("    const response = await this.fetchFn(this." + baseUrlVar + " + " + streamingUrlExpr + ", {");
     lines.push("      method: '" + httpMethod + "',");
     lines.push("      headers: {");
     if (needsBody) {
@@ -174,27 +185,43 @@ function generateMethodCode(method: GeneratedClientMethod, baseUrlVar: string): 
     lines.push("      signal: options?.signal,");
     lines.push("    });");
     lines.push("");
+    lines.push("    if (!response.ok) {");
+    lines.push("      const error = await response.json().catch(() => ({ message: 'Unknown error' }));");
+    lines.push("      throw new Error(error.message ?? 'Request failed: ' + response.status);");
+    lines.push("    }");
+    lines.push("");
     lines.push("    if (!response.body) throw new Error('No response body');");
     lines.push("    const reader = response.body.getReader();");
     lines.push("    const decoder = new TextDecoder();");
+    lines.push("    let buffer = '';");
     lines.push("");
     lines.push("    while (true) {");
     lines.push("      const { done, value } = await reader.read();");
-    lines.push("      if (done) break;");
-    lines.push("      const text = decoder.decode(value);");
-    lines.push("      for (const line of text.split('\\n')) {");
+    lines.push("      if (done) {");
+    lines.push("        buffer += decoder.decode();");
+    lines.push("        break;");
+    lines.push("      }");
+    lines.push("      buffer += decoder.decode(value, { stream: true });");
+    lines.push("      const lines = buffer.split('\\n');");
+    lines.push("      buffer = lines.pop() ?? '';");
+    lines.push("      for (const line of lines) {");
     lines.push("        if (line.startsWith('data: ')) {");
     lines.push("          yield JSON.parse(line.slice(6));");
     lines.push("        }");
     lines.push("      }");
     lines.push("    }");
+    lines.push("    if (buffer.startsWith('data: ')) {");
+    lines.push("      yield JSON.parse(buffer.slice(6));");
+    lines.push("    }");
     lines.push("  }");
   } else {
     lines.push("  async " + methodName + "(" + params.join(", ") + "): Promise<unknown> {");
     if (needsBody) {
-      lines.push("    return this.request('" + httpMethod + "', " + urlExpr + ", body, options);");
+      lines.push("    return this.request('" + httpMethod + "', " + pathExpr + ", body, options);");
     } else {
-      lines.push("    return this.request('" + httpMethod + "', " + urlExpr + ", undefined, options);");
+      lines.push("    const query = " + queryExpr + ";");
+      lines.push("    const url = " + pathExpr + " + (query ? '?' + query : '');");
+      lines.push("    return this.request('" + httpMethod + "', url, undefined, options);");
     }
     lines.push("  }");
   }

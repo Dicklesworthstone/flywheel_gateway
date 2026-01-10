@@ -16,7 +16,7 @@ const SpawnConfigSchema = z.object({
   /** Maximum tokens for the agent session */
   maxTokens: z.number().min(1000).max(1000000).optional(),
   /** Agent driver type */
-  driver: z.enum(["sdk", "docker", "mock"]).optional(),
+  driver: z.enum(["sdk", "acp", "tmux", "mock"]).optional(),
   /** PTY configuration */
   pty: z
     .object({
@@ -43,7 +43,15 @@ const SpawnedAgentSchema = z.object({
 /** Schema for agent summary in list */
 const AgentSummarySchema = z.object({
   agentId: z.string(),
-  state: z.enum(["spawning", "ready", "executing", "paused", "terminating", "terminated"]),
+  state: z.enum([
+    "idle",
+    "thinking",
+    "working",
+    "tool_calling",
+    "waiting_input",
+    "error",
+    "stalled",
+  ]),
   driver: z.string(),
   createdAt: z.string().datetime(),
   lastActivityAt: z.string().datetime(),
@@ -65,7 +73,15 @@ const ListAgentsResponseSchema = z.object({
 /** Schema for agent detail response */
 const AgentDetailSchema = z.object({
   agentId: z.string(),
-  state: z.enum(["spawning", "ready", "executing", "paused", "terminating", "terminated"]),
+  state: z.enum([
+    "idle",
+    "thinking",
+    "working",
+    "tool_calling",
+    "waiting_input",
+    "error",
+    "stalled",
+  ]),
   driver: z.string(),
   createdAt: z.string().datetime(),
   lastActivityAt: z.string().datetime(),
@@ -249,7 +265,9 @@ export const getOutput = defineCommand({
     agentId: z.string(),
     cursor: z.string().optional(),
     limit: z.number().min(1).max(1000).default(100),
-    types: z.array(z.enum(["stdout", "stderr", "system", "tool_use", "tool_result"])).optional(),
+    types: z
+      .array(z.enum(["text", "markdown", "thinking", "tool_use", "tool_result", "error", "system"]))
+      .optional(),
     wait: z.number().min(0).max(30000).optional(),
   }),
   output: z.object({
@@ -257,7 +275,7 @@ export const getOutput = defineCommand({
       z.object({
         cursor: z.string(),
         timestamp: z.string().datetime(),
-        type: z.enum(["stdout", "stderr", "system", "tool_use", "tool_result"]),
+        type: z.enum(["text", "markdown", "thinking", "tool_use", "tool_result", "error", "system"]),
         content: z.union([z.string(), z.record(z.string(), z.unknown())]),
       }),
     ),
@@ -298,7 +316,15 @@ export const interruptAgent = defineCommand({
     agentId: z.string(),
     signal: z.string(),
     sentAt: z.string().datetime(),
-    previousState: z.enum(["spawning", "ready", "executing", "paused", "terminating", "terminated"]),
+    previousState: z.enum([
+      "idle",
+      "thinking",
+      "working",
+      "tool_calling",
+      "waiting_input",
+      "error",
+      "stalled",
+    ]),
   }),
   rest: { method: "POST", path: "/agents/:agentId/interrupt" },
   ws: { emitsEvents: ["agent:interrupted"] },
