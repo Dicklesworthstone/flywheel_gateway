@@ -2,16 +2,16 @@
  * Tests for the Idempotency Middleware.
  */
 
-import { describe, test, expect, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import {
-  idempotencyMiddleware,
   clearIdempotencyStore,
+  deleteIdempotencyRecord,
   getIdempotencyRecord,
   getIdempotencyStats,
+  idempotencyMiddleware,
   pruneExpiredRecords,
   setIdempotencyRecord,
-  deleteIdempotencyRecord,
 } from "../middleware/idempotency";
 
 describe("Idempotency Middleware", () => {

@@ -15,12 +15,14 @@ export function freezeTime(isoTime?: string): void {
   } else {
     frozenTime = now;
   }
-  Date.now = () => (frozenTime ?? originalDateNow?.() ?? now);
+  Date.now = () => frozenTime ?? originalDateNow?.() ?? now;
 }
 
 export function advanceTime(ms: number): void {
   if (frozenTime === null) {
-    throw new Error('advanceTime called without freezeTime; call freezeTime first.');
+    throw new Error(
+      "advanceTime called without freezeTime; call freezeTime first.",
+    );
   }
   frozenTime += ms;
 }

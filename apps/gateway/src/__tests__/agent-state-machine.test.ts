@@ -2,88 +2,123 @@
  * Unit tests for the Agent State Machine.
  */
 
-import { describe, test, expect, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import {
-  LifecycleState,
-  isValidTransition,
-  getValidTransitions,
-  isTerminalState,
   canAcceptCommands,
-  isAlive,
+  getValidTransitions,
   InvalidStateTransitionError,
+  isAlive,
+  isTerminalState,
+  isValidTransition,
+  LifecycleState,
 } from "../models/agent-state";
 import {
-  initializeAgentState,
-  transitionState,
   getAgentState,
   getAgentStateHistory,
-  removeAgentState,
-  markAgentReady,
+  initializeAgentState,
   markAgentExecuting,
-  markAgentIdle,
-  markAgentTerminating,
-  markAgentTerminated,
   markAgentFailed,
+  markAgentIdle,
+  markAgentReady,
+  markAgentTerminated,
+  markAgentTerminating,
+  removeAgentState,
+  transitionState,
 } from "../services/agent-state-machine";
 
 describe("Agent State Model", () => {
   describe("isValidTransition", () => {
     test("allows SPAWNING -> INITIALIZING", () => {
-      expect(isValidTransition(LifecycleState.SPAWNING, LifecycleState.INITIALIZING)).toBe(true);
+      expect(
+        isValidTransition(LifecycleState.SPAWNING, LifecycleState.INITIALIZING),
+      ).toBe(true);
     });
 
     test("allows SPAWNING -> FAILED", () => {
-      expect(isValidTransition(LifecycleState.SPAWNING, LifecycleState.FAILED)).toBe(true);
+      expect(
+        isValidTransition(LifecycleState.SPAWNING, LifecycleState.FAILED),
+      ).toBe(true);
     });
 
     test("rejects SPAWNING -> READY (must go through INITIALIZING)", () => {
-      expect(isValidTransition(LifecycleState.SPAWNING, LifecycleState.READY)).toBe(false);
+      expect(
+        isValidTransition(LifecycleState.SPAWNING, LifecycleState.READY),
+      ).toBe(false);
     });
 
     test("allows INITIALIZING -> READY", () => {
-      expect(isValidTransition(LifecycleState.INITIALIZING, LifecycleState.READY)).toBe(true);
+      expect(
+        isValidTransition(LifecycleState.INITIALIZING, LifecycleState.READY),
+      ).toBe(true);
     });
 
     test("allows READY -> EXECUTING", () => {
-      expect(isValidTransition(LifecycleState.READY, LifecycleState.EXECUTING)).toBe(true);
+      expect(
+        isValidTransition(LifecycleState.READY, LifecycleState.EXECUTING),
+      ).toBe(true);
     });
 
     test("allows READY -> PAUSED", () => {
-      expect(isValidTransition(LifecycleState.READY, LifecycleState.PAUSED)).toBe(true);
+      expect(
+        isValidTransition(LifecycleState.READY, LifecycleState.PAUSED),
+      ).toBe(true);
     });
 
     test("allows READY -> TERMINATING", () => {
-      expect(isValidTransition(LifecycleState.READY, LifecycleState.TERMINATING)).toBe(true);
+      expect(
+        isValidTransition(LifecycleState.READY, LifecycleState.TERMINATING),
+      ).toBe(true);
     });
 
     test("allows EXECUTING -> READY (command complete)", () => {
-      expect(isValidTransition(LifecycleState.EXECUTING, LifecycleState.READY)).toBe(true);
+      expect(
+        isValidTransition(LifecycleState.EXECUTING, LifecycleState.READY),
+      ).toBe(true);
     });
 
     test("allows EXECUTING -> FAILED", () => {
-      expect(isValidTransition(LifecycleState.EXECUTING, LifecycleState.FAILED)).toBe(true);
+      expect(
+        isValidTransition(LifecycleState.EXECUTING, LifecycleState.FAILED),
+      ).toBe(true);
     });
 
     test("allows TERMINATING -> TERMINATED", () => {
-      expect(isValidTransition(LifecycleState.TERMINATING, LifecycleState.TERMINATED)).toBe(true);
+      expect(
+        isValidTransition(
+          LifecycleState.TERMINATING,
+          LifecycleState.TERMINATED,
+        ),
+      ).toBe(true);
     });
 
     test("allows TERMINATING -> FAILED", () => {
-      expect(isValidTransition(LifecycleState.TERMINATING, LifecycleState.FAILED)).toBe(true);
+      expect(
+        isValidTransition(LifecycleState.TERMINATING, LifecycleState.FAILED),
+      ).toBe(true);
     });
 
     test("rejects any transition from TERMINATED", () => {
-      expect(isValidTransition(LifecycleState.TERMINATED, LifecycleState.READY)).toBe(false);
-      expect(isValidTransition(LifecycleState.TERMINATED, LifecycleState.SPAWNING)).toBe(false);
+      expect(
+        isValidTransition(LifecycleState.TERMINATED, LifecycleState.READY),
+      ).toBe(false);
+      expect(
+        isValidTransition(LifecycleState.TERMINATED, LifecycleState.SPAWNING),
+      ).toBe(false);
     });
 
     test("rejects any transition from FAILED", () => {
-      expect(isValidTransition(LifecycleState.FAILED, LifecycleState.READY)).toBe(false);
-      expect(isValidTransition(LifecycleState.FAILED, LifecycleState.SPAWNING)).toBe(false);
+      expect(
+        isValidTransition(LifecycleState.FAILED, LifecycleState.READY),
+      ).toBe(false);
+      expect(
+        isValidTransition(LifecycleState.FAILED, LifecycleState.SPAWNING),
+      ).toBe(false);
     });
 
     test("rejects READY -> TERMINATED (must go through TERMINATING)", () => {
-      expect(isValidTransition(LifecycleState.READY, LifecycleState.TERMINATED)).toBe(false);
+      expect(
+        isValidTransition(LifecycleState.READY, LifecycleState.TERMINATED),
+      ).toBe(false);
     });
   });
 
@@ -169,7 +204,7 @@ describe("Agent State Machine Service", () => {
       const transition = transitionState(
         testAgentId,
         LifecycleState.INITIALIZING,
-        "spawn_started"
+        "spawn_started",
       );
 
       expect(transition.previousState).toBe(LifecycleState.SPAWNING);
@@ -190,7 +225,11 @@ describe("Agent State Machine Service", () => {
 
     test("records transition in history", () => {
       initializeAgentState(testAgentId);
-      transitionState(testAgentId, LifecycleState.INITIALIZING, "spawn_started");
+      transitionState(
+        testAgentId,
+        LifecycleState.INITIALIZING,
+        "spawn_started",
+      );
 
       const history = getAgentStateHistory(testAgentId);
       expect(history.length).toBe(1);
@@ -205,7 +244,7 @@ describe("Agent State Machine Service", () => {
         testAgentId,
         LifecycleState.FAILED,
         "error",
-        error
+        error,
       );
 
       expect(transition.error).toEqual(error);
@@ -284,27 +323,39 @@ describe("Agent State Machine Service", () => {
     test("spawn -> ready -> executing -> ready -> terminating -> terminated", () => {
       // Spawn
       initializeAgentState(testAgentId);
-      expect(getAgentState(testAgentId)?.currentState).toBe(LifecycleState.SPAWNING);
+      expect(getAgentState(testAgentId)?.currentState).toBe(
+        LifecycleState.SPAWNING,
+      );
 
       // Ready
       markAgentReady(testAgentId);
-      expect(getAgentState(testAgentId)?.currentState).toBe(LifecycleState.READY);
+      expect(getAgentState(testAgentId)?.currentState).toBe(
+        LifecycleState.READY,
+      );
 
       // Execute command
       markAgentExecuting(testAgentId);
-      expect(getAgentState(testAgentId)?.currentState).toBe(LifecycleState.EXECUTING);
+      expect(getAgentState(testAgentId)?.currentState).toBe(
+        LifecycleState.EXECUTING,
+      );
 
       // Command complete
       markAgentIdle(testAgentId);
-      expect(getAgentState(testAgentId)?.currentState).toBe(LifecycleState.READY);
+      expect(getAgentState(testAgentId)?.currentState).toBe(
+        LifecycleState.READY,
+      );
 
       // Start termination
       markAgentTerminating(testAgentId);
-      expect(getAgentState(testAgentId)?.currentState).toBe(LifecycleState.TERMINATING);
+      expect(getAgentState(testAgentId)?.currentState).toBe(
+        LifecycleState.TERMINATING,
+      );
 
       // Complete termination
       markAgentTerminated(testAgentId);
-      expect(getAgentState(testAgentId)?.currentState).toBe(LifecycleState.TERMINATED);
+      expect(getAgentState(testAgentId)?.currentState).toBe(
+        LifecycleState.TERMINATED,
+      );
 
       // Verify history
       const history = getAgentStateHistory(testAgentId);

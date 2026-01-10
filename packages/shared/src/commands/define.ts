@@ -56,7 +56,9 @@ function extractCategory(name: string): string {
 export function defineCommand<
   TInput extends z.ZodType,
   TOutput extends z.ZodType,
->(input: CommandDefinitionInput<TInput, TOutput>): RegisteredCommand<TInput, TOutput> {
+>(
+  input: CommandDefinitionInput<TInput, TOutput>,
+): RegisteredCommand<TInput, TOutput> {
   // Validate command name format (category.action or just category, lowercase only)
   if (!/^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)?$/.test(input.name)) {
     throw new Error(

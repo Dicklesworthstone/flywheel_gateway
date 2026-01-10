@@ -6,33 +6,35 @@
  */
 
 import { ulid } from "ulid";
-import { getLogger, getCorrelationId } from "../middleware/correlation";
+import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
-  type ContextPack,
-  type ContextPackRequest,
-  type ContextPackPreview,
-  type TokenBreakdown,
   type BudgetStrategy,
-  type TriageSection,
-  type MemorySection,
-  type SearchSection,
-  type HistorySection,
-  type SystemSection,
-  type TruncationRecord,
-  type TriagedBead,
-  type MemoryRule,
-  type SearchResult,
-  type HistoryEntry,
+  type ContextPack,
+  type ContextPackPreview,
+  type ContextPackRequest,
   DEFAULT_BUDGET_STRATEGY,
   DEFAULT_CONTEXT_BUILDER_CONFIG,
+  type HistoryEntry,
+  type HistorySection,
+  type MemoryRule,
+  type MemorySection,
+  type SearchResult,
+  type SearchSection,
+  type SystemSection,
+  type TokenBreakdown,
+  type TriagedBead,
+  type TriageSection,
+  type TruncationRecord,
 } from "../types/context.types";
 import {
   allocateBudget,
-  getTotalAllocated,
-  getModelLimit,
   createStrategy,
+  getModelLimit,
+  getTotalAllocated,
 } from "./context-budget.service";
 import { countTokens, truncateToTokens } from "./tokenizer.service";
+import { getBvTriage } from "./bv.service";
+import type { BvRecommendation } from "@flywheel/flywheel-clients";
 
 // ============================================================================
 // Section Builders
@@ -70,39 +72,102 @@ async function buildTriageSection(
   options?: {
     maxBeads?: number;
     minScore?: number;
-  }
+  },
 ): Promise<TriageSection> {
   const log = getLogger();
   const startTime = performance.now();
+  const maxBeads = options?.maxBeads ?? 5;
+  const minScore = options?.minScore ?? 0;
 
-  // Stub: In production, query BV for top-scored ready beads
-  // const beads = await beadValuation.getTopBeads({ sessionId, ... });
+  let recommendations: BvRecommendation[] = [];
+  let dataHash: string | undefined;
+  try {
+    const triage = await getBvTriage();
+    recommendations = triage.triage.recommendations ?? [];
+    dataHash = triage.data_hash;
+  } catch (error) {
+    log.warn({ error }, "BV triage unavailable; returning empty triage section");
+  }
+
+  const filtered = recommendations
+    .filter((rec) => rec.score >= minScore)
+    .slice(0, maxBeads);
+
+  const beads: TriagedBead[] = [];
+  let totalTokens = 0;
+  let truncated = false;
+
+  for (const rec of filtered) {
+    const reason = rec.reasons?.[0] ?? "";
+    const content = rec.description ?? `Score: ${rec.score.toFixed(3)}`;
+    const tokens = countTokens(`${rec.title}\n${content}\n${reason}`);
+
+    if (totalTokens + tokens > tokenBudget) {
+      truncated = true;
+      break;
+    }
+
+    beads.push({
+      id: rec.id,
+      type: normalizeBeadType(rec.type),
+      title: rec.title,
+      content,
+      score: rec.score,
+      tokens,
+      reason,
+    });
+    totalTokens += tokens;
+  }
+
+  const topScore =
+    recommendations.length > 0
+      ? Math.max(...recommendations.map((rec) => rec.score))
+      : 0;
+  const avgScore =
+    beads.length > 0
+      ? beads.reduce((sum, bead) => sum + bead.score, 0) / beads.length
+      : 0;
 
   const section: TriageSection = {
-    beads: [],
-    totalTokens: 0,
-    truncated: false,
+    beads,
+    totalTokens,
+    truncated:
+      truncated ||
+      beads.length < filtered.length ||
+      recommendations.length > filtered.length,
     metadata: {
-      totalAvailable: 0,
-      included: 0,
-      topScore: 0,
-      avgScore: 0,
+      totalAvailable: recommendations.length,
+      included: beads.length,
+      topScore,
+      avgScore,
     },
   };
-
-  // When BV integration is available, populate with real beads
-  // For now, return empty section indicating BV is not yet available
 
   log.debug(
     {
       sessionId,
       tokenBudget,
       buildTimeMs: Math.round(performance.now() - startTime),
+      included: beads.length,
+      dataHash,
     },
-    "Built triage section (stub)"
+    "Built triage section",
   );
 
   return section;
+}
+
+function normalizeBeadType(value?: string): TriagedBead["type"] {
+  switch (value) {
+    case "bug":
+    case "feature":
+    case "task":
+    case "epic":
+    case "chore":
+      return value;
+    default:
+      return "task";
+  }
 }
 
 /**
@@ -113,7 +178,7 @@ async function buildTriageSection(
 async function buildMemorySection(
   sessionId: string,
   taskContext: string | undefined,
-  tokenBudget: number
+  tokenBudget: number,
 ): Promise<MemorySection> {
   const log = getLogger();
   const startTime = performance.now();
@@ -140,7 +205,7 @@ async function buildMemorySection(
       tokenBudget,
       buildTimeMs: Math.round(performance.now() - startTime),
     },
-    "Built memory section (stub)"
+    "Built memory section (stub)",
   );
 
   return section;
@@ -157,7 +222,7 @@ async function buildSearchSection(
   options?: {
     maxResults?: number;
     minScore?: number;
-  }
+  },
 ): Promise<SearchSection> {
   const log = getLogger();
   const startTime = performance.now();
@@ -184,7 +249,7 @@ async function buildSearchSection(
       tokenBudget,
       buildTimeMs: section.metadata.searchTimeMs,
     },
-    "Built search section (stub)"
+    "Built search section (stub)",
   );
 
   return section;
@@ -201,7 +266,7 @@ async function buildHistorySection(
   options?: {
     maxEntries?: number;
     maxAgeMs?: number;
-  }
+  },
 ): Promise<HistorySection> {
   const log = getLogger();
   const startTime = performance.now();
@@ -228,7 +293,7 @@ async function buildHistorySection(
       tokenBudget,
       buildTimeMs: Math.round(performance.now() - startTime),
     },
-    "Built history section (stub)"
+    "Built history section (stub)",
   );
 
   return section;
@@ -245,7 +310,7 @@ async function buildHistorySection(
  * @returns Complete context pack
  */
 export async function buildContextPack(
-  request: ContextPackRequest
+  request: ContextPackRequest,
 ): Promise<ContextPack> {
   const log = getLogger();
   const correlationId = getCorrelationId();
@@ -255,7 +320,7 @@ export async function buildContextPack(
   const totalBudget = getModelLimit(
     request.model,
     DEFAULT_CONTEXT_BUILDER_CONFIG.modelLimits,
-    request.maxTokens ?? DEFAULT_CONTEXT_BUILDER_CONFIG.defaultMaxTokens
+    request.maxTokens ?? DEFAULT_CONTEXT_BUILDER_CONFIG.defaultMaxTokens,
   );
 
   // Allocate budget - merge partial strategy with defaults
@@ -271,16 +336,32 @@ export async function buildContextPack(
       breakdown,
       correlationId,
     },
-    "Building context pack"
+    "Building context pack",
   );
 
   // Build sections in parallel
   const [system, triage, memory, search, history] = await Promise.all([
     buildSystemSection(breakdown.system),
-    buildTriageSection(request.sessionId, breakdown.triage, request.triageOptions),
-    buildMemorySection(request.sessionId, request.taskContext, breakdown.memory),
-    buildSearchSection(request.searchQuery, breakdown.search, request.searchOptions),
-    buildHistorySection(request.sessionId, breakdown.history, request.historyOptions),
+    buildTriageSection(
+      request.sessionId,
+      breakdown.triage,
+      request.triageOptions,
+    ),
+    buildMemorySection(
+      request.sessionId,
+      request.taskContext,
+      breakdown.memory,
+    ),
+    buildSearchSection(
+      request.searchQuery,
+      breakdown.search,
+      request.searchOptions,
+    ),
+    buildHistorySection(
+      request.sessionId,
+      breakdown.history,
+      request.historyOptions,
+    ),
   ]);
 
   // Collect truncations
@@ -324,7 +405,12 @@ export async function buildContextPack(
     },
     metadata: {
       buildTimeMs,
-      sourcesQueried: ["bead-valuation", "collective-memory", "cass", "history"],
+      sourcesQueried: [
+        "bead-valuation",
+        "collective-memory",
+        "cass",
+        "history",
+      ],
       truncations,
     },
   };
@@ -337,7 +423,7 @@ export async function buildContextPack(
       buildTimeMs,
       correlationId,
     },
-    "Context pack built"
+    "Context pack built",
   );
 
   return pack;
@@ -350,12 +436,12 @@ export async function buildContextPack(
  * @returns Preview with estimates and warnings
  */
 export async function previewContextPack(
-  request: ContextPackRequest
+  request: ContextPackRequest,
 ): Promise<ContextPackPreview> {
   const totalBudget = getModelLimit(
     request.model,
     DEFAULT_CONTEXT_BUILDER_CONFIG.modelLimits,
-    request.maxTokens ?? DEFAULT_CONTEXT_BUILDER_CONFIG.defaultMaxTokens
+    request.maxTokens ?? DEFAULT_CONTEXT_BUILDER_CONFIG.defaultMaxTokens,
   );
 
   // Merge partial strategy with defaults
@@ -370,7 +456,7 @@ export async function previewContextPack(
   const totalAllocated = getTotalAllocated(breakdown);
   if (totalAllocated > totalBudget) {
     warnings.push(
-      `Allocated tokens (${totalAllocated}) exceed budget (${totalBudget})`
+      `Allocated tokens (${totalAllocated}) exceed budget (${totalBudget})`,
     );
   }
 
@@ -446,7 +532,9 @@ export function renderContextPack(pack: ContextPack): string {
   if (pack.sections.search.results.length > 0) {
     sections.push("### Related Information (Search)");
     for (const result of pack.sections.search.results) {
-      sections.push(`- **${result.source}** (score: ${result.score.toFixed(2)})`);
+      sections.push(
+        `- **${result.source}** (score: ${result.score.toFixed(2)})`,
+      );
       sections.push(`  ${result.content}`);
     }
     sections.push("");

@@ -2,14 +2,14 @@
  * Tests for cursor encoding/decoding utilities.
  */
 
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import {
-  encodeCursor,
-  decodeCursor,
-  compareCursors,
-  isCursorExpired,
-  createCursor,
   type CursorData,
+  compareCursors,
+  createCursor,
+  decodeCursor,
+  encodeCursor,
+  isCursorExpired,
 } from "../cursor";
 
 describe("cursor utilities", () => {
@@ -126,7 +126,10 @@ describe("cursor utilities", () => {
     });
 
     test("returns true for old cursor", () => {
-      const cursor = encodeCursor({ timestamp: Date.now() - 120000, sequence: 1 }); // 2 minutes ago
+      const cursor = encodeCursor({
+        timestamp: Date.now() - 120000,
+        sequence: 1,
+      }); // 2 minutes ago
       const expired = isCursorExpired(cursor, 60000); // 1 minute TTL
 
       expect(expired).toBe(true);

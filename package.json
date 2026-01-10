@@ -19,9 +19,9 @@
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
     "parity-check": "bun scripts/parity-check.ts",
-    "db:generate": "bun db:generate",
-    "db:migrate": "bun db:migrate",
-    "db:studio": "bun db:studio"
+    "db:generate": "bun run --filter @flywheel/gateway db:generate",
+    "db:migrate": "bun run --filter @flywheel/gateway db:migrate",
+    "db:studio": "bun run --filter @flywheel/gateway db:studio"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.0",

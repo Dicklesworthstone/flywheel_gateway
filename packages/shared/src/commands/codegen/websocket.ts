@@ -15,7 +15,9 @@ export interface GeneratedWsEvent {
 /**
  * Generate WebSocket event definitions from the command registry.
  */
-export function generateWsEvents(registry: CommandRegistry): GeneratedWsEvent[] {
+export function generateWsEvents(
+  registry: CommandRegistry,
+): GeneratedWsEvent[] {
   const events: GeneratedWsEvent[] = [];
   const seenEvents = new Set<string>();
 

@@ -1,0 +1,1 @@
+ALTER TABLE `dcg_blocks` ADD `false_positive` integer DEFAULT false NOT NULL;

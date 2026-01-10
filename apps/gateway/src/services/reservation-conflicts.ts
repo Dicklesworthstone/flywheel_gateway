@@ -67,7 +67,7 @@ function globToRegex(pattern: string): RegExp {
   // Use placeholder to avoid ** replacement affecting later * replacement
   const GLOBSTAR_PLACEHOLDER = "\x00GLOBSTAR\x00";
 
-  let regex = pattern
+  const regex = pattern
     // Normalize path separators
     .replace(/\/+/g, "/")
     // Remove trailing slash
@@ -157,9 +157,7 @@ function generateTestPaths(pattern: string): string[] {
 
   // Replace ** with a directory structure
   // Replace * with a filename component
-  const base = pattern
-    .replace(/\*\*/g, "a/b/c")
-    .replace(/\*/g, "file");
+  const base = pattern.replace(/\*\*/g, "a/b/c").replace(/\*/g, "file");
 
   paths.push(base);
 
@@ -195,7 +193,8 @@ export class ReservationConflictEngine {
    * @param reservation - The reservation to register
    */
   registerReservation(reservation: Reservation): void {
-    const projectReservations = this.reservations.get(reservation.projectId) || [];
+    const projectReservations =
+      this.reservations.get(reservation.projectId) || [];
     projectReservations.push(reservation);
     this.reservations.set(reservation.projectId, projectReservations);
   }
@@ -250,7 +249,7 @@ export class ReservationConflictEngine {
     projectId: string,
     requesterId: string,
     patterns: string[],
-    exclusive: boolean
+    exclusive: boolean,
   ): ConflictCheckResult {
     const activeReservations = this.getActiveReservations(projectId);
     const conflicts: ReservationConflict[] = [];
@@ -270,7 +269,8 @@ export class ReservationConflictEngine {
               projectId,
               existing,
               patterns.filter((p) => patternsOverlap(p, existingPattern)),
-              existingPattern
+              existingPattern,
+              exclusive,
             );
             conflicts.push(conflict);
             break; // One conflict per existing reservation is enough
@@ -293,7 +293,8 @@ export class ReservationConflictEngine {
     projectId: string,
     existing: Reservation,
     requestedPatterns: string[],
-    overlappingPattern: string
+    overlappingPattern: string,
+    requestedExclusive: boolean,
   ): ReservationConflict {
     const resolutions: ConflictResolution[] = [];
 
@@ -310,7 +311,10 @@ export class ReservationConflictEngine {
     }
 
     // Suggest narrowing patterns if possible
-    const narrowed = this.suggestNarrowerPatterns(requestedPatterns, existing.patterns);
+    const narrowed = this.suggestNarrowerPatterns(
+      requestedPatterns,
+      existing.patterns,
+    );
     if (narrowed.length > 0) {
       resolutions.push({
         type: "narrow",
@@ -319,8 +323,9 @@ export class ReservationConflictEngine {
       });
     }
 
-    // Suggest shared access if exclusive not required
-    if (existing.exclusive) {
+    // Suggest shared access only when the existing reservation is non-exclusive
+    // and the requester can opt out of exclusivity.
+    if (!existing.exclusive && requestedExclusive) {
       resolutions.push({
         type: "share",
         description: "Request non-exclusive access (read-only operations)",
@@ -343,7 +348,7 @@ export class ReservationConflictEngine {
    */
   private suggestNarrowerPatterns(
     requested: string[],
-    existing: string[]
+    existing: string[],
   ): string[] {
     const suggestions: string[] = [];
 
@@ -352,7 +357,10 @@ export class ReservationConflictEngine {
       if (pattern.includes("**")) {
         // Suggest removing ** and being more specific
         const withoutGlobstar = pattern.replace(/\*\*\/?/g, "");
-        if (withoutGlobstar && !existing.some((e) => patternsOverlap(withoutGlobstar, e))) {
+        if (
+          withoutGlobstar &&
+          !existing.some((e) => patternsOverlap(withoutGlobstar, e))
+        ) {
           suggestions.push(withoutGlobstar);
         }
       }

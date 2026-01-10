@@ -9,7 +9,13 @@
  * - Checkpointing
  */
 
-import { BaseDriver, createDriverOptions, logDriver, type BaseDriverConfig } from "../base-driver";
+import {
+  BaseDriver,
+  type BaseDriverConfig,
+  createDriverOptions,
+  logDriver,
+} from "../base-driver";
+import type { DriverOptions } from "../interface";
 import type {
   Agent,
   AgentConfig,
@@ -21,7 +27,6 @@ import type {
   SpawnResult,
   TokenUsage,
 } from "../types";
-import type { DriverOptions } from "../interface";
 
 /**
  * Configuration specific to Claude SDK driver.
@@ -90,7 +95,9 @@ export class ClaudeSDKDriver extends BaseDriver {
   protected async doSpawn(config: AgentConfig): Promise<Agent> {
     // Validate configuration
     if (config.provider !== "claude") {
-      throw new Error(`ClaudeSDKDriver only supports 'claude' provider, got: ${config.provider}`);
+      throw new Error(
+        `ClaudeSDKDriver only supports 'claude' provider, got: ${config.provider}`,
+      );
     }
 
     // Create session
@@ -129,7 +136,10 @@ export class ClaudeSDKDriver extends BaseDriver {
     };
   }
 
-  protected async doSend(agentId: string, message: string): Promise<SendResult> {
+  protected async doSend(
+    agentId: string,
+    message: string,
+  ): Promise<SendResult> {
     const session = this.sessions.get(agentId);
     if (!session) {
       throw new Error(`Session not found for agent: ${agentId}`);
@@ -169,7 +179,10 @@ export class ClaudeSDKDriver extends BaseDriver {
     return { messageId, queued: false };
   }
 
-  protected async doTerminate(agentId: string, graceful: boolean): Promise<void> {
+  protected async doTerminate(
+    agentId: string,
+    graceful: boolean,
+  ): Promise<void> {
     const session = this.sessions.get(agentId);
     if (!session) return;
 
@@ -208,7 +221,10 @@ export class ClaudeSDKDriver extends BaseDriver {
   // Checkpointing (optional methods)
   // ============================================================================
 
-  async createCheckpoint(agentId: string, description?: string): Promise<CheckpointMetadata> {
+  async createCheckpoint(
+    agentId: string,
+    description?: string,
+  ): Promise<CheckpointMetadata> {
     const session = this.sessions.get(agentId);
     if (!session) {
       throw new Error(`Session not found for agent: ${agentId}`);
@@ -274,7 +290,10 @@ export class ClaudeSDKDriver extends BaseDriver {
     }));
   }
 
-  async getCheckpoint(agentId: string, checkpointId: string): Promise<Checkpoint> {
+  async getCheckpoint(
+    agentId: string,
+    checkpointId: string,
+  ): Promise<Checkpoint> {
     const session = this.sessions.get(agentId);
     if (!session) {
       throw new Error(`Session not found for agent: ${agentId}`);
@@ -288,7 +307,10 @@ export class ClaudeSDKDriver extends BaseDriver {
     return checkpoint;
   }
 
-  async restoreCheckpoint(agentId: string, checkpointId: string): Promise<Agent> {
+  async restoreCheckpoint(
+    agentId: string,
+    checkpointId: string,
+  ): Promise<Agent> {
     const session = this.sessions.get(agentId);
     if (!session) {
       throw new Error(`Session not found for agent: ${agentId}`);
@@ -300,7 +322,9 @@ export class ClaudeSDKDriver extends BaseDriver {
     }
 
     // Restore conversation history
-    session.conversationHistory = [...(checkpoint.conversationHistory as ConversationMessage[])];
+    session.conversationHistory = [
+      ...(checkpoint.conversationHistory as ConversationMessage[]),
+    ];
 
     // Update token usage
     this.updateTokenUsage(agentId, checkpoint.tokenUsage);
@@ -331,7 +355,7 @@ export class ClaudeSDKDriver extends BaseDriver {
   private async processRequest(
     agentId: string,
     session: ClaudeAgentSession,
-    signal: AbortSignal
+    signal: AbortSignal,
   ): Promise<void> {
     try {
       // Build messages for API
@@ -353,7 +377,8 @@ export class ClaudeSDKDriver extends BaseDriver {
 
       // Add simulated response output
       const lastMessage = messages[messages.length - 1];
-      const messagePreview = lastMessage?.content?.slice(0, 50) ?? "(no message)";
+      const messagePreview =
+        lastMessage?.content?.slice(0, 50) ?? "(no message)";
       const responseText = `[Simulated Claude response to: "${messagePreview}..."]`;
 
       this.addOutput(agentId, {
@@ -417,7 +442,9 @@ export class ClaudeSDKDriver extends BaseDriver {
 /**
  * Factory function to create a Claude SDK driver.
  */
-export async function createClaudeDriver(options?: ClaudeDriverOptions): Promise<ClaudeSDKDriver> {
+export async function createClaudeDriver(
+  options?: ClaudeDriverOptions,
+): Promise<ClaudeSDKDriver> {
   const config = createDriverOptions("sdk", options);
   const driver = new ClaudeSDKDriver(config, options);
 

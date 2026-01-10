@@ -17,16 +17,16 @@ export class TestWsClient {
   constructor({ url, protocols }: TestWsClientOptions) {
     this.socket = new WebSocket(url, protocols);
     this.openPromise = new Promise((resolve, reject) => {
-      this.socket.addEventListener('open', () => resolve());
-      this.socket.addEventListener('error', (event) => reject(event));
+      this.socket.addEventListener("open", () => resolve());
+      this.socket.addEventListener("error", (event) => reject(event));
     });
 
-    this.socket.addEventListener('message', (event) => {
+    this.socket.addEventListener("message", (event) => {
       const payload = normalizeWsPayload(event.data);
       this.events.push({
-        type: 'message',
+        type: "message",
         payload,
-        receivedAt: new Date().toISOString()
+        receivedAt: new Date().toISOString(),
       });
     });
   }
@@ -48,7 +48,9 @@ export class TestWsClient {
   }
 }
 
-export async function createTestWsClient(options: TestWsClientOptions): Promise<TestWsClient> {
+export async function createTestWsClient(
+  options: TestWsClientOptions,
+): Promise<TestWsClient> {
   const client = new TestWsClient(options);
   await client.waitForOpen();
   return client;
@@ -57,7 +59,7 @@ export async function createTestWsClient(options: TestWsClientOptions): Promise<
 export async function waitForWsEvent<T>(
   events: WsEvent<T>[],
   matcher: (event: WsEvent<T>) => boolean,
-  timeoutMs = 2000
+  timeoutMs = 2000,
 ): Promise<WsEvent<T>> {
   const start = Date.now();
   return new Promise((resolve, reject) => {
@@ -70,7 +72,11 @@ export async function waitForWsEvent<T>(
       }
       if (Date.now() - start > timeoutMs) {
         clearInterval(interval);
-        reject(new Error(`Timed out waiting for WebSocket event after ${timeoutMs}ms`));
+        reject(
+          new Error(
+            `Timed out waiting for WebSocket event after ${timeoutMs}ms`,
+          ),
+        );
       }
     }, 25);
   });
@@ -90,12 +96,12 @@ export function mockWsHub() {
       for (const handler of handlers) {
         handler(payload);
       }
-    }
+    },
   };
 }
 
 function normalizeWsPayload(data: unknown): string {
-  if (typeof data === 'string') {
+  if (typeof data === "string") {
     return data;
   }
   if (data instanceof ArrayBuffer) {
@@ -104,8 +110,8 @@ function normalizeWsPayload(data: unknown): string {
   if (ArrayBuffer.isView(data)) {
     return new TextDecoder().decode(data as Uint8Array);
   }
-  if (typeof Blob !== 'undefined' && data instanceof Blob) {
-    return '[blob]';
+  if (typeof Blob !== "undefined" && data instanceof Blob) {
+    return "[blob]";
   }
   return String(data);
 }

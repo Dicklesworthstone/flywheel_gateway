@@ -2,9 +2,13 @@
  * Tests for RingBuffer implementation.
  */
 
-import { describe, test, expect, beforeEach } from "bun:test";
-import { RingBuffer, getBufferConfig, type RingBufferConfig } from "../ring-buffer";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { decodeCursor } from "../cursor";
+import {
+  getBufferConfig,
+  RingBuffer,
+  type RingBufferConfig,
+} from "../ring-buffer";
 
 describe("RingBuffer", () => {
   describe("constructor", () => {
@@ -15,7 +19,9 @@ describe("RingBuffer", () => {
 
     test("throws for capacity < 1", () => {
       expect(() => new RingBuffer<string>({ capacity: 0, ttlMs: 0 })).toThrow();
-      expect(() => new RingBuffer<string>({ capacity: -1, ttlMs: 0 })).toThrow();
+      expect(
+        () => new RingBuffer<string>({ capacity: -1, ttlMs: 0 }),
+      ).toThrow();
     });
   });
 

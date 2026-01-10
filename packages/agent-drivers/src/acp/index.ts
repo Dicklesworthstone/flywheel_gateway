@@ -5,4 +5,8 @@
  * over stdio, providing structured events compatible with IDE integrations.
  */
 
-export { AcpDriver, createAcpDriver, type AcpDriverOptions } from "./acp-driver";
+export {
+  AcpDriver,
+  type AcpDriverOptions,
+  createAcpDriver,
+} from "./acp-driver";

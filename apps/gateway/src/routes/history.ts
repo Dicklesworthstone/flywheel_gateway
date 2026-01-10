@@ -8,16 +8,17 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
+  type ExtractionType,
+  type HistoryOutcome,
+  exportHistory,
+  extractFromOutput,
+  getHistoryEntry,
+  getHistoryStats,
+  incrementReplayCount,
+  pruneHistory,
   queryHistory,
   searchHistory,
-  getHistoryEntry,
   toggleStar,
-  getHistoryStats,
-  exportHistory,
-  pruneHistory,
-  extractFromOutput,
-  incrementReplayCount,
-  type ExtractionType,
 } from "../services/history.service";
 
 const history = new Hono();
@@ -50,7 +51,14 @@ const PruneSchema = z.object({
 });
 
 const ExtractSchema = z.object({
-  type: z.enum(["code_blocks", "json", "file_paths", "urls", "errors", "custom"]),
+  type: z.enum([
+    "code_blocks",
+    "json",
+    "file_paths",
+    "urls",
+    "errors",
+    "custom",
+  ]),
   output: z.string(),
   language: z.string().optional(),
   customPattern: z.string().optional(),
@@ -75,7 +83,7 @@ function handleError(error: unknown, c: Context) {
           details: error.issues,
         },
       },
-      400
+      400,
     );
   }
 
@@ -89,7 +97,7 @@ function handleError(error: unknown, c: Context) {
         timestamp: new Date().toISOString(),
       },
     },
-    500
+    500,
   );
 }
 
@@ -116,8 +124,13 @@ history.get("/", async (c) => {
 
     const result = await queryHistory({
       agentId: params.agentId,
-      outcome: params.outcome?.split(",") as any[],
-      starred: params.starred === "true" ? true : params.starred === "false" ? false : undefined,
+      outcome: params.outcome?.split(",") as HistoryOutcome[],
+      starred:
+        params.starred === "true"
+          ? true
+          : params.starred === "false"
+            ? false
+            : undefined,
       startDate: params.startDate ? new Date(params.startDate) : undefined,
       endDate: params.endDate ? new Date(params.endDate) : undefined,
       search: params.search,
@@ -155,7 +168,7 @@ history.get("/search", async (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        400
+        400,
       );
     }
 
@@ -214,7 +227,7 @@ history.get("/:id", async (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        404
+        404,
       );
     }
 
@@ -249,7 +262,7 @@ history.post("/:id/star", async (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        404
+        404,
       );
     }
 
@@ -281,7 +294,7 @@ history.post("/:id/replay", async (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        404
+        404,
       );
     }
 
@@ -313,11 +326,14 @@ history.post("/export", async (c) => {
     const content = await exportHistory({
       format: validated.format,
       agentId: validated.agentId,
-      startDate: validated.startDate ? new Date(validated.startDate) : undefined,
+      startDate: validated.startDate
+        ? new Date(validated.startDate)
+        : undefined,
       endDate: validated.endDate ? new Date(validated.endDate) : undefined,
     });
 
-    const contentType = validated.format === "json" ? "application/json" : "text/csv";
+    const contentType =
+      validated.format === "json" ? "application/json" : "text/csv";
     const filename = `history-export-${Date.now()}.${validated.format}`;
 
     return new Response(content, {
@@ -366,10 +382,14 @@ history.post("/extract", async (c) => {
     const body = await c.req.json();
     const validated = ExtractSchema.parse(body);
 
-    const result = extractFromOutput(validated.output, validated.type as ExtractionType, {
-      language: validated.language,
-      customPattern: validated.customPattern,
-    });
+    const result = extractFromOutput(
+      validated.output,
+      validated.type as ExtractionType,
+      {
+        language: validated.language,
+        customPattern: validated.customPattern,
+      },
+    );
 
     return c.json({
       ...result,

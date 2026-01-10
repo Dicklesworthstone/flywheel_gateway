@@ -2,10 +2,10 @@
  * Unit tests for the Utilities Service.
  */
 
-import { describe, test, expect, beforeEach, mock, spyOn } from "bun:test";
+import { beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import {
-  listUtilities,
   getUtilityStatus,
+  listUtilities,
   runDoctor,
 } from "../services/utilities.service";
 
@@ -92,7 +92,9 @@ describe("Utilities Service", () => {
       for (const check of result.utilities) {
         expect(check.name).toBeDefined();
         expect(check.status).toBeDefined();
-        expect(["installed", "missing", "outdated", "error"]).toContain(check.status);
+        expect(["installed", "missing", "outdated", "error"]).toContain(
+          check.status,
+        );
         expect(check.message).toBeDefined();
         expect(check.expectedVersion).toBeDefined();
       }
@@ -112,7 +114,9 @@ describe("Utilities Service", () => {
     test("healthy is true only when all utilities installed", async () => {
       const result = await runDoctor();
 
-      const allInstalled = result.utilities.every((u) => u.status === "installed");
+      const allInstalled = result.utilities.every(
+        (u) => u.status === "installed",
+      );
       expect(result.healthy).toBe(allInstalled);
     });
   });

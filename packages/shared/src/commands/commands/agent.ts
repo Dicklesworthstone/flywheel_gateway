@@ -138,7 +138,18 @@ export const listAgents = defineCommand({
   name: "agent.list",
   description: "List all agents with optional filtering",
   input: z.object({
-    state: z.array(z.enum(["spawning", "ready", "executing", "paused", "terminating", "terminated"])).optional(),
+    state: z
+      .array(
+        z.enum([
+          "spawning",
+          "ready",
+          "executing",
+          "paused",
+          "terminating",
+          "terminated",
+        ]),
+      )
+      .optional(),
     driver: z.array(z.string()).optional(),
     createdAfter: z.string().datetime().optional(),
     createdBefore: z.string().datetime().optional(),
@@ -266,7 +277,17 @@ export const getOutput = defineCommand({
     cursor: z.string().optional(),
     limit: z.number().min(1).max(1000).default(100),
     types: z
-      .array(z.enum(["text", "markdown", "thinking", "tool_use", "tool_result", "error", "system"]))
+      .array(
+        z.enum([
+          "text",
+          "markdown",
+          "thinking",
+          "tool_use",
+          "tool_result",
+          "error",
+          "system",
+        ]),
+      )
       .optional(),
     wait: z.number().min(0).max(30000).optional(),
   }),
@@ -275,7 +296,15 @@ export const getOutput = defineCommand({
       z.object({
         cursor: z.string(),
         timestamp: z.string().datetime(),
-        type: z.enum(["text", "markdown", "thinking", "tool_use", "tool_result", "error", "system"]),
+        type: z.enum([
+          "text",
+          "markdown",
+          "thinking",
+          "tool_use",
+          "tool_result",
+          "error",
+          "system",
+        ]),
         content: z.union([z.string(), z.record(z.string(), z.unknown())]),
       }),
     ),

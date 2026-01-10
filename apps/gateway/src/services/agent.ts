@@ -5,27 +5,31 @@
  * coordinating between the REST API and agent drivers.
  */
 
-import { createClaudeDriver, type ClaudeSDKDriver } from "@flywheel/agent-drivers";
 import type { Agent, AgentConfig } from "@flywheel/agent-drivers";
+import {
+  type ClaudeSDKDriver,
+  createClaudeDriver,
+} from "@flywheel/agent-drivers";
 import { eq } from "drizzle-orm";
-import { db, agents as agentsTable } from "../db";
+import { agents as agentsTable, db } from "../db";
 import { getLogger } from "../middleware/correlation";
-import { audit } from "./audit";
 import {
   initializeAgentState,
-  markAgentReady,
   markAgentExecuting,
-  markAgentIdle,
-  markAgentTerminating,
-  markAgentTerminated,
   markAgentFailed,
+  markAgentIdle,
+  markAgentReady,
+  markAgentTerminated,
+  markAgentTerminating,
+  removeAgentState,
 } from "./agent-state-machine";
+import { audit } from "./audit";
 import {
+  cleanupOutputBuffer,
+  type GetOutputOptions,
+  getOutput as getOutputFromBuffer,
   startOutputStreaming,
   stopOutputStreaming,
-  cleanupOutputBuffer,
-  getOutput as getOutputFromBuffer,
-  type GetOutputOptions,
 } from "./output.service";
 
 // In-memory agent registry
@@ -47,7 +51,7 @@ interface AgentRecord {
 
 async function refreshAgentRecord(
   record: AgentRecord,
-  drv: ClaudeSDKDriver
+  drv: ClaudeSDKDriver,
 ): Promise<void> {
   try {
     const state = await drv.getState(record.agent.id);
@@ -97,7 +101,10 @@ export async function spawnAgent(config: {
 
   // Check if agent already exists
   if (agents.has(agentId)) {
-    throw new AgentError("AGENT_ALREADY_EXISTS", `Agent ${agentId} already exists`);
+    throw new AgentError(
+      "AGENT_ALREADY_EXISTS",
+      `Agent ${agentId} already exists`,
+    );
   }
 
   // Initialize lifecycle state tracking
@@ -150,7 +157,10 @@ export async function spawnAgent(config: {
       .set({ status: "ready", updatedAt: new Date() })
       .where(eq(agentsTable.id, agentId));
 
-    log.info({ agentId, workingDirectory: config.workingDirectory }, "Agent spawned");
+    log.info(
+      { agentId, workingDirectory: config.workingDirectory },
+      "Agent spawned",
+    );
 
     // Start output streaming from the driver
     const eventStream = drv.subscribe(agentId);
@@ -187,6 +197,17 @@ export async function spawnAgent(config: {
       code: "SPAWN_FAILED",
       message: String(error),
     });
+    removeAgentState(agentId);
+
+    // Update DB status to failed
+    try {
+      await db
+        .update(agentsTable)
+        .set({ status: "failed", updatedAt: new Date() })
+        .where(eq(agentsTable.id, agentId));
+    } catch (dbError) {
+      log.error({ dbError }, "Failed to update agent status to failed");
+    }
 
     log.error({ error, agentId }, "Failed to spawn agent");
     audit({
@@ -228,17 +249,23 @@ export async function listAgents(options: {
   let agentList = Array.from(agents.values());
   if (agentList.length > 0) {
     const drv = await getDriver();
-    await Promise.all(agentList.map((record) => refreshAgentRecord(record, drv)));
+    await Promise.all(
+      agentList.map((record) => refreshAgentRecord(record, drv)),
+    );
   }
 
   // Filter by state
   if (options.state?.length) {
-    agentList = agentList.filter((r) => options.state!.includes(r.agent.activityState));
+    agentList = agentList.filter((r) =>
+      options.state!.includes(r.agent.activityState),
+    );
   }
 
   // Filter by driver
   if (options.driver?.length) {
-    agentList = agentList.filter((r) => options.driver!.includes(r.agent.driverType));
+    agentList = agentList.filter((r) =>
+      options.driver!.includes(r.agent.driverType),
+    );
   }
 
   // Filter by createdAt time range
@@ -344,7 +371,7 @@ export async function getAgent(agentId: string): Promise<{
  */
 export async function terminateAgent(
   agentId: string,
-  graceful = true
+  graceful = true,
 ): Promise<{
   agentId: string;
   state: "terminating";
@@ -370,7 +397,8 @@ export async function terminateAgent(
     cleanupOutputBuffer(agentId);
 
     // Update DB status
-    await db.update(agentsTable)
+    await db
+      .update(agentsTable)
       .set({ status: "terminated", updatedAt: new Date() })
       .where(eq(agentsTable.id, agentId));
 
@@ -399,7 +427,10 @@ export async function terminateAgent(
     });
 
     log.error({ error, agentId }, "Failed to terminate agent");
-    throw new AgentError("DRIVER_COMMUNICATION_ERROR", `Failed to terminate: ${error}`);
+    throw new AgentError(
+      "DRIVER_COMMUNICATION_ERROR",
+      `Failed to terminate: ${error}`,
+    );
   }
 }
 
@@ -409,7 +440,7 @@ export async function terminateAgent(
 export async function sendMessage(
   agentId: string,
   type: "user" | "system",
-  content: string
+  content: string,
 ): Promise<{
   messageId: string;
   receivedAt: string;
@@ -423,7 +454,10 @@ export async function sendMessage(
   }
 
   if (record.agent.activityState === "error") {
-    throw new AgentError("AGENT_ERROR_STATE", `Agent ${agentId} is in error state`);
+    throw new AgentError(
+      "AGENT_ERROR_STATE",
+      `Agent ${agentId} is in error state`,
+    );
   }
 
   // Transition to EXECUTING state when processing a message
@@ -443,7 +477,10 @@ export async function sendMessage(
     // This is typically detected through output events or polling
     // For now, we stay in EXECUTING until the next status check detects idle state
 
-    log.info({ agentId, messageId: result.messageId, type }, "Message sent to agent");
+    log.info(
+      { agentId, messageId: result.messageId, type },
+      "Message sent to agent",
+    );
 
     audit({
       action: "agent.send",
@@ -465,7 +502,10 @@ export async function sendMessage(
       // Ignore invalid transitions on failure recovery.
     }
     log.error({ error, agentId }, "Failed to send message");
-    throw new AgentError("DRIVER_COMMUNICATION_ERROR", `Failed to send: ${error}`);
+    throw new AgentError(
+      "DRIVER_COMMUNICATION_ERROR",
+      `Failed to send: ${error}`,
+    );
   }
 }
 
@@ -479,7 +519,7 @@ export async function getAgentOutput(
     cursor?: string;
     limit?: number;
     types?: string[];
-  }
+  },
 ): Promise<{
   chunks: Array<{
     cursor: string;
@@ -528,7 +568,7 @@ export async function getAgentOutput(
  */
 export async function interruptAgent(
   agentId: string,
-  signal: string = "SIGINT"
+  signal: string = "SIGINT",
 ): Promise<{
   agentId: string;
   signal: string;
@@ -558,7 +598,10 @@ export async function interruptAgent(
     };
   } catch (error) {
     log.error({ error, agentId }, "Failed to interrupt agent");
-    throw new AgentError("DRIVER_COMMUNICATION_ERROR", `Failed to interrupt: ${error}`);
+    throw new AgentError(
+      "DRIVER_COMMUNICATION_ERROR",
+      `Failed to interrupt: ${error}`,
+    );
   }
 }
 
@@ -568,7 +611,7 @@ export async function interruptAgent(
 export class AgentError extends Error {
   constructor(
     public code: string,
-    message: string
+    message: string,
   ) {
     super(message);
     this.name = "AgentError";

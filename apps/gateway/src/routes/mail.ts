@@ -9,19 +9,19 @@
  * - Sessions: /mail/sessions (macro)
  */
 
-import { Hono, type Context } from "hono";
-import { z } from "zod";
-import { serializeGatewayError } from "@flywheel/shared/errors";
-import type { GatewayError } from "@flywheel/shared/errors";
-import { getCorrelationId, getLogger } from "../middleware/correlation";
-import {
-  createAgentMailServiceFromEnv,
-  type AgentMailService,
-} from "../services/agentmail";
 import {
   AgentMailClientError,
   type AgentMailPriority,
 } from "@flywheel/flywheel-clients";
+import type { GatewayError } from "@flywheel/shared/errors";
+import { serializeGatewayError } from "@flywheel/shared/errors";
+import { type Context, Hono } from "hono";
+import { z } from "zod";
+import { getCorrelationId, getLogger } from "../middleware/correlation";
+import {
+  type AgentMailService,
+  createAgentMailServiceFromEnv,
+} from "../services/agentmail";
 
 // ============================================================================
 // Validation Schemas
@@ -72,6 +72,10 @@ const StartSessionSchema = z.object({
   agentMetadata: z.record(z.string(), z.unknown()).optional(),
 });
 
+const HealthSchema = z.object({
+  probe: z.enum(["liveness", "readiness"]).optional(),
+});
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -90,7 +94,7 @@ function respondWithGatewayError(c: Context, error: GatewayError) {
         ...(payload.details && { details: payload.details }),
       },
     },
-    payload.httpStatus
+    payload.httpStatus,
   );
 }
 
@@ -111,7 +115,7 @@ function handleError(error: unknown, c: Context) {
           details: error.issues,
         },
       },
-      400
+      400,
     );
   }
 
@@ -130,7 +134,7 @@ function handleError(error: unknown, c: Context) {
         timestamp,
       },
     },
-    500
+    500,
   );
 }
 
@@ -154,206 +158,229 @@ function createMailRoutes(service?: AgentMailService) {
   });
 
   mail.post("/projects", async (c) => {
-  try {
-    const body = await c.req.json();
-    const validated = EnsureProjectSchema.parse(body);
-    const service = c.get("agentMail");
+    try {
+      const body = await c.req.json();
+      const validated = EnsureProjectSchema.parse(body);
+      const service = c.get("agentMail");
 
-    const result = await service.client.ensureProject(validated);
+      const result = await service.client.ensureProject(validated);
 
-    return c.json(
-      {
-        projectId: result.projectId,
-        created: result.created,
-      },
-      result.created ? 201 : 200
-    );
-  } catch (error) {
-    return handleError(error, c);
-  }
-  });
-
-// ============================================================================
-// Agent Routes
-// ============================================================================
-
-/**
- * POST /mail/agents - Register an agent
- */
-  mail.post("/agents", async (c) => {
-  try {
-    const body = await c.req.json();
-    const validated = RegisterAgentSchema.parse(body);
-    const service = c.get("agentMail");
-
-    const result = await service.client.registerAgent(validated);
-
-    return c.json(result, 201);
-  } catch (error) {
-    return handleError(error, c);
-  }
-  });
-
-// ============================================================================
-// Message Routes
-// ============================================================================
-
-/**
- * POST /mail/messages - Send a message
- */
-  mail.post("/messages", async (c) => {
-  try {
-    const body = await c.req.json();
-    const validated = SendMessageSchema.parse(body);
-    const service = c.get("agentMail");
-
-    const message = await service.client.sendMessage({
-      projectId: validated.projectId,
-      to: validated.to,
-      subject: validated.subject,
-      body: validated.body,
-      priority: validated.priority as AgentMailPriority,
-      ttl: validated.ttl,
-    });
-
-    return c.json(message, 201);
-  } catch (error) {
-    return handleError(error, c);
-  }
-  });
-
-/**
- * POST /mail/messages/:messageId/reply - Reply to a message
- */
-  mail.post("/messages/:messageId/reply", async (c) => {
-  try {
-    const messageId = c.req.param("messageId");
-    const body = await c.req.json();
-    const validated = ReplySchema.omit({ messageId: true }).parse(body);
-    const service = c.get("agentMail");
-
-    const result = await service.client.reply({
-      messageId,
-      body: validated.body,
-      priority: validated.priority as AgentMailPriority | undefined,
-    });
-
-    return c.json(result, 201);
-  } catch (error) {
-    return handleError(error, c);
-  }
-  });
-
-/**
- * GET /mail/messages/inbox - Fetch inbox for an agent
- */
-  mail.get("/messages/inbox", async (c) => {
-  try {
-    const projectId = c.req.query("projectId");
-    const agentId = c.req.query("agentId");
-
-    if (!projectId || !agentId) {
       return c.json(
         {
-          error: {
-            code: "MISSING_PARAMETERS",
-            message: "projectId and agentId are required",
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
+          projectId: result.projectId,
+          created: result.created,
         },
-        400
+        result.created ? 201 : 200,
       );
+    } catch (error) {
+      return handleError(error, c);
     }
-
-    const service = c.get("agentMail");
-    const limitStr = c.req.query("limit");
-    const parsedLimit = limitStr ? parseInt(limitStr, 10) : undefined;
-    // Ensure we don't pass NaN if limit is not a valid number
-    const limit = parsedLimit !== undefined && !Number.isNaN(parsedLimit) ? parsedLimit : undefined;
-    const since = c.req.query("since");
-    const priority = c.req.query("priority") as AgentMailPriority | undefined;
-
-    const fetchInput: Parameters<typeof service.client.fetchInbox>[0] = {
-      projectId,
-      agentId,
-    };
-    if (limit !== undefined) fetchInput.limit = limit;
-    if (since !== undefined) fetchInput.since = since;
-    if (priority !== undefined) fetchInput.priority = priority;
-
-    const result = await service.client.fetchInbox(fetchInput);
-
-    return c.json(result);
-  } catch (error) {
-    return handleError(error, c);
-  }
   });
 
-// ============================================================================
-// Reservation Routes
-// ============================================================================
+  // ============================================================================
+  // Agent Routes
+  // ============================================================================
 
-/**
- * POST /mail/reservations - Create file reservations
- */
+  /**
+   * POST /mail/agents - Register an agent
+   */
+  mail.post("/agents", async (c) => {
+    try {
+      const body = await c.req.json();
+      const validated = RegisterAgentSchema.parse(body);
+      const service = c.get("agentMail");
+
+      const result = await service.client.registerAgent(validated);
+
+      return c.json(result, 201);
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  // ============================================================================
+  // Message Routes
+  // ============================================================================
+
+  /**
+   * POST /mail/messages - Send a message
+   */
+  mail.post("/messages", async (c) => {
+    try {
+      const body = await c.req.json();
+      const validated = SendMessageSchema.parse(body);
+      const service = c.get("agentMail");
+
+      const message = await service.client.sendMessage({
+        projectId: validated.projectId,
+        to: validated.to,
+        subject: validated.subject,
+        body: validated.body,
+        priority: validated.priority as AgentMailPriority,
+        ttl: validated.ttl,
+      });
+
+      return c.json(message, 201);
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  /**
+   * POST /mail/messages/:messageId/reply - Reply to a message
+   */
+  mail.post("/messages/:messageId/reply", async (c) => {
+    try {
+      const messageId = c.req.param("messageId");
+      const body = await c.req.json();
+      const validated = ReplySchema.omit({ messageId: true }).parse(body);
+      const service = c.get("agentMail");
+
+      const result = await service.client.reply({
+        messageId,
+        body: validated.body,
+        priority: validated.priority as AgentMailPriority | undefined,
+      });
+
+      return c.json(result, 201);
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  /**
+   * GET /mail/messages/inbox - Fetch inbox for an agent
+   */
+  mail.get("/messages/inbox", async (c) => {
+    try {
+      const projectId = c.req.query("projectId");
+      const agentId = c.req.query("agentId");
+
+      if (!projectId || !agentId) {
+        return c.json(
+          {
+            error: {
+              code: "MISSING_PARAMETERS",
+              message: "projectId and agentId are required",
+              correlationId: getCorrelationId(),
+              timestamp: new Date().toISOString(),
+            },
+          },
+          400,
+        );
+      }
+
+      const service = c.get("agentMail");
+      const limitStr = c.req.query("limit");
+      const parsedLimit = limitStr ? parseInt(limitStr, 10) : undefined;
+      // Ensure we don't pass NaN if limit is not a valid number
+      const limit =
+        parsedLimit !== undefined && !Number.isNaN(parsedLimit)
+          ? parsedLimit
+          : undefined;
+      const since = c.req.query("since");
+      const priority = c.req.query("priority") as AgentMailPriority | undefined;
+
+      const fetchInput: Parameters<typeof service.client.fetchInbox>[0] = {
+        projectId,
+        agentId,
+      };
+      if (limit !== undefined) fetchInput.limit = limit;
+      if (since !== undefined) fetchInput.since = since;
+      if (priority !== undefined) fetchInput.priority = priority;
+
+      const result = await service.client.fetchInbox(fetchInput);
+
+      return c.json(result);
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  // ============================================================================
+  // Reservation Routes
+  // ============================================================================
+
+  /**
+   * POST /mail/reservations - Create file reservations
+   */
   mail.post("/reservations", async (c) => {
-  try {
-    const body = await c.req.json();
-    const validated = ReserveFilesSchema.parse(body);
-    const service = c.get("agentMail");
+    try {
+      const body = await c.req.json();
+      const validated = ReserveFilesSchema.parse(body);
+      const service = c.get("agentMail");
 
-    const result = await service.client.reservationCycle({
-      projectId: validated.projectId,
-      requesterId: validated.requesterId,
-      patterns: validated.patterns,
-      duration: validated.duration,
-      exclusive: validated.exclusive,
-    });
+      const result = await service.client.reservationCycle({
+        projectId: validated.projectId,
+        requesterId: validated.requesterId,
+        patterns: validated.patterns,
+        duration: validated.duration,
+        exclusive: validated.exclusive,
+      });
 
-    return c.json(result, 201);
-  } catch (error) {
-    return handleError(error, c);
-  }
+      return c.json(result, 201);
+    } catch (error) {
+      return handleError(error, c);
+    }
   });
 
-// ============================================================================
-// Session Macro Routes
-// ============================================================================
+  // ============================================================================
+  // Session Macro Routes
+  // ============================================================================
 
-/**
- * POST /mail/sessions - Start a session (macro: ensure project + register agent)
- */
+  /**
+   * POST /mail/sessions - Start a session (macro: ensure project + register agent)
+   */
   mail.post("/sessions", async (c) => {
-  try {
-    const body = await c.req.json();
-    const validated = StartSessionSchema.parse(body);
-    const service = c.get("agentMail");
+    try {
+      const body = await c.req.json();
+      const validated = StartSessionSchema.parse(body);
+      const service = c.get("agentMail");
 
-    const sessionInput: Parameters<typeof service.client.startSession>[0] = {
-      projectId: validated.projectId,
-      name: validated.name,
-      agentId: validated.agentId,
-    };
-    if (validated.capabilities !== undefined)
-      sessionInput.capabilities = validated.capabilities;
-    if (validated.projectMetadata !== undefined)
-      sessionInput.projectMetadata = validated.projectMetadata;
-    if (validated.agentMetadata !== undefined)
-      sessionInput.agentMetadata = validated.agentMetadata;
+      const sessionInput: Parameters<typeof service.client.startSession>[0] = {
+        projectId: validated.projectId,
+        name: validated.name,
+        agentId: validated.agentId,
+      };
+      if (validated.capabilities !== undefined)
+        sessionInput.capabilities = validated.capabilities;
+      if (validated.projectMetadata !== undefined)
+        sessionInput.projectMetadata = validated.projectMetadata;
+      if (validated.agentMetadata !== undefined)
+        sessionInput.agentMetadata = validated.agentMetadata;
 
-    const result = await service.client.startSession(sessionInput);
+      const result = await service.client.startSession(sessionInput);
 
-    return c.json(
-      {
-        project: result.project,
-        agent: result.registration,
-      },
-      201
-    );
-  } catch (error) {
-    return handleError(error, c);
-  }
+      return c.json(
+        {
+          project: result.project,
+          agent: result.registration,
+        },
+        201,
+      );
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  // ============================================================================
+  // Health Routes
+  // ============================================================================
+
+  /**
+   * GET /mail/health - Health check for Agent Mail MCP server
+   */
+  mail.get("/health", async (c) => {
+    try {
+      const service = c.get("agentMail");
+      const validated = HealthSchema.parse({
+        probe: c.req.query("probe"),
+      });
+      const result = await service.client.healthCheck(validated);
+      return c.json(result);
+    } catch (error) {
+      return handleError(error, c);
+    }
   });
 
   return mail;

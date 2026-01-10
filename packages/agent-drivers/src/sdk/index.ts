@@ -7,4 +7,8 @@
  * - Gemini (Google) - planned
  */
 
-export { ClaudeSDKDriver, createClaudeDriver, type ClaudeDriverOptions } from "./claude-driver";
+export {
+  type ClaudeDriverOptions,
+  ClaudeSDKDriver,
+  createClaudeDriver,
+} from "./claude-driver";

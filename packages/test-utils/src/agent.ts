@@ -6,40 +6,40 @@ export interface MockAgentEvent {
 
 export interface MockAgentDriver {
   driverId: string;
-  driverType: 'mock';
+  driverType: "mock";
   events: MockAgentEvent[];
-  pushEvent: (event: Omit<MockAgentEvent, 'timestamp'>) => MockAgentEvent;
+  pushEvent: (event: Omit<MockAgentEvent, "timestamp">) => MockAgentEvent;
 }
 
-export function mockAgentDriver(driverId = 'mock-driver'): MockAgentDriver {
+export function mockAgentDriver(driverId = "mock-driver"): MockAgentDriver {
   const events: MockAgentEvent[] = [];
   return {
     driverId,
-    driverType: 'mock',
+    driverType: "mock",
     events,
     pushEvent: (event) => {
       const entry: MockAgentEvent = {
         ...event,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
       events.push(entry);
       return entry;
-    }
+    },
   };
 }
 
-export function createTestAgent(agentId = 'agent-test-1') {
+export function createTestAgent(agentId = "agent-test-1") {
   return {
     id: agentId,
-    status: 'ready' as const,
-    model: 'test-model',
-    createdAt: new Date().toISOString()
+    status: "ready" as const,
+    model: "test-model",
+    createdAt: new Date().toISOString(),
   };
 }
 
 export function simulateAgentOutput(output: string) {
   return {
     output,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   };
 }

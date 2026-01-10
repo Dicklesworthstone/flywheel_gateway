@@ -7,17 +7,17 @@
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
   type Alert,
-  type AlertRule,
-  type AlertRuleUpdate,
   type AlertContext,
   type AlertFilter,
   type AlertListResponse,
+  type AlertRule,
+  type AlertRuleUpdate,
   type AlertSeverity,
   DEFAULT_COOLDOWN_MS,
   SEVERITY_ORDER,
 } from "../models/alert";
-import { getMetricsSnapshot } from "./metrics";
 import { logger } from "./logger";
+import { getMetricsSnapshot } from "./metrics";
 
 /** Active alerts */
 const activeAlerts = new Map<string, Alert>();
@@ -50,13 +50,19 @@ function generateAlertId(): string {
  */
 export function registerAlertRule(rule: AlertRule): void {
   alertRules.set(rule.id, rule);
-  logger.debug({ ruleId: rule.id, ruleName: rule.name }, "Alert rule registered");
+  logger.debug(
+    { ruleId: rule.id, ruleName: rule.name },
+    "Alert rule registered",
+  );
 }
 
 /**
  * Update an alert rule.
  */
-export function updateAlertRule(ruleId: string, update: AlertRuleUpdate): AlertRule | undefined {
+export function updateAlertRule(
+  ruleId: string,
+  update: AlertRuleUpdate,
+): AlertRule | undefined {
   const rule = alertRules.get(ruleId);
   if (!rule) return undefined;
 
@@ -119,15 +125,14 @@ function buildAlertContext(correlationId: string): AlertContext {
 /**
  * Create and fire an alert.
  */
-export function fireAlert(
-  rule: AlertRule,
-  context: AlertContext
-): Alert {
+export function fireAlert(rule: AlertRule, context: AlertContext): Alert {
   const correlationId = context.correlationId;
   const log = getLogger();
 
-  const title = typeof rule.title === "function" ? rule.title(context) : rule.title;
-  const message = typeof rule.message === "function" ? rule.message(context) : rule.message;
+  const title =
+    typeof rule.title === "function" ? rule.title(context) : rule.title;
+  const message =
+    typeof rule.message === "function" ? rule.message(context) : rule.message;
 
   const alert: Alert = {
     id: generateAlertId(),
@@ -198,7 +203,7 @@ export function evaluateAlertRules(): Alert[] {
     try {
       // Find previous alert for this rule
       const previousAlert = alertHistory.find(
-        (a) => a.source === (rule.source ?? rule.id) && !a.acknowledged
+        (a) => a.source === (rule.source ?? rule.id) && !a.acknowledged,
       );
       context.previousAlert = previousAlert;
 
@@ -209,7 +214,7 @@ export function evaluateAlertRules(): Alert[] {
     } catch (error) {
       logger.error(
         { error, ruleId: rule.id, ruleName: rule.name },
-        "Alert rule evaluation failed"
+        "Alert rule evaluation failed",
       );
     }
   }
@@ -242,7 +247,8 @@ export function getActiveAlerts(filter?: AlertFilter): AlertListResponse {
 
   // Sort by severity (most severe first), then by time (most recent first)
   alerts.sort((a, b) => {
-    const severityDiff = SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity];
+    const severityDiff =
+      SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity];
     if (severityDiff !== 0) return severityDiff;
     return b.createdAt.getTime() - a.createdAt.getTime();
   });
@@ -319,7 +325,9 @@ export function getAlertHistory(filter?: AlertFilter): AlertListResponse {
  * Get an alert by ID.
  */
 export function getAlert(alertId: string): Alert | undefined {
-  return activeAlerts.get(alertId) ?? alertHistory.find((a) => a.id === alertId);
+  return (
+    activeAlerts.get(alertId) ?? alertHistory.find((a) => a.id === alertId)
+  );
 }
 
 /**
@@ -327,7 +335,7 @@ export function getAlert(alertId: string): Alert | undefined {
  */
 export function acknowledgeAlert(
   alertId: string,
-  acknowledgedBy?: string
+  acknowledgedBy?: string,
 ): Alert | undefined {
   const alert = activeAlerts.get(alertId);
   if (!alert) return undefined;
@@ -352,7 +360,7 @@ export function acknowledgeAlert(
  */
 export function dismissAlert(
   alertId: string,
-  dismissedBy?: string
+  dismissedBy?: string,
 ): Alert | undefined {
   const alert = activeAlerts.get(alertId);
   if (!alert) return undefined;
@@ -460,9 +468,7 @@ export function initializeDefaultAlertRules(): void {
     title: "API quota exhausted",
     message: "API quota has been exhausted. Agent operations may fail.",
     source: "quota_monitor",
-    actions: [
-      { id: "upgrade", label: "Upgrade Plan", type: "link" },
-    ],
+    actions: [{ id: "upgrade", label: "Upgrade Plan", type: "link" }],
   });
 
   // High error rate
@@ -508,12 +514,14 @@ export function initializeDefaultAlertRules(): void {
     cooldown: 10 * 60 * 1000, // 10 minutes
     condition: (ctx) => ctx.metrics.system.memoryUsageMb > 1024,
     title: "High memory usage",
-    message: (ctx) =>
-      `Memory usage is ${ctx.metrics.system.memoryUsageMb}MB`,
+    message: (ctx) => `Memory usage is ${ctx.metrics.system.memoryUsageMb}MB`,
     source: "system_monitor",
   });
 
-  logger.info({ ruleCount: alertRules.size }, "Default alert rules initialized");
+  logger.info(
+    { ruleCount: alertRules.size },
+    "Default alert rules initialized",
+  );
 }
 
 // Initialize rules on module load

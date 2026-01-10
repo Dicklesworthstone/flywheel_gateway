@@ -2,22 +2,22 @@
  * Unit tests for the Checkpoint Service.
  */
 
-import { describe, test, expect, beforeEach, beforeAll } from "bun:test";
-import { db, agents } from "../db";
+import { beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
+import { agents, db } from "../db";
 import {
-  createCheckpoint,
-  getCheckpoint,
-  getAgentCheckpoints,
-  getLatestCheckpoint,
-  restoreCheckpoint,
-  verifyCheckpoint,
-  exportCheckpoint,
-  importCheckpoint,
-  deleteCheckpoint,
-  pruneCheckpoints,
   CheckpointError,
   type CreateCheckpointOptions,
+  createCheckpoint,
+  deleteCheckpoint,
+  exportCheckpoint,
+  getAgentCheckpoints,
+  getCheckpoint,
+  getLatestCheckpoint,
+  importCheckpoint,
+  pruneCheckpoints,
+  restoreCheckpoint,
+  verifyCheckpoint,
 } from "../services/checkpoint";
 
 async function ensureAgent(agentId: string) {
@@ -80,7 +80,7 @@ describe("Checkpoint Service", () => {
           toolState: {},
           tokenUsage: testTokenUsage,
         },
-        options
+        options,
       );
 
       expect(metadata.description).toBe("Before refactoring");
@@ -106,7 +106,7 @@ describe("Checkpoint Service", () => {
           toolState: { newState: true },
           tokenUsage: { ...testTokenUsage, totalTokens: 2000 },
         },
-        { delta: true }
+        { delta: true },
       );
 
       expect(second.id).not.toBe(first.id);
@@ -225,7 +225,7 @@ describe("Checkpoint Service", () => {
 
     test("throws CheckpointError for non-existent checkpoint", async () => {
       await expect(restoreCheckpoint("chk_nonexistent_123456")).rejects.toThrow(
-        CheckpointError
+        CheckpointError,
       );
     });
 
@@ -293,7 +293,7 @@ describe("Checkpoint Service", () => {
 
     test("throws for non-existent checkpoint", async () => {
       await expect(exportCheckpoint("chk_nonexistent_123456")).rejects.toThrow(
-        CheckpointError
+        CheckpointError,
       );
     });
   });
@@ -390,7 +390,7 @@ describe("Checkpoint Service", () => {
           toolState: {},
           tokenUsage: testTokenUsage,
         },
-        { delta: true }
+        { delta: true },
       );
 
       // Should throw because first checkpoint has dependents

@@ -1,17 +1,17 @@
-import { describe, expect, it, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, it } from "bun:test";
 import {
+  ACTIVE_STATES,
   AgentState,
   AgentStateMachine,
-  InvalidStateTransitionError,
-  isValidTransition,
   getValidTransitions,
-  isTerminalState,
+  IDLE_STATES,
+  InvalidStateTransitionError,
   isActiveState,
   isIdleState,
-  TERMINAL_STATES,
-  ACTIVE_STATES,
-  IDLE_STATES,
+  isTerminalState,
+  isValidTransition,
   STATE_TRANSITIONS,
+  TERMINAL_STATES,
 } from "../state";
 
 describe("AgentState enum", () => {
@@ -110,24 +110,42 @@ describe("STATE_TRANSITIONS", () => {
 
 describe("isValidTransition", () => {
   it("returns true for valid transitions", () => {
-    expect(isValidTransition(AgentState.SPAWNING, AgentState.INITIALIZING)).toBe(true);
-    expect(isValidTransition(AgentState.INITIALIZING, AgentState.READY)).toBe(true);
-    expect(isValidTransition(AgentState.READY, AgentState.EXECUTING)).toBe(true);
-    expect(isValidTransition(AgentState.EXECUTING, AgentState.READY)).toBe(true);
+    expect(
+      isValidTransition(AgentState.SPAWNING, AgentState.INITIALIZING),
+    ).toBe(true);
+    expect(isValidTransition(AgentState.INITIALIZING, AgentState.READY)).toBe(
+      true,
+    );
+    expect(isValidTransition(AgentState.READY, AgentState.EXECUTING)).toBe(
+      true,
+    );
+    expect(isValidTransition(AgentState.EXECUTING, AgentState.READY)).toBe(
+      true,
+    );
   });
 
   it("returns false for invalid transitions", () => {
-    expect(isValidTransition(AgentState.SPAWNING, AgentState.READY)).toBe(false);
-    expect(isValidTransition(AgentState.READY, AgentState.SPAWNING)).toBe(false);
-    expect(isValidTransition(AgentState.TERMINATED, AgentState.READY)).toBe(false);
+    expect(isValidTransition(AgentState.SPAWNING, AgentState.READY)).toBe(
+      false,
+    );
+    expect(isValidTransition(AgentState.READY, AgentState.SPAWNING)).toBe(
+      false,
+    );
+    expect(isValidTransition(AgentState.TERMINATED, AgentState.READY)).toBe(
+      false,
+    );
     expect(isValidTransition(AgentState.FAILED, AgentState.READY)).toBe(false);
   });
 });
 
 describe("getValidTransitions", () => {
   it("returns valid transitions for each state", () => {
-    expect(getValidTransitions(AgentState.SPAWNING)).toContain(AgentState.INITIALIZING);
-    expect(getValidTransitions(AgentState.READY)).toContain(AgentState.EXECUTING);
+    expect(getValidTransitions(AgentState.SPAWNING)).toContain(
+      AgentState.INITIALIZING,
+    );
+    expect(getValidTransitions(AgentState.READY)).toContain(
+      AgentState.EXECUTING,
+    );
     expect(getValidTransitions(AgentState.TERMINATED)).toHaveLength(0);
   });
 });
@@ -173,14 +191,20 @@ describe("isIdleState", () => {
 
 describe("InvalidStateTransitionError", () => {
   it("contains from and to states", () => {
-    const error = new InvalidStateTransitionError(AgentState.SPAWNING, AgentState.READY);
+    const error = new InvalidStateTransitionError(
+      AgentState.SPAWNING,
+      AgentState.READY,
+    );
     expect(error.from).toBe(AgentState.SPAWNING);
     expect(error.to).toBe(AgentState.READY);
     expect(error.name).toBe("InvalidStateTransitionError");
   });
 
   it("includes helpful error message", () => {
-    const error = new InvalidStateTransitionError(AgentState.SPAWNING, AgentState.READY);
+    const error = new InvalidStateTransitionError(
+      AgentState.SPAWNING,
+      AgentState.READY,
+    );
     expect(error.message).toContain("spawning");
     expect(error.message).toContain("ready");
     expect(error.message).toContain("initializing");
@@ -207,7 +231,9 @@ describe("AgentStateMachine", () => {
 
     it("sets stateEnteredAt to current time", () => {
       const now = Date.now();
-      expect(machine.stateEnteredAt.getTime()).toBeGreaterThanOrEqual(now - 100);
+      expect(machine.stateEnteredAt.getTime()).toBeGreaterThanOrEqual(
+        now - 100,
+      );
       expect(machine.stateEnteredAt.getTime()).toBeLessThanOrEqual(now + 100);
     });
 
@@ -252,7 +278,9 @@ describe("AgentStateMachine", () => {
 
   describe("transition", () => {
     it("successfully transitions to valid state", () => {
-      const result = machine.transition(AgentState.INITIALIZING, { reason: "system" });
+      const result = machine.transition(AgentState.INITIALIZING, {
+        reason: "system",
+      });
 
       expect(result.from).toBe(AgentState.SPAWNING);
       expect(result.to).toBe(AgentState.INITIALIZING);
@@ -270,7 +298,9 @@ describe("AgentStateMachine", () => {
       const beforeTime = machine.stateEnteredAt;
       machine.transition(AgentState.INITIALIZING, { reason: "system" });
 
-      expect(machine.stateEnteredAt.getTime()).toBeGreaterThanOrEqual(beforeTime.getTime());
+      expect(machine.stateEnteredAt.getTime()).toBeGreaterThanOrEqual(
+        beforeTime.getTime(),
+      );
     });
 
     it("adds transition to history", () => {
@@ -319,7 +349,9 @@ describe("AgentStateMachine", () => {
 
   describe("history management", () => {
     it("limits history size", () => {
-      const smallMachine = new AgentStateMachine(AgentState.READY, { maxHistorySize: 3 });
+      const smallMachine = new AgentStateMachine(AgentState.READY, {
+        maxHistorySize: 3,
+      });
 
       // Cycle through states to generate history
       smallMachine.transition(AgentState.EXECUTING, { reason: "user_action" });
@@ -374,7 +406,10 @@ describe("AgentStateMachine", () => {
 
   describe("serialization", () => {
     it("toJSON serializes the state machine", () => {
-      machine.transition(AgentState.INITIALIZING, { reason: "system", correlationId: "test" });
+      machine.transition(AgentState.INITIALIZING, {
+        reason: "system",
+        correlationId: "test",
+      });
       const json = machine.toJSON();
 
       expect(json.state).toBe(AgentState.INITIALIZING);

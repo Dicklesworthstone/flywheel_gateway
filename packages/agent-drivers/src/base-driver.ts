@@ -8,6 +8,7 @@
  * - Health check framework
  */
 
+import type { AgentDriver, DriverOptions } from "./interface";
 import type {
   Agent,
   AgentConfig,
@@ -22,13 +23,12 @@ import type {
   SpawnResult,
   TokenUsage,
 } from "./types";
-import type { AgentDriver, DriverOptions } from "./interface";
 
 type DriverLogLevel = "debug" | "info" | "warn" | "error";
 type DriverLogger = (
   level: DriverLogLevel,
   message: string,
-  context?: Record<string, unknown>
+  context?: Record<string, unknown>,
 ) => void;
 const DRIVER_DEBUG_ENABLED = process.env["FLYWHEEL_DRIVER_DEBUG"] === "1";
 let driverLogger: DriverLogger | undefined;
@@ -37,7 +37,7 @@ export function logDriver(
   level: DriverLogLevel,
   driverType: AgentDriverType,
   message: string,
-  context?: Record<string, unknown>
+  context?: Record<string, unknown>,
 ): void {
   if (!DRIVER_DEBUG_ENABLED || !driverLogger) return;
   const formatted = `[DRIVER] ${driverType} ${message}`;
@@ -100,12 +100,18 @@ export abstract class BaseDriver implements AgentDriver {
   /**
    * Driver-specific message sending logic.
    */
-  protected abstract doSend(agentId: string, message: string): Promise<SendResult>;
+  protected abstract doSend(
+    agentId: string,
+    message: string,
+  ): Promise<SendResult>;
 
   /**
    * Driver-specific termination logic.
    */
-  protected abstract doTerminate(agentId: string, graceful: boolean): Promise<void>;
+  protected abstract doTerminate(
+    agentId: string,
+    graceful: boolean,
+  ): Promise<void>;
 
   /**
    * Driver-specific interrupt logic.
@@ -137,7 +143,7 @@ export abstract class BaseDriver implements AgentDriver {
     // Check capacity
     if (this.agents.size >= this.config.maxConcurrentAgents) {
       throw new Error(
-        `Driver ${this.driverId} at capacity (${this.config.maxConcurrentAgents} agents)`
+        `Driver ${this.driverId} at capacity (${this.config.maxConcurrentAgents} agents)`,
       );
     }
 
@@ -160,7 +166,7 @@ export abstract class BaseDriver implements AgentDriver {
     if (this.config.stallThresholdMs > 0) {
       internalState.stallCheckInterval = setInterval(
         () => this.checkStall(config.id),
-        this.config.stallThresholdMs / 2
+        this.config.stallThresholdMs / 2,
       );
     }
 
@@ -175,7 +181,12 @@ export abstract class BaseDriver implements AgentDriver {
       throw new Error(`Agent not found: ${agentId}`);
     }
     // Return state without internal fields
-    const { outputBuffer, eventSubscribers, stallCheckInterval, ...agentState } = state;
+    const {
+      outputBuffer,
+      eventSubscribers,
+      stallCheckInterval,
+      ...agentState
+    } = state;
     return agentState;
   }
 
@@ -243,7 +254,9 @@ export abstract class BaseDriver implements AgentDriver {
 
   async interrupt(agentId: string): Promise<void> {
     if (!this.capabilities.interrupt) {
-      throw new Error(`Driver ${this.driverType} does not support interruption`);
+      throw new Error(
+        `Driver ${this.driverType} does not support interruption`,
+      );
     }
 
     const state = this.agents.get(agentId);
@@ -264,7 +277,11 @@ export abstract class BaseDriver implements AgentDriver {
     this.updateState(agentId, { activityState: "idle" });
   }
 
-  async getOutput(agentId: string, since?: Date, limit = 100): Promise<OutputLine[]> {
+  async getOutput(
+    agentId: string,
+    since?: Date,
+    limit = 100,
+  ): Promise<OutputLine[]> {
     const state = this.agents.get(agentId);
     if (!state) {
       throw new Error(`Agent not found: ${agentId}`);
@@ -285,7 +302,8 @@ export abstract class BaseDriver implements AgentDriver {
 
     // Create an async queue for events
     const queue: AgentEvent[] = [];
-    let resolveWaiting: ((value: IteratorResult<AgentEvent>) => void) | null = null;
+    let resolveWaiting: ((value: IteratorResult<AgentEvent>) => void) | null =
+      null;
     let done = false;
 
     const subscriber = (event: AgentEvent) => {
@@ -307,9 +325,11 @@ export abstract class BaseDriver implements AgentDriver {
         if (queue.length > 0) {
           yield queue.shift()!;
         } else {
-          const event = await new Promise<IteratorResult<AgentEvent>>((resolve) => {
-            resolveWaiting = resolve;
-          });
+          const event = await new Promise<IteratorResult<AgentEvent>>(
+            (resolve) => {
+              resolveWaiting = resolve;
+            },
+          );
           if (!event.done) {
             yield event.value;
           }
@@ -332,10 +352,7 @@ export abstract class BaseDriver implements AgentDriver {
   /**
    * Update agent state and emit state change event.
    */
-  protected updateState(
-    agentId: string,
-    updates: Partial<AgentState>
-  ): void {
+  protected updateState(agentId: string, updates: Partial<AgentState>): void {
     const state = this.agents.get(agentId);
     if (!state) return;
 
@@ -384,7 +401,10 @@ export abstract class BaseDriver implements AgentDriver {
   /**
    * Update token usage for an agent.
    */
-  protected updateTokenUsage(agentId: string, usage: Partial<TokenUsage>): void {
+  protected updateTokenUsage(
+    agentId: string,
+    usage: Partial<TokenUsage>,
+  ): void {
     const state = this.agents.get(agentId);
     if (!state) return;
 
@@ -418,7 +438,12 @@ export abstract class BaseDriver implements AgentDriver {
           type: "context_warning",
           agentId,
           timestamp: new Date(),
-          level: contextHealth === "emergency" ? "emergency" : contextHealth === "critical" ? "critical" : "warning",
+          level:
+            contextHealth === "emergency"
+              ? "emergency"
+              : contextHealth === "critical"
+                ? "critical"
+                : "warning",
           usagePercent,
           suggestion: this.getContextSuggestion(contextHealth),
         });
@@ -481,7 +506,7 @@ export abstract class BaseDriver implements AgentDriver {
  */
 export function createDriverOptions(
   type: AgentDriverType,
-  options?: Partial<DriverOptions>
+  options?: Partial<DriverOptions>,
 ): BaseDriverConfig {
   return {
     driverId: options?.driverId ?? `${type}-${Date.now()}`,

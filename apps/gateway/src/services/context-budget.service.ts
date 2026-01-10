@@ -7,9 +7,9 @@
  */
 
 import {
-  type TokenBreakdown,
   type BudgetStrategy,
   DEFAULT_BUDGET_STRATEGY,
+  type TokenBreakdown,
 } from "../types/context.types";
 
 /**
@@ -26,9 +26,14 @@ type ProportionalSection = "triage" | "memory" | "search" | "history";
  */
 export function allocateBudget(
   totalTokens: number,
-  strategy: BudgetStrategy = DEFAULT_BUDGET_STRATEGY
+  strategy: BudgetStrategy = DEFAULT_BUDGET_STRATEGY,
 ): TokenBreakdown {
-  const sections: ProportionalSection[] = ["triage", "memory", "search", "history"];
+  const sections: ProportionalSection[] = [
+    "triage",
+    "memory",
+    "search",
+    "history",
+  ];
 
   // Handle edge case: budget is zero or negative
   if (totalTokens <= 0) {
@@ -85,7 +90,7 @@ export function allocateBudget(
     }
 
     // Calculate total used
-    let used = getTotalAllocated(allocation);
+    const used = getTotalAllocated(allocation);
 
     // Redistribute overflow if we exceed budget
     let overflow = used - totalTokens;
@@ -96,7 +101,7 @@ export function allocateBudget(
       for (const key of reversePriority) {
         const reduction = Math.min(
           overflow,
-          allocation[key] - strategy.minimums[key]
+          allocation[key] - strategy.minimums[key],
         );
         allocation[key] -= reduction;
         overflow -= reduction;
@@ -106,11 +111,14 @@ export function allocateBudget(
   }
 
   // Final check: ensure we never exceed budget
-  let finalTotal = getTotalAllocated(allocation);
+  const finalTotal = getTotalAllocated(allocation);
   if (finalTotal > totalTokens) {
     // Scale down proportional sections to fit
     const proportionalTotal =
-      allocation.triage + allocation.memory + allocation.search + allocation.history;
+      allocation.triage +
+      allocation.memory +
+      allocation.search +
+      allocation.history;
     if (proportionalTotal > 0) {
       const excess = finalTotal - totalTokens;
       const scale = Math.max(0, 1 - excess / proportionalTotal);
@@ -132,7 +140,7 @@ export function allocateBudget(
  */
 export function calculateRemaining(
   breakdown: TokenBreakdown,
-  used: Partial<Record<keyof TokenBreakdown, number>>
+  used: Partial<Record<keyof TokenBreakdown, number>>,
 ): TokenBreakdown {
   return {
     system: breakdown.system - (used.system ?? 0),
@@ -184,12 +192,17 @@ export function validateStrategy(strategy: BudgetStrategy): string[] {
 
   if (Math.abs(proportionalSum - 1.0) > 0.001) {
     errors.push(
-      `Proportional allocations should sum to 1.0, got ${proportionalSum.toFixed(3)}`
+      `Proportional allocations should sum to 1.0, got ${proportionalSum.toFixed(3)}`,
     );
   }
 
   // Check each proportional is between 0 and 1
-  const sections: ProportionalSection[] = ["triage", "memory", "search", "history"];
+  const sections: ProportionalSection[] = [
+    "triage",
+    "memory",
+    "search",
+    "history",
+  ];
   for (const key of sections) {
     if (strategy.proportional[key] < 0 || strategy.proportional[key] > 1) {
       errors.push(`Proportional ${key} must be between 0 and 1`);
@@ -218,7 +231,7 @@ export function validateStrategy(strategy: BudgetStrategy): string[] {
  * @throws Error if the resulting strategy is invalid
  */
 export function createStrategy(
-  overrides: Partial<BudgetStrategy>
+  overrides: Partial<BudgetStrategy>,
 ): BudgetStrategy {
   const strategy: BudgetStrategy = {
     fixed: { ...DEFAULT_BUDGET_STRATEGY.fixed, ...overrides.fixed },
@@ -249,7 +262,7 @@ export function createStrategy(
 export function getModelLimit(
   model: string | undefined,
   limits: Record<string, number>,
-  defaultLimit: number
+  defaultLimit: number,
 ): number {
   if (!model) return defaultLimit;
   return limits[model] ?? defaultLimit;

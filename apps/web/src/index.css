@@ -42,7 +42,11 @@
 body {
   margin: 0;
   font-family: var(--font-body);
-  background: radial-gradient(circle at top left, var(--bg-glow), var(--bg) 45%);
+  background: radial-gradient(
+    circle at top left,
+    var(--bg-glow),
+    var(--bg) 45%
+  );
   color: var(--ink);
   min-height: 100vh;
 }
@@ -123,7 +127,9 @@ input {
   color: inherit;
   text-decoration: none;
   background: transparent;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .nav-link--active {

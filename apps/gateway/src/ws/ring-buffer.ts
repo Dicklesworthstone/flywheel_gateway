@@ -8,7 +8,12 @@
  * - Cursor-based slicing for replay
  */
 
-import { createCursor, decodeCursor, compareCursors, type CursorData } from "./cursor";
+import {
+  type CursorData,
+  compareCursors,
+  createCursor,
+  decodeCursor,
+} from "./cursor";
 
 /**
  * Item stored in the ring buffer with metadata.
@@ -295,44 +300,44 @@ export class RingBuffer<T> {
  */
 export const BUFFER_CONFIGS: Record<string, RingBufferConfig> = {
   "agent:output": {
-    capacity: 10000,    // High volume, many messages
-    ttlMs: 300000,      // 5 minutes - reconnect window
+    capacity: 10000, // High volume, many messages
+    ttlMs: 300000, // 5 minutes - reconnect window
   },
   "agent:state": {
-    capacity: 100,      // Low volume
-    ttlMs: 3600000,     // 1 hour - state history
+    capacity: 100, // Low volume
+    ttlMs: 3600000, // 1 hour - state history
   },
   "agent:tools": {
-    capacity: 500,      // Medium volume
-    ttlMs: 600000,      // 10 minutes
+    capacity: 500, // Medium volume
+    ttlMs: 600000, // 10 minutes
   },
   "workspace:agents": {
     capacity: 200,
-    ttlMs: 1800000,     // 30 minutes
+    ttlMs: 1800000, // 30 minutes
   },
   "workspace:reservations": {
     capacity: 500,
-    ttlMs: 1800000,     // 30 minutes
+    ttlMs: 1800000, // 30 minutes
   },
   "workspace:conflicts": {
     capacity: 500,
-    ttlMs: 1800000,     // 30 minutes
+    ttlMs: 1800000, // 30 minutes
   },
   "user:mail": {
     capacity: 1000,
-    ttlMs: 86400000,    // 24 hours - important messages
+    ttlMs: 86400000, // 24 hours - important messages
   },
   "user:notifications": {
     capacity: 500,
-    ttlMs: 3600000,     // 1 hour
+    ttlMs: 3600000, // 1 hour
   },
   "system:health": {
-    capacity: 60,       // 1 per second
-    ttlMs: 60000,       // 1 minute
+    capacity: 60, // 1 per second
+    ttlMs: 60000, // 1 minute
   },
   "system:metrics": {
     capacity: 120,
-    ttlMs: 120000,      // 2 minutes
+    ttlMs: 120000, // 2 minutes
   },
 };
 
@@ -343,8 +348,10 @@ export const BUFFER_CONFIGS: Record<string, RingBufferConfig> = {
  * @returns Buffer configuration, or a default if not found
  */
 export function getBufferConfig(channelType: string): RingBufferConfig {
-  return BUFFER_CONFIGS[channelType] ?? {
-    capacity: 1000,
-    ttlMs: 300000, // 5 minutes default
-  };
+  return (
+    BUFFER_CONFIGS[channelType] ?? {
+      capacity: 1000,
+      ttlMs: 300000, // 5 minutes default
+    }
+  );
 }

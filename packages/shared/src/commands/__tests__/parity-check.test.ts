@@ -1,13 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import { defineCommand } from "../define";
-import { createCommandRegistry } from "../registry";
 import {
   checkCommandParity,
-  runParityCheck,
   formatReport,
   formatReportJSON,
+  runParityCheck,
 } from "../parity-check";
+import { createCommandRegistry } from "../registry";
 
 describe("parity-check", () => {
   describe("checkCommandParity", () => {

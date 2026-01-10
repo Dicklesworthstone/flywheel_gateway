@@ -2,16 +2,16 @@
  * Metrics Routes - REST API endpoints for metrics and monitoring.
  */
 
-import { Hono, type Context } from "hono";
+import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
-  getMetricsSnapshot,
-  createNamedSnapshot,
-  listNamedSnapshots,
-  getNamedSnapshot,
   compareMetrics,
+  createNamedSnapshot,
   exportPrometheusFormat,
+  getMetricsSnapshot,
+  getNamedSnapshot,
+  listNamedSnapshots,
 } from "../services/metrics";
 
 const metrics = new Hono();
@@ -23,11 +23,6 @@ const metrics = new Hono();
 const CreateSnapshotSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
-});
-
-const CompareQuerySchema = z.object({
-  baseline: z.string().min(1),
-  current: z.string().min(1).optional(),
 });
 
 // ============================================================================
@@ -49,7 +44,7 @@ function handleError(error: unknown, c: Context) {
           details: error.issues,
         },
       },
-      400
+      400,
     );
   }
 
@@ -63,7 +58,7 @@ function handleError(error: unknown, c: Context) {
         timestamp: new Date().toISOString(),
       },
     },
-    500
+    500,
   );
 }
 
@@ -117,7 +112,7 @@ metrics.post("/snapshot", async (c) => {
         description: snapshot.description,
         createdAt: snapshot.createdAt.toISOString(),
       },
-      201
+      201,
     );
   } catch (error) {
     return handleError(error, c);
@@ -163,7 +158,7 @@ metrics.get("/snapshots/:snapshotId", (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        404
+        404,
       );
     }
 
@@ -201,7 +196,7 @@ metrics.get("/compare", (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        400
+        400,
       );
     }
 
@@ -216,27 +211,21 @@ metrics.get("/compare", (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        404
+        404,
       );
     }
 
     // Use current snapshot if no currentId provided
-    let currentSnapshot;
+    let currentSnapshot: NamedSnapshot | undefined;
     if (currentId) {
       currentSnapshot = getNamedSnapshot(currentId);
-      if (!currentSnapshot) {
-        return c.json(
-          {
-            error: {
-              code: "SNAPSHOT_NOT_FOUND",
-              message: `Current snapshot ${currentId} not found`,
-              correlationId: getCorrelationId(),
-              timestamp: new Date().toISOString(),
-            },
-          },
-          404
-        );
-      }
+    } else {
+      currentSnapshot = {
+        id: "current",
+        name: "Current",
+        createdAt: new Date(),
+        snapshot: getMetricsSnapshot(),
+      };
     }
 
     const currentData = currentSnapshot?.snapshot ?? getMetricsSnapshot();

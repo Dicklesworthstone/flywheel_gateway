@@ -26,7 +26,9 @@ function getProcedureType(cmd: RegisteredCommand): "query" | "mutation" {
 /**
  * Generate tRPC procedures from the command registry.
  */
-export function generateTrpcProcedures(registry: CommandRegistry): GeneratedProcedure[] {
+export function generateTrpcProcedures(
+  registry: CommandRegistry,
+): GeneratedProcedure[] {
   const procedures: GeneratedProcedure[] = [];
 
   for (const cmd of registry.all()) {
@@ -112,9 +114,7 @@ export function generateTrpcRouterFile(registry: CommandRegistry): string {
 /**
  * Get procedure metadata for documentation.
  */
-export function getProcedureMetadata(
-  registry: CommandRegistry,
-): Array<{
+export function getProcedureMetadata(registry: CommandRegistry): Array<{
   name: string;
   type: "query" | "mutation";
   description: string;

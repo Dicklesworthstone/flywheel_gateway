@@ -2,24 +2,24 @@
  * Unit tests for the Alert Service.
  */
 
-import { describe, test, expect, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
+import type { AlertContext, AlertRule } from "../models/alert";
 import {
+  acknowledgeAlert,
+  clearAlertRules,
+  clearAlerts,
+  dismissAlert,
+  evaluateAlertRules,
+  fireAlert,
+  getActiveAlerts,
+  getAlert,
+  getAlertHistory,
+  getAlertRule,
+  getAlertRules,
+  initializeDefaultAlertRules,
   registerAlertRule,
   updateAlertRule,
-  getAlertRules,
-  getAlertRule,
-  getActiveAlerts,
-  getAlertHistory,
-  getAlert,
-  acknowledgeAlert,
-  dismissAlert,
-  fireAlert,
-  evaluateAlertRules,
-  clearAlerts,
-  clearAlertRules,
-  initializeDefaultAlertRules,
 } from "../services/alerts";
-import type { AlertRule, AlertContext } from "../models/alert";
 
 describe("Alert Service", () => {
   beforeEach(() => {
@@ -324,9 +324,36 @@ describe("Alert Service", () => {
 
     test("getActiveAlerts sorts by severity then time", () => {
       const rules: AlertRule[] = [
-        { id: "1", name: "1", enabled: true, type: "custom", severity: "info", condition: () => true, title: "1", message: "1" },
-        { id: "2", name: "2", enabled: true, type: "custom", severity: "critical", condition: () => true, title: "2", message: "2" },
-        { id: "3", name: "3", enabled: true, type: "custom", severity: "warning", condition: () => true, title: "3", message: "3" },
+        {
+          id: "1",
+          name: "1",
+          enabled: true,
+          type: "custom",
+          severity: "info",
+          condition: () => true,
+          title: "1",
+          message: "1",
+        },
+        {
+          id: "2",
+          name: "2",
+          enabled: true,
+          type: "custom",
+          severity: "critical",
+          condition: () => true,
+          title: "2",
+          message: "2",
+        },
+        {
+          id: "3",
+          name: "3",
+          enabled: true,
+          type: "custom",
+          severity: "warning",
+          condition: () => true,
+          title: "3",
+          message: "3",
+        },
       ];
 
       const context: AlertContext = {

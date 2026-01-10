@@ -2,21 +2,21 @@
  * Unit tests for the Metrics Service.
  */
 
-import { describe, test, expect, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import {
-  incrementCounter,
-  setGauge,
-  recordHistogram,
+  compareMetrics,
+  createNamedSnapshot,
+  exportPrometheusFormat,
   getCounter,
   getGauge,
   getHistogram,
   getMetricsSnapshot,
-  createNamedSnapshot,
-  listNamedSnapshots,
   getNamedSnapshot,
-  compareMetrics,
-  exportPrometheusFormat,
+  incrementCounter,
+  listNamedSnapshots,
+  recordHistogram,
   resetMetrics,
+  setGauge,
 } from "../services/metrics";
 
 describe("Metrics Service", () => {
@@ -173,7 +173,7 @@ describe("Metrics Service", () => {
       // Most recent (or alphabetically later when same time) should be first
       // The sort is by time desc, then ID desc for stability
       expect(snapshots[0]!.createdAt.getTime()).toBeGreaterThanOrEqual(
-        snapshots[1]!.createdAt.getTime()
+        snapshots[1]!.createdAt.getTime(),
       );
     });
 
@@ -217,7 +217,9 @@ describe("Metrics Service", () => {
       };
 
       const comparison = compareMetrics(baseline, current);
-      const agentChange = comparison.changes.find((c) => c.metric === "agents.total");
+      const agentChange = comparison.changes.find(
+        (c) => c.metric === "agents.total",
+      );
 
       expect(agentChange).toBeDefined();
       expect(agentChange!.direction).toBe("up");

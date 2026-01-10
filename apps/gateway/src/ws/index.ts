@@ -9,94 +9,89 @@
  * - Authorization per channel
  */
 
-// Cursor utilities
+// Authorization
 export {
-  encodeCursor,
-  decodeCursor,
-  compareCursors,
-  isCursorExpired,
-  createCursor,
-  type CursorData,
-} from "./cursor";
-
-// Ring buffer
-export {
-  RingBuffer,
-  getBufferConfig,
-  BUFFER_CONFIGS,
-  type RingBufferConfig,
-} from "./ring-buffer";
-
+  type AuthorizationResult,
+  canPublish,
+  canSubscribe,
+  createGuestAuthContext,
+  createInternalAuthContext,
+  validateAuthContext,
+} from "./authorization";
 // Channel types
 export {
-  channelToString,
-  parseChannel,
-  getChannelTypePrefix,
-  getChannelScope,
-  getChannelResourceId,
-  channelsEqual,
-  channelMatchesPattern,
-  type Channel,
   type AgentChannel,
-  type WorkspaceChannel,
-  type UserChannel,
-  type SystemChannel,
+  type Channel,
   type ChannelTypePrefix,
+  channelMatchesPattern,
+  channelsEqual,
+  channelToString,
+  getChannelResourceId,
+  getChannelScope,
+  getChannelTypePrefix,
+  parseChannel,
+  type SystemChannel,
+  type UserChannel,
+  type WorkspaceChannel,
 } from "./channels";
-
-// Message types
+// Cursor utilities
 export {
-  createHubMessage,
-  parseClientMessage,
-  serializeServerMessage,
-  type MessageType,
-  type MessageMetadata,
-  type HubMessage,
-  type ClientMessage,
-  type ServerMessage,
-  type SubscribeMessage,
-  type UnsubscribeMessage,
-  type BackfillMessage,
-  type PingMessage,
-  type ReconnectMessage,
-  type ConnectedMessage,
-  type SubscribedMessage,
-  type UnsubscribedMessage,
-  type ChannelMessage,
-  type BackfillResponse,
-  type PongMessage,
-  type HeartbeatMessage,
-  type ReconnectAckMessage,
-  type ErrorMessage,
-} from "./messages";
+  type CursorData,
+  compareCursors,
+  createCursor,
+  decodeCursor,
+  encodeCursor,
+  isCursorExpired,
+} from "./cursor";
+// Heartbeat management
+export {
+  CONNECTION_TIMEOUT_MS,
+  getHeartbeatManager,
+  HEARTBEAT_INTERVAL_MS,
+  HeartbeatManager,
+  startHeartbeat,
+  stopHeartbeat,
+} from "./heartbeat";
 
 // WebSocket Hub
 export {
-  WebSocketHub,
-  getHub,
-  setHub,
   type AuthContext,
   type ConnectionData,
   type ConnectionHandle,
+  getHub,
   type HubStats,
+  setHub,
+  WebSocketHub,
 } from "./hub";
-
-// Heartbeat management
+// Message types
 export {
-  HeartbeatManager,
-  getHeartbeatManager,
-  startHeartbeat,
-  stopHeartbeat,
-  HEARTBEAT_INTERVAL_MS,
-  CONNECTION_TIMEOUT_MS,
-} from "./heartbeat";
-
-// Authorization
+  type BackfillMessage,
+  type BackfillResponse,
+  type ChannelMessage,
+  type ClientMessage,
+  type ConnectedMessage,
+  createHubMessage,
+  type ErrorMessage,
+  type HeartbeatMessage,
+  type HubMessage,
+  type MessageMetadata,
+  type MessageType,
+  type PingMessage,
+  type PongMessage,
+  parseClientMessage,
+  type ReconnectAckMessage,
+  type ReconnectMessage,
+  type ServerMessage,
+  type SubscribedMessage,
+  type SubscribeMessage,
+  serializeServerMessage,
+  type UnsubscribedMessage,
+  type UnsubscribeMessage,
+} from "./messages";
+// Ring buffer
 export {
-  canSubscribe,
-  canPublish,
-  createInternalAuthContext,
-  createGuestAuthContext,
-  validateAuthContext,
-  type AuthorizationResult,
-} from "./authorization";
+  BUFFER_CONFIGS,
+  getBufferConfig,
+  RingBuffer,
+  type RingBufferConfig,
+} from "./ring-buffer";

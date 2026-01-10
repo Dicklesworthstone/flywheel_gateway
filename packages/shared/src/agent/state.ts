@@ -60,7 +60,9 @@ export const IDLE_STATES: ReadonlySet<AgentState> = new Set([
  * Valid state transitions.
  * Key is the current state, value is array of states that can be transitioned to.
  */
-export const STATE_TRANSITIONS: Readonly<Record<AgentState, readonly AgentState[]>> = {
+export const STATE_TRANSITIONS: Readonly<
+  Record<AgentState, readonly AgentState[]>
+> = {
   [AgentState.SPAWNING]: [AgentState.INITIALIZING, AgentState.FAILED],
   [AgentState.INITIALIZING]: [AgentState.READY, AgentState.FAILED],
   [AgentState.READY]: [
@@ -142,12 +144,12 @@ export interface AgentStateMetadata {
 export class InvalidStateTransitionError extends Error {
   constructor(
     public readonly from: AgentState,
-    public readonly to: AgentState
+    public readonly to: AgentState,
   ) {
     const validTransitions = STATE_TRANSITIONS[from];
     super(
       `Invalid state transition from "${from}" to "${to}". ` +
-        `Valid transitions from "${from}": [${validTransitions.join(", ")}]`
+        `Valid transitions from "${from}": [${validTransitions.join(", ")}]`,
     );
     this.name = "InvalidStateTransitionError";
   }
@@ -201,7 +203,7 @@ export class AgentStateMachine {
 
   constructor(
     initialState: AgentState = AgentState.SPAWNING,
-    options: { maxHistorySize?: number } = {}
+    options: { maxHistorySize?: number } = {},
   ) {
     this._state = initialState;
     this._stateEnteredAt = new Date();
@@ -258,7 +260,7 @@ export class AgentStateMachine {
       reason: TransitionReason;
       error?: StateErrorDetails;
       correlationId?: string;
-    }
+    },
   ): StateTransition {
     if (!isValidTransition(this._state, to)) {
       throw new InvalidStateTransitionError(this._state, to);
@@ -353,7 +355,7 @@ export class AgentStateMachine {
    */
   static fromJSON(
     json: ReturnType<AgentStateMachine["toJSON"]>,
-    options?: { maxHistorySize?: number }
+    options?: { maxHistorySize?: number },
   ): AgentStateMachine {
     const machine = new AgentStateMachine(json.state, options);
     machine._stateEnteredAt = new Date(json.stateEnteredAt);

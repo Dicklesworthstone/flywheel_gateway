@@ -9,7 +9,11 @@
 
 import { logger } from "../services/logger";
 import { getHub, type WebSocketHub } from "./hub";
-import { serializeServerMessage, type HeartbeatMessage, type PongMessage } from "./messages";
+import {
+  type HeartbeatMessage,
+  type PongMessage,
+  serializeServerMessage,
+} from "./messages";
 
 /** Default heartbeat interval in milliseconds */
 export const HEARTBEAT_INTERVAL_MS = 30000; // 30 seconds
@@ -32,7 +36,7 @@ export class HeartbeatManager {
     options?: {
       intervalMs?: number;
       timeoutMs?: number;
-    }
+    },
   ) {
     this.hub = hub ?? getHub();
     this.intervalMs = options?.intervalMs ?? HEARTBEAT_INTERVAL_MS;
@@ -58,7 +62,7 @@ export class HeartbeatManager {
 
     logger.info(
       { intervalMs: this.intervalMs, timeoutMs: this.timeoutMs },
-      "Heartbeat manager started"
+      "Heartbeat manager started",
     );
   }
 
@@ -99,7 +103,10 @@ export class HeartbeatManager {
     const dead = this.hub.getDeadConnections(this.timeoutMs);
 
     for (const connectionId of dead) {
-      logger.warn({ connectionId }, "Removing dead connection (heartbeat timeout)");
+      logger.warn(
+        { connectionId },
+        "Removing dead connection (heartbeat timeout)",
+      );
       this.hub.removeConnection(connectionId);
     }
 

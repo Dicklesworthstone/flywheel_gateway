@@ -1,6 +1,6 @@
-import { getCorrelationId, getLogger } from "../middleware/correlation";
 import { db } from "../db";
 import { auditLogs } from "../db/schema";
+import { getCorrelationId, getLogger } from "../middleware/correlation";
 
 /**
  * Auditable actions in the system.

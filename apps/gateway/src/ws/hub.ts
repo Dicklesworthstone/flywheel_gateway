@@ -11,25 +11,29 @@
 
 import type { ServerWebSocket } from "bun";
 import { logger } from "../services/logger";
-import { RingBuffer, getBufferConfig, type RingBufferConfig } from "./ring-buffer";
 import {
-  channelToString,
-  parseChannel,
-  getChannelTypePrefix,
   type Channel,
   type ChannelTypePrefix,
+  channelToString,
+  getChannelTypePrefix,
+  parseChannel,
 } from "./channels";
 import {
-  createHubMessage,
-  serializeServerMessage,
-  type HubMessage,
-  type MessageType,
-  type MessageMetadata,
-  type ServerMessage,
-  type ChannelMessage,
   type BackfillResponse,
+  type ChannelMessage,
+  createHubMessage,
+  type HubMessage,
+  type MessageMetadata,
+  type MessageType,
   type ReconnectAckMessage,
+  type ServerMessage,
+  serializeServerMessage,
 } from "./messages";
+import {
+  getBufferConfig,
+  RingBuffer,
+  type RingBufferConfig,
+} from "./ring-buffer";
 
 /**
  * Authentication context for a connection.
@@ -107,11 +111,17 @@ export class WebSocketHub {
    * @param auth - Authentication context
    * @returns Connection handle with assigned ID
    */
-  addConnection(ws: ServerWebSocket<ConnectionData>, auth: AuthContext): ConnectionHandle {
+  addConnection(
+    ws: ServerWebSocket<ConnectionData>,
+    auth: AuthContext,
+  ): ConnectionHandle {
     const connectionId = ws.data.connectionId;
     this.connections.set(connectionId, ws);
 
-    logger.info({ connectionId, userId: auth.userId }, "WebSocket connection added to hub");
+    logger.info(
+      { connectionId, userId: auth.userId },
+      "WebSocket connection added to hub",
+    );
 
     return {
       connectionId,
@@ -157,7 +167,7 @@ export class WebSocketHub {
   subscribe(
     connectionId: string,
     channel: Channel,
-    cursor?: string
+    cursor?: string,
   ): { cursor?: string; missedMessages?: HubMessage[] } {
     const ws = this.connections.get(connectionId);
     if (!ws) {
@@ -191,8 +201,13 @@ export class WebSocketHub {
     }
 
     logger.debug(
-      { connectionId, channel: channelStr, cursor, missedCount: missedMessages?.length },
-      "Connection subscribed to channel"
+      {
+        connectionId,
+        channel: channelStr,
+        cursor,
+        missedCount: missedMessages?.length,
+      },
+      "Connection subscribed to channel",
     );
 
     return { cursor: currentCursor, missedMessages };
@@ -222,7 +237,10 @@ export class WebSocketHub {
       }
     }
 
-    logger.debug({ connectionId, channel: channelStr }, "Connection unsubscribed from channel");
+    logger.debug(
+      { connectionId, channel: channelStr },
+      "Connection unsubscribed from channel",
+    );
   }
 
   /**
@@ -238,12 +256,17 @@ export class WebSocketHub {
     channel: Channel,
     type: MessageType,
     payload: unknown,
-    metadata?: MessageMetadata
+    metadata?: MessageMetadata,
   ): HubMessage {
     const channelStr = channelToString(channel);
 
     // Create message (cursor will be set by buffer)
-    const message = createHubMessage(type, channelStr, payload, metadata) as HubMessage;
+    const message = createHubMessage(
+      type,
+      channelStr,
+      payload,
+      metadata,
+    ) as HubMessage;
 
     // Add to ring buffer
     const buffer = this.getOrCreateBuffer(channelStr);
@@ -265,7 +288,7 @@ export class WebSocketHub {
           } catch (err) {
             logger.warn(
               { connectionId: connId, channel: channelStr, error: err },
-              "Failed to send message to subscriber"
+              "Failed to send message to subscriber",
             );
           }
         }
@@ -287,8 +310,13 @@ export class WebSocketHub {
   replay(
     channel: Channel,
     cursor: string,
-    limit = 100
-  ): { messages: HubMessage[]; hasMore: boolean; lastCursor?: string; expired: boolean } {
+    limit = 100,
+  ): {
+    messages: HubMessage[];
+    hasMore: boolean;
+    lastCursor?: string;
+    expired: boolean;
+  } {
     const channelStr = channelToString(channel);
     const buffer = this.buffers.get(channelStr);
 
@@ -306,7 +334,8 @@ export class WebSocketHub {
       return {
         messages: trimmed,
         hasMore,
-        lastCursor: trimmed.length > 0 ? trimmed[trimmed.length - 1]!.cursor : undefined,
+        lastCursor:
+          trimmed.length > 0 ? trimmed[trimmed.length - 1]!.cursor : undefined,
         expired: true,
       };
     }
@@ -319,7 +348,8 @@ export class WebSocketHub {
     return {
       messages: trimmed,
       hasMore,
-      lastCursor: trimmed.length > 0 ? trimmed[trimmed.length - 1]!.cursor : undefined,
+      lastCursor:
+        trimmed.length > 0 ? trimmed[trimmed.length - 1]!.cursor : undefined,
       expired: false,
     };
   }
@@ -333,7 +363,7 @@ export class WebSocketHub {
    */
   handleReconnect(
     connectionId: string,
-    cursors: Record<string, string>
+    cursors: Record<string, string>,
   ): ReconnectAckMessage {
     const ws = this.connections.get(connectionId);
     if (!ws) {
@@ -362,11 +392,17 @@ export class WebSocketHub {
 
         // Send missed messages
         for (const msg of result.missedMessages) {
-          const serverMessage: ChannelMessage = { type: "message", message: msg };
+          const serverMessage: ChannelMessage = {
+            type: "message",
+            message: msg,
+          };
           try {
             ws.send(serializeServerMessage(serverMessage));
           } catch (err) {
-            logger.warn({ connectionId, error: err }, "Failed to replay message");
+            logger.warn(
+              { connectionId, error: err },
+              "Failed to replay message",
+            );
           }
         }
       }
@@ -385,7 +421,7 @@ export class WebSocketHub {
 
     logger.info(
       { connectionId, replayed, expired: expired.length },
-      "Reconnection handled"
+      "Reconnection handled",
     );
 
     return {
@@ -464,7 +500,8 @@ export class WebSocketHub {
       const channel = parseChannel(channelStr);
       if (channel) {
         const prefix = getChannelTypePrefix(channel);
-        subscriptionsByChannel[prefix] = (subscriptionsByChannel[prefix] ?? 0) + subs.size;
+        subscriptionsByChannel[prefix] =
+          (subscriptionsByChannel[prefix] ?? 0) + subs.size;
       }
     }
 

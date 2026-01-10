@@ -104,9 +104,7 @@ describe("Agent Mail client", () => {
     }
 
     expect(thrown).toBeInstanceOf(AgentMailClientError);
-    expect((thrown as AgentMailClientError).kind).toBe(
-      "response_validation",
-    );
+    expect((thrown as AgentMailClientError).kind).toBe("response_validation");
   });
 
   test("throws transport error when tool call fails", async () => {
@@ -159,9 +157,13 @@ describe("Agent Mail client", () => {
   });
 
   test("maps response validation errors into SYSTEM_INTERNAL_ERROR", () => {
-    const error = new AgentMailClientError("response_validation", "bad output", {
-      tool: "agentmail_register_agent",
-    });
+    const error = new AgentMailClientError(
+      "response_validation",
+      "bad output",
+      {
+        tool: "agentmail_register_agent",
+      },
+    );
 
     const mapped = mapAgentMailError(error);
     expect(mapped.code).toBe("SYSTEM_INTERNAL_ERROR");
@@ -193,5 +195,38 @@ describe("Agent Mail client", () => {
     ]);
     expect(result.project.projectId).toBe("proj-1");
     expect(result.registration.mailboxId).toBe("mb-1");
+  });
+
+  test("reservationCycle delegates to request_file_reservation", async () => {
+    const { callTool, calls } = createMockCaller(() => ({
+      reservationId: "res-2",
+      granted: false,
+      conflicts: ["src/**"],
+    }));
+    const client = createAgentMailClient({ callTool });
+
+    const result = await client.reservationCycle({
+      projectId: "proj-1",
+      requesterId: "agent-1",
+      patterns: ["src/**"],
+      exclusive: true,
+    });
+
+    expect(calls[0]?.tool).toBe("agentmail_request_file_reservation");
+    expect(result.granted).toBe(false);
+    expect(result.conflicts).toEqual(["src/**"]);
+  });
+
+  test("healthCheck calls health tool", async () => {
+    const { callTool, calls } = createMockCaller(() => ({
+      status: "ok",
+      timestamp: "2025-01-01T00:00:00.000Z",
+    }));
+    const client = createAgentMailClient({ callTool });
+
+    const result = await client.healthCheck();
+
+    expect(calls[0]?.tool).toBe("agentmail_health");
+    expect(result.status).toBe("ok");
   });
 });

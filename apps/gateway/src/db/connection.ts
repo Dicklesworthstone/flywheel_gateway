@@ -18,7 +18,9 @@ class PinoLogWriter implements LogWriter {
   }
 }
 
-const drizzleLogger = isDev ? new DefaultLogger({ writer: new PinoLogWriter() }) : false;
+const drizzleLogger = isDev
+  ? new DefaultLogger({ writer: new PinoLogWriter() })
+  : false;
 
 const dbFile = process.env["DB_FILE_NAME"] ?? "./data/gateway.db";
 if (dbFile !== ":memory:") {

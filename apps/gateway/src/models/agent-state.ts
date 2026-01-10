@@ -53,10 +53,7 @@ export const VALID_TRANSITIONS: Readonly<
     LifecycleState.INITIALIZING,
     LifecycleState.FAILED,
   ],
-  [LifecycleState.INITIALIZING]: [
-    LifecycleState.READY,
-    LifecycleState.FAILED,
-  ],
+  [LifecycleState.INITIALIZING]: [LifecycleState.READY, LifecycleState.FAILED],
   [LifecycleState.READY]: [
     LifecycleState.EXECUTING,
     LifecycleState.PAUSED,
@@ -68,10 +65,7 @@ export const VALID_TRANSITIONS: Readonly<
     LifecycleState.TERMINATING,
     LifecycleState.FAILED,
   ],
-  [LifecycleState.PAUSED]: [
-    LifecycleState.READY,
-    LifecycleState.TERMINATING,
-  ],
+  [LifecycleState.PAUSED]: [LifecycleState.READY, LifecycleState.TERMINATING],
   [LifecycleState.TERMINATING]: [
     LifecycleState.TERMINATED,
     LifecycleState.FAILED,
@@ -129,10 +123,10 @@ export class InvalidStateTransitionError extends Error {
   constructor(
     public readonly fromState: LifecycleState,
     public readonly toState: LifecycleState,
-    public readonly agentId: string
+    public readonly agentId: string,
   ) {
     super(
-      `Invalid state transition for agent ${agentId}: ${fromState} -> ${toState}`
+      `Invalid state transition for agent ${agentId}: ${fromState} -> ${toState}`,
     );
     this.name = "InvalidStateTransitionError";
   }
@@ -143,7 +137,7 @@ export class InvalidStateTransitionError extends Error {
  */
 export function isValidTransition(
   from: LifecycleState,
-  to: LifecycleState
+  to: LifecycleState,
 ): boolean {
   const validTargets = VALID_TRANSITIONS[from];
   return validTargets.includes(to);

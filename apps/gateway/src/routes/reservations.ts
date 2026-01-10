@@ -10,14 +10,16 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
-  createReservation,
   checkReservation,
-  releaseReservation,
-  renewReservation,
-  listReservations,
+  createReservation,
   getReservation,
   getReservationStats,
+  listReservations,
+  listConflicts,
+  resolveConflict,
   type ReservationMode,
+  releaseReservation,
+  renewReservation,
 } from "../services/reservation.service";
 
 const reservations = new Hono();
@@ -57,6 +59,17 @@ const ListReservationsQuerySchema = z.object({
   filePath: z.string().optional(),
 });
 
+const ListConflictsQuerySchema = z.object({
+  projectId: z.string().min(1),
+  status: z.enum(["open", "resolved"]).optional(),
+  limit: z.coerce.number().int().min(1).max(1000).optional(),
+});
+
+const ResolveConflictSchema = z.object({
+  resolvedBy: z.string().min(1).optional(),
+  reason: z.string().min(1).max(200).optional(),
+});
+
 // ============================================================================
 // Error Handler
 // ============================================================================
@@ -76,7 +89,7 @@ function handleError(error: unknown, c: Context) {
           details: error.issues,
         },
       },
-      400
+      400,
     );
   }
 
@@ -90,7 +103,7 @@ function handleError(error: unknown, c: Context) {
         timestamp: new Date().toISOString(),
       },
     },
-    500
+    500,
   );
 }
 
@@ -137,7 +150,7 @@ reservations.post("/", async (c) => {
           })),
           correlationId: getCorrelationId(),
         },
-        409
+        409,
       );
     }
 
@@ -158,7 +171,7 @@ reservations.post("/", async (c) => {
         },
         correlationId: getCorrelationId(),
       },
-      201
+      201,
     );
   } catch (error) {
     return handleError(error, c);
@@ -211,6 +224,107 @@ reservations.get("/stats", async (c) => {
     const stats = getReservationStats();
     return c.json({
       stats,
+      correlationId: getCorrelationId(),
+    });
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+// ============================================================================
+// Conflict Listing
+// ============================================================================
+
+/**
+ * GET /reservations/conflicts - List conflicts for a project
+ */
+reservations.get("/conflicts", async (c) => {
+  try {
+    const query = ListConflictsQuerySchema.parse({
+      projectId: c.req.query("projectId"),
+      status: c.req.query("status"),
+      limit: c.req.query("limit"),
+    });
+
+    const results = await listConflicts({
+      projectId: query.projectId,
+      status: query.status,
+      limit: query.limit,
+    });
+
+    return c.json({
+      conflicts: results.map((conflict) => ({
+        conflictId: conflict.conflictId,
+        projectId: conflict.projectId,
+        type: conflict.type,
+        status: conflict.status,
+        detectedAt: conflict.detectedAt.toISOString(),
+        resolvedAt: conflict.resolvedAt?.toISOString(),
+        requesterId: conflict.requesterId,
+        existingReservationId: conflict.existingReservationId,
+        overlappingPattern: conflict.overlappingPattern,
+        resolutionReason: conflict.resolutionReason,
+        resolvedBy: conflict.resolvedBy,
+        conflict: {
+          conflictId: conflict.conflict.conflictId,
+          overlappingPattern: conflict.conflict.overlappingPattern,
+          existingReservation: {
+            id: conflict.conflict.existingReservation.id,
+            requesterId: conflict.conflict.existingReservation.requesterId,
+            patterns: conflict.conflict.existingReservation.patterns,
+            expiresAt:
+              conflict.conflict.existingReservation.expiresAt.toISOString(),
+          },
+          requestedPatterns: conflict.conflict.requestedPatterns,
+          resolutions: conflict.conflict.resolutions,
+          detectedAt: conflict.conflict.detectedAt.toISOString(),
+        },
+      })),
+      count: results.length,
+      correlationId: getCorrelationId(),
+    });
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+// ============================================================================
+// Resolve Conflict
+// ============================================================================
+
+/**
+ * POST /reservations/conflicts/:id/resolve - Resolve a conflict
+ */
+reservations.post("/conflicts/:id/resolve", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const body = await c.req.json();
+    const validated = ResolveConflictSchema.parse(body);
+
+    const result = await resolveConflict({
+      conflictId: id,
+      resolvedBy: validated.resolvedBy,
+      reason: validated.reason,
+    });
+
+    if (!result.resolved) {
+      return c.json(
+        {
+          error: {
+            code: "CONFLICT_NOT_FOUND",
+            message: result.error ?? "Conflict not found",
+            correlationId: getCorrelationId(),
+            timestamp: new Date().toISOString(),
+          },
+        },
+        404,
+      );
+    }
+
+    return c.json({
+      resolved: true,
+      conflictId: id,
+      resolvedAt: result.conflict?.resolvedAt?.toISOString(),
       correlationId: getCorrelationId(),
     });
   } catch (error) {
@@ -285,7 +399,7 @@ reservations.get("/:id", async (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        404
+        404,
       );
     }
 
@@ -341,7 +455,7 @@ reservations.delete("/:id", async (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        status
+        status,
       );
     }
 
@@ -400,7 +514,7 @@ reservations.post("/:id/renew", async (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        status
+        status,
       );
     }
 

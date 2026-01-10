@@ -6,13 +6,13 @@
  * and losing state.
  */
 
-import { getLogger, getCorrelationId } from "../middleware/correlation";
 import type { Agent, TokenUsage } from "@flywheel/agent-drivers";
+import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
-  createCheckpoint,
-  restoreCheckpoint,
-  getLatestCheckpoint,
   type CreateCheckpointOptions,
+  createCheckpoint,
+  getLatestCheckpoint,
+  restoreCheckpoint,
 } from "./checkpoint";
 
 // ============================================================================
@@ -22,7 +22,11 @@ import {
 /**
  * Context health levels based on token usage percentage.
  */
-export type ContextHealthLevel = "healthy" | "warning" | "critical" | "emergency";
+export type ContextHealthLevel =
+  | "healthy"
+  | "warning"
+  | "critical"
+  | "emergency";
 
 /**
  * Rotation strategies for handling context window limits.
@@ -104,7 +108,7 @@ export type RotationHandlers = {
   sendMessage?: (
     agentId: string,
     type: "user" | "system",
-    message: string
+    message: string,
   ) => Promise<void>;
   getConversationHistory?: (agentId: string) => Promise<unknown[]>;
   getToolState?: (agentId: string) => Promise<Record<string, unknown>>;
@@ -134,7 +138,10 @@ const agentConfigs = new Map<string, RotationConfig>();
 /**
  * Set rotation configuration for an agent.
  */
-export function setRotationConfig(agentId: string, config: RotationConfigUpdate): void {
+export function setRotationConfig(
+  agentId: string,
+  config: RotationConfigUpdate,
+): void {
   const existing = agentConfigs.get(agentId) || { ...DEFAULT_CONFIG };
   agentConfigs.set(agentId, {
     ...existing,
@@ -163,7 +170,7 @@ export function getRotationConfig(agentId: string): RotationConfig {
 export function calculateHealthLevel(
   tokenUsage: TokenUsage,
   maxTokens: number,
-  thresholds = DEFAULT_CONFIG.thresholds
+  thresholds = DEFAULT_CONFIG.thresholds,
 ): ContextHealthLevel {
   const usagePercent = (tokenUsage.totalTokens / maxTokens) * 100;
 
@@ -183,7 +190,11 @@ export function calculateHealthLevel(
 export function getContextHealth(agent: Agent): ContextHealthStatus {
   const maxTokens = agent.config.maxTokens ?? 100000;
   const config = getRotationConfig(agent.id);
-  const level = calculateHealthLevel(agent.tokenUsage, maxTokens, config.thresholds);
+  const level = calculateHealthLevel(
+    agent.tokenUsage,
+    maxTokens,
+    config.thresholds,
+  );
   const usagePercent = (agent.tokenUsage.totalTokens / maxTokens) * 100;
 
   let suggestion: string;
@@ -240,7 +251,7 @@ export function needsRotation(agent: Agent): boolean {
 export async function executeRotation(
   agent: Agent,
   strategy?: RotationStrategy,
-  handlers?: RotationHandlers
+  handlers?: RotationHandlers,
 ): Promise<RotationResult> {
   const log = getLogger();
   const correlationId = getCorrelationId();
@@ -255,7 +266,7 @@ export async function executeRotation(
       tokenUsage: agent.tokenUsage.totalTokens,
       correlationId,
     },
-    `[ROTATION] Starting ${rotationStrategy} rotation for agent ${agent.id}`
+    `[ROTATION] Starting ${rotationStrategy} rotation for agent ${agent.id}`,
   );
 
   try {
@@ -278,7 +289,7 @@ export async function executeRotation(
   } catch (error) {
     log.error(
       { error, agentId: agent.id, strategy: rotationStrategy },
-      `[ROTATION] Failed to rotate agent`
+      `[ROTATION] Failed to rotate agent`,
     );
 
     return {
@@ -298,7 +309,7 @@ export async function executeRotation(
  */
 async function rotateSummarizeAndContinue(
   agent: Agent,
-  handlers?: RotationHandlers
+  handlers?: RotationHandlers,
 ): Promise<RotationResult> {
   const log = getLogger();
 
@@ -306,7 +317,8 @@ async function rotateSummarizeAndContinue(
   const checkpointId = await createPreRotationCheckpoint(agent, handlers);
 
   // Request summarization from the agent
-  const summarizationPrompt = getRotationConfig(agent.id).summarizationPrompt ||
+  const summarizationPrompt =
+    getRotationConfig(agent.id).summarizationPrompt ||
     `Please provide a concise summary of our conversation so far, including:
 1. The main task or goal we were working on
 2. Key decisions made
@@ -323,7 +335,7 @@ This summary will be used to refresh your context.`;
 
   log.info(
     { agentId: agent.id, checkpointId },
-    `[ROTATION] Summarize and continue completed`
+    `[ROTATION] Summarize and continue completed`,
   );
 
   return {
@@ -342,7 +354,7 @@ This summary will be used to refresh your context.`;
  */
 async function rotateFreshStart(
   agent: Agent,
-  handlers?: RotationHandlers
+  handlers?: RotationHandlers,
 ): Promise<RotationResult> {
   const log = getLogger();
 
@@ -367,7 +379,7 @@ async function rotateFreshStart(
 
   log.info(
     { oldAgentId: agent.id, newAgentId, checkpointId },
-    `[ROTATION] Fresh start completed`
+    `[ROTATION] Fresh start completed`,
   );
 
   return {
@@ -386,7 +398,7 @@ async function rotateFreshStart(
  */
 async function rotateCheckpointAndRestart(
   agent: Agent,
-  handlers?: RotationHandlers
+  handlers?: RotationHandlers,
 ): Promise<RotationResult> {
   const log = getLogger();
 
@@ -396,6 +408,13 @@ async function rotateCheckpointAndRestart(
   // Spawn new agent
   let newAgentId: string | undefined;
   if (handlers?.spawnAgent) {
+    // Fail if checkpoint creation failed to prevent data loss
+    if (!checkpointId) {
+      throw new Error(
+        "Checkpoint creation failed, aborting restart to preserve state",
+      );
+    }
+
     const result = await handlers.spawnAgent({
       ...agent.config,
       id: undefined, // Generate new ID
@@ -403,15 +422,17 @@ async function rotateCheckpointAndRestart(
     newAgentId = result.agentId;
 
     // Restore from checkpoint to new agent
-    if (checkpointId) {
-      const checkpoint = await restoreCheckpoint(checkpointId);
-      // In a real implementation, we'd inject the checkpoint state
-      // into the new agent's context
-      log.debug(
-        { newAgentId, checkpointId, historyLength: checkpoint.conversationHistory.length },
-        "Restored checkpoint to new agent"
-      );
-    }
+    const checkpoint = await restoreCheckpoint(checkpointId);
+    // In a real implementation, we'd inject the checkpoint state
+    // into the new agent's context
+    log.debug(
+      {
+        newAgentId,
+        checkpointId,
+        historyLength: checkpoint.conversationHistory.length,
+      },
+      "Restored checkpoint to new agent",
+    );
   }
 
   // Terminate old agent
@@ -421,7 +442,7 @@ async function rotateCheckpointAndRestart(
 
   log.info(
     { oldAgentId: agent.id, newAgentId, checkpointId },
-    `[ROTATION] Checkpoint and restart completed`
+    `[ROTATION] Checkpoint and restart completed`,
   );
 
   return {
@@ -440,7 +461,7 @@ async function rotateCheckpointAndRestart(
  */
 async function rotateGracefulHandoff(
   agent: Agent,
-  handlers?: RotationHandlers
+  handlers?: RotationHandlers,
 ): Promise<RotationResult> {
   const log = getLogger();
 
@@ -483,7 +504,7 @@ You are continuing work from a previous session. Review the handoff summary prov
 
   log.info(
     { oldAgentId: agent.id, newAgentId, checkpointId },
-    `[ROTATION] Graceful handoff completed`
+    `[ROTATION] Graceful handoff completed`,
   );
 
   return {
@@ -505,7 +526,7 @@ You are continuing work from a previous session. Review the handoff summary prov
  */
 async function createPreRotationCheckpoint(
   agent: Agent,
-  handlers?: RotationHandlers
+  handlers?: RotationHandlers,
 ): Promise<string | undefined> {
   try {
     // Get current state from handlers
@@ -526,14 +547,17 @@ async function createPreRotationCheckpoint(
       {
         description: "Pre-rotation checkpoint",
         tags: ["rotation", "auto"],
-      }
+      },
     );
 
     return metadata.id;
   } catch (error) {
     // Log but don't fail rotation if checkpoint fails
     const log = getLogger();
-    log.warn({ error, agentId: agent.id }, "Failed to create pre-rotation checkpoint");
+    log.warn(
+      { error, agentId: agent.id },
+      "Failed to create pre-rotation checkpoint",
+    );
     return undefined;
   }
 }

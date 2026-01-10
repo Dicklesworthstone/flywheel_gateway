@@ -2,15 +2,25 @@
  * Tests for the ACP Driver.
  */
 
-import { describe, expect, it, beforeEach, afterEach, mock, spyOn } from "bun:test";
-import { AcpDriver, createAcpDriver, type AcpDriverOptions } from "../acp";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+  spyOn,
+} from "bun:test";
+import { type AcpDriver, type AcpDriverOptions, createAcpDriver } from "../acp";
 import { createDriverOptions } from "../base-driver";
 import type { AgentConfig } from "../types";
 
 describe("AcpDriver", () => {
   let driver: AcpDriver;
 
-  const createTestConfig = (overrides: Partial<AgentConfig> = {}): AgentConfig => ({
+  const createTestConfig = (
+    overrides: Partial<AgentConfig> = {},
+  ): AgentConfig => ({
     id: `test-agent-${Date.now()}`,
     provider: "claude",
     model: "claude-opus-4",
@@ -134,7 +144,10 @@ describe("AcpDriver", () => {
         await expect(driver.spawn(config)).rejects.toThrow("already exists");
         await driver.terminate(config.id);
       } catch (err) {
-        console.log("Duplicate ID test skipped due to environment:", String(err));
+        console.log(
+          "Duplicate ID test skipped due to environment:",
+          String(err),
+        );
       }
     });
   });
@@ -154,7 +167,10 @@ describe("AcpDriver", () => {
         await driver.spawn(config);
 
         // Create checkpoint
-        const checkpoint = await driver.createCheckpoint(config.id, "Test checkpoint");
+        const checkpoint = await driver.createCheckpoint(
+          config.id,
+          "Test checkpoint",
+        );
         expect(checkpoint.id).toBeDefined();
         expect(checkpoint.description).toBe("Test checkpoint");
 
@@ -183,7 +199,10 @@ describe("AcpDriver", () => {
 
         await driver.terminate(config.id);
       } catch (err) {
-        console.log("Get checkpoint test skipped due to environment:", String(err));
+        console.log(
+          "Get checkpoint test skipped due to environment:",
+          String(err),
+        );
       }
     });
 
@@ -193,14 +212,23 @@ describe("AcpDriver", () => {
       try {
         await driver.spawn(config);
 
-        const checkpoint = await driver.createCheckpoint(config.id, "Restore test");
-        const restored = await driver.restoreCheckpoint(config.id, checkpoint.id);
+        const checkpoint = await driver.createCheckpoint(
+          config.id,
+          "Restore test",
+        );
+        const restored = await driver.restoreCheckpoint(
+          config.id,
+          checkpoint.id,
+        );
 
         expect(restored.id).toBe(config.id);
 
         await driver.terminate(config.id);
       } catch (err) {
-        console.log("Restore checkpoint test skipped due to environment:", String(err));
+        console.log(
+          "Restore checkpoint test skipped due to environment:",
+          String(err),
+        );
       }
     });
   });

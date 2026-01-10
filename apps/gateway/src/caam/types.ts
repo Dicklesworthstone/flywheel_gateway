@@ -29,7 +29,11 @@ export type ProfileStatus =
 /**
  * Rotation strategies for account pools.
  */
-export type RotationStrategy = "smart" | "round_robin" | "least_recent" | "random";
+export type RotationStrategy =
+  | "smart"
+  | "round_robin"
+  | "least_recent"
+  | "random";
 
 /**
  * Storage modes for auth artifacts.

@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun --hot src/index.ts",
-    "build": "bun build src/index.ts --outdir dist",
+    "build": "bun build src/index.ts --outdir dist --target bun",
     "test": "bun test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -14,6 +14,7 @@
   "dependencies": {
     "@flywheel/flywheel-clients": "workspace:*",
     "@flywheel/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.12.0",
     "drizzle-orm": "^0.40.1",
     "hono": "^4.11.0",
     "pino": "^10.1.1",

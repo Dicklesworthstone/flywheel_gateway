@@ -1,6 +1,6 @@
-import { Database } from 'bun:sqlite';
+import { Database } from "bun:sqlite";
 
-export type TestDatabaseType = 'sqlite' | 'postgres';
+export type TestDatabaseType = "sqlite" | "postgres";
 
 export interface SqlStatement {
   sql: string;
@@ -8,14 +8,14 @@ export interface SqlStatement {
 }
 
 export interface SqliteTestDatabase {
-  type: 'sqlite';
+  type: "sqlite";
   db: Database;
   execute: (statement: SqlStatement) => void;
   close: () => void;
 }
 
 export interface PostgresTestDatabase {
-  type: 'postgres';
+  type: "postgres";
   client: {
     query: (sql: string, params?: unknown[]) => Promise<unknown>;
     end: () => Promise<void>;
@@ -33,15 +33,15 @@ export interface CreateTestDatabaseOptions {
 }
 
 export async function createTestDatabase(
-  options: CreateTestDatabaseOptions = {}
+  options: CreateTestDatabaseOptions = {},
 ): Promise<TestDatabase> {
-  const type = options.type ?? 'sqlite';
+  const type = options.type ?? "sqlite";
 
-  if (type === 'sqlite') {
-    const path = options.sqlitePath ?? ':memory:';
+  if (type === "sqlite") {
+    const path = options.sqlitePath ?? ":memory:";
     const db = new Database(path);
     return {
-      type: 'sqlite',
+      type: "sqlite",
       db,
       execute: ({ sql, params }) => {
         if (params && params.length > 0) {
@@ -52,26 +52,32 @@ export async function createTestDatabase(
       },
       close: () => {
         db.close();
-      }
+      },
     };
   }
 
   const { postgresUrl } = options;
   if (!postgresUrl) {
-    throw new Error('createTestDatabase: postgresUrl is required for postgres databases.');
+    throw new Error(
+      "createTestDatabase: postgresUrl is required for postgres databases.",
+    );
   }
 
   let PgClient:
-    | (new (options: { connectionString: string }) => {
+    | (new (options: {
+        connectionString: string;
+      }) => {
         connect: () => Promise<void>;
         query: (sql: string, params?: unknown[]) => Promise<unknown>;
         end: () => Promise<void>;
       })
     | undefined;
   try {
-    const moduleName = 'pg';
+    const moduleName = "pg";
     const pgModule = (await import(moduleName)) as {
-      Client: new (options: { connectionString: string }) => {
+      Client: new (options: {
+        connectionString: string;
+      }) => {
         connect: () => Promise<void>;
         query: (sql: string, params?: unknown[]) => Promise<unknown>;
         end: () => Promise<void>;
@@ -81,7 +87,7 @@ export async function createTestDatabase(
   } catch (error) {
     throw new Error(
       'createTestDatabase: postgres support requires the "pg" package. Install it in the workspace to use postgres test utils.',
-      { cause: error }
+      { cause: error },
     );
   }
 
@@ -89,19 +95,19 @@ export async function createTestDatabase(
   await client.connect();
 
   return {
-    type: 'postgres',
+    type: "postgres",
     client,
     execute: ({ sql, params }) => client.query(sql, params),
-    close: () => client.end()
+    close: () => client.end(),
   };
 }
 
 export async function seedTestData(
   database: TestDatabase,
-  statements: SqlStatement[]
+  statements: SqlStatement[],
 ): Promise<void> {
   for (const statement of statements) {
-    if (database.type === 'sqlite') {
+    if (database.type === "sqlite") {
       database.execute(statement);
     } else {
       await database.execute(statement);
@@ -111,7 +117,7 @@ export async function seedTestData(
 
 export async function cleanupTestData(
   database: TestDatabase,
-  statements: SqlStatement[]
+  statements: SqlStatement[],
 ): Promise<void> {
   await seedTestData(database, statements);
 }

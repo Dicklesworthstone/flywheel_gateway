@@ -15,6 +15,13 @@
       "when": 1768013888084,
       "tag": "0001_lean_skaar",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1768027587492,
+      "tag": "0002_even_ultragirl",
+      "breakpoints": true
     }
   ]
 }

@@ -7,8 +7,8 @@
 
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { logger } from "./logger";
 import { getCorrelationId } from "../middleware/correlation";
+import { logger } from "./logger";
 
 // ============================================================================
 // Types
@@ -81,25 +81,32 @@ export interface CsctfResponse {
 // Known Utilities Registry
 // ============================================================================
 
-const KNOWN_UTILITIES: Array<Omit<DeveloperUtility, "installed" | "installedVersion" | "lastCheckedAt">> = [
+const KNOWN_UTILITIES: Array<
+  Omit<DeveloperUtility, "installed" | "installedVersion" | "lastCheckedAt">
+> = [
   {
     name: "giil",
     description: "Download cloud photos for AI visual analysis",
     version: "3.1.0",
-    installCommand: "curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/giil/main/install.sh | bash",
+    installCommand:
+      "curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/giil/main/install.sh | bash",
     checkCommand: "giil --version",
   },
   {
     name: "csctf",
     description: "Convert AI chat share links to Markdown/HTML",
     version: "0.4.5",
-    installCommand: "curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/chat_shared_conversation_to_file/main/install.sh | bash",
+    installCommand:
+      "curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/chat_shared_conversation_to_file/main/install.sh | bash",
     checkCommand: "csctf --version",
   },
 ];
 
 // Cache for utility status (invalidated after 5 minutes)
-const statusCache = new Map<string, { status: DeveloperUtility; checkedAt: Date }>();
+const statusCache = new Map<
+  string,
+  { status: DeveloperUtility; checkedAt: Date }
+>();
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 // Allowed base directories for output (security)
@@ -123,7 +130,7 @@ async function executeCommand(
     timeout?: number;
     cwd?: string;
     maxOutputSize?: number;
-  } = {}
+  } = {},
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const { timeout = 30000, cwd, maxOutputSize = 1024 * 1024 } = options;
 
@@ -184,14 +191,19 @@ async function executeCommand(
  * Check if a utility is installed and get its version.
  */
 async function checkUtility(
-  utility: Omit<DeveloperUtility, "installed" | "installedVersion" | "lastCheckedAt">
+  utility: Omit<
+    DeveloperUtility,
+    "installed" | "installedVersion" | "lastCheckedAt"
+  >,
 ): Promise<DeveloperUtility> {
   const cached = statusCache.get(utility.name);
   if (cached && Date.now() - cached.checkedAt.getTime() < CACHE_TTL_MS) {
     return cached.status;
   }
 
-  const result = await executeCommand(utility.checkCommand, [], { timeout: 5000 });
+  const result = await executeCommand(utility.checkCommand, [], {
+    timeout: 5000,
+  });
   const now = new Date();
 
   let installed = false;
@@ -235,7 +247,9 @@ export async function listUtilities(): Promise<UtilityStatus[]> {
 /**
  * Get status of a specific utility.
  */
-export async function getUtilityStatus(name: string): Promise<UtilityStatus | null> {
+export async function getUtilityStatus(
+  name: string,
+): Promise<UtilityStatus | null> {
   const utility = KNOWN_UTILITIES.find((u) => u.name === name);
   if (!utility) {
     return null;
@@ -299,7 +313,11 @@ export async function runDoctor(): Promise<DoctorResult> {
 /**
  * Validate that an output directory is safe to use.
  */
-function validateOutputDir(outputDir: string): { valid: boolean; error?: string; resolvedPath?: string } {
+function validateOutputDir(outputDir: string): {
+  valid: boolean;
+  error?: string;
+  resolvedPath?: string;
+} {
   // Resolve to absolute path
   const resolved = path.resolve(outputDir);
 
@@ -309,7 +327,11 @@ function validateOutputDir(outputDir: string): { valid: boolean; error?: string;
   }
 
   // Check against allowed bases
-  const isAllowed = ALLOWED_OUTPUT_BASES.some((base) => resolved.startsWith(base));
+  const isAllowed = ALLOWED_OUTPUT_BASES.some((base) => {
+    // Ensure base doesn't have trailing separator for consistent comparison
+    const cleanBase = base.endsWith(path.sep) ? base.slice(0, -1) : base;
+    return resolved === cleanBase || resolved.startsWith(cleanBase + path.sep);
+  });
   if (!isAllowed) {
     return {
       valid: false,
@@ -364,7 +386,10 @@ export async function runGiil(request: GiilRequest): Promise<GiilResponse> {
   const result = await executeCommand("giil", args, { timeout: 60000 });
 
   if (result.exitCode !== 0) {
-    log.warn({ exitCode: result.exitCode, stderr: result.stderr.slice(0, 200) }, "giil failed");
+    log.warn(
+      { exitCode: result.exitCode, stderr: result.stderr.slice(0, 200) },
+      "giil failed",
+    );
     return {
       success: false,
       error: result.stderr || `giil exited with code ${result.exitCode}`,
@@ -440,13 +465,19 @@ export async function runCsctf(request: CsctfRequest): Promise<CsctfResponse> {
 
   // Log sanitized request
   const urlHash = Buffer.from(request.url).toString("base64").slice(0, 8);
-  log.info({ urlHash, outputDir: validation.resolvedPath, formats }, "Running csctf");
+  log.info(
+    { urlHash, outputDir: validation.resolvedPath, formats },
+    "Running csctf",
+  );
 
   // Execute csctf
   const result = await executeCommand("csctf", args, { timeout: 120000 });
 
   if (result.exitCode !== 0) {
-    log.warn({ exitCode: result.exitCode, stderr: result.stderr.slice(0, 200) }, "csctf failed");
+    log.warn(
+      { exitCode: result.exitCode, stderr: result.stderr.slice(0, 200) },
+      "csctf failed",
+    );
     return {
       success: false,
       error: result.stderr || `csctf exited with code ${result.exitCode}`,

@@ -5,4 +5,8 @@
  * allowing them to attach and interact with agents in a terminal.
  */
 
-export { TmuxDriver, createTmuxDriver, type TmuxDriverOptions } from "./tmux-driver";
+export {
+  createTmuxDriver,
+  TmuxDriver,
+  type TmuxDriverOptions,
+} from "./tmux-driver";

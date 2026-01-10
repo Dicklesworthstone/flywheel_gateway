@@ -2,21 +2,21 @@
  * Alerts Routes - REST API endpoints for alert management.
  */
 
-import { Hono, type Context } from "hono";
+import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
+import type { AlertSeverity, AlertType } from "../models/alert";
 import {
-  getActiveAlerts,
-  getAlertHistory,
-  getAlert,
   acknowledgeAlert,
   dismissAlert,
-  getAlertRules,
-  getAlertRule,
-  updateAlertRule,
   evaluateAlertRules,
+  getActiveAlerts,
+  getAlert,
+  getAlertHistory,
+  getAlertRule,
+  getAlertRules,
+  updateAlertRule,
 } from "../services/alerts";
-import type { AlertSeverity, AlertType } from "../models/alert";
 
 const alerts = new Hono();
 
@@ -59,7 +59,7 @@ function handleError(error: unknown, c: Context) {
           details: error.issues,
         },
       },
-      400
+      400,
     );
   }
 
@@ -73,7 +73,7 @@ function handleError(error: unknown, c: Context) {
         timestamp: new Date().toISOString(),
       },
     },
-    500
+    500,
   );
 }
 
@@ -110,7 +110,9 @@ alerts.get("/", (c) => {
   try {
     const result = getActiveAlerts({
       type: parseArrayQuery(c.req.query("type")) as AlertType[] | undefined,
-      severity: parseArrayQuery(c.req.query("severity")) as AlertSeverity[] | undefined,
+      severity: parseArrayQuery(c.req.query("severity")) as
+        | AlertSeverity[]
+        | undefined,
       acknowledged: parseBooleanQuery(c.req.query("acknowledged")),
       since: parseDateQuery(c.req.query("since")),
       until: parseDateQuery(c.req.query("until")),
@@ -123,8 +125,12 @@ alerts.get("/", (c) => {
         ...alert,
         createdAt: alert.createdAt.toISOString(),
         ...(alert.expiresAt && { expiresAt: alert.expiresAt.toISOString() }),
-        ...(alert.acknowledgedAt && { acknowledgedAt: alert.acknowledgedAt.toISOString() }),
-        ...(alert.dismissedAt && { dismissedAt: alert.dismissedAt.toISOString() }),
+        ...(alert.acknowledgedAt && {
+          acknowledgedAt: alert.acknowledgedAt.toISOString(),
+        }),
+        ...(alert.dismissedAt && {
+          dismissedAt: alert.dismissedAt.toISOString(),
+        }),
       })),
       pagination: result.pagination,
     });
@@ -140,7 +146,9 @@ alerts.get("/history", (c) => {
   try {
     const result = getAlertHistory({
       type: parseArrayQuery(c.req.query("type")) as AlertType[] | undefined,
-      severity: parseArrayQuery(c.req.query("severity")) as AlertSeverity[] | undefined,
+      severity: parseArrayQuery(c.req.query("severity")) as
+        | AlertSeverity[]
+        | undefined,
       since: parseDateQuery(c.req.query("since")),
       until: parseDateQuery(c.req.query("until")),
       limit: safeParseInt(c.req.query("limit"), 50),
@@ -152,8 +160,12 @@ alerts.get("/history", (c) => {
         ...alert,
         createdAt: alert.createdAt.toISOString(),
         ...(alert.expiresAt && { expiresAt: alert.expiresAt.toISOString() }),
-        ...(alert.acknowledgedAt && { acknowledgedAt: alert.acknowledgedAt.toISOString() }),
-        ...(alert.dismissedAt && { dismissedAt: alert.dismissedAt.toISOString() }),
+        ...(alert.acknowledgedAt && {
+          acknowledgedAt: alert.acknowledgedAt.toISOString(),
+        }),
+        ...(alert.dismissedAt && {
+          dismissedAt: alert.dismissedAt.toISOString(),
+        }),
       })),
       pagination: result.pagination,
     });
@@ -206,7 +218,7 @@ alerts.put("/rules/:ruleId", async (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        404
+        404,
       );
     }
 
@@ -240,7 +252,7 @@ alerts.get("/:alertId", (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        404
+        404,
       );
     }
 
@@ -248,8 +260,12 @@ alerts.get("/:alertId", (c) => {
       ...alert,
       createdAt: alert.createdAt.toISOString(),
       ...(alert.expiresAt && { expiresAt: alert.expiresAt.toISOString() }),
-      ...(alert.acknowledgedAt && { acknowledgedAt: alert.acknowledgedAt.toISOString() }),
-      ...(alert.dismissedAt && { dismissedAt: alert.dismissedAt.toISOString() }),
+      ...(alert.acknowledgedAt && {
+        acknowledgedAt: alert.acknowledgedAt.toISOString(),
+      }),
+      ...(alert.dismissedAt && {
+        dismissedAt: alert.dismissedAt.toISOString(),
+      }),
     });
   } catch (error) {
     return handleError(error, c);
@@ -283,7 +299,7 @@ alerts.post("/:alertId/acknowledge", async (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        404
+        404,
       );
     }
 
@@ -325,7 +341,7 @@ alerts.post("/:alertId/dismiss", async (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        404
+        404,
       );
     }
 

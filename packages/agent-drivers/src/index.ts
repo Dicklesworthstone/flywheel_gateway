@@ -32,23 +32,22 @@
  * ```
  */
 
-// Core types
-export * from "./types";
-
+// ACP driver
+export * from "./acp";
+// Base driver class (for implementing custom drivers)
+export {
+  BaseDriver,
+  type BaseDriverConfig,
+  createDriverOptions,
+} from "./base-driver";
 // Interface and driver contract
 export * from "./interface";
-
 // Driver registry and selection
 export * from "./registry";
 
-// Base driver class (for implementing custom drivers)
-export { BaseDriver, createDriverOptions, type BaseDriverConfig } from "./base-driver";
-
 // SDK drivers
 export * from "./sdk";
-
-// ACP driver
-export * from "./acp";
-
 // Tmux driver
 export * from "./tmux";
+// Core types
+export * from "./types";

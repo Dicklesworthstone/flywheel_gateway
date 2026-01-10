@@ -4,30 +4,34 @@
  * Tests profile management, pool operations, and rotation strategies.
  */
 
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { db } from "../db";
-import { accountProfiles, accountPools, accountPoolMembers } from "../db/schema";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import {
-  createProfile,
-  listProfiles,
-  getProfile,
-  updateProfile,
-  deleteProfile,
-  setCooldown,
   activateProfile,
-  markVerified,
+  createProfile,
+  deleteProfile,
   getByoaStatus,
   getPool,
   getPoolProfiles,
+  getProfile,
+  listProfiles,
+  markVerified,
+  setCooldown,
+  updateProfile,
 } from "../caam/account.service";
 import {
-  rotate,
   handleRateLimit,
   isRateLimitError,
   peekNextProfile,
+  rotate,
 } from "../caam/rotation";
 import type { ProviderId } from "../caam/types";
+import { db } from "../db";
+import {
+  accountPoolMembers,
+  accountPools,
+  accountProfiles,
+} from "../db/schema";
 
 describe("CAAM Account Service", () => {
   // Clean up test data after each test
@@ -281,8 +285,12 @@ describe("CAAM Account Service", () => {
 
       expect(activated!.lastUsedAt).toBeDefined();
       // Allow 2 second tolerance for database timestamp precision
-      expect(activated!.lastUsedAt!.getTime()).toBeGreaterThanOrEqual(before - 2000);
-      expect(activated!.lastUsedAt!.getTime()).toBeLessThanOrEqual(Date.now() + 2000);
+      expect(activated!.lastUsedAt!.getTime()).toBeGreaterThanOrEqual(
+        before - 2000,
+      );
+      expect(activated!.lastUsedAt!.getTime()).toBeLessThanOrEqual(
+        Date.now() + 2000,
+      );
     });
 
     test("updates pool's active profile", async () => {
@@ -484,7 +492,11 @@ describe("CAAM Rotation", () => {
       await markVerified(p2.id);
       await activateProfile(p1.id);
 
-      const result = await handleRateLimit("test-ws", "claude", "429 Too Many Requests");
+      const result = await handleRateLimit(
+        "test-ws",
+        "claude",
+        "429 Too Many Requests",
+      );
 
       expect(result.success).toBe(true);
       expect(result.newProfileId).toBe(p2.id);

@@ -1,11 +1,15 @@
-import { createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from "@tanstack/react-router";
 
 import { Shell } from "./components/layout/Shell";
-import { DashboardPage } from "./pages/Dashboard";
 import { AgentsPage } from "./pages/Agents";
 import { BeadsPage } from "./pages/Beads";
-import { SettingsPage } from "./pages/Settings";
+import { DashboardPage } from "./pages/Dashboard";
 import { NotFoundPage } from "./pages/NotFound";
+import { SettingsPage } from "./pages/Settings";
 
 const rootRoute = createRootRoute({
   component: Shell,

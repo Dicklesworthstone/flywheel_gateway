@@ -9,8 +9,8 @@
  */
 
 import type { AgentEvent, OutputLine } from "@flywheel/agent-drivers";
-import { getHub } from "../ws/hub";
 import type { Channel } from "../ws/channels";
+import { getHub } from "../ws/hub";
 import { logger } from "./logger";
 
 // ============================================================================
@@ -191,7 +191,10 @@ function getOutputBuffer(agentId: string): OutputBuffer {
 /**
  * Convert OutputLine to OutputChunk.
  */
-function lineToChunk(agentId: string, line: OutputLine): Omit<OutputChunk, "id" | "sequence"> {
+function lineToChunk(
+  agentId: string,
+  line: OutputLine,
+): Omit<OutputChunk, "id" | "sequence"> {
   // Determine stream type based on output type
   let streamType: "stdout" | "stderr" | "system" = "stdout";
   if (line.type === "error") {
@@ -224,7 +227,7 @@ function lineToChunk(agentId: string, line: OutputLine): Omit<OutputChunk, "id" 
  */
 export async function startOutputStreaming(
   agentId: string,
-  eventStream: AsyncIterable<AgentEvent>
+  eventStream: AsyncIterable<AgentEvent>,
 ): Promise<void> {
   // Cancel any existing subscription
   stopOutputStreaming(agentId);
@@ -263,7 +266,7 @@ export async function startOutputStreaming(
 
         logger.debug(
           { agentId, sequence: chunk.sequence, type: chunk.type },
-          "Output chunk published"
+          "Output chunk published",
         );
       }
     } catch (error) {
@@ -301,7 +304,10 @@ export function stopOutputStreaming(agentId: string): void {
  * @param options - Pagination and filtering options
  * @returns Output chunks and pagination info
  */
-export function getOutput(agentId: string, options: GetOutputOptions = {}): GetOutputResult {
+export function getOutput(
+  agentId: string,
+  options: GetOutputOptions = {},
+): GetOutputResult {
   const buffer = outputBuffers.get(agentId);
   const limit = options.limit ?? 100;
 
@@ -315,7 +321,8 @@ export function getOutput(agentId: string, options: GetOutputOptions = {}): GetO
     };
   }
 
-  const hasFilters = (options.types?.length ?? 0) > 0 || options.streamType !== undefined;
+  const hasFilters =
+    (options.types?.length ?? 0) > 0 || options.streamType !== undefined;
 
   if (!hasFilters) {
     // No filters - simple case, fetch limit + 1 to check hasMore
@@ -323,7 +330,9 @@ export function getOutput(agentId: string, options: GetOutputOptions = {}): GetO
     const hasMore = chunks.length > limit;
     const result = hasMore ? chunks.slice(0, limit) : chunks;
     const lastChunk = result[result.length - 1];
-    const nextCursor = lastChunk ? String(lastChunk.sequence) : options.cursor ?? "0";
+    const nextCursor = lastChunk
+      ? String(lastChunk.sequence)
+      : (options.cursor ?? "0");
 
     return {
       chunks: result,
@@ -350,8 +359,10 @@ export function getOutput(agentId: string, options: GetOutputOptions = {}): GetO
 
     for (const chunk of batch) {
       // Apply filters
-      const typeMatch = !options.types?.length || options.types.includes(chunk.type);
-      const streamMatch = !options.streamType || chunk.streamType === options.streamType;
+      const typeMatch =
+        !options.types?.length || options.types.includes(chunk.type);
+      const streamMatch =
+        !options.streamType || chunk.streamType === options.streamType;
 
       if (typeMatch && streamMatch) {
         matchingChunks.push(chunk);
@@ -375,7 +386,9 @@ export function getOutput(agentId: string, options: GetOutputOptions = {}): GetO
   const hasMore = matchingChunks.length > limit;
   const result = hasMore ? matchingChunks.slice(0, limit) : matchingChunks;
   const lastChunk = result[result.length - 1];
-  const nextCursor = lastChunk ? String(lastChunk.sequence) : options.cursor ?? "0";
+  const nextCursor = lastChunk
+    ? String(lastChunk.sequence)
+    : (options.cursor ?? "0");
 
   return {
     chunks: result,
@@ -398,7 +411,7 @@ export function getOutput(agentId: string, options: GetOutputOptions = {}): GetO
 export function backfillOutput(
   agentId: string,
   cursor: string,
-  limit = 100
+  limit = 100,
 ): { chunks: OutputChunk[]; cursorExpired: boolean } {
   const buffer = outputBuffers.get(agentId);
 
@@ -459,7 +472,7 @@ export function pushOutput(
   agentId: string,
   type: string,
   content: string | Record<string, unknown>,
-  streamType: "stdout" | "stderr" | "system" = "stdout"
+  streamType: "stdout" | "stderr" | "system" = "stdout",
 ): OutputChunk {
   const buffer = getOutputBuffer(agentId);
   const hub = getHub();

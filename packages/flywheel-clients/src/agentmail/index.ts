@@ -1,9 +1,9 @@
+import type { ValidationFieldError } from "@flywheel/shared/errors";
 import {
   createGatewayError,
   createValidationError,
   toGatewayError,
 } from "@flywheel/shared/errors";
-import type { ValidationFieldError } from "@flywheel/shared/errors";
 import { z } from "zod";
 
 export type AgentMailPriority = "low" | "normal" | "high" | "urgent";
@@ -137,6 +137,17 @@ const ReplyOutputSchema = z
   })
   .passthrough();
 
+const HealthInputSchema = z.object({
+  probe: z.enum(["liveness", "readiness"]).optional(),
+});
+
+const HealthOutputSchema = z
+  .object({
+    status: z.string(),
+    timestamp: z.string().datetime(),
+  })
+  .passthrough();
+
 const FetchInboxInputSchema = z.object({
   projectId: z.string().min(1),
   agentId: z.string().min(1),
@@ -193,6 +204,14 @@ export interface AgentMailClient {
     input: RequestFileReservationInput,
     options?: AgentMailToolCallOptions,
   ) => Promise<z.infer<typeof RequestFileReservationOutputSchema>>;
+  reservationCycle: (
+    input: ReservationCycleInput,
+    options?: AgentMailToolCallOptions,
+  ) => Promise<ReservationCycleOutput>;
+  healthCheck: (
+    input?: HealthCheckInput,
+    options?: AgentMailToolCallOptions,
+  ) => Promise<HealthCheckOutput>;
   startSession: (
     input: StartSessionInput,
     options?: AgentMailToolCallOptions,
@@ -211,6 +230,12 @@ export type RequestFileReservationInput = z.infer<
   typeof RequestFileReservationInputSchema
 >;
 export type AgentMailMessage = z.infer<typeof MessageSchema>;
+export type ReservationCycleInput = RequestFileReservationInput;
+export type ReservationCycleOutput = z.infer<
+  typeof RequestFileReservationOutputSchema
+>;
+export type HealthCheckInput = z.infer<typeof HealthInputSchema>;
+export type HealthCheckOutput = z.infer<typeof HealthOutputSchema>;
 export type StartSessionInput = {
   projectId: string;
   name: string;
@@ -385,6 +410,29 @@ export function createAgentMailClient(
         callOptions,
       );
     },
+    reservationCycle: (input, callOptions) => {
+      const payload = {
+        ...input,
+        duration: input.duration ?? defaultTtl,
+      };
+      return callToolWithSchema(
+        options.callTool,
+        toolName(prefix, "request_file_reservation"),
+        payload,
+        RequestFileReservationInputSchema,
+        RequestFileReservationOutputSchema,
+        callOptions,
+      );
+    },
+    healthCheck: (input, callOptions) =>
+      callToolWithSchema(
+        options.callTool,
+        toolName(prefix, "health"),
+        input ?? {},
+        HealthInputSchema,
+        HealthOutputSchema,
+        callOptions,
+      ),
     startSession: async (input, callOptions) => {
       const project = await callToolWithSchema(
         options.callTool,
@@ -429,6 +477,8 @@ export const AgentMailSchemas = {
   SendMessageOutputSchema,
   ReplyInputSchema,
   ReplyOutputSchema,
+  HealthInputSchema,
+  HealthOutputSchema,
   FetchInboxInputSchema,
   FetchInboxOutputSchema,
   RequestFileReservationInputSchema,

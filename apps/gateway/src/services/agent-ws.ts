@@ -56,13 +56,16 @@ function broadcastStateChange(event: StateChangeEvent): void {
   for (const ws of connections) {
     const data = ws.data;
     // Send if subscribed to this agent or subscribed to all
-    if (data.subscriptions.size === 0 || data.subscriptions.has(event.agentId)) {
+    if (
+      data.subscriptions.size === 0 ||
+      data.subscriptions.has(event.agentId)
+    ) {
       try {
         ws.send(message);
       } catch (error) {
         logger.warn(
           { connectionId: data.connectionId, error },
-          "Failed to send WebSocket message"
+          "Failed to send WebSocket message",
         );
       }
     }
@@ -84,7 +87,7 @@ export function handleWSOpen(ws: ServerWebSocket<WSData>): void {
   connections.add(ws);
   logger.info(
     { connectionId: ws.data.connectionId },
-    "WebSocket client connected"
+    "WebSocket client connected",
   );
 
   // Send welcome message
@@ -93,7 +96,7 @@ export function handleWSOpen(ws: ServerWebSocket<WSData>): void {
       type: "connected",
       connectionId: ws.data.connectionId,
       timestamp: new Date().toISOString(),
-    })
+    }),
   );
 }
 
@@ -103,7 +106,7 @@ export function handleWSOpen(ws: ServerWebSocket<WSData>): void {
  */
 export function handleWSMessage(
   ws: ServerWebSocket<WSData>,
-  message: string | Buffer
+  message: string | Buffer,
 ): void {
   try {
     const data = typeof message === "string" ? message : message.toString();
@@ -116,7 +119,8 @@ export function handleWSMessage(
     switch (parsed.type) {
       case "subscribe": {
         // Subscribe to specific agent(s)
-        const agentIds = parsed.agentIds ?? (parsed.agentId ? [parsed.agentId] : []);
+        const agentIds =
+          parsed.agentIds ?? (parsed.agentId ? [parsed.agentId] : []);
         for (const id of agentIds) {
           ws.data.subscriptions.add(id);
         }
@@ -125,18 +129,19 @@ export function handleWSMessage(
             type: "subscribed",
             agentIds,
             timestamp: new Date().toISOString(),
-          })
+          }),
         );
         logger.debug(
           { connectionId: ws.data.connectionId, agentIds },
-          "WebSocket subscribed to agents"
+          "WebSocket subscribed to agents",
         );
         break;
       }
 
       case "unsubscribe": {
         // Unsubscribe from specific agent(s)
-        const agentIds = parsed.agentIds ?? (parsed.agentId ? [parsed.agentId] : []);
+        const agentIds =
+          parsed.agentIds ?? (parsed.agentId ? [parsed.agentId] : []);
         for (const id of agentIds) {
           ws.data.subscriptions.delete(id);
         }
@@ -145,11 +150,11 @@ export function handleWSMessage(
             type: "unsubscribed",
             agentIds,
             timestamp: new Date().toISOString(),
-          })
+          }),
         );
         logger.debug(
           { connectionId: ws.data.connectionId, agentIds },
-          "WebSocket unsubscribed from agents"
+          "WebSocket unsubscribed from agents",
         );
         break;
       }
@@ -161,11 +166,11 @@ export function handleWSMessage(
           JSON.stringify({
             type: "subscribed_all",
             timestamp: new Date().toISOString(),
-          })
+          }),
         );
         logger.debug(
           { connectionId: ws.data.connectionId },
-          "WebSocket subscribed to all agents"
+          "WebSocket subscribed to all agents",
         );
         break;
       }
@@ -175,7 +180,7 @@ export function handleWSMessage(
           JSON.stringify({
             type: "pong",
             timestamp: new Date().toISOString(),
-          })
+          }),
         );
         break;
       }
@@ -186,20 +191,20 @@ export function handleWSMessage(
             type: "error",
             message: `Unknown message type: ${parsed.type}`,
             timestamp: new Date().toISOString(),
-          })
+          }),
         );
     }
   } catch (error) {
     logger.warn(
       { connectionId: ws.data.connectionId, error },
-      "Invalid WebSocket message"
+      "Invalid WebSocket message",
     );
     ws.send(
       JSON.stringify({
         type: "error",
         message: "Invalid JSON message",
         timestamp: new Date().toISOString(),
-      })
+      }),
     );
   }
 }
@@ -211,20 +216,17 @@ export function handleWSClose(ws: ServerWebSocket<WSData>): void {
   connections.delete(ws);
   logger.info(
     { connectionId: ws.data.connectionId },
-    "WebSocket client disconnected"
+    "WebSocket client disconnected",
   );
 }
 
 /**
  * Handle WebSocket error event.
  */
-export function handleWSError(
-  ws: ServerWebSocket<WSData>,
-  error: Error
-): void {
+export function handleWSError(ws: ServerWebSocket<WSData>, error: Error): void {
   logger.error(
     { connectionId: ws.data.connectionId, error },
-    "WebSocket error"
+    "WebSocket error",
   );
   connections.delete(ws);
 }
@@ -232,9 +234,9 @@ export function handleWSError(
 /**
  * Create initial WebSocket data for a new connection.
  */
-export function createWSData(): WSData {
+export function createWSData(initialSubscriptions: string[] = []): WSData {
   return {
-    subscriptions: new Set(),
+    subscriptions: new Set(initialSubscriptions),
     connectionId: generateConnectionId(),
   };
 }

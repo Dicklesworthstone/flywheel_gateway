@@ -2,15 +2,21 @@
  * Tests for the Tmux Driver.
  */
 
-import { describe, expect, it, beforeEach, afterEach } from "bun:test";
-import { TmuxDriver, createTmuxDriver, type TmuxDriverOptions } from "../tmux";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import {
+  createTmuxDriver,
+  type TmuxDriver,
+  type TmuxDriverOptions,
+} from "../tmux";
 import type { AgentConfig } from "../types";
 
 describe("TmuxDriver", () => {
   let driver: TmuxDriver;
   let tmuxAvailable: boolean;
 
-  const createTestConfig = (overrides: Partial<AgentConfig> = {}): AgentConfig => ({
+  const createTestConfig = (
+    overrides: Partial<AgentConfig> = {},
+  ): AgentConfig => ({
     id: `test-agent-${Date.now()}`,
     provider: "claude",
     model: "claude-opus-4",
@@ -134,7 +140,10 @@ describe("TmuxDriver", () => {
       } catch (err) {
         // In some environments (like CI), tmux sessions can't be created
         // This is expected - just verify we got a meaningful error
-        console.log("Tmux spawn failed (expected in some environments):", String(err));
+        console.log(
+          "Tmux spawn failed (expected in some environments):",
+          String(err),
+        );
       } finally {
         // Clean up tmux server
         await Bun.spawn(["tmux", "-L", "flywheel-integ-test", "kill-server"], {
@@ -171,10 +180,13 @@ describe("TmuxDriver", () => {
         // In some environments, tmux sessions can't be created
         console.log("Tmux interrupt test skipped (spawn failed):", String(err));
       } finally {
-        await Bun.spawn(["tmux", "-L", "flywheel-integ-test-2", "kill-server"], {
-          stdout: "pipe",
-          stderr: "pipe",
-        }).exited.catch(() => {});
+        await Bun.spawn(
+          ["tmux", "-L", "flywheel-integ-test-2", "kill-server"],
+          {
+            stdout: "pipe",
+            stderr: "pipe",
+          },
+        ).exited.catch(() => {});
       }
     });
   });
@@ -187,11 +199,15 @@ describe("TmuxDriver", () => {
     });
 
     it("should throw when getting state for non-existent agent", async () => {
-      await expect(driver.getState("non-existent")).rejects.toThrow("Agent not found");
+      await expect(driver.getState("non-existent")).rejects.toThrow(
+        "Agent not found",
+      );
     });
 
     it("should throw when sending to non-existent agent", async () => {
-      await expect(driver.send("non-existent", "hello")).rejects.toThrow("Agent not found");
+      await expect(driver.send("non-existent", "hello")).rejects.toThrow(
+        "Agent not found",
+      );
     });
 
     it("should throw when interrupting non-existent agent", async () => {
@@ -199,7 +215,9 @@ describe("TmuxDriver", () => {
     });
 
     it("should throw when getting attach command for non-existent agent", () => {
-      expect(() => driver.getAttachCommand("non-existent")).toThrow("Session not found");
+      expect(() => driver.getAttachCommand("non-existent")).toThrow(
+        "Session not found",
+      );
     });
   });
 });

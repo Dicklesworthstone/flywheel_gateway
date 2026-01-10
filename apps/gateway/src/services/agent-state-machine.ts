@@ -84,7 +84,36 @@ export function initializeAgentState(agentId: string): AgentStateRecord {
     `[LIFECYCLE] Agent ${agentId} initialized in SPAWNING state`,
   );
 
+  // Opportunistic cleanup of stale states (older than 1 hour)
+  cleanupStaleStates(3600000);
+
   return record;
+}
+
+/**
+ * Cleanup states for agents that have been in a terminal state
+ * for longer than the specified TTL.
+ */
+export function cleanupStaleStates(ttlMs: number): number {
+  const now = Date.now();
+  let cleaned = 0;
+  const log = getLogger();
+
+  for (const [id, record] of agentStates.entries()) {
+    if (isTerminalState(record.currentState)) {
+      const terminalDuration = now - record.stateEnteredAt.getTime();
+      if (terminalDuration > ttlMs) {
+        agentStates.delete(id);
+        cleaned++;
+      }
+    }
+  }
+
+  if (cleaned > 0) {
+    log.info({ cleaned, ttlMs }, "Cleaned up stale agent states");
+  }
+
+  return cleaned;
 }
 
 /**

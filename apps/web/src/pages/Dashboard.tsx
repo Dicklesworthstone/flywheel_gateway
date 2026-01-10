@@ -1,9 +1,13 @@
-import { mockAgents, mockBeads, mockMetrics } from "../lib/mock-data";
 import { StatusPill } from "../components/ui/StatusPill";
+import { mockAgents, mockBeads, mockMetrics } from "../lib/mock-data";
 
 export function DashboardPage() {
-  const readyAgents = mockAgents.filter((agent) => agent.status === "ready").length;
-  const executingAgents = mockAgents.filter((agent) => agent.status === "executing").length;
+  const readyAgents = mockAgents.filter(
+    (agent) => agent.status === "ready",
+  ).length;
+  const executingAgents = mockAgents.filter(
+    (agent) => agent.status === "executing",
+  ).length;
 
   return (
     <div className="page">

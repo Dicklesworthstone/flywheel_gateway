@@ -2,13 +2,13 @@
  * Unit tests for the Agent WebSocket Service.
  */
 
-import { describe, test, expect, beforeEach, mock } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import {
-  handleWSOpen,
-  handleWSMessage,
-  handleWSClose,
   createWSData,
   getConnectionCount,
+  handleWSClose,
+  handleWSMessage,
+  handleWSOpen,
 } from "../services/agent-ws";
 
 // Mock WebSocket
@@ -69,10 +69,13 @@ describe("Agent WebSocket Service", () => {
       handleWSOpen(ws as any);
       ws.sent.length = 0; // Clear welcome message
 
-      handleWSMessage(ws as any, JSON.stringify({
-        type: "subscribe",
-        agentId: "agent-123",
-      }));
+      handleWSMessage(
+        ws as any,
+        JSON.stringify({
+          type: "subscribe",
+          agentId: "agent-123",
+        }),
+      );
 
       expect(ws.data.subscriptions.has("agent-123")).toBe(true);
       expect(ws.sent.length).toBe(1);
@@ -86,10 +89,13 @@ describe("Agent WebSocket Service", () => {
       handleWSOpen(ws as any);
       ws.sent.length = 0;
 
-      handleWSMessage(ws as any, JSON.stringify({
-        type: "subscribe",
-        agentIds: ["agent-1", "agent-2", "agent-3"],
-      }));
+      handleWSMessage(
+        ws as any,
+        JSON.stringify({
+          type: "subscribe",
+          agentIds: ["agent-1", "agent-2", "agent-3"],
+        }),
+      );
 
       expect(ws.data.subscriptions.size).toBe(3);
       expect(ws.data.subscriptions.has("agent-1")).toBe(true);
@@ -103,10 +109,13 @@ describe("Agent WebSocket Service", () => {
       ws.data.subscriptions.add("agent-123");
       ws.sent.length = 0;
 
-      handleWSMessage(ws as any, JSON.stringify({
-        type: "unsubscribe",
-        agentId: "agent-123",
-      }));
+      handleWSMessage(
+        ws as any,
+        JSON.stringify({
+          type: "unsubscribe",
+          agentId: "agent-123",
+        }),
+      );
 
       expect(ws.data.subscriptions.has("agent-123")).toBe(false);
       const response = JSON.parse(ws.sent[0]!);
@@ -120,9 +129,12 @@ describe("Agent WebSocket Service", () => {
       ws.data.subscriptions.add("agent-2");
       ws.sent.length = 0;
 
-      handleWSMessage(ws as any, JSON.stringify({
-        type: "subscribe_all",
-      }));
+      handleWSMessage(
+        ws as any,
+        JSON.stringify({
+          type: "subscribe_all",
+        }),
+      );
 
       expect(ws.data.subscriptions.size).toBe(0);
       const response = JSON.parse(ws.sent[0]!);

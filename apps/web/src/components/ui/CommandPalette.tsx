@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import { Command } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useUiStore } from "../../stores/ui";
 
@@ -22,16 +22,36 @@ export function CommandPalette() {
 
   const actions: PaletteAction[] = useMemo(
     () => [
-      { id: "nav-dashboard", label: "Go to Dashboard", group: "Navigation", run: () => navigate({ to: "/" }) },
-      { id: "nav-agents", label: "Open Agents", group: "Navigation", run: () => navigate({ to: "/agents" }) },
-      { id: "nav-beads", label: "Open Beads", group: "Navigation", run: () => navigate({ to: "/beads" }) },
-      { id: "nav-settings", label: "Open Settings", group: "Navigation", run: () => navigate({ to: "/settings" }) },
+      {
+        id: "nav-dashboard",
+        label: "Go to Dashboard",
+        group: "Navigation",
+        run: () => navigate({ to: "/" }),
+      },
+      {
+        id: "nav-agents",
+        label: "Open Agents",
+        group: "Navigation",
+        run: () => navigate({ to: "/agents" }),
+      },
+      {
+        id: "nav-beads",
+        label: "Open Beads",
+        group: "Navigation",
+        run: () => navigate({ to: "/beads" }),
+      },
+      {
+        id: "nav-settings",
+        label: "Open Settings",
+        group: "Navigation",
+        run: () => navigate({ to: "/settings" }),
+      },
     ],
-    [navigate]
+    [navigate],
   );
 
   const filtered = actions.filter((action) =>
-    action.label.toLowerCase().includes(query.toLowerCase())
+    action.label.toLowerCase().includes(query.toLowerCase()),
   );
 
   useEffect(() => {

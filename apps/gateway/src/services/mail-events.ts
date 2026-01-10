@@ -88,17 +88,12 @@ export class MailEventsService {
   publishMailReceived(
     userId: string,
     payload: MailReceivedPayload,
-    metadata?: MessageMetadata
+    metadata?: MessageMetadata,
   ): void {
-    this.hub.publish(
-      { type: "user:mail", userId },
-      "mail.received",
-      payload,
-      {
-        ...metadata,
-        userId,
-      }
-    );
+    this.hub.publish({ type: "user:mail", userId }, "mail.received", payload, {
+      ...metadata,
+      userId,
+    });
   }
 
   /**
@@ -110,7 +105,7 @@ export class MailEventsService {
   publishReservationAcquired(
     workspaceId: string,
     payload: ReservationAcquiredPayload,
-    metadata?: MessageMetadata
+    metadata?: MessageMetadata,
   ): void {
     this.hub.publish(
       { type: "workspace:reservations", workspaceId },
@@ -119,7 +114,7 @@ export class MailEventsService {
       {
         ...metadata,
         workspaceId,
-      }
+      },
     );
   }
 
@@ -132,7 +127,7 @@ export class MailEventsService {
   publishReservationReleased(
     workspaceId: string,
     payload: ReservationReleasedPayload,
-    metadata?: MessageMetadata
+    metadata?: MessageMetadata,
   ): void {
     this.hub.publish(
       { type: "workspace:reservations", workspaceId },
@@ -141,7 +136,7 @@ export class MailEventsService {
       {
         ...metadata,
         workspaceId,
-      }
+      },
     );
   }
 
@@ -154,7 +149,7 @@ export class MailEventsService {
   publishConflictDetected(
     workspaceId: string,
     payload: ConflictDetectedPayload,
-    metadata?: MessageMetadata
+    metadata?: MessageMetadata,
   ): void {
     this.hub.publish(
       { type: "workspace:conflicts", workspaceId },
@@ -163,7 +158,7 @@ export class MailEventsService {
       {
         ...metadata,
         workspaceId,
-      }
+      },
     );
   }
 
@@ -176,7 +171,7 @@ export class MailEventsService {
   publishConflictResolved(
     workspaceId: string,
     payload: ConflictResolvedPayload,
-    metadata?: MessageMetadata
+    metadata?: MessageMetadata,
   ): void {
     this.hub.publish(
       { type: "workspace:conflicts", workspaceId },
@@ -185,7 +180,7 @@ export class MailEventsService {
       {
         ...metadata,
         workspaceId,
-      }
+      },
     );
   }
 }

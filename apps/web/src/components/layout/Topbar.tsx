@@ -14,7 +14,9 @@ export function Topbar() {
   const title =
     location.pathname === "/"
       ? "Dashboard"
-      : location.pathname.replace("/", "").replace(/^\w/, (c) => c.toUpperCase());
+      : location.pathname
+          .replace("/", "")
+          .replace(/^\w/, (c) => c.toUpperCase());
 
   return (
     <header className="topbar">

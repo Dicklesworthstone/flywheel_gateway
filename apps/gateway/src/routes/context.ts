@@ -10,7 +10,10 @@ import {
   previewContextPack,
   renderContextPack,
 } from "../services/context.service";
-import type { ContextPackRequest, BudgetStrategy } from "../types/context.types";
+import type {
+  BudgetStrategy,
+  ContextPackRequest,
+} from "../types/context.types";
 
 const context = new Hono();
 
@@ -23,7 +26,7 @@ const context = new Hono();
  */
 function removeUndefined<T extends object>(obj: T): T {
   return Object.fromEntries(
-    Object.entries(obj).filter(([, v]) => v !== undefined)
+    Object.entries(obj).filter(([, v]) => v !== undefined),
   ) as T;
 }
 
@@ -106,7 +109,7 @@ function handleContextError(error: unknown, c: HonoContext) {
           details: error.issues,
         },
       },
-      400
+      400,
     );
   }
 
@@ -115,12 +118,13 @@ function handleContextError(error: unknown, c: HonoContext) {
     {
       error: {
         code: "INTERNAL_ERROR",
-        message: error instanceof Error ? error.message : "Internal server error",
+        message:
+          error instanceof Error ? error.message : "Internal server error",
         correlationId,
         timestamp: new Date().toISOString(),
       },
     },
-    500
+    500,
   );
 }
 
@@ -179,7 +183,7 @@ context.post("/:sessionId/context/build", async (c) => {
         },
         correlationId: getCorrelationId(),
       },
-      201
+      201,
     );
   } catch (error) {
     return handleContextError(error, c);

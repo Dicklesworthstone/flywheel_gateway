@@ -2,8 +2,12 @@
  * Tests for the Base Driver class.
  */
 
-import { describe, expect, it, beforeEach, afterEach } from "bun:test";
-import { BaseDriver, createDriverOptions, type BaseDriverConfig } from "../base-driver";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import {
+  BaseDriver,
+  type BaseDriverConfig,
+  createDriverOptions,
+} from "../base-driver";
 import type {
   Agent,
   AgentConfig,
@@ -42,12 +46,18 @@ class TestDriver extends BaseDriver {
     };
   }
 
-  protected async doSend(agentId: string, message: string): Promise<SendResult> {
+  protected async doSend(
+    agentId: string,
+    message: string,
+  ): Promise<SendResult> {
     this.sent = true;
     return { messageId: `msg_${Date.now()}`, queued: false };
   }
 
-  protected async doTerminate(agentId: string, graceful: boolean): Promise<void> {
+  protected async doTerminate(
+    agentId: string,
+    graceful: boolean,
+  ): Promise<void> {
     this.terminated = true;
   }
 
@@ -56,7 +66,10 @@ class TestDriver extends BaseDriver {
   }
 
   // Expose protected methods for testing
-  public testUpdateState(agentId: string, updates: { activityState?: string }): void {
+  public testUpdateState(
+    agentId: string,
+    updates: { activityState?: string },
+  ): void {
     this.updateState(agentId, updates as any);
   }
 
@@ -64,7 +77,14 @@ class TestDriver extends BaseDriver {
     this.addOutput(agentId, output);
   }
 
-  public testUpdateTokenUsage(agentId: string, usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number }): void {
+  public testUpdateTokenUsage(
+    agentId: string,
+    usage: {
+      promptTokens?: number;
+      completionTokens?: number;
+      totalTokens?: number;
+    },
+  ): void {
     this.updateTokenUsage(agentId, usage);
   }
 
@@ -159,7 +179,9 @@ describe("BaseDriver", () => {
       const limitedDriver = new TestDriver(limitedConfig);
 
       await limitedDriver.spawn(createTestConfig("agent-1"));
-      await expect(limitedDriver.spawn(createTestConfig("agent-2"))).rejects.toThrow("at capacity");
+      await expect(
+        limitedDriver.spawn(createTestConfig("agent-2")),
+      ).rejects.toThrow("at capacity");
     });
   });
 
@@ -174,7 +196,9 @@ describe("BaseDriver", () => {
     });
 
     it("should throw for non-existent agent", async () => {
-      await expect(driver.getState("non-existent")).rejects.toThrow("Agent not found");
+      await expect(driver.getState("non-existent")).rejects.toThrow(
+        "Agent not found",
+      );
     });
   });
 
@@ -195,7 +219,9 @@ describe("BaseDriver", () => {
       // Set state to working
       driver.testUpdateState(agentConfig.id, { activityState: "working" });
 
-      await expect(driver.send(agentConfig.id, "Hello")).rejects.toThrow("busy");
+      await expect(driver.send(agentConfig.id, "Hello")).rejects.toThrow(
+        "busy",
+      );
     });
 
     it("should throw when agent is thinking", async () => {
@@ -205,7 +231,9 @@ describe("BaseDriver", () => {
       // Set state to thinking (processing a previous message)
       driver.testUpdateState(agentConfig.id, { activityState: "thinking" });
 
-      await expect(driver.send(agentConfig.id, "Hello")).rejects.toThrow("busy");
+      await expect(driver.send(agentConfig.id, "Hello")).rejects.toThrow(
+        "busy",
+      );
     });
 
     it("should throw when agent is calling tools", async () => {
@@ -215,7 +243,9 @@ describe("BaseDriver", () => {
       // Set state to tool_calling
       driver.testUpdateState(agentConfig.id, { activityState: "tool_calling" });
 
-      await expect(driver.send(agentConfig.id, "Hello")).rejects.toThrow("busy");
+      await expect(driver.send(agentConfig.id, "Hello")).rejects.toThrow(
+        "busy",
+      );
     });
   });
 
@@ -238,7 +268,9 @@ describe("BaseDriver", () => {
       expect(driver.terminated).toBe(true);
 
       // Agent should no longer exist
-      await expect(driver.getState(agentConfig.id)).rejects.toThrow("Agent not found");
+      await expect(driver.getState(agentConfig.id)).rejects.toThrow(
+        "Agent not found",
+      );
     });
   });
 
@@ -277,7 +309,10 @@ describe("BaseDriver", () => {
         content: "New",
       });
 
-      const filtered = await driver.getOutput(agentConfig.id, new Date(Date.now() - 5000));
+      const filtered = await driver.getOutput(
+        agentConfig.id,
+        new Date(Date.now() - 5000),
+      );
       expect(filtered.length).toBe(1);
       expect(filtered[0]!.content).toBe("New");
     });
@@ -354,7 +389,8 @@ describe("BaseDriver", () => {
       const collector = (async () => {
         for await (const event of subscription) {
           events.push(event);
-          if (event.type === "context_warning" || event.type === "terminated") break;
+          if (event.type === "context_warning" || event.type === "terminated")
+            break;
         }
       })();
 
@@ -370,7 +406,7 @@ describe("BaseDriver", () => {
       await driver.terminate(agentConfig.id);
       await collector;
 
-      expect(events.some(e => e.type === "context_warning")).toBe(true);
+      expect(events.some((e) => e.type === "context_warning")).toBe(true);
     });
   });
 });

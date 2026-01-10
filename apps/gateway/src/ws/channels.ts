@@ -39,7 +39,11 @@ export type SystemChannel =
 /**
  * All channel types.
  */
-export type Channel = AgentChannel | WorkspaceChannel | UserChannel | SystemChannel;
+export type Channel =
+  | AgentChannel
+  | WorkspaceChannel
+  | UserChannel
+  | SystemChannel;
 
 /**
  * Channel type prefixes for categorization.
@@ -150,7 +154,9 @@ export function getChannelTypePrefix(channel: Channel): ChannelTypePrefix {
 /**
  * Get the scope type of a channel.
  */
-export function getChannelScope(channel: Channel): "agent" | "workspace" | "user" | "system" {
+export function getChannelScope(
+  channel: Channel,
+): "agent" | "workspace" | "user" | "system" {
   if (channel.type.startsWith("agent:")) return "agent";
   if (channel.type.startsWith("workspace:")) return "workspace";
   if (channel.type.startsWith("user:")) return "user";
@@ -201,7 +207,10 @@ export function channelsEqual(a: Channel, b: Channel): boolean {
  * @param pattern - The pattern to match against
  * @returns true if the channel matches the pattern
  */
-export function channelMatchesPattern(channel: Channel, pattern: string): boolean {
+export function channelMatchesPattern(
+  channel: Channel,
+  pattern: string,
+): boolean {
   const channelStr = channelToString(channel);
 
   // Simple case: exact match

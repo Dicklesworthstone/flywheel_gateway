@@ -1,8 +1,9 @@
 import {
+  type AgentMailClient,
+  AgentMailClientError,
+  type AgentMailToolCaller,
   createAgentMailClient,
   mapAgentMailError,
-  type AgentMailClient,
-  type AgentMailToolCaller,
 } from "@flywheel/flywheel-clients";
 
 export interface AgentMailServiceConfig {
@@ -16,6 +17,23 @@ export interface AgentMailService {
   mapError: typeof mapAgentMailError;
 }
 
+function getAgentMailToolCaller(): AgentMailToolCaller | undefined {
+  const globalAny = globalThis as {
+    agentMailCallTool?: AgentMailToolCaller;
+  };
+  return globalAny.agentMailCallTool;
+}
+
+function createFallbackCaller(): AgentMailToolCaller {
+  return async (toolName: string) => {
+    throw new AgentMailClientError(
+      "transport",
+      "Agent Mail MCP tool caller not configured",
+      { tool: toolName },
+    );
+  };
+}
+
 export function createAgentMailService(
   config: AgentMailServiceConfig,
 ): AgentMailService {
@@ -23,4 +41,19 @@ export function createAgentMailService(
     client: createAgentMailClient(config),
     mapError: mapAgentMailError,
   };
+}
+
+export function createAgentMailServiceFromEnv(): AgentMailService {
+  const callTool = getAgentMailToolCaller() ?? createFallbackCaller();
+  const toolPrefix = process.env["AGENT_MAIL_TOOL_PREFIX"];
+  const defaultTtlRaw = process.env["AGENT_MAIL_DEFAULT_TTL_SECONDS"];
+  const defaultTtlSeconds = defaultTtlRaw
+    ? Number.parseInt(defaultTtlRaw, 10)
+    : undefined;
+
+  return createAgentMailService({
+    callTool,
+    toolPrefix,
+    defaultTtlSeconds,
+  });
 }

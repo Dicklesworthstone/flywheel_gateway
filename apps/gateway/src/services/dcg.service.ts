@@ -10,13 +10,13 @@
  * - WebSocket event publishing
  */
 
-import { eq, desc, and, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "../db";
-import { dcgBlocks, dcgAllowlist } from "../db/schema";
-import { getHub } from "../ws/hub";
-import type { Channel } from "../ws/channels";
-import { logger } from "./logger";
+import { dcgAllowlist, dcgBlocks } from "../db/schema";
 import { getCorrelationId } from "../middleware/correlation";
+import type { Channel } from "../ws/channels";
+import { getHub } from "../ws/hub";
+import { logger } from "./logger";
 
 /**
  * Generate a random ID (alternative to nanoid).
@@ -88,13 +88,28 @@ export interface DCGPackInfo {
 // ============================================================================
 
 const KNOWN_PACKS: Array<{ name: string; description: string }> = [
-  { name: "core.git", description: "Dangerous git operations (force push, hard reset)" },
-  { name: "core.filesystem", description: "Risky filesystem operations (rm -rf, chmod 777)" },
-  { name: "core.network", description: "Network-related commands (curl to suspicious hosts)" },
-  { name: "database.postgresql", description: "Dangerous PostgreSQL commands (DROP, TRUNCATE)" },
+  {
+    name: "core.git",
+    description: "Dangerous git operations (force push, hard reset)",
+  },
+  {
+    name: "core.filesystem",
+    description: "Risky filesystem operations (rm -rf, chmod 777)",
+  },
+  {
+    name: "core.network",
+    description: "Network-related commands (curl to suspicious hosts)",
+  },
+  {
+    name: "database.postgresql",
+    description: "Dangerous PostgreSQL commands (DROP, TRUNCATE)",
+  },
   { name: "database.mysql", description: "Dangerous MySQL commands" },
   { name: "database.sqlite", description: "SQLite destructive operations" },
-  { name: "container.docker", description: "Risky Docker commands (--privileged, host network)" },
+  {
+    name: "container.docker",
+    description: "Risky Docker commands (--privileged, host network)",
+  },
   { name: "container.kubernetes", description: "Dangerous kubectl commands" },
   { name: "cloud.aws", description: "Destructive AWS CLI commands" },
   { name: "cloud.gcp", description: "Destructive GCP commands" },
@@ -102,7 +117,7 @@ const KNOWN_PACKS: Array<{ name: string; description: string }> = [
 ];
 
 // In-memory config (in production, this would be persisted)
-let currentConfig: DCGConfig = {
+const currentConfig: DCGConfig = {
   enabledPacks: KNOWN_PACKS.map((p) => p.name),
   disabledPacks: [],
   allowlist: [],
@@ -133,7 +148,9 @@ function redactCommand(command: string): string {
 /**
  * Ingest a DCG block event from the agent driver.
  */
-export async function ingestBlockEvent(event: Omit<DCGBlockEvent, "id">): Promise<DCGBlockEvent> {
+export async function ingestBlockEvent(
+  event: Omit<DCGBlockEvent, "id">,
+): Promise<DCGBlockEvent> {
   const correlationId = getCorrelationId();
   const log = logger.child({ correlationId, agentId: event.agentId });
 
@@ -157,6 +174,7 @@ export async function ingestBlockEvent(event: Omit<DCGBlockEvent, "id">): Promis
       pattern: event.pattern,
       reason: event.reason,
       createdBy: event.agentId,
+      falsePositive: event.falsePositive ?? false,
       createdAt: event.timestamp,
     });
   } catch (error) {
@@ -166,7 +184,10 @@ export async function ingestBlockEvent(event: Omit<DCGBlockEvent, "id">): Promis
   // Publish to WebSocket
   const hub = getHub();
   const channel: Channel = { type: "system:dcg" };
-  const eventType = event.severity === "critical" || event.severity === "high" ? "dcg.block" : "dcg.warn";
+  const eventType =
+    event.severity === "critical" || event.severity === "high"
+      ? "dcg.block"
+      : "dcg.warn";
 
   hub.publish(channel, eventType, blockEvent, {
     agentId: event.agentId,
@@ -179,7 +200,7 @@ export async function ingestBlockEvent(event: Omit<DCGBlockEvent, "id">): Promis
       pack: event.pack,
       ruleId: event.ruleId,
     },
-    "DCG block event ingested"
+    "DCG block event ingested",
   );
 
   return blockEvent;
@@ -237,13 +258,26 @@ export async function getBlockEvents(options: {
 /**
  * Mark a block event as a false positive.
  */
-export async function markFalsePositive(eventId: string, markedBy: string): Promise<DCGBlockEvent | null> {
+export async function markFalsePositive(
+  eventId: string,
+  markedBy: string,
+): Promise<DCGBlockEvent | null> {
   const event = recentBlocks.find((e) => e.id === eventId);
   if (!event) {
     return null;
   }
 
   event.falsePositive = true;
+
+  // Persist update
+  try {
+    await db
+      .update(dcgBlocks)
+      .set({ falsePositive: true })
+      .where(eq(dcgBlocks.id, eventId));
+  } catch (error) {
+    logger.error({ error, eventId }, "Failed to persist false positive status");
+  }
 
   // Publish update
   const hub = getHub();
@@ -269,7 +303,9 @@ export function getConfig(): DCGConfig {
 /**
  * Update DCG configuration.
  */
-export async function updateConfig(updates: Partial<DCGConfig>): Promise<DCGConfig> {
+export async function updateConfig(
+  updates: Partial<DCGConfig>,
+): Promise<DCGConfig> {
   const log = logger.child({ correlationId: getCorrelationId() });
 
   if (updates.enabledPacks) {
@@ -286,7 +322,10 @@ export async function updateConfig(updates: Partial<DCGConfig>): Promise<DCGConf
     currentConfig.disabledPacks = updates.disabledPacks;
   }
 
-  log.info({ enabledPacks: currentConfig.enabledPacks.length }, "DCG config updated");
+  log.info(
+    { enabledPacks: currentConfig.enabledPacks.length },
+    "DCG config updated",
+  );
 
   return getConfig();
 }
@@ -298,7 +337,9 @@ export function listPacks(): DCGPackInfo[] {
   return KNOWN_PACKS.map((pack) => ({
     name: pack.name,
     description: pack.description,
-    enabled: currentConfig.enabledPacks.includes(pack.name) && !currentConfig.disabledPacks.includes(pack.name),
+    enabled:
+      currentConfig.enabledPacks.includes(pack.name) &&
+      !currentConfig.disabledPacks.includes(pack.name),
     patternCount: 0, // Would be populated from DCG in production
   }));
 }
@@ -315,7 +356,9 @@ export async function enablePack(packName: string): Promise<boolean> {
   if (!currentConfig.enabledPacks.includes(packName)) {
     currentConfig.enabledPacks.push(packName);
   }
-  currentConfig.disabledPacks = currentConfig.disabledPacks.filter((p) => p !== packName);
+  currentConfig.disabledPacks = currentConfig.disabledPacks.filter(
+    (p) => p !== packName,
+  );
 
   logger.info({ pack: packName }, "DCG pack enabled");
   return true;
@@ -330,7 +373,9 @@ export async function disablePack(packName: string): Promise<boolean> {
     return false;
   }
 
-  currentConfig.enabledPacks = currentConfig.enabledPacks.filter((p) => p !== packName);
+  currentConfig.enabledPacks = currentConfig.enabledPacks.filter(
+    (p) => p !== packName,
+  );
   if (!currentConfig.disabledPacks.includes(packName)) {
     currentConfig.disabledPacks.push(packName);
   }
@@ -397,7 +442,10 @@ export async function addToAllowlist(entry: {
   const channel: Channel = { type: "system:dcg" };
   hub.publish(channel, "dcg.allowlist_added", result, {});
 
-  logger.info({ ruleId: entry.ruleId, pattern: entry.pattern }, "DCG allowlist entry added");
+  logger.info(
+    { ruleId: entry.ruleId, pattern: entry.pattern },
+    "DCG allowlist entry added",
+  );
 
   return result;
 }
@@ -442,12 +490,14 @@ export async function getStats(): Promise<DCGStats> {
     low: 0,
   };
   for (const event of events) {
-    blocksBySeverity[event.severity] = (blocksBySeverity[event.severity] ?? 0) + 1;
+    blocksBySeverity[event.severity] =
+      (blocksBySeverity[event.severity] ?? 0) + 1;
   }
 
   // Calculate false positive rate
   const falsePositives = events.filter((e) => e.falsePositive).length;
-  const falsePositiveRate = events.length > 0 ? falsePositives / events.length : 0;
+  const falsePositiveRate =
+    events.length > 0 ? falsePositives / events.length : 0;
 
   // Top blocked commands (simplified/redacted)
   const commandCounts: Record<string, number> = {};

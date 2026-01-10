@@ -7,8 +7,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { accountPools } from "../db/schema";
-import { audit } from "../services/audit";
 import { getLogger } from "../middleware/correlation";
+import { audit } from "../services/audit";
 import {
   activateProfile,
   getPool,
@@ -288,7 +288,10 @@ export async function handleRateLimit(
 /**
  * Check if an error message indicates a rate limit.
  */
-export function isRateLimitError(provider: ProviderId, errorMessage: string): boolean {
+export function isRateLimitError(
+  provider: ProviderId,
+  errorMessage: string,
+): boolean {
   const signatures = RATE_LIMIT_SIGNATURES[provider];
   const lowerMessage = errorMessage.toLowerCase();
   return signatures.some((sig) => lowerMessage.includes(sig.toLowerCase()));
@@ -308,7 +311,11 @@ export async function peekNextProfile(
   const profiles = await getPoolProfiles(pool.id);
   if (profiles.length === 0) return null;
 
-  return selectByStrategy(pool.rotationStrategy, profiles, pool.activeProfileId);
+  return selectByStrategy(
+    pool.rotationStrategy,
+    profiles,
+    pool.activeProfileId,
+  );
 }
 
 // ============================================================================

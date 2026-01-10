@@ -1,6 +1,6 @@
-import { useEffect, useId, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, CheckCircle, Info, X, XCircle } from "lucide-react";
+import { useEffect, useId, useState } from "react";
 
 type ToastType = "info" | "success" | "warning" | "error";
 
@@ -39,14 +39,22 @@ const toastStore = {
 };
 
 export const toast = {
-  info: (message: string, options?: { correlationId?: string; duration?: number }) =>
-    toastStore.add({ type: "info", message, ...options }),
-  success: (message: string, options?: { correlationId?: string; duration?: number }) =>
-    toastStore.add({ type: "success", message, ...options }),
-  warning: (message: string, options?: { correlationId?: string; duration?: number }) =>
-    toastStore.add({ type: "warning", message, ...options }),
-  error: (message: string, options?: { correlationId?: string; duration?: number }) =>
-    toastStore.add({ type: "error", message, ...options }),
+  info: (
+    message: string,
+    options?: { correlationId?: string; duration?: number },
+  ) => toastStore.add({ type: "info", message, ...options }),
+  success: (
+    message: string,
+    options?: { correlationId?: string; duration?: number },
+  ) => toastStore.add({ type: "success", message, ...options }),
+  warning: (
+    message: string,
+    options?: { correlationId?: string; duration?: number },
+  ) => toastStore.add({ type: "warning", message, ...options }),
+  error: (
+    message: string,
+    options?: { correlationId?: string; duration?: number },
+  ) => toastStore.add({ type: "error", message, ...options }),
   dismiss: (id: string) => toastStore.remove(id),
 };
 
@@ -64,7 +72,13 @@ const tones: Record<ToastType, string> = {
   error: "toast--error",
 };
 
-function ToastItem({ toast: t, onDismiss }: { toast: Toast; onDismiss: () => void }) {
+function ToastItem({
+  toast: t,
+  onDismiss,
+}: {
+  toast: Toast;
+  onDismiss: () => void;
+}) {
   const Icon = icons[t.type];
 
   useEffect(() => {

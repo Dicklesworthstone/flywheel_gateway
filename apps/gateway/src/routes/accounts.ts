@@ -6,7 +6,6 @@
 
 import { type Context, Hono } from "hono";
 import { z } from "zod";
-import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
   activateProfile,
   createProfile,
@@ -21,6 +20,7 @@ import {
 } from "../caam/account.service";
 import { handleRateLimit, peekNextProfile, rotate } from "../caam/rotation";
 import type { ProviderId } from "../caam/types";
+import { getCorrelationId, getLogger } from "../middleware/correlation";
 
 const accounts = new Hono();
 
@@ -448,7 +448,11 @@ accounts.post("/pools/:provider/rotate", async (c) => {
     const workspaceId = c.req.query("workspaceId") ?? "default";
     const reason = c.req.query("reason");
 
-    const result = await rotate(workspaceId, provider, reason ?? "Manual rotation");
+    const result = await rotate(
+      workspaceId,
+      provider,
+      reason ?? "Manual rotation",
+    );
 
     if (!result.success) {
       return c.json(

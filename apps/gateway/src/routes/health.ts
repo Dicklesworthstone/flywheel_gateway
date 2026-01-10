@@ -2,11 +2,11 @@
  * Health Routes - Health check and readiness probe endpoints.
  */
 
+import { count } from "drizzle-orm";
 import { Hono } from "hono";
-import { getCorrelationId } from "../middleware/correlation";
 import { db } from "../db";
 import { agents } from "../db/schema";
-import { count } from "drizzle-orm";
+import { getCorrelationId } from "../middleware/correlation";
 
 const health = new Hono();
 
@@ -47,8 +47,12 @@ health.get("/ready", async (c) => {
   checks["drivers"] = { status: "pass", message: "SDK driver available" };
 
   // Determine overall status
-  const allPass = Object.values(checks).every((check) => check.status === "pass");
-  const anyFail = Object.values(checks).some((check) => check.status === "fail");
+  const allPass = Object.values(checks).every(
+    (check) => check.status === "pass",
+  );
+  const anyFail = Object.values(checks).some(
+    (check) => check.status === "fail",
+  );
 
   const status = anyFail ? "unhealthy" : allPass ? "ready" : "degraded";
   const httpStatus = anyFail ? 503 : 200;
@@ -60,7 +64,7 @@ health.get("/ready", async (c) => {
       timestamp: new Date().toISOString(),
       correlationId: getCorrelationId(),
     },
-    httpStatus
+    httpStatus,
   );
 });
 

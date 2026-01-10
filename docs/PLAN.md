@@ -3768,6 +3768,20 @@ export function ContextPackStudio() {
 | `GET` | `/mail/search` | Full-text search |
 | `GET` | `/mail/threads/{id}/summary` | Thread summary |
 
+**Agent Mail MCP wiring (runtime):**
+- Provide a tool caller on `globalThis.agentMailCallTool` (function signature matches MCP tool invocations).
+- Optional env overrides:
+  - `AGENT_MAIL_TOOL_PREFIX` (default: `agentmail_`)
+  - `AGENT_MAIL_DEFAULT_TTL_SECONDS` (default: `3600`)
+  - `AGENT_MAIL_MCP_ENABLED` (default: `false`)
+  - `AGENT_MAIL_MCP_COMMAND` (default: `mcp-agent-mail`)
+  - `AGENT_MAIL_MCP_ARGS` (default: `serve`)
+  - `AGENT_MAIL_MCP_CLIENT_NAME` (default: `flywheel-gateway`)
+  - `AGENT_MAIL_MCP_CLIENT_VERSION` (default: `GATEWAY_VERSION` or `0.1.0`)
+  - `GATEWAY_VERSION` (optional fallback for MCP client version)
+- `/mail/health` proxies to the MCP `agentmail_health` tool for liveness/readiness checks.
+- Gateway exposes `registerGlobalToolCaller("agentMailCallTool", ...)` for shared MCP wiring hooks.
+
 ### 11.2 File Reservations API
 
 | Method | Endpoint | Description |
@@ -4428,6 +4442,10 @@ const DEFAULT_AUTO_RESOLUTION_RULES: AutoResolutionRule[] = [
 | `GET` | `/beads/insights` | Graph insights |
 | `POST` | `/beads/{id}/deps` | Add dependency |
 | `POST` | `/beads/sync` | Sync with git |
+
+**Gateway BV CLI configuration**
+- `BV_PROJECT_ROOT` or `BEADS_PROJECT_ROOT` to control the working directory for BV commands
+- `BV_TRIAGE_TTL_MS` to control triage cache TTL (default: 30000ms)
 
 ### 13.2 Kanban Board Component
 
@@ -9521,7 +9539,7 @@ This ensures that:
 **Goal**: Multi-agent coordination and state management
 
 - [ ] ACP Agent Driver
-- [ ] Agent Mail integration (MCP client)
+- [~] Agent Mail integration (MCP client)
 - [ ] File reservation system + reservation map UI
 - [ ] Conflict detection baseline (events + alerts)
 - [ ] Checkpoint/restore system with delta-based progressive checkpointing (§7.3.1)

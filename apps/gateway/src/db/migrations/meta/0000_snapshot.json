@@ -53,16 +53,12 @@
       "indexes": {
         "accounts_email_idx": {
           "name": "accounts_email_idx",
-          "columns": [
-            "email"
-          ],
+          "columns": ["email"],
           "isUnique": true
         },
         "accounts_api_key_hash_idx": {
           "name": "accounts_api_key_hash_idx",
-          "columns": [
-            "api_key_hash"
-          ],
+          "columns": ["api_key_hash"],
           "isUnique": true
         }
       },
@@ -128,9 +124,7 @@
       "indexes": {
         "agent_sweeps_status_idx": {
           "name": "agent_sweeps_status_idx",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         }
       },
@@ -204,23 +198,17 @@
       "indexes": {
         "agents_status_idx": {
           "name": "agents_status_idx",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         },
         "agents_account_idx": {
           "name": "agents_account_idx",
-          "columns": [
-            "account_id"
-          ],
+          "columns": ["account_id"],
           "isUnique": false
         },
         "agents_created_at_idx": {
           "name": "agents_created_at_idx",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         }
       },
@@ -229,12 +217,8 @@
           "name": "agents_account_id_accounts_id_fk",
           "tableFrom": "agents",
           "tableTo": "accounts",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -286,9 +270,7 @@
       "indexes": {
         "alerts_severity_idx": {
           "name": "alerts_severity_idx",
-          "columns": [
-            "severity"
-          ],
+          "columns": ["severity"],
           "isUnique": false
         }
       },
@@ -367,23 +349,17 @@
       "indexes": {
         "audit_logs_account_idx": {
           "name": "audit_logs_account_idx",
-          "columns": [
-            "account_id"
-          ],
+          "columns": ["account_id"],
           "isUnique": false
         },
         "audit_logs_action_idx": {
           "name": "audit_logs_action_idx",
-          "columns": [
-            "action"
-          ],
+          "columns": ["action"],
           "isUnique": false
         },
         "audit_logs_created_at_idx": {
           "name": "audit_logs_created_at_idx",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         }
       },
@@ -392,12 +368,8 @@
           "name": "audit_logs_account_id_accounts_id_fk",
           "tableFrom": "audit_logs",
           "tableTo": "accounts",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -441,16 +413,12 @@
       "indexes": {
         "checkpoints_agent_idx": {
           "name": "checkpoints_agent_idx",
-          "columns": [
-            "agent_id"
-          ],
+          "columns": ["agent_id"],
           "isUnique": false
         },
         "checkpoints_created_at_idx": {
           "name": "checkpoints_created_at_idx",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         }
       },
@@ -459,12 +427,8 @@
           "name": "checkpoints_agent_id_agents_id_fk",
           "tableFrom": "checkpoints",
           "tableTo": "agents",
-          "columnsFrom": [
-            "agent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["agent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -522,9 +486,7 @@
       "indexes": {
         "dcg_allowlist_rule_id_idx": {
           "name": "dcg_allowlist_rule_id_idx",
-          "columns": [
-            "rule_id"
-          ],
+          "columns": ["rule_id"],
           "isUnique": true
         }
       },
@@ -575,9 +537,7 @@
       "indexes": {
         "dcg_blocks_created_at_idx": {
           "name": "dcg_blocks_created_at_idx",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         }
       },
@@ -649,9 +609,7 @@
       "indexes": {
         "fleet_repos_path_idx": {
           "name": "fleet_repos_path_idx",
-          "columns": [
-            "path"
-          ],
+          "columns": ["path"],
           "isUnique": true
         }
       },
@@ -716,23 +674,17 @@
       "indexes": {
         "history_agent_idx": {
           "name": "history_agent_idx",
-          "columns": [
-            "agent_id"
-          ],
+          "columns": ["agent_id"],
           "isUnique": false
         },
         "history_command_idx": {
           "name": "history_command_idx",
-          "columns": [
-            "command"
-          ],
+          "columns": ["command"],
           "isUnique": false
         },
         "history_created_at_idx": {
           "name": "history_created_at_idx",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         }
       },
@@ -741,12 +693,8 @@
           "name": "history_agent_id_agents_id_fk",
           "tableFrom": "history",
           "tableTo": "agents",
-          "columnsFrom": [
-            "agent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["agent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

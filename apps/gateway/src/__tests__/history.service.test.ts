@@ -5,12 +5,12 @@
  * Focus tests on extraction functions which are pure and don't need database.
  */
 
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import {
+  type ExtractionType,
+  exportHistory,
   extractFromOutput,
   getHistoryStats,
-  exportHistory,
-  type ExtractionType,
 } from "../services/history.service";
 
 describe("History Service", () => {
@@ -56,7 +56,9 @@ const x = 1;
 x = 1
 \`\`\``;
 
-        const result = extractFromOutput(output, "code_blocks", { language: "python" });
+        const result = extractFromOutput(output, "code_blocks", {
+          language: "python",
+        });
 
         expect(result.totalMatches).toBe(1);
         expect(result.matches[0]?.content).toContain("x = 1");
@@ -89,8 +91,12 @@ x = 1
         const result = extractFromOutput(output, "urls");
 
         expect(result.totalMatches).toBe(2);
-        expect(result.matches.some((m) => m.content === "https://example.com")).toBe(true);
-        expect(result.matches.some((m) => m.content === "http://test.org/path")).toBe(true);
+        expect(
+          result.matches.some((m) => m.content === "https://example.com"),
+        ).toBe(true);
+        expect(
+          result.matches.some((m) => m.content === "http://test.org/path"),
+        ).toBe(true);
       });
 
       test("extracts URLs with query params", () => {
@@ -127,7 +133,9 @@ x = 1
         const result = extractFromOutput(output, "file_paths");
 
         expect(result.totalMatches).toBeGreaterThanOrEqual(1);
-        expect(result.matches.some((m) => m.content.includes("/home/user"))).toBe(true);
+        expect(
+          result.matches.some((m) => m.content.includes("/home/user")),
+        ).toBe(true);
       });
 
       test("extracts relative paths", () => {
@@ -175,14 +183,16 @@ x = 1
         const result = extractFromOutput(output, "json");
 
         // Should not match invalid JSON
-        expect(result.matches.every((m) => {
-          try {
-            JSON.parse(m.content);
-            return true;
-          } catch {
-            return false;
-          }
-        })).toBe(true);
+        expect(
+          result.matches.every((m) => {
+            try {
+              JSON.parse(m.content);
+              return true;
+            } catch {
+              return false;
+            }
+          }),
+        ).toBe(true);
       });
     });
 
@@ -194,7 +204,11 @@ Test completed`;
 
         const result = extractFromOutput(output, "errors");
 
-        expect(result.matches.some((m) => m.content.includes("Error: Something went wrong"))).toBe(true);
+        expect(
+          result.matches.some((m) =>
+            m.content.includes("Error: Something went wrong"),
+          ),
+        ).toBe(true);
       });
 
       test("extracts TypeError messages", () => {
@@ -203,7 +217,9 @@ Test completed`;
         const result = extractFromOutput(output, "errors");
 
         expect(result.totalMatches).toBeGreaterThanOrEqual(1);
-        expect(result.matches.some((m) => m.content.includes("TypeError"))).toBe(true);
+        expect(
+          result.matches.some((m) => m.content.includes("TypeError")),
+        ).toBe(true);
       });
 
       test("extracts multiple error types", () => {

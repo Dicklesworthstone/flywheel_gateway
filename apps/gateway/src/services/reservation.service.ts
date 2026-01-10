@@ -9,10 +9,10 @@
  * Builds on the ReservationConflictEngine for conflict detection.
  */
 
-import { getHub } from "../ws/hub";
-import type { Channel } from "../ws/channels";
-import { logger } from "./logger";
 import { getCorrelationId } from "../middleware/correlation";
+import type { Channel } from "../ws/channels";
+import { getHub } from "../ws/hub";
+import { logger } from "./logger";
 import {
   createReservationConflictEngine,
   type Reservation,
@@ -43,6 +43,7 @@ const EXPIRATION_WARNING_MS = 30_000;
 // ============================================================================
 
 export type ReservationMode = "exclusive" | "shared";
+export type ConflictStatus = "open" | "resolved";
 
 export interface FileReservation {
   id: string;
@@ -58,6 +59,21 @@ export interface FileReservation {
     reason?: string;
     taskId?: string;
   };
+}
+
+export interface ReservationConflictRecord {
+  conflictId: string;
+  projectId: string;
+  type: "reservation_overlap";
+  status: ConflictStatus;
+  detectedAt: Date;
+  resolvedAt?: Date;
+  requesterId: string;
+  existingReservationId: string;
+  overlappingPattern: string;
+  conflict: ReservationConflict;
+  resolutionReason?: string;
+  resolvedBy?: string;
 }
 
 export interface CreateReservationParams {
@@ -118,12 +134,31 @@ export interface ListReservationsParams {
   filePath?: string;
 }
 
+export interface ListConflictsParams {
+  projectId: string;
+  status?: ConflictStatus;
+  limit?: number;
+}
+
+export interface ResolveConflictParams {
+  conflictId: string;
+  resolvedBy?: string;
+  reason?: string;
+}
+
+export interface ResolveConflictResult {
+  resolved: boolean;
+  conflict?: ReservationConflictRecord;
+  error?: string;
+}
+
 // ============================================================================
 // Storage
 // ============================================================================
 
 /** In-memory storage for reservations (keyed by reservation ID) */
 const reservationStore: Map<string, FileReservation> = new Map();
+const conflictStore: Map<string, ReservationConflictRecord> = new Map();
 
 /** The conflict detection engine */
 const conflictEngine = createReservationConflictEngine();
@@ -171,7 +206,7 @@ function toConflictReservation(res: FileReservation): Reservation {
 function publishReservationEvent(
   workspaceId: string,
   eventType: string,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
 ): void {
   const hub = getHub();
   const channel: Channel = { type: "workspace:reservations", workspaceId };
@@ -184,11 +219,65 @@ function publishReservationEvent(
 function publishConflictEvent(
   workspaceId: string,
   eventType: string,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
 ): void {
   const hub = getHub();
   const channel: Channel = { type: "workspace:conflicts", workspaceId };
   hub.publish(channel, eventType, payload, { workspaceId });
+}
+
+function recordConflict(
+  conflict: ReservationConflict,
+  requesterId: string,
+): ReservationConflictRecord {
+  const record: ReservationConflictRecord = {
+    conflictId: conflict.conflictId,
+    projectId: conflict.projectId,
+    type: "reservation_overlap",
+    status: "open",
+    detectedAt: conflict.detectedAt,
+    requesterId,
+    existingReservationId: conflict.existingReservation.id,
+    overlappingPattern: conflict.overlappingPattern,
+    conflict,
+  };
+  conflictStore.set(record.conflictId, record);
+  return record;
+}
+
+function resolveConflictsForReservation(
+  projectId: string,
+  reservationId: string,
+  reason: string,
+  resolvedBy?: string,
+): number {
+  let resolvedCount = 0;
+  const now = new Date();
+
+  for (const conflict of conflictStore.values()) {
+    if (
+      conflict.projectId !== projectId ||
+      conflict.status !== "open" ||
+      conflict.existingReservationId !== reservationId
+    ) {
+      continue;
+    }
+
+    conflict.status = "resolved";
+    conflict.resolvedAt = now;
+    conflict.resolutionReason = reason;
+    conflict.resolvedBy = resolvedBy;
+    resolvedCount++;
+
+    publishConflictEvent(projectId, "conflict.resolved", {
+      conflictId: conflict.conflictId,
+      projectId,
+      resolution: reason,
+      resolvedAt: now.toISOString(),
+    });
+  }
+
+  return resolvedCount;
 }
 
 /**
@@ -201,7 +290,7 @@ function globToRegex(pattern: string): RegExp {
   // Use placeholder to avoid ** replacement affecting later * replacement
   const GLOBSTAR_PLACEHOLDER = "\x00GLOBSTAR\x00";
 
-  let regex = pattern
+  const regex = pattern
     // Normalize path separators
     .replace(/\/+/g, "/")
     // Remove trailing slash
@@ -260,7 +349,7 @@ function fileMatchesPatterns(filePath: string, patterns: string[]): boolean {
  * @returns Result with reservation or conflicts
  */
 export async function createReservation(
-  params: CreateReservationParams
+  params: CreateReservationParams,
 ): Promise<CreateReservationResult> {
   const correlationId = getCorrelationId();
   const log = logger.child({
@@ -282,7 +371,10 @@ export async function createReservation(
   // Validate and cap TTL
   let ttl = params.ttl ?? DEFAULT_TTL_SECONDS;
   if (ttl > MAX_TTL_SECONDS) {
-    log.debug({ requestedTtl: ttl, maxTtl: MAX_TTL_SECONDS }, "TTL capped to maximum");
+    log.debug(
+      { requestedTtl: ttl, maxTtl: MAX_TTL_SECONDS },
+      "TTL capped to maximum",
+    );
     ttl = MAX_TTL_SECONDS;
   }
   if (ttl <= 0) {
@@ -296,7 +388,7 @@ export async function createReservation(
     params.projectId,
     params.agentId,
     params.patterns,
-    exclusive
+    exclusive,
   );
 
   if (conflictResult.hasConflicts) {
@@ -306,11 +398,12 @@ export async function createReservation(
         patterns: params.patterns,
         exclusive,
       },
-      "Reservation request has conflicts"
+      "Reservation request has conflicts",
     );
 
     // Publish conflict events
     for (const conflict of conflictResult.conflicts) {
+      recordConflict(conflict, params.agentId);
       publishConflictEvent(params.projectId, "conflict.detected", {
         conflictId: conflict.conflictId,
         projectId: params.projectId,
@@ -364,7 +457,7 @@ export async function createReservation(
       ttl,
       expiresAt: expiresAt.toISOString(),
     },
-    "Reservation created"
+    "Reservation created",
   );
 
   // Publish acquired event
@@ -392,13 +485,13 @@ export async function createReservation(
  * @returns Result indicating access permission
  */
 export async function checkReservation(
-  params: CheckReservationParams
+  params: CheckReservationParams,
 ): Promise<CheckReservationResult> {
   const now = new Date();
 
   // Get all active reservations for the project
   const projectReservations = Array.from(reservationStore.values()).filter(
-    (r) => r.projectId === params.projectId && r.expiresAt > now
+    (r) => r.projectId === params.projectId && r.expiresAt > now,
   );
 
   for (const reservation of projectReservations) {
@@ -450,7 +543,7 @@ export async function checkReservation(
  * @returns Result indicating success
  */
 export async function releaseReservation(
-  params: ReleaseReservationParams
+  params: ReleaseReservationParams,
 ): Promise<ReleaseReservationResult> {
   const correlationId = getCorrelationId();
   const log = logger.child({
@@ -472,7 +565,7 @@ export async function releaseReservation(
   if (reservation.agentId !== params.agentId) {
     log.warn(
       { holderId: reservation.agentId },
-      "Attempt to release reservation by non-holder"
+      "Attempt to release reservation by non-holder",
     );
     return {
       released: false,
@@ -480,14 +573,20 @@ export async function releaseReservation(
     };
   }
 
-  // Remove from both stores and warning tracker
+  // Remove from both stores
   reservationStore.delete(params.reservationId);
-  conflictEngine.removeReservation(reservation.projectId, params.reservationId);
   warnedExpiringReservations.delete(params.reservationId);
+  conflictEngine.removeReservation(reservation.projectId, params.reservationId);
+  resolveConflictsForReservation(
+    reservation.projectId,
+    params.reservationId,
+    "reservation_released",
+    params.agentId,
+  );
 
   log.info(
     { projectId: reservation.projectId, patterns: reservation.patterns },
-    "Reservation released"
+    "Reservation released",
   );
 
   // Publish released event
@@ -511,7 +610,7 @@ export async function releaseReservation(
  * @returns Result with new expiration
  */
 export async function renewReservation(
-  params: RenewReservationParams
+  params: RenewReservationParams,
 ): Promise<RenewReservationResult> {
   const correlationId = getCorrelationId();
   const log = logger.child({
@@ -533,7 +632,7 @@ export async function renewReservation(
   if (reservation.agentId !== params.agentId) {
     log.warn(
       { holderId: reservation.agentId },
-      "Attempt to renew reservation by non-holder"
+      "Attempt to renew reservation by non-holder",
     );
     return {
       renewed: false,
@@ -544,7 +643,7 @@ export async function renewReservation(
   if (reservation.renewCount >= MAX_RENEWALS) {
     log.warn(
       { renewCount: reservation.renewCount, maxRenewals: MAX_RENEWALS },
-      "Reservation renewal limit reached"
+      "Reservation renewal limit reached",
     );
     return {
       renewed: false,
@@ -577,7 +676,7 @@ export async function renewReservation(
       previousExpiry: baseTime.toISOString(),
       newExpiry: newExpiresAt.toISOString(),
     },
-    "Reservation renewed"
+    "Reservation renewed",
   );
 
   // Publish renewal event (use acquired event with updated info)
@@ -603,12 +702,12 @@ export async function renewReservation(
  * @returns List of matching reservations
  */
 export async function listReservations(
-  params: ListReservationsParams
+  params: ListReservationsParams,
 ): Promise<FileReservation[]> {
   const now = new Date();
 
   let reservations = Array.from(reservationStore.values()).filter(
-    (r) => r.projectId === params.projectId && r.expiresAt > now
+    (r) => r.projectId === params.projectId && r.expiresAt > now,
   );
 
   // Filter by agent if specified
@@ -619,7 +718,7 @@ export async function listReservations(
   // Filter by file path if specified
   if (params.filePath) {
     reservations = reservations.filter((r) =>
-      fileMatchesPatterns(params.filePath!, r.patterns)
+      fileMatchesPatterns(params.filePath!, r.patterns),
     );
   }
 
@@ -630,13 +729,61 @@ export async function listReservations(
 }
 
 /**
+ * List conflicts for a project with optional status filter.
+ */
+export async function listConflicts(
+  params: ListConflictsParams,
+): Promise<ReservationConflictRecord[]> {
+  const limit = Math.min(params.limit ?? 100, 1000);
+  const conflicts = Array.from(conflictStore.values()).filter((conflict) => {
+    if (conflict.projectId !== params.projectId) return false;
+    if (params.status && conflict.status !== params.status) return false;
+    return true;
+  });
+
+  conflicts.sort((a, b) => b.detectedAt.getTime() - a.detectedAt.getTime());
+  return conflicts.slice(0, limit);
+}
+
+/**
+ * Resolve a conflict by ID.
+ */
+export async function resolveConflict(
+  params: ResolveConflictParams,
+): Promise<ResolveConflictResult> {
+  const conflict = conflictStore.get(params.conflictId);
+  if (!conflict) {
+    return { resolved: false, error: "Conflict not found" };
+  }
+
+  if (conflict.status === "resolved") {
+    return { resolved: true, conflict };
+  }
+
+  const now = new Date();
+  conflict.status = "resolved";
+  conflict.resolvedAt = now;
+  conflict.resolutionReason = params.reason ?? "manual";
+  conflict.resolvedBy = params.resolvedBy;
+
+  publishConflictEvent(conflict.projectId, "conflict.resolved", {
+    conflictId: conflict.conflictId,
+    projectId: conflict.projectId,
+    resolution: conflict.resolutionReason,
+    resolvedAt: now.toISOString(),
+  });
+
+  return { resolved: true, conflict };
+}
+
+/**
  * Get a single reservation by ID.
  *
  * @param reservationId - The reservation ID
  * @returns The reservation or null if not found
  */
 export async function getReservation(
-  reservationId: string
+  reservationId: string,
 ): Promise<FileReservation | null> {
   const reservation = reservationStore.get(reservationId);
   if (!reservation) {
@@ -677,7 +824,7 @@ async function cleanupExpiredReservations(): Promise<number> {
           projectId: reservation.projectId,
           agentId: reservation.agentId,
         },
-        "Expired reservation cleaned up"
+        "Expired reservation cleaned up",
       );
 
       // Publish expiration event
@@ -689,17 +836,18 @@ async function cleanupExpiredReservations(): Promise<number> {
         expiredAt: now.toISOString(),
       });
 
-      // Also publish as conflict resolved if there were pending conflicts
-      publishConflictEvent(reservation.projectId, "conflict.resolved", {
-        conflictId: `expired_${id}`,
-        projectId: reservation.projectId,
-        resolution: "expired",
-        resolvedAt: now.toISOString(),
-      });
+      resolveConflictsForReservation(
+        reservation.projectId,
+        id,
+        "reservation_expired",
+      );
 
       // Remove from warned set
       warnedExpiringReservations.delete(id);
-    } else if (reservation.expiresAt <= warningThreshold && !warnedExpiringReservations.has(id)) {
+    } else if (
+      reservation.expiresAt <= warningThreshold &&
+      !warnedExpiringReservations.has(id)
+    ) {
       // About to expire - publish warning
       publishReservationEvent(reservation.projectId, "reservation.expiring", {
         reservationId: id,
@@ -735,7 +883,7 @@ export function startCleanupJob(): void {
 
   logger.info(
     { intervalMs: CLEANUP_INTERVAL_MS },
-    "Reservation cleanup job started"
+    "Reservation cleanup job started",
   );
 }
 
@@ -765,7 +913,7 @@ export function getReservationStats(): {
 } {
   const now = new Date();
   const active = Array.from(reservationStore.values()).filter(
-    (r) => r.expiresAt > now
+    (r) => r.expiresAt > now,
   );
 
   const byProject: Record<string, number> = {};
@@ -801,6 +949,7 @@ export function _clearAllReservations(): void {
   }
   reservationStore.clear();
   warnedExpiringReservations.clear();
+  conflictStore.clear();
 }
 
 /**

@@ -7,14 +7,14 @@
 
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
-  type MetricValue,
-  type MetricSnapshot,
-  type Labels,
   type HistogramBucket,
-  type MetricAggregate,
-  type NamedSnapshot,
-  type MetricComparison,
   LATENCY_BUCKETS,
+  type Labels,
+  type MetricAggregate,
+  type MetricComparison,
+  type MetricSnapshot,
+  type MetricValue,
+  type NamedSnapshot,
 } from "../models/metrics";
 import { getConnectionCount } from "./agent-ws";
 import { logger } from "./logger";
@@ -35,6 +35,9 @@ interface TimeSeriesPoint {
 
 /** Maximum time series history to retain */
 const MAX_HISTORY_POINTS = 1440; // 24 hours at 1-minute intervals
+
+/** Maximum named snapshots to retain */
+const MAX_SNAPSHOTS = 50;
 
 /** Named snapshots storage */
 const namedSnapshots = new Map<string, NamedSnapshot>();
@@ -66,7 +69,11 @@ function metricKey(name: string, labels: Labels = {}): string {
 /**
  * Increment a counter metric.
  */
-export function incrementCounter(name: string, value = 1, labels: Labels = {}): void {
+export function incrementCounter(
+  name: string,
+  value = 1,
+  labels: Labels = {},
+): void {
   const key = metricKey(name, labels);
   const current = store.counters.get(key) ?? 0;
   store.counters.set(key, current + value);
@@ -85,7 +92,11 @@ export function incrementCounter(name: string, value = 1, labels: Labels = {}): 
 /**
  * Set a gauge metric value.
  */
-export function setGauge(name: string, value: number, labels: Labels = {}): void {
+export function setGauge(
+  name: string,
+  value: number,
+  labels: Labels = {},
+): void {
   const key = metricKey(name, labels);
   store.gauges.set(key, value);
 
@@ -107,7 +118,7 @@ export function recordHistogram(
   name: string,
   value: number,
   labels: Labels = {},
-  bucketBoundaries: readonly number[] = LATENCY_BUCKETS
+  bucketBoundaries: readonly number[] = LATENCY_BUCKETS,
 ): void {
   const key = metricKey(name, labels);
   let histogram = store.histograms.get(key);
@@ -145,7 +156,11 @@ export function recordHistogram(
 /**
  * Record a time series data point for trend analysis.
  */
-export function recordTimeSeries(name: string, value: number, labels: Labels = {}): void {
+export function recordTimeSeries(
+  name: string,
+  value: number,
+  labels: Labels = {},
+): void {
   const key = metricKey(name, labels);
   let series = timeSeries.get(key);
 
@@ -186,7 +201,7 @@ export function getGauge(name: string, labels: Labels = {}): number {
 export function getHistogram(
   name: string,
   labels: Labels = {},
-  bucketBoundaries: readonly number[] = LATENCY_BUCKETS
+  bucketBoundaries: readonly number[] = LATENCY_BUCKETS,
 ): { buckets: HistogramBucket[]; sum: number; count: number } | undefined {
   const histogram = store.histograms.get(metricKey(name, labels));
   if (!histogram) return undefined;
@@ -207,7 +222,7 @@ export function getHistogram(
 function calculateTrend(
   name: string,
   labels: Labels = {},
-  periodMs: number = 86400000 // 24 hours
+  periodMs: number = 86400000, // 24 hours
 ): { trend: "up" | "down" | "stable"; trendPercent: number } {
   const series = timeSeries.get(metricKey(name, labels)) ?? [];
   const now = Date.now();
@@ -243,7 +258,15 @@ export function getMetricsSnapshot(): MetricSnapshot {
   const now = new Date();
 
   // Collect agent metrics (from counters/gauges)
-  const agentStatuses = ["spawning", "ready", "executing", "paused", "terminating", "terminated", "failed"];
+  const agentStatuses = [
+    "spawning",
+    "ready",
+    "executing",
+    "paused",
+    "terminating",
+    "terminated",
+    "failed",
+  ];
   const byStatus: Record<string, number> = {};
   for (const status of agentStatuses) {
     byStatus[status] = getGauge("flywheel_agents_active", { status });
@@ -262,11 +285,17 @@ export function getMetricsSnapshot(): MetricSnapshot {
   const p50 = latencyHist ? calculatePercentile(latencyHist, 50) : 0;
   const p95 = latencyHist ? calculatePercentile(latencyHist, 95) : 0;
   const p99 = latencyHist ? calculatePercentile(latencyHist, 99) : 0;
-  const avgLatency = latencyHist && latencyHist.count > 0 ? latencyHist.sum / latencyHist.count : 0;
+  const avgLatency =
+    latencyHist && latencyHist.count > 0
+      ? latencyHist.sum / latencyHist.count
+      : 0;
 
   const requestCount = getCounter("flywheel_http_requests_total");
-  const errorCount = getCounter("flywheel_http_requests_total", { status: "5xx" });
-  const successRate = requestCount > 0 ? ((requestCount - errorCount) / requestCount) * 100 : 100;
+  const errorCount = getCounter("flywheel_http_requests_total", {
+    status: "5xx",
+  });
+  const successRate =
+    requestCount > 0 ? ((requestCount - errorCount) / requestCount) * 100 : 100;
 
   // Memory and CPU
   const memoryUsage = process.memoryUsage();
@@ -286,9 +315,15 @@ export function getMetricsSnapshot(): MetricSnapshot {
       last7d: getCounter("flywheel_tokens_used_7d"),
       last30d: getCounter("flywheel_tokens_used_30d"),
       byModel: {
-        "claude-3-opus": getCounter("flywheel_tokens_used_total", { model: "claude-3-opus" }),
-        "claude-3-sonnet": getCounter("flywheel_tokens_used_total", { model: "claude-3-sonnet" }),
-        "claude-3-haiku": getCounter("flywheel_tokens_used_total", { model: "claude-3-haiku" }),
+        "claude-3-opus": getCounter("flywheel_tokens_used_total", {
+          model: "claude-3-opus",
+        }),
+        "claude-3-sonnet": getCounter("flywheel_tokens_used_total", {
+          model: "claude-3-sonnet",
+        }),
+        "claude-3-haiku": getCounter("flywheel_tokens_used_total", {
+          model: "claude-3-haiku",
+        }),
       },
       trend: tokenTrend.trend,
       trendPercent: tokenTrend.trendPercent,
@@ -324,7 +359,7 @@ export function getMetricsSnapshot(): MetricSnapshot {
  */
 function calculatePercentile(
   histogram: { buckets: HistogramBucket[]; count: number },
-  percentile: number
+  percentile: number,
 ): number {
   if (histogram.count === 0) return 0;
 
@@ -347,7 +382,7 @@ function calculatePercentile(
 export function createNamedSnapshot(
   name: string,
   description?: string,
-  createdBy?: string
+  createdBy?: string,
 ): NamedSnapshot {
   const id = `snapshot_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const snapshot: NamedSnapshot = {
@@ -362,7 +397,23 @@ export function createNamedSnapshot(
   namedSnapshots.set(id, snapshot);
   logger.info({ snapshotId: id, name }, "Created named metrics snapshot");
 
+  // Enforce size limit
+  if (namedSnapshots.size > MAX_SNAPSHOTS) {
+    // Delete oldest (by insertion order in Map, which matches creation order here)
+    const firstKey = namedSnapshots.keys().next().value;
+    if (firstKey) {
+      namedSnapshots.delete(firstKey);
+    }
+  }
+
   return snapshot;
+}
+
+/**
+ * Delete a named snapshot.
+ */
+export function deleteNamedSnapshot(id: string): boolean {
+  return namedSnapshots.delete(id);
 }
 
 /**
@@ -389,24 +440,49 @@ export function getNamedSnapshot(id: string): NamedSnapshot | undefined {
  */
 export function compareMetrics(
   baseline: MetricSnapshot,
-  current: MetricSnapshot
+  current: MetricSnapshot,
 ): MetricComparison {
   const changes: MetricComparison["changes"] = [];
 
   // Helper to add comparison
   const compare = (metric: string, baseVal: number, currVal: number) => {
     const delta = currVal - baseVal;
-    const deltaPercent = baseVal !== 0 ? (delta / baseVal) * 100 : currVal !== 0 ? 100 : 0;
-    const direction = deltaPercent > 5 ? "up" : deltaPercent < -5 ? "down" : "stable";
-    changes.push({ metric, baseline: baseVal, current: currVal, delta, deltaPercent, direction });
+    const deltaPercent =
+      baseVal !== 0 ? (delta / baseVal) * 100 : currVal !== 0 ? 100 : 0;
+    const direction =
+      deltaPercent > 5 ? "up" : deltaPercent < -5 ? "down" : "stable";
+    changes.push({
+      metric,
+      baseline: baseVal,
+      current: currVal,
+      delta,
+      deltaPercent,
+      direction,
+    });
   };
 
   // Compare key metrics
   compare("agents.total", baseline.agents.total, current.agents.total);
-  compare("performance.avgResponseMs", baseline.performance.avgResponseMs, current.performance.avgResponseMs);
-  compare("performance.successRate", baseline.performance.successRate, current.performance.successRate);
-  compare("system.memoryUsageMb", baseline.system.memoryUsageMb, current.system.memoryUsageMb);
-  compare("system.wsConnections", baseline.system.wsConnections, current.system.wsConnections);
+  compare(
+    "performance.avgResponseMs",
+    baseline.performance.avgResponseMs,
+    current.performance.avgResponseMs,
+  );
+  compare(
+    "performance.successRate",
+    baseline.performance.successRate,
+    current.performance.successRate,
+  );
+  compare(
+    "system.memoryUsageMb",
+    baseline.system.memoryUsageMb,
+    current.system.memoryUsageMb,
+  );
+  compare(
+    "system.wsConnections",
+    baseline.system.wsConnections,
+    current.system.wsConnections,
+  );
 
   return {
     baseline: {

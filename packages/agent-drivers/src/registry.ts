@@ -117,7 +117,7 @@ export class DriverRegistry {
    */
   async getDriver(
     type: AgentDriverType,
-    options?: DriverOptions
+    options?: DriverOptions,
   ): Promise<AgentDriver> {
     const entry = this.entries.get(type);
     if (!entry) {
@@ -132,7 +132,10 @@ export class DriverRegistry {
     }
 
     // Create new instance
-    this.logger.info(`Creating driver instance: ${driverId}`, { type, options });
+    this.logger.info(`Creating driver instance: ${driverId}`, {
+      type,
+      options,
+    });
     const driver = await entry.factory({ ...options, driverId });
     this.instances.set(driverId, driver);
     return driver;
@@ -153,7 +156,7 @@ export class DriverRegistry {
    */
   async selectDriver(
     requirements: DriverRequirements = {},
-    options?: DriverOptions
+    options?: DriverOptions,
   ): Promise<DriverSelectionResult> {
     const { preferredType, requiredCapabilities = [], provider } = requirements;
     const warnings: string[] = [];
@@ -183,7 +186,7 @@ export class DriverRegistry {
         warnings.push(`Preferred driver ${preferredType} is unhealthy`);
       } else {
         warnings.push(
-          `Preferred driver ${preferredType} lacks required capabilities`
+          `Preferred driver ${preferredType} lacks required capabilities`,
         );
       }
     }
@@ -220,7 +223,7 @@ export class DriverRegistry {
     }
 
     throw new Error(
-      `No suitable driver found. Requirements: ${JSON.stringify(requirements)}. Warnings: ${warnings.join("; ")}`
+      `No suitable driver found. Requirements: ${JSON.stringify(requirements)}. Warnings: ${warnings.join("; ")}`,
     );
   }
 
@@ -287,7 +290,7 @@ export function setDriverRegistry(registry: DriverRegistry): void {
  */
 export async function selectDriver(
   requirements?: DriverRequirements,
-  options?: DriverOptions
+  options?: DriverOptions,
 ): Promise<DriverSelectionResult> {
   return getDriverRegistry().selectDriver(requirements, options);
 }

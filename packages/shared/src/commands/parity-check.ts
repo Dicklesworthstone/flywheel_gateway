@@ -11,9 +11,9 @@
  *   1 - Validation errors found
  */
 
-import { z } from "zod";
-import type { CommandRegistry, RegisteredCommand } from "./types";
+import type { z } from "zod";
 import { validateRegistry } from "./registry";
+import type { CommandRegistry, RegisteredCommand } from "./types";
 
 /**
  * Parity check result for a single command.
@@ -44,7 +44,9 @@ export interface ParityCheckReport {
  */
 function schemaHasField(schema: z.ZodType, fieldName: string): boolean {
   // Get the internal definition
-  const def = (schema as { _def?: unknown })._def as Record<string, unknown> | undefined;
+  const def = (schema as { _def?: unknown })._def as
+    | Record<string, unknown>
+    | undefined;
   if (!def) return false;
 
   // Handle wrapped types (effects, optional, nullable) by unwrapping
@@ -55,7 +57,9 @@ function schemaHasField(schema: z.ZodType, fieldName: string): boolean {
     const innerType = currentDef.innerType as z.ZodType | undefined;
 
     if (innerSchema) {
-      const innerDef = (innerSchema as { _def?: unknown })._def as Record<string, unknown> | undefined;
+      const innerDef = (innerSchema as { _def?: unknown })._def as
+        | Record<string, unknown>
+        | undefined;
       if (innerDef) {
         currentDef = innerDef;
         continue;
@@ -63,7 +67,9 @@ function schemaHasField(schema: z.ZodType, fieldName: string): boolean {
     }
 
     if (innerType) {
-      const innerDef = (innerType as { _def?: unknown })._def as Record<string, unknown> | undefined;
+      const innerDef = (innerType as { _def?: unknown })._def as
+        | Record<string, unknown>
+        | undefined;
       if (innerDef) {
         currentDef = innerDef;
         continue;

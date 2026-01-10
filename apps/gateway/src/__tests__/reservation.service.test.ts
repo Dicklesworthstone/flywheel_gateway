@@ -5,18 +5,20 @@
  * Also tests conflict detection, TTL handling, and pattern matching.
  */
 
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
-  createReservation,
+  _clearAllReservations,
   checkReservation,
-  releaseReservation,
-  renewReservation,
-  listReservations,
+  createReservation,
   getReservation,
   getReservationStats,
+  listReservations,
+  listConflicts,
+  releaseReservation,
+  resolveConflict,
+  renewReservation,
   startCleanupJob,
   stopCleanupJob,
-  _clearAllReservations,
 } from "../services/reservation.service";
 
 // Clean up before each test
@@ -123,7 +125,9 @@ describe("Reservation Service", () => {
 
       expect(result.granted).toBe(false);
       expect(result.conflicts.length).toBeGreaterThan(0);
-      expect(result.conflicts[0]!.existingReservation.requesterId).toBe("agent-1");
+      expect(result.conflicts[0]!.existingReservation.requesterId).toBe(
+        "agent-1",
+      );
     });
 
     test("allows shared reservations to overlap", async () => {
@@ -394,7 +398,7 @@ describe("Reservation Service", () => {
       expect(renewResult.renewed).toBe(true);
       expect(renewResult.newExpiresAt).toBeInstanceOf(Date);
       expect(renewResult.newExpiresAt!.getTime()).toBeGreaterThan(
-        originalExpiry.getTime()
+        originalExpiry.getTime(),
       );
     });
 
@@ -437,8 +441,12 @@ describe("Reservation Service", () => {
       // Renewal extends from original expiry (which is still in the future)
       // New expiry = originalExpiry + 1 hour (capped from 2 hours)
       const expectedExpiry = originalExpiry.getTime() + 3600 * 1000;
-      expect(renewResult.newExpiresAt!.getTime()).toBeLessThanOrEqual(expectedExpiry + 100);
-      expect(renewResult.newExpiresAt!.getTime()).toBeGreaterThanOrEqual(expectedExpiry - 100);
+      expect(renewResult.newExpiresAt!.getTime()).toBeLessThanOrEqual(
+        expectedExpiry + 100,
+      );
+      expect(renewResult.newExpiresAt!.getTime()).toBeGreaterThanOrEqual(
+        expectedExpiry - 100,
+      );
     });
 
     test("returns error for non-existent reservation", async () => {
@@ -725,7 +733,29 @@ describe("Reservation Service", () => {
       expect(waitResolution).toBeDefined();
     });
 
-    test("suggests share resolution for exclusive reservation", async () => {
+    test("suggests share resolution when existing reservation is shared", async () => {
+      await createReservation({
+        projectId: "project-1",
+        agentId: "agent-1",
+        patterns: ["src/**/*.ts"],
+        mode: "shared",
+      });
+
+      const result = await createReservation({
+        projectId: "project-1",
+        agentId: "agent-2",
+        patterns: ["src/index.ts"],
+        mode: "exclusive",
+      });
+
+      expect(result.granted).toBe(false);
+
+      const resolutions = result.conflicts[0]!.resolutions;
+      const shareResolution = resolutions.find((r) => r.type === "share");
+      expect(shareResolution).toBeDefined();
+    });
+
+    test("does not suggest share when existing reservation is exclusive", async () => {
       await createReservation({
         projectId: "project-1",
         agentId: "agent-1",
@@ -744,7 +774,71 @@ describe("Reservation Service", () => {
 
       const resolutions = result.conflicts[0]!.resolutions;
       const shareResolution = resolutions.find((r) => r.type === "share");
-      expect(shareResolution).toBeDefined();
+      expect(shareResolution).toBeUndefined();
+    });
+  });
+
+  describe("conflict tracking", () => {
+    test("records conflicts and lists them by project", async () => {
+      await createReservation({
+        projectId: "project-1",
+        agentId: "agent-1",
+        patterns: ["src/**/*.ts"],
+        mode: "exclusive",
+      });
+
+      await createReservation({
+        projectId: "project-1",
+        agentId: "agent-2",
+        patterns: ["src/index.ts"],
+        mode: "exclusive",
+      });
+
+      const conflicts = await listConflicts({ projectId: "project-1" });
+      expect(conflicts).toHaveLength(1);
+      expect(conflicts[0]!.status).toBe("open");
+      expect(conflicts[0]!.requesterId).toBe("agent-2");
+      expect(conflicts[0]!.existingReservationId).toBeDefined();
+    });
+
+    test("resolves conflicts and filters by status", async () => {
+      await createReservation({
+        projectId: "project-1",
+        agentId: "agent-1",
+        patterns: ["src/**/*.ts"],
+        mode: "exclusive",
+      });
+
+      await createReservation({
+        projectId: "project-1",
+        agentId: "agent-2",
+        patterns: ["src/index.ts"],
+        mode: "exclusive",
+      });
+
+      const conflicts = await listConflicts({ projectId: "project-1" });
+      const conflictId = conflicts[0]!.conflictId;
+
+      const resolved = await resolveConflict({
+        conflictId,
+        resolvedBy: "agent-2",
+        reason: "manual",
+      });
+
+      expect(resolved.resolved).toBe(true);
+      expect(resolved.conflict?.status).toBe("resolved");
+
+      const openConflicts = await listConflicts({
+        projectId: "project-1",
+        status: "open",
+      });
+      expect(openConflicts).toHaveLength(0);
+
+      const resolvedConflicts = await listConflicts({
+        projectId: "project-1",
+        status: "resolved",
+      });
+      expect(resolvedConflicts).toHaveLength(1);
     });
   });
 });

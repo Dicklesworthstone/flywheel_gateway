@@ -87,7 +87,10 @@ export function compareCursors(a: string, b: string): -1 | 0 | 1 | undefined {
  * @param ttlMs - Time-to-live in milliseconds
  * @returns true if expired, false if valid, undefined if cursor is invalid
  */
-export function isCursorExpired(cursor: string, ttlMs: number): boolean | undefined {
+export function isCursorExpired(
+  cursor: string,
+  ttlMs: number,
+): boolean | undefined {
   const data = decodeCursor(cursor);
   if (!data) return undefined;
 

@@ -79,9 +79,10 @@ export function createCommandRegistry(
 /**
  * Validate a command registry and return any issues found.
  */
-export function validateRegistry(
-  registry: CommandRegistry,
-): { valid: boolean; issues: string[] } {
+export function validateRegistry(registry: CommandRegistry): {
+  valid: boolean;
+  issues: string[];
+} {
   const issues: string[] = [];
 
   for (const cmd of registry.all()) {

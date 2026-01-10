@@ -70,13 +70,13 @@ export interface AgentConfig {
  * These are detected/inferred differently by each driver.
  */
 export type ActivityState =
-  | "idle"           // Waiting for input
-  | "thinking"       // Processing, no output yet
-  | "working"        // Actively producing output
-  | "tool_calling"   // Executing a tool
-  | "waiting_input"  // Waiting for user input
-  | "error"          // Encountered an error
-  | "stalled";       // No activity for threshold period
+  | "idle" // Waiting for input
+  | "thinking" // Processing, no output yet
+  | "working" // Actively producing output
+  | "tool_calling" // Executing a tool
+  | "waiting_input" // Waiting for user input
+  | "error" // Encountered an error
+  | "stalled"; // No activity for threshold period
 
 /**
  * Token usage tracking for an agent.
@@ -114,13 +114,13 @@ export interface Agent extends AgentState {
 // ============================================================================
 
 export type OutputType =
-  | "text"           // Regular text output
-  | "markdown"       // Markdown-formatted text
-  | "thinking"       // Internal thinking (if exposed)
-  | "tool_use"       // Tool invocation
-  | "tool_result"    // Tool execution result
-  | "error"          // Error message
-  | "system";        // System message
+  | "text" // Regular text output
+  | "markdown" // Markdown-formatted text
+  | "thinking" // Internal thinking (if exposed)
+  | "tool_use" // Tool invocation
+  | "tool_result" // Tool execution result
+  | "error" // Error message
+  | "system"; // System message
 
 export interface OutputLine {
   timestamp: Date;

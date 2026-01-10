@@ -2,19 +2,19 @@
  * Unit tests for the Context Rotation Service.
  */
 
-import { describe, test, expect, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import type { Agent, TokenUsage } from "@flywheel/agent-drivers";
-import { db, agents } from "../db";
+import { agents, db } from "../db";
 import {
   calculateHealthLevel,
-  getContextHealth,
-  needsRotation,
-  setRotationConfig,
-  getRotationConfig,
   executeRotation,
+  getContextHealth,
+  getRotationConfig,
+  needsRotation,
   type RotationConfig,
-  type RotationStrategy,
   type RotationHandlers,
+  type RotationStrategy,
+  setRotationConfig,
 } from "../services/context-rotation";
 
 async function ensureAgent(agentId: string) {
@@ -37,10 +37,11 @@ async function ensureAgent(agentId: string) {
 function createMockAgent(
   id: string,
   tokenUsage: TokenUsage,
-  maxTokens = 100000
+  maxTokens = 100000,
 ): Agent {
   const usagePercent = (tokenUsage.totalTokens / maxTokens) * 100;
-  let contextHealth: "healthy" | "warning" | "critical" | "emergency" = "healthy";
+  let contextHealth: "healthy" | "warning" | "critical" | "emergency" =
+    "healthy";
   if (usagePercent >= 95) {
     contextHealth = "emergency";
   } else if (usagePercent >= 85) {
@@ -121,7 +122,7 @@ describe("Context Rotation Service", () => {
         emergency: 80,
       };
       expect(
-        calculateHealthLevel(tokenUsage, maxTokens, customThresholds)
+        calculateHealthLevel(tokenUsage, maxTokens, customThresholds),
       ).toBe("warning");
     });
 
@@ -160,7 +161,9 @@ describe("Context Rotation Service", () => {
 
       const health = getContextHealth(agent);
       expect(health.level).toBe("warning");
-      expect(health.suggestion).toBe("Context usage elevated. Monitor closely.");
+      expect(health.suggestion).toBe(
+        "Context usage elevated. Monitor closely.",
+      );
     });
 
     test("returns critical suggestion near limit", () => {
@@ -173,7 +176,7 @@ describe("Context Rotation Service", () => {
       const health = getContextHealth(agent);
       expect(health.level).toBe("critical");
       expect(health.suggestion).toBe(
-        "Consider rotating soon. Context nearing limit."
+        "Consider rotating soon. Context nearing limit.",
       );
     });
 
@@ -187,7 +190,7 @@ describe("Context Rotation Service", () => {
       const health = getContextHealth(agent);
       expect(health.level).toBe("emergency");
       expect(health.suggestion).toBe(
-        "Immediate rotation required. Context at capacity."
+        "Immediate rotation required. Context at capacity.",
       );
     });
   });
@@ -290,7 +293,7 @@ describe("Context Rotation Service", () => {
       const result = await executeRotation(
         testAgent,
         "summarize_and_continue",
-        handlers
+        handlers,
       );
 
       expect(result.success).toBe(true);
@@ -326,7 +329,7 @@ describe("Context Rotation Service", () => {
     });
 
     test("executes checkpoint_and_restart strategy", async () => {
-      let checkpointRestored = false;
+      const checkpointRestored = false;
 
       const handlers: RotationHandlers = {
         spawnAgent: async () => ({ agentId: "restarted-agent" }),
@@ -340,7 +343,7 @@ describe("Context Rotation Service", () => {
       const result = await executeRotation(
         testAgent,
         "checkpoint_and_restart",
-        handlers
+        handlers,
       );
 
       expect(result.success).toBe(true);
@@ -371,7 +374,7 @@ describe("Context Rotation Service", () => {
       const result = await executeRotation(
         testAgent,
         "graceful_handoff",
-        handlers
+        handlers,
       );
 
       expect(result.success).toBe(true);

@@ -28,7 +28,10 @@ describe("defineCommand", () => {
     const cmd = defineCommand({
       ...validInput,
       name: "agent.get",
-      rest: { method: "GET" as const, path: "/agents/:agentId/output/:chunkId" },
+      rest: {
+        method: "GET" as const,
+        path: "/agents/:agentId/output/:chunkId",
+      },
     });
     expect(cmd.pathParams).toEqual(["agentId", "chunkId"]);
   });
@@ -106,6 +109,9 @@ describe("defineCommand", () => {
       ...validInput,
       ws: { emitsEvents: ["agent:spawned"], subscribable: true },
     });
-    expect(cmd.ws).toEqual({ emitsEvents: ["agent:spawned"], subscribable: true });
+    expect(cmd.ws).toEqual({
+      emitsEvents: ["agent:spawned"],
+      subscribable: true,
+    });
   });
 });

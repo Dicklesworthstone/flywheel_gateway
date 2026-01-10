@@ -1,12 +1,13 @@
-import { mockAgents } from "../lib/mock-data";
 import { StatusPill } from "../components/ui/StatusPill";
+import { mockAgents } from "../lib/mock-data";
 
-const statusTone: Record<string, "positive" | "warning" | "danger" | "muted"> = {
-  ready: "positive",
-  executing: "warning",
-  paused: "muted",
-  failed: "danger",
-};
+const statusTone: Record<string, "positive" | "warning" | "danger" | "muted"> =
+  {
+    ready: "positive",
+    executing: "warning",
+    paused: "muted",
+    failed: "danger",
+  };
 
 export function AgentsPage() {
   return (

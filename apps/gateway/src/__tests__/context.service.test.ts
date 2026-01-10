@@ -2,33 +2,33 @@
  * Context Pack Builder Tests
  */
 
-import { describe, it, expect, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, it } from "bun:test";
+import {
+  buildContextPack,
+  getContextPackSummary,
+  previewContextPack,
+  renderContextPack,
+} from "../services/context.service";
 import {
   allocateBudget,
   calculateRemaining,
-  getTotalAllocated,
-  validateStrategy,
+  calculateUsage,
   createStrategy,
   getModelLimit,
-  calculateUsage,
+  getTotalAllocated,
   needsTruncation,
+  validateStrategy,
 } from "../services/context-budget.service";
 import {
   countTokens,
   countTokensMultiple,
-  truncateToTokens,
   splitIntoChunks,
+  truncateToTokens,
 } from "../services/tokenizer.service";
 import {
-  buildContextPack,
-  previewContextPack,
-  renderContextPack,
-  getContextPackSummary,
-} from "../services/context.service";
-import {
+  type BudgetStrategy,
   DEFAULT_BUDGET_STRATEGY,
   DEFAULT_CONTEXT_BUILDER_CONFIG,
-  type BudgetStrategy,
 } from "../types/context.types";
 
 // ============================================================================
@@ -55,16 +55,16 @@ describe("Token Budget Allocation", () => {
       const breakdown = allocateBudget(totalTokens, DEFAULT_BUDGET_STRATEGY);
 
       expect(breakdown.triage).toBeGreaterThanOrEqual(
-        DEFAULT_BUDGET_STRATEGY.minimums.triage
+        DEFAULT_BUDGET_STRATEGY.minimums.triage,
       );
       expect(breakdown.memory).toBeGreaterThanOrEqual(
-        DEFAULT_BUDGET_STRATEGY.minimums.memory
+        DEFAULT_BUDGET_STRATEGY.minimums.memory,
       );
       expect(breakdown.search).toBeGreaterThanOrEqual(
-        DEFAULT_BUDGET_STRATEGY.minimums.search
+        DEFAULT_BUDGET_STRATEGY.minimums.search,
       );
       expect(breakdown.history).toBeGreaterThanOrEqual(
-        DEFAULT_BUDGET_STRATEGY.minimums.history
+        DEFAULT_BUDGET_STRATEGY.minimums.history,
       );
     });
 
@@ -88,7 +88,12 @@ describe("Token Budget Allocation", () => {
       // Create a strategy where minimums exceed proportional allocation
       const tightStrategy: BudgetStrategy = {
         fixed: { system: 500, reserved: 500 },
-        proportional: { triage: 0.25, memory: 0.25, search: 0.25, history: 0.25 },
+        proportional: {
+          triage: 0.25,
+          memory: 0.25,
+          search: 0.25,
+          history: 0.25,
+        },
         minimums: { triage: 2000, memory: 2000, search: 2000, history: 2000 },
         priority: ["triage", "history", "search", "memory"],
       };
@@ -159,8 +164,13 @@ describe("Token Budget Allocation", () => {
     it("should throw on invalid overrides", () => {
       expect(() =>
         createStrategy({
-          proportional: { triage: 2.0, memory: 0.2, search: 0.25, history: 0.25 },
-        })
+          proportional: {
+            triage: 2.0,
+            memory: 0.2,
+            search: 0.25,
+            history: 0.25,
+          },
+        }),
       ).toThrow();
     });
   });
@@ -265,7 +275,8 @@ describe("Tokenizer Service", () => {
 
   describe("splitIntoChunks", () => {
     it("should split long text into chunks", () => {
-      const longText = "This is paragraph one.\n\nThis is paragraph two.\n\nThis is paragraph three.";
+      const longText =
+        "This is paragraph one.\n\nThis is paragraph two.\n\nThis is paragraph three.";
       const chunks = splitIntoChunks(longText, 50);
       expect(chunks.length).toBeGreaterThan(0);
 
@@ -340,7 +351,7 @@ describe("Context Pack Builder", () => {
       });
 
       expect(pack.budget.total).toBe(
-        DEFAULT_CONTEXT_BUILDER_CONFIG.modelLimits["sonnet-4"] ?? 200000
+        DEFAULT_CONTEXT_BUILDER_CONFIG.modelLimits["sonnet-4"] ?? 200000,
       );
     });
   });

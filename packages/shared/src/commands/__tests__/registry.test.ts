@@ -171,8 +171,8 @@ describe("validateRegistry", () => {
     });
     const registry = createCommandRegistry([cmdWithMissingRelated]);
     const result = validateRegistry(registry);
-    expect(result.issues.some((i) => i.includes("unknown related command"))).toBe(
-      true,
-    );
+    expect(
+      result.issues.some((i) => i.includes("unknown related command")),
+    ).toBe(true);
   });
 });

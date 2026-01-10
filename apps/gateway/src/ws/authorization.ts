@@ -9,8 +9,8 @@
  * - system:* channels require authenticated connection
  */
 
-import type { AuthContext } from "./hub";
 import type { Channel } from "./channels";
+import type { AuthContext } from "./hub";
 
 /**
  * Authorization result.
@@ -33,7 +33,11 @@ export interface AuthorizationResult {
 export function canSubscribe(
   auth: AuthContext,
   channel: Channel,
-  agentAccess?: (agentId: string, userId?: string, workspaceIds?: string[]) => boolean
+  agentAccess?: (
+    agentId: string,
+    userId?: string,
+    workspaceIds?: string[],
+  ) => boolean,
 ): AuthorizationResult {
   // Admins can subscribe to anything
   if (auth.isAdmin) {
@@ -52,9 +56,16 @@ export function canSubscribe(
     case "agent:tools": {
       // If we have an agent access checker, use it
       if (agentAccess) {
-        const hasAccess = agentAccess(channel.agentId, auth.userId, auth.workspaceIds);
+        const hasAccess = agentAccess(
+          channel.agentId,
+          auth.userId,
+          auth.workspaceIds,
+        );
         if (!hasAccess) {
-          return { allowed: false, reason: `No access to agent ${channel.agentId}` };
+          return {
+            allowed: false,
+            reason: `No access to agent ${channel.agentId}`,
+          };
         }
       }
       // Without a checker, allow if authenticated (agent-level checks happen elsewhere)
@@ -66,7 +77,10 @@ export function canSubscribe(
     case "workspace:reservations":
     case "workspace:conflicts": {
       if (!auth.workspaceIds.includes(channel.workspaceId)) {
-        return { allowed: false, reason: `Not a member of workspace ${channel.workspaceId}` };
+        return {
+          allowed: false,
+          reason: `Not a member of workspace ${channel.workspaceId}`,
+        };
       }
       return { allowed: true };
     }
@@ -75,7 +89,10 @@ export function canSubscribe(
     case "user:mail":
     case "user:notifications": {
       if (auth.userId !== channel.userId) {
-        return { allowed: false, reason: `Cannot subscribe to another user's channel` };
+        return {
+          allowed: false,
+          reason: `Cannot subscribe to another user's channel`,
+        };
       }
       return { allowed: true };
     }
@@ -103,7 +120,7 @@ export function canSubscribe(
  */
 export function canPublish(
   auth: AuthContext,
-  channel: Channel
+  channel: Channel,
 ): AuthorizationResult {
   // Admins can publish to anything
   if (auth.isAdmin) {
@@ -122,7 +139,10 @@ export function canPublish(
     case "agent:tools": {
       // Regular users cannot publish to agent channels
       // These are populated by the gateway internals
-      return { allowed: false, reason: "Only internal services can publish to agent channels" };
+      return {
+        allowed: false,
+        reason: "Only internal services can publish to agent channels",
+      };
     }
 
     // Workspace channels: can publish if member
@@ -130,7 +150,10 @@ export function canPublish(
     case "workspace:reservations":
     case "workspace:conflicts": {
       if (!auth.workspaceIds.includes(channel.workspaceId)) {
-        return { allowed: false, reason: `Not a member of workspace ${channel.workspaceId}` };
+        return {
+          allowed: false,
+          reason: `Not a member of workspace ${channel.workspaceId}`,
+        };
       }
       return { allowed: true };
     }
@@ -143,7 +166,10 @@ export function canPublish(
     case "user:notifications": {
       // Only the user themselves or system can create notifications
       if (auth.userId !== channel.userId) {
-        return { allowed: false, reason: "Cannot create notifications for another user" };
+        return {
+          allowed: false,
+          reason: "Cannot create notifications for another user",
+        };
       }
       return { allowed: true };
     }
@@ -151,7 +177,10 @@ export function canPublish(
     // System channels: only admin/system can publish
     case "system:health":
     case "system:metrics": {
-      return { allowed: false, reason: "Only system services can publish to system channels" };
+      return {
+        allowed: false,
+        reason: "Only system services can publish to system channels",
+      };
     }
 
     default: {

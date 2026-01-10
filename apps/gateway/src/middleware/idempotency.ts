@@ -9,7 +9,7 @@
  */
 
 import type { Context, Next } from "hono";
-import { getLogger, getCorrelationId } from "./correlation";
+import { getCorrelationId, getLogger } from "./correlation";
 
 // ============================================================================
 // Types
@@ -56,7 +56,9 @@ const pendingRequests = new Map<string, PendingRequest>();
 /**
  * Get a cached idempotency record.
  */
-export function getIdempotencyRecord(key: string): IdempotencyRecord | undefined {
+export function getIdempotencyRecord(
+  key: string,
+): IdempotencyRecord | undefined {
   const record = idempotencyStore.get(key);
   if (!record) {
     return undefined;
@@ -145,7 +147,7 @@ export function getIdempotencyStats(): {
 async function generateFingerprint(
   method: string,
   path: string,
-  body: string | null
+  body: string | null,
 ): Promise<string> {
   const data = `${method}:${path}:${body ?? ""}`;
   const encoder = new TextEncoder();
@@ -186,9 +188,13 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
     pruneExpiredRecords();
     // Enforce max records if needed
     if (idempotencyStore.size > settings.maxRecords) {
-      const records = Array.from(idempotencyStore.entries())
-        .sort((a, b) => a[1].createdAt.getTime() - b[1].createdAt.getTime());
-      const toDelete = records.slice(0, idempotencyStore.size - settings.maxRecords);
+      const records = Array.from(idempotencyStore.entries()).sort(
+        (a, b) => a[1].createdAt.getTime() - b[1].createdAt.getTime(),
+      );
+      const toDelete = records.slice(
+        0,
+        idempotencyStore.size - settings.maxRecords,
+      );
       for (const [key] of toDelete) {
         idempotencyStore.delete(key);
       }
@@ -236,7 +242,7 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
             timestamp: new Date().toISOString(),
           },
         },
-        400
+        400,
       );
     }
 
@@ -265,8 +271,12 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
       // Verify the request matches
       if (existingRecord.fingerprint !== fingerprint) {
         log.warn(
-          { idempotencyKey, expectedFingerprint: existingRecord.fingerprint, actualFingerprint: fingerprint },
-          "Idempotency key reused with different request"
+          {
+            idempotencyKey,
+            expectedFingerprint: existingRecord.fingerprint,
+            actualFingerprint: fingerprint,
+          },
+          "Idempotency key reused with different request",
         );
         return c.json(
           {
@@ -277,7 +287,7 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
               timestamp: new Date().toISOString(),
             },
           },
-          422
+          422,
         );
       }
 
@@ -298,7 +308,10 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
     // Check for pending request with same key
     const pending = pendingRequests.get(idempotencyKey);
     if (pending) {
-      log.debug({ idempotencyKey }, "Waiting for concurrent request to complete");
+      log.debug(
+        { idempotencyKey },
+        "Waiting for concurrent request to complete",
+      );
       try {
         const record = await pending.promise;
         c.header("X-Idempotent-Replayed", "true");
@@ -310,7 +323,10 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
         return c.body(record.body, record.status as any);
       } catch (error) {
         // Original request failed, let this one try
-        log.debug({ idempotencyKey }, "Concurrent request failed, proceeding with new attempt");
+        log.debug(
+          { idempotencyKey },
+          "Concurrent request failed, proceeding with new attempt",
+        );
       }
     }
 
@@ -349,7 +365,8 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
       });
 
       // Only cache successful responses (2xx and 4xx client errors that should be stable)
-      const shouldCache = (status >= 200 && status < 300) || (status >= 400 && status < 500);
+      const shouldCache =
+        (status >= 200 && status < 300) || (status >= 400 && status < 500);
       if (shouldCache) {
         const record: IdempotencyRecord = {
           key: idempotencyKey,

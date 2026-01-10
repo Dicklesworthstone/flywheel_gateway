@@ -1,4 +1,11 @@
-import { blob, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  blob,
+  index,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 export const accounts = sqliteTable(
   "accounts",
@@ -112,6 +119,9 @@ export const dcgBlocks = sqliteTable(
     pattern: text("pattern").notNull(),
     reason: text("reason").notNull(),
     createdBy: text("created_by"),
+    falsePositive: integer("false_positive", { mode: "boolean" })
+      .notNull()
+      .default(false),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [index("dcg_blocks_created_at_idx").on(table.createdAt)],
@@ -186,7 +196,9 @@ export const accountProfiles = sqliteTable(
     lastUsedAt: integer("last_used_at", { mode: "timestamp" }),
 
     // Auth artifacts metadata (no secrets)
-    authFilesPresent: integer("auth_files_present", { mode: "boolean" }).notNull().default(false),
+    authFilesPresent: integer("auth_files_present", { mode: "boolean" })
+      .notNull()
+      .default(false),
     authFileHash: text("auth_file_hash"),
     storageMode: text("storage_mode"), // 'file' | 'keyring' | 'unknown'
 
@@ -200,7 +212,10 @@ export const accountProfiles = sqliteTable(
     index("account_profiles_workspace_idx").on(table.workspaceId),
     index("account_profiles_provider_idx").on(table.provider),
     index("account_profiles_status_idx").on(table.status),
-    index("account_profiles_workspace_provider_idx").on(table.workspaceId, table.provider),
+    index("account_profiles_workspace_provider_idx").on(
+      table.workspaceId,
+      table.provider,
+    ),
   ],
 );
 
@@ -214,7 +229,9 @@ export const accountPools = sqliteTable(
     workspaceId: text("workspace_id").notNull(),
     provider: text("provider").notNull(), // 'claude' | 'codex' | 'gemini'
     rotationStrategy: text("rotation_strategy").notNull().default("smart"), // 'smart' | 'round_robin' | 'least_recent' | 'random'
-    cooldownMinutesDefault: integer("cooldown_minutes_default").notNull().default(15),
+    cooldownMinutesDefault: integer("cooldown_minutes_default")
+      .notNull()
+      .default(15),
     maxRetries: integer("max_retries").notNull().default(3),
     activeProfileId: text("active_profile_id"),
     lastRotatedAt: integer("last_rotated_at", { mode: "timestamp" }),
@@ -223,7 +240,10 @@ export const accountPools = sqliteTable(
   },
   (table) => [
     index("account_pools_workspace_idx").on(table.workspaceId),
-    uniqueIndex("account_pools_workspace_provider_idx").on(table.workspaceId, table.provider),
+    uniqueIndex("account_pools_workspace_provider_idx").on(
+      table.workspaceId,
+      table.provider,
+    ),
   ],
 );
 
@@ -234,14 +254,21 @@ export const accountPoolMembers = sqliteTable(
   "account_pool_members",
   {
     id: text("id").primaryKey(),
-    poolId: text("pool_id").notNull().references(() => accountPools.id, { onDelete: "cascade" }),
-    profileId: text("profile_id").notNull().references(() => accountProfiles.id, { onDelete: "cascade" }),
+    poolId: text("pool_id")
+      .notNull()
+      .references(() => accountPools.id, { onDelete: "cascade" }),
+    profileId: text("profile_id")
+      .notNull()
+      .references(() => accountProfiles.id, { onDelete: "cascade" }),
     priority: integer("priority").notNull().default(0), // Lower = higher priority
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("account_pool_members_pool_idx").on(table.poolId),
     index("account_pool_members_profile_idx").on(table.profileId),
-    uniqueIndex("account_pool_members_unique_idx").on(table.poolId, table.profileId),
+    uniqueIndex("account_pool_members_unique_idx").on(
+      table.poolId,
+      table.profileId,
+    ),
   ],
 );

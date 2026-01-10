@@ -1,12 +1,13 @@
-import { mockBeads } from "../lib/mock-data";
 import { StatusPill } from "../components/ui/StatusPill";
+import { mockBeads } from "../lib/mock-data";
 
-const statusTone: Record<string, "positive" | "warning" | "danger" | "muted"> = {
-  open: "muted",
-  in_progress: "warning",
-  blocked: "danger",
-  closed: "positive",
-};
+const statusTone: Record<string, "positive" | "warning" | "danger" | "muted"> =
+  {
+    open: "muted",
+    in_progress: "warning",
+    blocked: "danger",
+    closed: "positive",
+  };
 
 export function BeadsPage() {
   return (

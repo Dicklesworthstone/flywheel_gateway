@@ -263,7 +263,7 @@ export function createHubMessage(
   type: MessageType,
   channel: string,
   payload: unknown,
-  metadata?: MessageMetadata
+  metadata?: MessageMetadata,
 ): Omit<HubMessage, "cursor"> {
   return {
     id: crypto.randomUUID(),
@@ -284,7 +284,8 @@ export function parseClientMessage(json: string): ClientMessage | undefined {
   try {
     const parsed = JSON.parse(json);
     if (!parsed || typeof parsed !== "object") return undefined;
-    if (!("type" in parsed) || typeof parsed.type !== "string") return undefined;
+    if (!("type" in parsed) || typeof parsed.type !== "string")
+      return undefined;
 
     switch (parsed.type) {
       case "subscribe":
@@ -313,12 +314,16 @@ export function parseClientMessage(json: string): ClientMessage | undefined {
         if (typeof parsed.timestamp !== "number") return undefined;
         return { type: "ping", timestamp: parsed.timestamp };
 
-      case "reconnect":
-        if (!parsed.cursors || typeof parsed.cursors !== "object") return undefined;
-        const entries = Object.entries(parsed.cursors as Record<string, unknown>)
+      case "reconnect": {
+        if (!parsed.cursors || typeof parsed.cursors !== "object")
+          return undefined;
+        const entries = Object.entries(
+          parsed.cursors as Record<string, unknown>,
+        )
           .filter(([, value]) => typeof value === "string")
           .map(([key, value]) => [key, value] as [string, string]);
         return { type: "reconnect", cursors: Object.fromEntries(entries) };
+      }
 
       default:
         return undefined;

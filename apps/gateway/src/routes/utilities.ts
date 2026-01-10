@@ -9,13 +9,13 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
-  listUtilities,
   getUtilityStatus,
-  runDoctor,
   installUtility,
-  updateUtility,
-  runGiil,
+  listUtilities,
   runCsctf,
+  runDoctor,
+  runGiil,
+  updateUtility,
 } from "../services/utilities.service";
 
 const utilities = new Hono();
@@ -56,7 +56,7 @@ function handleError(error: unknown, c: Context) {
           details: error.issues,
         },
       },
-      400
+      400,
     );
   }
 
@@ -70,7 +70,7 @@ function handleError(error: unknown, c: Context) {
           timestamp: new Date().toISOString(),
         },
       },
-      400
+      400,
     );
   }
 
@@ -84,7 +84,7 @@ function handleError(error: unknown, c: Context) {
         timestamp: new Date().toISOString(),
       },
     },
-    500
+    500,
   );
 }
 
@@ -141,7 +141,7 @@ utilities.get("/:name", async (c) => {
             hint: "Available utilities: giil, csctf",
           },
         },
-        404
+        404,
       );
     }
 
@@ -180,7 +180,7 @@ utilities.post("/:name/install", async (c) => {
             output: result.output,
           },
         },
-        500
+        500,
       );
     }
 
@@ -218,7 +218,7 @@ utilities.post("/:name/update", async (c) => {
             output: result.output,
           },
         },
-        500
+        500,
       );
     }
 
@@ -260,7 +260,7 @@ utilities.post("/giil/run", async (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        500
+        500,
       );
     }
 
@@ -296,7 +296,7 @@ utilities.post("/csctf/run", async (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        500
+        500,
       );
     }
 

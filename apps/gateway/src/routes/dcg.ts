@@ -9,19 +9,20 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
-  getConfig,
-  updateConfig,
-  listPacks,
-  enablePack,
-  disablePack,
-  getBlockEvents,
-  markFalsePositive,
-  getAllowlist,
   addToAllowlist,
-  removeFromAllowlist,
+  disablePack,
+  enablePack,
+  getAllowlist,
+  getBlockEvents,
+  getConfig,
+  getDcgVersion,
   getStats,
   isDcgAvailable,
-  getDcgVersion,
+  listPacks,
+  markFalsePositive,
+  removeFromAllowlist,
+  updateConfig,
+  type DCGSeverity,
 } from "../services/dcg.service";
 
 const dcg = new Hono();
@@ -69,7 +70,7 @@ function handleError(error: unknown, c: Context) {
           details: error.issues,
         },
       },
-      400
+      400,
     );
   }
 
@@ -83,7 +84,7 @@ function handleError(error: unknown, c: Context) {
           timestamp: new Date().toISOString(),
         },
       },
-      400
+      400,
     );
   }
 
@@ -97,7 +98,7 @@ function handleError(error: unknown, c: Context) {
         timestamp: new Date().toISOString(),
       },
     },
-    500
+    500,
   );
 }
 
@@ -202,7 +203,7 @@ dcg.post("/packs/:pack/enable", async (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        404
+        404,
       );
     }
 
@@ -234,7 +235,7 @@ dcg.post("/packs/:pack/disable", async (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        404
+        404,
       );
     }
 
@@ -262,10 +263,10 @@ dcg.get("/blocks", async (c) => {
       severity: c.req.query("severity"),
       pack: c.req.query("pack"),
       limit: c.req.query("limit"),
-      cursor: c.req.query("cursor"),
+      cursor: query.cursor,
     });
 
-    const severities = query.severity?.split(",") as any[] | undefined;
+    const severities = query.severity?.split(",") as DCGSeverity[] | undefined;
 
     const result = await getBlockEvents({
       agentId: query.agentId,
@@ -306,7 +307,7 @@ dcg.post("/blocks/:id/false-positive", async (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        404
+        404,
       );
     }
 
@@ -353,7 +354,9 @@ dcg.post("/allowlist", async (c) => {
       pattern: validated.pattern,
       reason: validated.reason,
       addedBy: "api-user",
-      expiresAt: validated.expiresAt ? new Date(validated.expiresAt) : undefined,
+      expiresAt: validated.expiresAt
+        ? new Date(validated.expiresAt)
+        : undefined,
     });
 
     return c.json(
@@ -361,7 +364,7 @@ dcg.post("/allowlist", async (c) => {
         entry,
         correlationId: getCorrelationId(),
       },
-      201
+      201,
     );
   } catch (error) {
     return handleError(error, c);
@@ -386,7 +389,7 @@ dcg.delete("/allowlist/:ruleId", async (c) => {
             timestamp: new Date().toISOString(),
           },
         },
-        404
+        404,
       );
     }
 

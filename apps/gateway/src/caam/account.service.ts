@@ -7,17 +7,21 @@
 
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db";
-import { accountPoolMembers, accountPools, accountProfiles } from "../db/schema";
-import { audit } from "../services/audit";
+import {
+  accountPoolMembers,
+  accountPools,
+  accountProfiles,
+} from "../db/schema";
 import { getLogger } from "../middleware/correlation";
+import { audit } from "../services/audit";
 import type {
   AccountPool,
   AccountProfile,
   ByoaStatus,
   CreateProfileOptions,
   ListProfilesOptions,
-  ProviderId,
   ProfileStatus,
+  ProviderId,
   StorageMode,
   UpdateProfileOptions,
 } from "./types";
@@ -87,7 +91,9 @@ export async function listProfiles(options: ListProfilesOptions = {}): Promise<{
 /**
  * Get a profile by ID.
  */
-export async function getProfile(profileId: string): Promise<AccountProfile | null> {
+export async function getProfile(
+  profileId: string,
+): Promise<AccountProfile | null> {
   const rows = await db
     .select()
     .from(accountProfiles)
@@ -100,7 +106,9 @@ export async function getProfile(profileId: string): Promise<AccountProfile | nu
 /**
  * Create a new profile.
  */
-export async function createProfile(options: CreateProfileOptions): Promise<AccountProfile> {
+export async function createProfile(
+  options: CreateProfileOptions,
+): Promise<AccountProfile> {
   const log = getLogger();
   const now = new Date();
   const id = generateId("prof");
@@ -133,7 +141,10 @@ export async function createProfile(options: CreateProfileOptions): Promise<Acco
     metadata: { provider: options.provider, workspaceId: options.workspaceId },
   });
 
-  log.info({ profileId: id, provider: options.provider }, "Created account profile");
+  log.info(
+    { profileId: id, provider: options.provider },
+    "Created account profile",
+  );
 
   // Fetch the complete profile from database to ensure all fields
   const created = await getProfile(id);
@@ -157,10 +168,13 @@ export async function updateProfile(
 
   if (options.name !== undefined) updateData["name"] = options.name;
   if (options.status !== undefined) updateData["status"] = options.status;
-  if (options.statusMessage !== undefined) updateData["statusMessage"] = options.statusMessage;
-  if (options.healthScore !== undefined) updateData["healthScore"] = options.healthScore;
+  if (options.statusMessage !== undefined)
+    updateData["statusMessage"] = options.statusMessage;
+  if (options.healthScore !== undefined)
+    updateData["healthScore"] = options.healthScore;
   if (options.labels !== undefined) updateData["labels"] = options.labels;
-  if (options.cooldownUntil !== undefined) updateData["cooldownUntil"] = options.cooldownUntil;
+  if (options.cooldownUntil !== undefined)
+    updateData["cooldownUntil"] = options.cooldownUntil;
 
   await db
     .update(accountProfiles)
@@ -178,7 +192,10 @@ export async function updateProfile(
       metadata: { changes: Object.keys(options) },
     });
 
-    log.info({ profileId, changes: Object.keys(options) }, "Updated account profile");
+    log.info(
+      { profileId, changes: Object.keys(options) },
+      "Updated account profile",
+    );
   }
 
   return updated;
@@ -197,7 +214,9 @@ export async function deleteProfile(profileId: string): Promise<boolean> {
   }
 
   // Remove from any pools first
-  await db.delete(accountPoolMembers).where(eq(accountPoolMembers.profileId, profileId));
+  await db
+    .delete(accountPoolMembers)
+    .where(eq(accountPoolMembers.profileId, profileId));
 
   // Delete the profile
   await db.delete(accountProfiles).where(eq(accountProfiles.id, profileId));
@@ -242,7 +261,9 @@ export async function setCooldown(
 /**
  * Activate a profile for use.
  */
-export async function activateProfile(profileId: string): Promise<AccountProfile | null> {
+export async function activateProfile(
+  profileId: string,
+): Promise<AccountProfile | null> {
   const log = getLogger();
   const now = new Date();
 
@@ -274,7 +295,10 @@ export async function activateProfile(profileId: string): Promise<AccountProfile
     metadata: { provider: profile.provider },
   });
 
-  log.info({ profileId, provider: profile.provider }, "Activated account profile");
+  log.info(
+    { profileId, provider: profile.provider },
+    "Activated account profile",
+  );
 
   return getProfile(profileId);
 }
@@ -321,14 +345,22 @@ export async function markVerified(
 /**
  * Ensure a pool exists for a workspace/provider combination.
  */
-async function ensurePool(workspaceId: string, provider: ProviderId): Promise<AccountPool> {
+async function ensurePool(
+  workspaceId: string,
+  provider: ProviderId,
+): Promise<AccountPool> {
   const now = new Date();
 
   // Check if pool exists
   const existing = await db
     .select()
     .from(accountPools)
-    .where(and(eq(accountPools.workspaceId, workspaceId), eq(accountPools.provider, provider)))
+    .where(
+      and(
+        eq(accountPools.workspaceId, workspaceId),
+        eq(accountPools.provider, provider),
+      ),
+    )
     .limit(1);
 
   if (existing[0]) {
@@ -356,11 +388,19 @@ async function ensurePool(workspaceId: string, provider: ProviderId): Promise<Ac
 /**
  * Get pool for a workspace/provider.
  */
-export async function getPool(workspaceId: string, provider: ProviderId): Promise<AccountPool | null> {
+export async function getPool(
+  workspaceId: string,
+  provider: ProviderId,
+): Promise<AccountPool | null> {
   const rows = await db
     .select()
     .from(accountPools)
-    .where(and(eq(accountPools.workspaceId, workspaceId), eq(accountPools.provider, provider)))
+    .where(
+      and(
+        eq(accountPools.workspaceId, workspaceId),
+        eq(accountPools.provider, provider),
+      ),
+    )
     .limit(1);
 
   return rows[0] ? rowToPool(rows[0]) : null;
@@ -369,27 +409,38 @@ export async function getPool(workspaceId: string, provider: ProviderId): Promis
 /**
  * Get profiles in a pool, ordered by priority.
  */
-export async function getPoolProfiles(poolId: string): Promise<AccountProfile[]> {
+export async function getPoolProfiles(
+  poolId: string,
+): Promise<AccountProfile[]> {
   const members = await db
-    .select({ profileId: accountPoolMembers.profileId, priority: accountPoolMembers.priority })
+    .select({
+      profileId: accountPoolMembers.profileId,
+      priority: accountPoolMembers.priority,
+    })
     .from(accountPoolMembers)
     .where(eq(accountPoolMembers.poolId, poolId))
     .orderBy(accountPoolMembers.priority);
 
   if (members.length === 0) return [];
 
-  const profileIds = members.map((m: { profileId: string; priority: number }) => m.profileId);
+  const profileIds = members.map(
+    (m: { profileId: string; priority: number }) => m.profileId,
+  );
   const profiles = await db
     .select()
     .from(accountProfiles)
     .where(inArray(accountProfiles.id, profileIds));
 
   // Sort by priority
-  const profileMap = new Map(profiles.map((p: typeof profiles[number]) => [p.id, p]));
+  const profileMap = new Map(
+    profiles.map((p: (typeof profiles)[number]) => [p.id, p]),
+  );
   return members
-    .map((m: { profileId: string; priority: number }) => profileMap.get(m.profileId))
+    .map((m: { profileId: string; priority: number }) =>
+      profileMap.get(m.profileId),
+    )
     .filter((p): p is NonNullable<typeof p> => p !== undefined)
-    .map((p: typeof profiles[number]) => rowToProfile(p));
+    .map((p: (typeof profiles)[number]) => rowToProfile(p));
 }
 
 /**
@@ -444,7 +495,9 @@ export async function getByoaStatus(workspaceId: string): Promise<ByoaStatus> {
   }
 
   const verifiedList = [...verifiedProviders];
-  const missingProviders = allProviders.filter((p) => !verifiedProviders.has(p));
+  const missingProviders = allProviders.filter(
+    (p) => !verifiedProviders.has(p),
+  );
   const ready = verifiedList.length >= 1;
 
   // Build base status
@@ -463,7 +516,8 @@ export async function getByoaStatus(workspaceId: string): Promise<ByoaStatus> {
 
   // Conditionally add recommendedAction (for exactOptionalPropertyTypes)
   if (!ready) {
-    status.recommendedAction = "Link at least one provider account to enable agent execution";
+    status.recommendedAction =
+      "Link at least one provider account to enable agent execution";
   } else if (verifiedList.length === 1) {
     status.recommendedAction = `Consider adding a second provider (${missingProviders[0]}) for failover`;
   }
@@ -517,8 +571,10 @@ function rowToProfile(row: {
   if (row.expiresAt !== null) profile.expiresAt = row.expiresAt;
   if (row.cooldownUntil !== null) profile.cooldownUntil = row.cooldownUntil;
   if (row.lastUsedAt !== null) profile.lastUsedAt = row.lastUsedAt;
-  if (row.authFileHash !== null) profile.artifacts.authFileHash = row.authFileHash;
-  if (row.storageMode !== null) profile.artifacts.storageMode = row.storageMode as StorageMode;
+  if (row.authFileHash !== null)
+    profile.artifacts.authFileHash = row.authFileHash;
+  if (row.storageMode !== null)
+    profile.artifacts.storageMode = row.storageMode as StorageMode;
   if (row.labels !== null) profile.labels = row.labels;
 
   return profile;

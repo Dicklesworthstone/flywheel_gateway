@@ -8,11 +8,15 @@
  * - Context window refreshes
  */
 
-import { getLogger, getCorrelationId } from "../middleware/correlation";
-import type { Checkpoint, CheckpointMetadata, TokenUsage } from "@flywheel/agent-drivers";
-import { eq, desc, and, lt, inArray } from "drizzle-orm";
-import { db, checkpoints as checkpointsTable } from "../db";
+import type {
+  Checkpoint,
+  CheckpointMetadata,
+  TokenUsage,
+} from "@flywheel/agent-drivers";
+import { and, desc, eq, inArray, lt } from "drizzle-orm";
 import { ulid } from "ulid";
+import { checkpoints as checkpointsTable, db } from "../db";
+import { getCorrelationId, getLogger } from "../middleware/correlation";
 
 // ============================================================================
 // Types
@@ -88,7 +92,10 @@ function normalizeCheckpoint(checkpoint: DeltaCheckpoint): DeltaCheckpoint {
 
   const deltaEntries = checkpoint.deltaEntries?.map((entry) => ({
     ...entry,
-    timestamp: entry.timestamp instanceof Date ? entry.timestamp : new Date(entry.timestamp),
+    timestamp:
+      entry.timestamp instanceof Date
+        ? entry.timestamp
+        : new Date(entry.timestamp),
   }));
 
   return {
@@ -125,7 +132,7 @@ export async function createCheckpoint(
     tokenUsage: TokenUsage;
     contextPack?: unknown;
   },
-  options: CreateCheckpointOptions = {}
+  options: CreateCheckpointOptions = {},
 ): Promise<CheckpointMetadata> {
   const log = getLogger();
   const correlationId = getCorrelationId();
@@ -174,7 +181,7 @@ export async function createCheckpoint(
       tokenUsage: state.tokenUsage.totalTokens,
       correlationId,
     },
-    `[CHECKPOINT] Created checkpoint ${checkpointId} for agent ${agentId}`
+    `[CHECKPOINT] Created checkpoint ${checkpointId} for agent ${agentId}`,
   );
 
   return {
@@ -194,7 +201,9 @@ export async function createCheckpoint(
 /**
  * Get a checkpoint by ID.
  */
-export async function getCheckpoint(checkpointId: string): Promise<Checkpoint | undefined> {
+export async function getCheckpoint(
+  checkpointId: string,
+): Promise<Checkpoint | undefined> {
   const result = await db
     .select()
     .from(checkpointsTable)
@@ -209,7 +218,9 @@ export async function getCheckpoint(checkpointId: string): Promise<Checkpoint | 
 /**
  * Get all checkpoints for an agent.
  */
-export async function getAgentCheckpoints(agentId: string): Promise<CheckpointMetadata[]> {
+export async function getAgentCheckpoints(
+  agentId: string,
+): Promise<CheckpointMetadata[]> {
   const results = await db
     .select()
     .from(checkpointsTable)
@@ -232,7 +243,9 @@ export async function getAgentCheckpoints(agentId: string): Promise<CheckpointMe
 /**
  * Get the latest checkpoint for an agent.
  */
-export async function getLatestCheckpoint(agentId: string): Promise<Checkpoint | undefined> {
+export async function getLatestCheckpoint(
+  agentId: string,
+): Promise<Checkpoint | undefined> {
   const result = await db
     .select()
     .from(checkpointsTable)
@@ -253,36 +266,73 @@ export async function getLatestCheckpoint(agentId: string): Promise<Checkpoint |
  * Resolve a delta checkpoint to its full state.
  * Walks the parent chain and merges all deltas.
  */
-async function resolveDeltaCheckpoint(checkpoint: DeltaCheckpoint): Promise<Checkpoint> {
+async function resolveDeltaCheckpoint(
+  checkpoint: DeltaCheckpoint,
+): Promise<Checkpoint> {
+  // Optimization: If the checkpoint has full state (conversationHistory and toolState),
+  // we don't need to resolve the parent, even if it's marked as a delta.
+  // This avoids unnecessary DB queries and recursion when "delta" checkpoints
+  // actually contain full snapshots (which is the current implementation behavior).
+  if (checkpoint.conversationHistory && checkpoint.toolState) {
+    return checkpoint;
+  }
+
   if (!checkpoint.isDelta || !checkpoint.parentCheckpointId) {
     return checkpoint;
   }
 
-  const parent = await getCheckpoint(checkpoint.parentCheckpointId);
-  if (!parent) {
-    throw new CheckpointError(
-      "PARENT_NOT_FOUND",
-      `Parent checkpoint ${checkpoint.parentCheckpointId} not found`
-    );
+  // Iterative resolution to prevent stack overflow
+  const chain: DeltaCheckpoint[] = [checkpoint];
+  let current = checkpoint;
+
+  while (current.isDelta && current.parentCheckpointId) {
+    // If current has full state, we can stop resolving parents
+    if (
+      current.conversationHistory &&
+      current.toolState &&
+      current !== checkpoint
+    ) {
+      break;
+    }
+
+    const parent = await getCheckpoint(current.parentCheckpointId);
+    if (!parent) {
+      throw new CheckpointError(
+        "PARENT_NOT_FOUND",
+        `Parent checkpoint ${current.parentCheckpointId} not found`,
+      );
+    }
+    const parentDelta = parent as DeltaCheckpoint;
+    chain.push(parentDelta);
+    current = parentDelta;
   }
 
-  // Recursively resolve parent if it's also a delta
-  const resolvedParent = await resolveDeltaCheckpoint(parent as DeltaCheckpoint);
+  // Apply changes from oldest to newest (reverse order)
+  // Start with the base (oldest loaded parent)
+  const base = chain.pop()!;
+  let resolved: Checkpoint = { ...base };
 
-  // Merge checkpoint onto parent
-  // In a real implementation, this would apply delta entries
-  return {
-    ...resolvedParent,
-    id: checkpoint.id,
-    agentId: checkpoint.agentId,
-    createdAt: checkpoint.createdAt,
-    tokenUsage: checkpoint.tokenUsage,
-    description: checkpoint.description,
-    tags: checkpoint.tags,
-    conversationHistory: checkpoint.conversationHistory,
-    toolState: { ...resolvedParent.toolState, ...checkpoint.toolState },
-    contextPack: checkpoint.contextPack ?? resolvedParent.contextPack,
-  };
+  // Apply deltas
+  while (chain.length > 0) {
+    const next = chain.pop()!;
+    resolved = {
+      ...resolved,
+      id: next.id,
+      agentId: next.agentId,
+      createdAt: next.createdAt,
+      tokenUsage: next.tokenUsage,
+      description: next.description,
+      tags: next.tags,
+      // If next has history, use it (override). If not, keep resolved (merge logic would go here)
+      conversationHistory:
+        next.conversationHistory ?? resolved.conversationHistory,
+      // Merge tool state if needed, or override
+      toolState: { ...resolved.toolState, ...next.toolState },
+      contextPack: next.contextPack ?? resolved.contextPack,
+    };
+  }
+
+  return resolved;
 }
 
 /**
@@ -294,14 +344,17 @@ async function resolveDeltaCheckpoint(checkpoint: DeltaCheckpoint): Promise<Chec
  */
 export async function restoreCheckpoint(
   checkpointId: string,
-  options: RestoreCheckpointOptions = {}
+  options: RestoreCheckpointOptions = {},
 ): Promise<Checkpoint> {
   const log = getLogger();
   const correlationId = getCorrelationId();
 
   const checkpoint = await getCheckpoint(checkpointId);
   if (!checkpoint) {
-    throw new CheckpointError("CHECKPOINT_NOT_FOUND", `Checkpoint ${checkpointId} not found`);
+    throw new CheckpointError(
+      "CHECKPOINT_NOT_FOUND",
+      `Checkpoint ${checkpointId} not found`,
+    );
   }
 
   // Verify if requested
@@ -310,13 +363,15 @@ export async function restoreCheckpoint(
     if (!verifyResult.valid) {
       throw new CheckpointError(
         "CHECKPOINT_INVALID",
-        `Checkpoint verification failed: ${verifyResult.errors.join(", ")}`
+        `Checkpoint verification failed: ${verifyResult.errors.join(", ")}`,
       );
     }
   }
 
   // Resolve delta chain if needed
-  const resolvedCheckpoint = await resolveDeltaCheckpoint(checkpoint as DeltaCheckpoint);
+  const resolvedCheckpoint = await resolveDeltaCheckpoint(
+    checkpoint as DeltaCheckpoint,
+  );
 
   log.info(
     {
@@ -326,7 +381,7 @@ export async function restoreCheckpoint(
       agentId: checkpoint.agentId,
       correlationId,
     },
-    `[CHECKPOINT] Restored checkpoint ${checkpointId} for agent ${checkpoint.agentId}`
+    `[CHECKPOINT] Restored checkpoint ${checkpointId} for agent ${checkpoint.agentId}`,
   );
 
   return resolvedCheckpoint;
@@ -339,8 +394,12 @@ export async function restoreCheckpoint(
 /**
  * Verify checkpoint integrity.
  */
-export async function verifyCheckpoint(checkpointId: string): Promise<VerifyResult> {
-  const checkpoint = await getCheckpoint(checkpointId) as DeltaCheckpoint | undefined;
+export async function verifyCheckpoint(
+  checkpointId: string,
+): Promise<VerifyResult> {
+  const checkpoint = (await getCheckpoint(checkpointId)) as
+    | DeltaCheckpoint
+    | undefined;
 
   if (!checkpoint) {
     return {
@@ -368,13 +427,16 @@ export async function verifyCheckpoint(checkpointId: string): Promise<VerifyResu
   if (checkpoint.isDelta && checkpoint.parentCheckpointId) {
     const parent = await getCheckpoint(checkpoint.parentCheckpointId);
     if (!parent) {
-      errors.push(`Parent checkpoint ${checkpoint.parentCheckpointId} not found`);
+      errors.push(
+        `Parent checkpoint ${checkpoint.parentCheckpointId} not found`,
+      );
     }
   }
 
   // Check token usage sanity
   if (checkpoint.tokenUsage) {
-    const { promptTokens, completionTokens, totalTokens } = checkpoint.tokenUsage;
+    const { promptTokens, completionTokens, totalTokens } =
+      checkpoint.tokenUsage;
     if (promptTokens + completionTokens !== totalTokens) {
       warnings.push("Token usage sum mismatch");
     }
@@ -394,14 +456,21 @@ export async function verifyCheckpoint(checkpointId: string): Promise<VerifyResu
 /**
  * Export a checkpoint to a portable format.
  */
-export async function exportCheckpoint(checkpointId: string): Promise<ExportedCheckpoint> {
+export async function exportCheckpoint(
+  checkpointId: string,
+): Promise<ExportedCheckpoint> {
   const checkpoint = await getCheckpoint(checkpointId);
   if (!checkpoint) {
-    throw new CheckpointError("CHECKPOINT_NOT_FOUND", `Checkpoint ${checkpointId} not found`);
+    throw new CheckpointError(
+      "CHECKPOINT_NOT_FOUND",
+      `Checkpoint ${checkpointId} not found`,
+    );
   }
 
   // Resolve delta to full checkpoint for export
-  const fullCheckpoint = await resolveDeltaCheckpoint(checkpoint as DeltaCheckpoint);
+  const fullCheckpoint = await resolveDeltaCheckpoint(
+    checkpoint as DeltaCheckpoint,
+  );
 
   // Compute hash for integrity
   const hash = await computeCheckpointHash(fullCheckpoint);
@@ -419,14 +488,17 @@ export async function exportCheckpoint(checkpointId: string): Promise<ExportedCh
  */
 export async function importCheckpoint(
   exported: ExportedCheckpoint,
-  targetAgentId?: string
+  targetAgentId?: string,
 ): Promise<CheckpointMetadata> {
   const log = getLogger();
 
   // Verify hash
   const computedHash = await computeCheckpointHash(exported.checkpoint);
   if (computedHash !== exported.hash) {
-    throw new CheckpointError("IMPORT_HASH_MISMATCH", "Checkpoint hash verification failed");
+    throw new CheckpointError(
+      "IMPORT_HASH_MISMATCH",
+      "Checkpoint hash verification failed",
+    );
   }
 
   // Generate new ID for imported checkpoint
@@ -457,7 +529,7 @@ export async function importCheckpoint(
       newId,
       agentId,
     },
-    `[CHECKPOINT] Imported checkpoint as ${newId}`
+    `[CHECKPOINT] Imported checkpoint as ${newId}`,
   );
 
   return {
@@ -478,7 +550,23 @@ export async function importCheckpoint(
  * Compute SHA-256 hash of checkpoint data.
  */
 async function computeCheckpointHash(checkpoint: Checkpoint): Promise<string> {
-  const data = JSON.stringify({
+  // Use a stable stringify function (sort keys)
+  const stableStringify = (obj: unknown): string => {
+    if (typeof obj !== "object" || obj === null) {
+      return JSON.stringify(obj);
+    }
+    if (Array.isArray(obj)) {
+      return "[" + obj.map(stableStringify).join(",") + "]";
+    }
+    const keys = Object.keys(obj as Record<string, unknown>).sort();
+    const parts = keys.map((key) => {
+      const val = (obj as Record<string, unknown>)[key];
+      return JSON.stringify(key) + ":" + stableStringify(val);
+    });
+    return "{" + parts.join(",") + "}";
+  };
+
+  const data = stableStringify({
     agentId: checkpoint.agentId,
     createdAt: checkpoint.createdAt,
     conversationHistory: checkpoint.conversationHistory,
@@ -509,22 +597,28 @@ export async function deleteCheckpoint(checkpointId: string): Promise<void> {
   // or JSON query capabilities.
 
   // Remove from storage
-  await db.delete(checkpointsTable).where(eq(checkpointsTable.id, checkpointId));
+  await db
+    .delete(checkpointsTable)
+    .where(eq(checkpointsTable.id, checkpointId));
 
   log.info(
     { type: "checkpoint", action: "delete", checkpointId },
-    `[CHECKPOINT] Deleted checkpoint ${checkpointId}`
+    `[CHECKPOINT] Deleted checkpoint ${checkpointId}`,
   );
 }
 
 /**
  * Clean up old checkpoints for an agent, keeping only the most recent N.
  */
-export async function pruneCheckpoints(agentId: string, keepCount: number): Promise<number> {
+export async function pruneCheckpoints(
+  agentId: string,
+  keepCount: number,
+): Promise<number> {
   const log = getLogger();
-  
+
   // Get all checkpoints sorted by date (oldest first)
-  const allCheckpoints = await db.select({ id: checkpointsTable.id })
+  const allCheckpoints = await db
+    .select({ id: checkpointsTable.id })
     .from(checkpointsTable)
     .where(eq(checkpointsTable.agentId, agentId))
     .orderBy(checkpointsTable.createdAt);
@@ -534,17 +628,18 @@ export async function pruneCheckpoints(agentId: string, keepCount: number): Prom
   }
 
   const toDelete = allCheckpoints.slice(0, allCheckpoints.length - keepCount);
-  const deleteIds = toDelete.map(r => r.id);
-  
+  const deleteIds = toDelete.map((r) => r.id);
+
   if (deleteIds.length === 0) return 0;
 
   // Batch delete
-  await db.delete(checkpointsTable)
+  await db
+    .delete(checkpointsTable)
     .where(inArray(checkpointsTable.id, deleteIds));
 
   log.info(
     { type: "checkpoint", action: "prune", agentId, deleted: deleteIds.length },
-    `[CHECKPOINT] Pruned ${deleteIds.length} old checkpoints for agent ${agentId}`
+    `[CHECKPOINT] Pruned ${deleteIds.length} old checkpoints for agent ${agentId}`,
   );
 
   return deleteIds.length;
@@ -560,7 +655,7 @@ export async function pruneCheckpoints(agentId: string, keepCount: number): Prom
 export class CheckpointError extends Error {
   constructor(
     public code: string,
-    message: string
+    message: string,
   ) {
     super(message);
     this.name = "CheckpointError";

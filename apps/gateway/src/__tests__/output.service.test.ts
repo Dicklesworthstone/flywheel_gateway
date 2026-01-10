@@ -2,13 +2,13 @@
  * Unit tests for the Output Streaming Service.
  */
 
-import { describe, test, expect, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import {
-  getOutput,
-  pushOutput,
-  cleanupOutputBuffer,
-  getOutputStats,
   backfillOutput,
+  cleanupOutputBuffer,
+  getOutput,
+  getOutputStats,
+  pushOutput,
 } from "../services/output.service";
 
 describe("Output Service", () => {
@@ -43,7 +43,12 @@ describe("Output Service", () => {
     });
 
     test("sets correct stream type for error output", () => {
-      const chunk = pushOutput(testAgentId, "error", "Something failed", "stderr");
+      const chunk = pushOutput(
+        testAgentId,
+        "error",
+        "Something failed",
+        "stderr",
+      );
 
       expect(chunk.streamType).toBe("stderr");
     });

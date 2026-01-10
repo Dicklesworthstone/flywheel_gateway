@@ -2,18 +2,18 @@
  * Unit tests for the DCG Service.
  */
 
-import { describe, test, expect, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import {
-  getConfig,
-  updateConfig,
-  listPacks,
-  enablePack,
-  disablePack,
-  ingestBlockEvent,
-  getBlockEvents,
-  markFalsePositive,
-  getStats,
   type DCGBlockEvent,
+  disablePack,
+  enablePack,
+  getBlockEvents,
+  getConfig,
+  getStats,
+  ingestBlockEvent,
+  listPacks,
+  markFalsePositive,
+  updateConfig,
 } from "../services/dcg.service";
 
 describe("DCG Service", () => {
@@ -40,7 +40,7 @@ describe("DCG Service", () => {
       await expect(
         updateConfig({
           enabledPacks: ["unknown.pack"],
-        })
+        }),
       ).rejects.toThrow("Unknown packs");
     });
   });
@@ -126,7 +126,8 @@ describe("DCG Service", () => {
     test("ingestBlockEvent redacts sensitive info", async () => {
       const sensitiveEvent = {
         ...testEvent,
-        command: "curl -H 'Authorization: Bearer secret123' https://api.example.com",
+        command:
+          "curl -H 'Authorization: Bearer secret123' https://api.example.com",
       };
 
       const event = await ingestBlockEvent(sensitiveEvent);

@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * CLI runner for command registry parity check.
  *
@@ -11,13 +12,13 @@
  *   1 - Validation errors found
  */
 
-import { createCommandRegistry } from "../packages/shared/src/commands/registry";
 import { agentCommands } from "../packages/shared/src/commands/commands/agent";
 import {
-  runParityCheck,
   formatReport,
   formatReportJSON,
+  runParityCheck,
 } from "../packages/shared/src/commands/parity-check";
+import { createCommandRegistry } from "../packages/shared/src/commands/registry";
 
 // Parse args
 const args = process.argv.slice(2);

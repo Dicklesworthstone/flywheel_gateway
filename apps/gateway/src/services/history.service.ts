@@ -9,17 +9,22 @@
  * - Export capabilities
  */
 
-import { eq, desc, and, gte, lte, like, sql, count } from "drizzle-orm";
+import { and, count, desc, eq, gte, like, lte, sql } from "drizzle-orm";
 import { db } from "../db";
-import { history as historyTable, agents as agentsTable } from "../db/schema";
-import { logger } from "./logger";
+import { agents as agentsTable, history as historyTable } from "../db/schema";
 import { getCorrelationId } from "../middleware/correlation";
+import { logger } from "./logger";
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export type HistoryOutcome = "success" | "failure" | "interrupted" | "timeout";
+export type HistoryOutcome =
+  | "success"
+  | "failure"
+  | "interrupted"
+  | "timeout"
+  | "pending";
 
 export interface HistoryEntry {
   id: string;
@@ -93,7 +98,7 @@ function generateHistoryId(): string {
  */
 export async function createHistoryEntry(
   agentId: string,
-  input: HistoryInput
+  input: HistoryInput,
 ): Promise<HistoryEntry> {
   const correlationId = getCorrelationId();
   const log = logger.child({ correlationId, agentId });
@@ -110,7 +115,7 @@ export async function createHistoryEntry(
     responseSummary: "",
     responseTokens: 0,
     durationMs: 0,
-    outcome: "success",
+    outcome: "pending",
     tags: input.tags ?? [],
     starred: false,
     replayCount: 0,
@@ -136,7 +141,7 @@ export async function createHistoryEntry(
 
   log.info(
     { entryId: id, promptTokens: entry.promptTokens },
-    "History entry created"
+    "History entry created",
   );
 
   return entry;
@@ -148,7 +153,7 @@ export async function createHistoryEntry(
 export async function completeHistoryEntry(
   entryId: string,
   output: HistoryOutput,
-  durationMs: number
+  durationMs: number,
 ): Promise<HistoryEntry | null> {
   const correlationId = getCorrelationId();
   const log = logger.child({ correlationId, entryId });
@@ -173,7 +178,8 @@ export async function completeHistoryEntry(
     .set({
       output: {
         responseSummary: output.responseSummary,
-        responseTokens: output.responseTokens ?? estimateTokens(output.responseSummary),
+        responseTokens:
+          output.responseTokens ?? estimateTokens(output.responseSummary),
         outcome: output.outcome,
         error: output.error,
       },
@@ -188,7 +194,8 @@ export async function completeHistoryEntry(
     prompt: (inputData?.prompt as string) ?? "",
     promptTokens: (inputData?.promptTokens as number) ?? 0,
     responseSummary: output.responseSummary,
-    responseTokens: output.responseTokens ?? estimateTokens(output.responseSummary),
+    responseTokens:
+      output.responseTokens ?? estimateTokens(output.responseSummary),
     durationMs,
     outcome: output.outcome,
     error: output.error,
@@ -205,7 +212,7 @@ export async function completeHistoryEntry(
       responseTokens: entry.responseTokens,
       durationMs,
     },
-    "History entry completed"
+    "History entry completed",
   );
 
   return entry;
@@ -214,7 +221,9 @@ export async function completeHistoryEntry(
 /**
  * Get a history entry by ID.
  */
-export async function getHistoryEntry(entryId: string): Promise<HistoryEntry | null> {
+export async function getHistoryEntry(
+  entryId: string,
+): Promise<HistoryEntry | null> {
   const rows = await db
     .select()
     .from(historyTable)
@@ -232,8 +241,11 @@ export async function getHistoryEntry(entryId: string): Promise<HistoryEntry | n
  * Query history entries with filters.
  */
 export async function queryHistory(
-  options: HistoryQueryOptions = {}
-): Promise<{ entries: HistoryEntry[]; pagination: { cursor?: string; hasMore: boolean } }> {
+  options: HistoryQueryOptions = {},
+): Promise<{
+  entries: HistoryEntry[];
+  pagination: { cursor?: string; hasMore: boolean };
+}> {
   const limit = options.limit ?? 50;
   const conditions = [];
 
@@ -279,13 +291,13 @@ export async function queryHistory(
     filtered = filtered.filter(
       (e) =>
         e.prompt.toLowerCase().includes(searchLower) ||
-        e.responseSummary.toLowerCase().includes(searchLower)
+        e.responseSummary.toLowerCase().includes(searchLower),
     );
   }
 
   if (options.tags?.length) {
     filtered = filtered.filter((e) =>
-      options.tags!.some((tag) => e.tags.includes(tag))
+      options.tags!.some((tag) => e.tags.includes(tag)),
     );
   }
 
@@ -315,7 +327,7 @@ export async function queryHistory(
  */
 export async function searchHistory(
   query: string,
-  options: { limit?: number; agentId?: string } = {}
+  options: { limit?: number; agentId?: string } = {},
 ): Promise<HistoryEntry[]> {
   const limit = options.limit ?? 20;
   const searchLower = query.toLowerCase();
@@ -344,7 +356,7 @@ export async function searchHistory(
     (e) =>
       e.prompt.toLowerCase().includes(searchLower) ||
       e.responseSummary.toLowerCase().includes(searchLower) ||
-      e.tags.some((t) => t.toLowerCase().includes(searchLower))
+      e.tags.some((t) => t.toLowerCase().includes(searchLower)),
   );
 
   return matched.slice(0, limit);
@@ -353,7 +365,9 @@ export async function searchHistory(
 /**
  * Star or unstar a history entry.
  */
-export async function toggleStar(entryId: string): Promise<HistoryEntry | null> {
+export async function toggleStar(
+  entryId: string,
+): Promise<HistoryEntry | null> {
   const entry = await getHistoryEntry(entryId);
   if (!entry) {
     return null;
@@ -387,7 +401,10 @@ export async function toggleStar(entryId: string): Promise<HistoryEntry | null> 
 
   entry.starred = !currentStarred;
 
-  logger.info({ entryId, starred: entry.starred }, "History entry star toggled");
+  logger.info(
+    { entryId, starred: entry.starred },
+    "History entry star toggled",
+  );
 
   return entry;
 }
@@ -420,7 +437,10 @@ export async function incrementReplayCount(entryId: string): Promise<void> {
     })
     .where(eq(historyTable.id, entryId));
 
-  logger.debug({ entryId, replayCount: currentCount + 1 }, "Replay count incremented");
+  logger.debug(
+    { entryId, replayCount: currentCount + 1 },
+    "Replay count incremented",
+  );
 }
 
 /**
@@ -431,7 +451,10 @@ export async function pruneHistory(olderThan: Date): Promise<number> {
     .delete(historyTable)
     .where(lte(historyTable.createdAt, olderThan));
 
-  logger.info({ olderThan, deletedCount: result.rowsAffected }, "History pruned");
+  logger.info(
+    { olderThan, deletedCount: result.rowsAffected },
+    "History pruned",
+  );
 
   return result.rowsAffected;
 }
@@ -444,7 +467,7 @@ export async function pruneHistory(olderThan: Date): Promise<number> {
  * Get history statistics.
  */
 export async function getHistoryStats(
-  options: { agentId?: string; startDate?: Date; endDate?: Date } = {}
+  options: { agentId?: string; startDate?: Date; endDate?: Date } = {},
 ): Promise<HistoryStats> {
   const conditions = [];
 
@@ -476,6 +499,7 @@ export async function getHistoryStats(
     failure: 0,
     interrupted: 0,
     timeout: 0,
+    pending: 0,
   };
   const entriesByDayMap = new Map<string, number>();
 
@@ -565,7 +589,13 @@ export async function exportHistory(options: ExportOptions): Promise<string> {
 // Output Extraction
 // ============================================================================
 
-export type ExtractionType = "code_blocks" | "json" | "file_paths" | "urls" | "errors" | "custom";
+export type ExtractionType =
+  | "code_blocks"
+  | "json"
+  | "file_paths"
+  | "urls"
+  | "errors"
+  | "custom";
 
 export interface ExtractionMatch {
   content: string;
@@ -585,7 +615,7 @@ export interface ExtractionResult {
 export function extractFromOutput(
   output: string,
   type: ExtractionType,
-  options: { language?: string; customPattern?: string } = {}
+  options: { language?: string; customPattern?: string } = {},
 ): ExtractionResult {
   const lines = output.split("\n");
   const matches: ExtractionMatch[] = [];
@@ -611,7 +641,8 @@ export function extractFromOutput(
               matches.push({
                 content: blockContent.join("\n"),
                 lineStart: blockStart + 1,
-                lineEnd: i - 1,
+                // Ensure lineEnd is at least lineStart if block is empty
+                lineEnd: Math.max(blockStart + 1, i - 1),
                 metadata: { language: blockLang },
               });
             }
@@ -632,7 +663,9 @@ export function extractFromOutput(
         try {
           JSON.parse(match[1]!);
           const startLine = output.slice(0, match.index).split("\n").length - 1;
-          const endLine = output.slice(0, match.index + match[1]!.length).split("\n").length - 1;
+          const endLine =
+            output.slice(0, match.index + match[1]!.length).split("\n").length -
+            1;
           matches.push({
             content: match[1]!,
             lineStart: startLine,
@@ -647,7 +680,8 @@ export function extractFromOutput(
 
     case "file_paths": {
       // Extract file paths
-      const pathPattern = /(?:^|\s)((?:\/[\w.-]+)+\/?|(?:[A-Za-z]:)?\\(?:[\w.-]+\\)*[\w.-]+)/gm;
+      const pathPattern =
+        /(?:^|\s)((?:\/[\w.-]+)+\/?|(?:[A-Za-z]:)?\\(?:[\w.-]+\\)*[\w.-]+)/gm;
       let match;
       while ((match = pathPattern.exec(output)) !== null) {
         const lineNum = output.slice(0, match.index).split("\n").length - 1;
@@ -756,7 +790,7 @@ function rowToEntry(row: {
     responseSummary: (outputData.responseSummary as string) ?? "",
     responseTokens: (outputData.responseTokens as number) ?? 0,
     durationMs: row.durationMs,
-    outcome: (outputData.outcome as HistoryOutcome) ?? "success",
+    outcome: (outputData.outcome as HistoryOutcome) ?? "pending",
     error: outputData.error as string | undefined,
     tags: (inputData.tags as string[]) ?? [],
     starred: (inputData.starred as boolean) ?? false,
