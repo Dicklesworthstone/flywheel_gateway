@@ -125,6 +125,8 @@ interface AcpAgentSession {
     reject: (error: Error) => void;
     timeout: ReturnType<typeof setTimeout>;
   }>;
+  /** Track pending tool calls by ID to correlate with results */
+  pendingToolCalls: Map<string, { name: string; startTime: number }>;
   checkpoints: Map<string, Checkpoint>;
   conversationHistory: Array<{
     role: "user" | "assistant";
@@ -292,7 +294,7 @@ export class AcpDriver extends BaseDriver {
     if (!session) return;
 
     // Cancel all pending requests
-    for (const [id, pending] of session.pendingRequests) {
+    for (const [, pending] of session.pendingRequests) {
       clearTimeout(pending.timeout);
       pending.reject(new Error("Agent terminated"));
     }
