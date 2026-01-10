@@ -12,6 +12,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@flywheel/flywheel-clients": "workspace:*",
     "@flywheel/shared": "workspace:*",
     "drizzle-orm": "^0.40.1",
     "hono": "^4.11.0",
