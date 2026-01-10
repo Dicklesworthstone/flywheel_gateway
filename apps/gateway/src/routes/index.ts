@@ -10,6 +10,7 @@ import { context } from "./context";
 import { dcg } from "./dcg";
 import { health } from "./health";
 import { history } from "./history";
+import { mail } from "./mail";
 import { metrics } from "./metrics";
 import { utilities } from "./utilities";
 
@@ -22,6 +23,7 @@ routes.route("/alerts", alerts);
 routes.route("/dcg", dcg);
 routes.route("/health", health);
 routes.route("/history", history);
+routes.route("/mail", mail);
 routes.route("/metrics", metrics);
 routes.route("/sessions", context);
 routes.route("/utilities", utilities);
