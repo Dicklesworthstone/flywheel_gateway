@@ -522,9 +522,21 @@ export class AcpDriver extends BaseDriver {
       try {
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {
+            // Flush any remaining bytes from the decoder
+            const remaining = decoder.decode();
+            if (remaining) {
+              if (type === "stdout") {
+                this.processStdout(agentId, session, remaining);
+              } else {
+                this.processStderr(agentId, session, remaining);
+              }
+            }
+            break;
+          }
 
-          const text = decoder.decode(value);
+          // Use stream: true to handle multi-byte UTF-8 characters split across chunks
+          const text = decoder.decode(value, { stream: true });
           if (type === "stdout") {
             this.processStdout(agentId, session, text);
           } else {
