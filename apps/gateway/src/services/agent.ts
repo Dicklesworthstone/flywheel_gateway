@@ -356,7 +356,7 @@ export async function getAgentOutput(
 
   const output = await drv.getOutput(agentId, since, limit);
 
-  const chunks = output.map((line, index) => ({
+  const chunks = output.map((line) => ({
     cursor: String(line.timestamp.getTime()),
     timestamp: line.timestamp.toISOString(),
     type: line.type,

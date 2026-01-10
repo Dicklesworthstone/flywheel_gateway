@@ -5,7 +5,10 @@ import { logger } from "../services/logger";
 import * as schema from "./schema";
 
 const isDev = process.env["NODE_ENV"] !== "production";
-const slowQueryThresholdMs = Number(process.env["DB_SLOW_QUERY_MS"] ?? 100);
+const rawSlowQueryThresholdMs = Number(process.env["DB_SLOW_QUERY_MS"] ?? 100);
+const slowQueryThresholdMs = Number.isFinite(rawSlowQueryThresholdMs)
+  ? rawSlowQueryThresholdMs
+  : 100;
 
 class PinoLogWriter implements LogWriter {
   write(message: string) {

@@ -44,9 +44,7 @@ health.get("/ready", async (c) => {
   checks["database"] = dbCheck;
 
   // Check drivers (placeholder - would check actual driver health)
-  checks["drivers"] = {
-    sdk: { status: "pass", message: "SDK driver available" },
-  } as any;
+  checks["drivers"] = { status: "pass", message: "SDK driver available" };
 
   // Determine overall status
   const allPass = Object.values(checks).every(

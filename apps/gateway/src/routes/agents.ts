@@ -2,7 +2,8 @@
  * Agent Routes - REST API endpoints for agent lifecycle and communication.
  */
 
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
 import {
   spawnAgent,
@@ -15,7 +16,7 @@ import {
   AgentError,
 } from "../services/agent";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
-import { ErrorCodes, getHttpStatus } from "@flywheel/shared";
+import { type ErrorCode, getHttpStatus } from "@flywheel/shared";
 
 const agents = new Hono();
 
@@ -45,12 +46,36 @@ const InterruptRequestSchema = z.object({
 // Error Handler Helper
 // ============================================================================
 
-function handleAgentError(error: unknown, c: any) {
+/**
+ * Convert HTTP URL to WebSocket URL.
+ * Handles both http→ws and https→wss correctly.
+ */
+function toWebSocketUrl(httpUrl: string): string {
+  return httpUrl.replace(/^http/, "ws");
+}
+
+/**
+ * Safely parse an integer from query param, returning default if invalid.
+ */
+function safeParseInt(value: string | undefined, defaultValue: number): number {
+  if (!value) return defaultValue;
+  const parsed = parseInt(value, 10);
+  return Number.isNaN(parsed) ? defaultValue : parsed;
+}
+
+function handleAgentError(error: unknown, c: Context) {
   const log = getLogger();
   const correlationId = getCorrelationId();
 
   if (error instanceof AgentError) {
-    const httpStatus = getHttpStatus(error.code as any) ?? 500;
+    // Try to get HTTP status from error codes, fall back to 500
+    let httpStatus: ContentfulStatusCode = 500;
+    try {
+      const status = getHttpStatus(error.code as ErrorCode);
+      if (status) httpStatus = status as ContentfulStatusCode;
+    } catch {
+      // Unknown error code, use 500
+    }
     log.warn({ error: error.code, message: error.message }, "Agent operation failed");
     return c.json(
       {
@@ -121,7 +146,7 @@ agents.post("/", async (c) => {
         links: {
           self: `${baseUrl}/agents/${result.agentId}`,
           output: `${baseUrl}/agents/${result.agentId}/output`,
-          ws: `${baseUrl.replace("http", "ws")}/agents/${result.agentId}/ws`,
+          ws: `${toWebSocketUrl(baseUrl)}/agents/${result.agentId}/ws`,
         },
       },
       201
@@ -144,7 +169,7 @@ agents.get("/", async (c) => {
     const result = await listAgents({
       ...(stateParam && { state: stateParam.split(",") }),
       ...(driverParam && { driver: driverParam.split(",") }),
-      limit: limitParam ? parseInt(limitParam, 10) : 50,
+      limit: safeParseInt(limitParam, 50),
       ...(cursorParam && { cursor: cursorParam }),
     });
 
@@ -179,7 +204,7 @@ agents.get("/:agentId", async (c) => {
       links: {
         self: `${baseUrl}/agents/${agentId}`,
         output: `${baseUrl}/agents/${agentId}/output`,
-        ws: `${baseUrl.replace("http", "ws")}/agents/${agentId}/ws`,
+        ws: `${toWebSocketUrl(baseUrl)}/agents/${agentId}/ws`,
         terminate: `${baseUrl}/agents/${agentId}`,
       },
     });
@@ -253,7 +278,7 @@ agents.get("/:agentId/output", async (c) => {
 
     const result = await getAgentOutput(agentId, {
       ...(cursorParam && { cursor: cursorParam }),
-      limit: limitParam ? parseInt(limitParam, 10) : 100,
+      limit: safeParseInt(limitParam, 100),
     });
     return c.json(result);
   } catch (error) {
