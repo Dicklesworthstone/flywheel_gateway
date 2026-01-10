@@ -9,6 +9,7 @@ import { alerts } from "./alerts";
 import { context } from "./context";
 import { dcg } from "./dcg";
 import { health } from "./health";
+import { history } from "./history";
 import { metrics } from "./metrics";
 import { utilities } from "./utilities";
 
@@ -20,6 +21,7 @@ routes.route("/agents", agents);
 routes.route("/alerts", alerts);
 routes.route("/dcg", dcg);
 routes.route("/health", health);
+routes.route("/history", history);
 routes.route("/metrics", metrics);
 routes.route("/sessions", context);
 routes.route("/utilities", utilities);
