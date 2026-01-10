@@ -9,6 +9,15 @@ import { createClaudeDriver, type ClaudeSDKDriver } from "@flywheel/agent-driver
 import type { Agent, AgentConfig } from "@flywheel/agent-drivers";
 import { getLogger } from "../middleware/correlation";
 import { audit } from "./audit";
+import {
+  initializeAgentState,
+  markAgentReady,
+  markAgentExecuting,
+  markAgentIdle,
+  markAgentTerminating,
+  markAgentTerminated,
+  markAgentFailed,
+} from "./agent-state-machine";
 
 // In-memory agent registry
 const agents = new Map<string, AgentRecord>();
@@ -67,6 +76,9 @@ export async function spawnAgent(config: {
     throw new AgentError("AGENT_ALREADY_EXISTS", `Agent ${agentId} already exists`);
   }
 
+  // Initialize lifecycle state tracking
+  initializeAgentState(agentId);
+
   const drv = await getDriver();
 
   const agentConfig: AgentConfig = {
@@ -94,6 +106,9 @@ export async function spawnAgent(config: {
 
     agents.set(agentId, record);
 
+    // Transition to READY state
+    markAgentReady(agentId);
+
     log.info({ agentId, workingDirectory: config.workingDirectory }, "Agent spawned");
 
     audit({
@@ -111,6 +126,12 @@ export async function spawnAgent(config: {
       driver: agent.driverType,
     };
   } catch (error) {
+    // Mark agent as failed in lifecycle state
+    markAgentFailed(agentId, "error", {
+      code: "SPAWN_FAILED",
+      message: String(error),
+    });
+
     log.error({ error, agentId }, "Failed to spawn agent");
     audit({
       action: "agent.spawn",
@@ -257,11 +278,17 @@ export async function terminateAgent(
     throw new AgentError("AGENT_NOT_FOUND", `Agent ${agentId} not found`);
   }
 
+  // Transition to TERMINATING state
+  markAgentTerminating(agentId);
+
   const drv = await getDriver();
 
   try {
     await drv.terminate(agentId, graceful);
     agents.delete(agentId);
+
+    // Mark as fully terminated
+    markAgentTerminated(agentId);
 
     log.info({ agentId, graceful }, "Agent terminated");
 
@@ -278,6 +305,12 @@ export async function terminateAgent(
       state: "terminating",
     };
   } catch (error) {
+    // Mark as failed if termination fails
+    markAgentFailed(agentId, "driver_error", {
+      code: "TERMINATE_FAILED",
+      message: String(error),
+    });
+
     log.error({ error, agentId }, "Failed to terminate agent");
     throw new AgentError("DRIVER_COMMUNICATION_ERROR", `Failed to terminate: ${error}`);
   }
@@ -306,11 +339,22 @@ export async function sendMessage(
     throw new AgentError("AGENT_ERROR_STATE", `Agent ${agentId} is in error state`);
   }
 
+  // Transition to EXECUTING state when processing a message
+  try {
+    markAgentExecuting(agentId);
+  } catch {
+    // May already be in EXECUTING state, which is fine
+  }
+
   const drv = await getDriver();
 
   try {
     const result = await drv.send(agentId, content);
     record.messagesReceived++;
+
+    // Note: Transition back to READY happens when agent finishes processing
+    // This is typically detected through output events or polling
+    // For now, we stay in EXECUTING until the next status check detects idle state
 
     log.info({ agentId, messageId: result.messageId, type }, "Message sent to agent");
 

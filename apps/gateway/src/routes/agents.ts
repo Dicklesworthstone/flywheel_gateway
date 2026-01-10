@@ -15,6 +15,11 @@ import {
   interruptAgent,
   AgentError,
 } from "../services/agent";
+import {
+  getAgentState,
+  getAgentStateHistory,
+} from "../services/agent-state-machine";
+import { LifecycleState, isAlive } from "../models/agent-state";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import { type ErrorCode, getHttpStatus } from "@flywheel/shared";
 
@@ -222,6 +227,92 @@ agents.get("/:agentId", async (c) => {
         ws: `${toWebSocketUrl(baseUrl)}/agents/${agentId}/ws`,
         terminate: `${baseUrl}/agents/${agentId}`,
       },
+    });
+  } catch (error) {
+    return handleAgentError(error, c);
+  }
+});
+
+/**
+ * GET /agents/:agentId/status - Get detailed agent status
+ *
+ * Returns lifecycle state, health checks, and recent state history.
+ */
+agents.get("/:agentId/status", async (c) => {
+  try {
+    const agentId = c.req.param("agentId");
+    const correlationId = getCorrelationId();
+
+    // Get lifecycle state
+    const stateRecord = getAgentState(agentId);
+    if (!stateRecord) {
+      return c.json(
+        {
+          error: {
+            code: "AGENT_NOT_FOUND",
+            message: `Agent ${agentId} not found`,
+            correlationId,
+            timestamp: new Date().toISOString(),
+          },
+        },
+        404
+      );
+    }
+
+    // Get agent details for additional metrics
+    let agentDetails;
+    try {
+      agentDetails = await getAgent(agentId);
+    } catch {
+      // Agent may be in terminal state and not in the agent registry
+      agentDetails = null;
+    }
+
+    const now = new Date();
+    const stateEnteredAt = stateRecord.stateEnteredAt;
+    const uptime = Math.floor(
+      (now.getTime() - stateRecord.createdAt.getTime()) / 1000
+    );
+
+    // Build health checks based on state
+    const healthChecks: Record<string, "healthy" | "degraded" | "unhealthy"> = {
+      lifecycle: isAlive(stateRecord.currentState) ? "healthy" : "unhealthy",
+    };
+
+    if (agentDetails) {
+      healthChecks["process"] = "healthy";
+      healthChecks["driver"] = "healthy";
+    } else if (!isAlive(stateRecord.currentState)) {
+      healthChecks["process"] = "unhealthy";
+    }
+
+    // Get recent history (last 10 transitions)
+    const history = getAgentStateHistory(agentId).slice(-10);
+
+    return c.json({
+      agentId,
+      lifecycleState: stateRecord.currentState,
+      stateEnteredAt: stateEnteredAt.toISOString(),
+      uptime,
+      createdAt: stateRecord.createdAt.toISOString(),
+      lastActivity: agentDetails?.lastActivityAt ?? stateEnteredAt.toISOString(),
+      healthChecks,
+      metrics: agentDetails
+        ? {
+            messagesReceived: agentDetails.stats.messagesReceived,
+            messagesSent: agentDetails.stats.messagesSent,
+            tokensUsed: agentDetails.stats.tokensUsed,
+            toolCalls: agentDetails.stats.toolCalls,
+          }
+        : null,
+      history: history.map((t) => ({
+        previousState: t.previousState,
+        newState: t.newState,
+        timestamp: t.timestamp.toISOString(),
+        reason: t.reason,
+        ...(t.error && { error: t.error }),
+      })),
+      correlationId,
     });
   } catch (error) {
     return handleAgentError(error, c);
