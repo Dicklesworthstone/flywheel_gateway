@@ -47,8 +47,8 @@ export { BaseDriver, createDriverOptions, type BaseDriverConfig } from "./base-d
 // SDK drivers
 export * from "./sdk";
 
-// ACP driver (placeholder for future implementation)
-// export * from "./acp";
+// ACP driver
+export * from "./acp";
 
-// Tmux driver (placeholder for future implementation)
-// export * from "./tmux";
+// Tmux driver
+export * from "./tmux";
