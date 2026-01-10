@@ -105,6 +105,21 @@ function handleAgentError(error: unknown, c: Context) {
     );
   }
 
+  // Handle JSON parse errors (SyntaxError from c.req.json())
+  if (error instanceof SyntaxError && error.message.includes("JSON")) {
+    return c.json(
+      {
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid JSON in request body",
+          correlationId,
+          timestamp: new Date().toISOString(),
+        },
+      },
+      400
+    );
+  }
+
   log.error({ error }, "Unexpected error in agent route");
   return c.json(
     {
