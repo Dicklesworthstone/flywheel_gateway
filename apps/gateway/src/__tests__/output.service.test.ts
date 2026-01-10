@@ -143,6 +143,41 @@ describe("Output Service", () => {
       expect(result.chunks.length).toBe(1);
       expect(result.chunks[0]?.streamType).toBe("stderr");
     });
+
+    test("filter + pagination returns correct hasMore", () => {
+      // Create a mix of text and error outputs
+      // Pattern: text, error, text, text, error, text, text, error, text, text
+      pushOutput(testAgentId, "text", "Text 1");
+      pushOutput(testAgentId, "error", "Error 1");
+      pushOutput(testAgentId, "text", "Text 2");
+      pushOutput(testAgentId, "text", "Text 3");
+      pushOutput(testAgentId, "error", "Error 2");
+      pushOutput(testAgentId, "text", "Text 4");
+      pushOutput(testAgentId, "text", "Text 5");
+      pushOutput(testAgentId, "error", "Error 3");
+      pushOutput(testAgentId, "text", "Text 6");
+      pushOutput(testAgentId, "text", "Text 7");
+
+      // Request only "error" types with limit 2
+      // There are 3 errors total, so hasMore should be true
+      const page1 = getOutput(testAgentId, { types: ["error"], limit: 2 });
+
+      expect(page1.chunks.length).toBe(2);
+      expect(page1.pagination.hasMore).toBe(true);
+      expect(page1.chunks[0]?.content).toBe("Error 1");
+      expect(page1.chunks[1]?.content).toBe("Error 2");
+
+      // Get next page
+      const page2 = getOutput(testAgentId, {
+        types: ["error"],
+        limit: 2,
+        cursor: page1.pagination.cursor,
+      });
+
+      expect(page2.chunks.length).toBe(1);
+      expect(page2.pagination.hasMore).toBe(false);
+      expect(page2.chunks[0]?.content).toBe("Error 3");
+    });
   });
 
   describe("backfillOutput", () => {

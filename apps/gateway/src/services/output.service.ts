@@ -271,7 +271,11 @@ export async function startOutputStreaming(
         logger.error({ error, agentId }, "Output streaming error");
       }
     } finally {
-      activeSubscriptions.delete(agentId);
+      // Only remove from map if we're still the registered controller
+      // This prevents a new streaming session's controller from being deleted
+      if (activeSubscriptions.get(agentId) === abortController) {
+        activeSubscriptions.delete(agentId);
+      }
       logger.info({ agentId }, "Output streaming stopped");
     }
   })();
@@ -311,21 +315,65 @@ export function getOutput(agentId: string, options: GetOutputOptions = {}): GetO
     };
   }
 
-  let chunks = buffer.getAfterCursor(options.cursor, limit + 1);
+  const hasFilters = (options.types?.length ?? 0) > 0 || options.streamType !== undefined;
 
-  // Apply filters
-  if (options.types?.length) {
-    chunks = chunks.filter((c) => options.types!.includes(c.type));
+  if (!hasFilters) {
+    // No filters - simple case, fetch limit + 1 to check hasMore
+    const chunks = buffer.getAfterCursor(options.cursor, limit + 1);
+    const hasMore = chunks.length > limit;
+    const result = hasMore ? chunks.slice(0, limit) : chunks;
+    const lastChunk = result[result.length - 1];
+    const nextCursor = lastChunk ? String(lastChunk.sequence) : options.cursor ?? "0";
+
+    return {
+      chunks: result,
+      pagination: {
+        cursor: nextCursor,
+        hasMore,
+      },
+    };
   }
-  if (options.streamType) {
-    chunks = chunks.filter((c) => c.streamType === options.streamType);
+
+  // With filters - need to fetch more to ensure we get enough matching items
+  // Fetch in batches to find limit + 1 matching items
+  const matchingChunks: OutputChunk[] = [];
+  let currentCursor = options.cursor;
+  const batchSize = limit * 2; // Fetch in larger batches for efficiency
+  let exhausted = false;
+
+  while (matchingChunks.length <= limit && !exhausted) {
+    const batch = buffer.getAfterCursor(currentCursor, batchSize);
+    if (batch.length === 0) {
+      exhausted = true;
+      break;
+    }
+
+    for (const chunk of batch) {
+      // Apply filters
+      const typeMatch = !options.types?.length || options.types.includes(chunk.type);
+      const streamMatch = !options.streamType || chunk.streamType === options.streamType;
+
+      if (typeMatch && streamMatch) {
+        matchingChunks.push(chunk);
+        if (matchingChunks.length > limit) {
+          // We have enough, stop early
+          break;
+        }
+      }
+    }
+
+    // Update cursor for next batch
+    const lastInBatch = batch[batch.length - 1];
+    currentCursor = lastInBatch ? String(lastInBatch.sequence) : currentCursor;
+
+    // Check if we've exhausted the buffer
+    if (batch.length < batchSize) {
+      exhausted = true;
+    }
   }
 
-  // Check if there are more
-  const hasMore = chunks.length > limit;
-  const result = hasMore ? chunks.slice(0, limit) : chunks;
-
-  // Get the cursor for the next page
+  const hasMore = matchingChunks.length > limit;
+  const result = hasMore ? matchingChunks.slice(0, limit) : matchingChunks;
   const lastChunk = result[result.length - 1];
   const nextCursor = lastChunk ? String(lastChunk.sequence) : options.cursor ?? "0";
 

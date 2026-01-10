@@ -362,13 +362,11 @@ export async function terminateAgent(
   const drv = await getDriver();
 
   try {
-    // Stop output streaming
-    stopOutputStreaming(agentId);
-
     await drv.terminate(agentId, graceful);
     agents.delete(agentId);
 
-    // Clean up output buffer
+    // Stop output streaming and clean up buffer after successful termination
+    stopOutputStreaming(agentId);
     cleanupOutputBuffer(agentId);
 
     // Update DB status
