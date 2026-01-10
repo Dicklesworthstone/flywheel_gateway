@@ -27,6 +27,9 @@ jobs:
       - name: Lint
         run: bun lint
 
+      - name: Parity check
+        run: bun parity-check
+
       - name: Unit tests
         run: bun test
 

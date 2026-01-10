@@ -18,6 +18,7 @@
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
+    "parity-check": "bun scripts/parity-check.ts",
     "db:generate": "bun db:generate",
     "db:migrate": "bun db:migrate",
     "db:studio": "bun db:studio"

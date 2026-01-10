@@ -20,6 +20,13 @@ import {
   markAgentTerminated,
   markAgentFailed,
 } from "./agent-state-machine";
+import {
+  startOutputStreaming,
+  stopOutputStreaming,
+  cleanupOutputBuffer,
+  getOutput as getOutputFromBuffer,
+  type GetOutputOptions,
+} from "./output.service";
 
 // In-memory agent registry
 const agents = new Map<string, AgentRecord>();
@@ -144,6 +151,10 @@ export async function spawnAgent(config: {
       .where(eq(agentsTable.id, agentId));
 
     log.info({ agentId, workingDirectory: config.workingDirectory }, "Agent spawned");
+
+    // Start output streaming from the driver
+    const eventStream = drv.subscribe(agentId);
+    startOutputStreaming(agentId, eventStream);
 
     audit({
       action: "agent.spawn",
@@ -358,8 +369,14 @@ export async function terminateAgent(
   const drv = await getDriver();
 
   try {
+    // Stop output streaming
+    stopOutputStreaming(agentId);
+
     await drv.terminate(agentId, graceful);
     agents.delete(agentId);
+
+    // Clean up output buffer
+    cleanupOutputBuffer(agentId);
 
     // Update DB status
     await db.update(agentsTable)
@@ -462,7 +479,8 @@ export async function sendMessage(
 }
 
 /**
- * Get agent output.
+ * Get agent output with cursor-based pagination.
+ * Uses the in-memory ring buffer for fast access.
  */
 export async function getAgentOutput(
   agentId: string,
@@ -477,6 +495,8 @@ export async function getAgentOutput(
     timestamp: string;
     type: string;
     content: string | Record<string, unknown>;
+    streamType?: string;
+    sequence?: number;
   }>;
   pagination: {
     cursor: string;
@@ -489,39 +509,26 @@ export async function getAgentOutput(
     throw new AgentError("AGENT_NOT_FOUND", `Agent ${agentId} not found`);
   }
 
-  const drv = await getDriver();
+  // Use the output buffer service for cursor-based pagination
+  const result = getOutputFromBuffer(agentId, {
+    cursor: options.cursor,
+    limit: options.limit,
+    types: options.types,
+  });
 
-  // Safely parse cursor timestamp - invalid values result in no filtering
-  let since: Date | undefined;
-  if (options.cursor) {
-    const parsed = parseInt(options.cursor, 10);
-    if (!Number.isNaN(parsed)) {
-      since = new Date(parsed);
-    }
-  }
-  const limit = options.limit ?? 100;
-
-  let output = await drv.getOutput(agentId, since, limit);
-  if (options.types && options.types.length > 0) {
-    output = output.filter((line) => options.types!.includes(line.type));
-  }
-
-  const chunks = output.map((line) => ({
-    cursor: String(line.timestamp.getTime()),
-    timestamp: line.timestamp.toISOString(),
-    type: line.type,
-    content: line.content,
+  // Transform chunks to match the existing API format
+  const chunks = result.chunks.map((chunk) => ({
+    cursor: String(chunk.sequence),
+    timestamp: chunk.timestamp,
+    type: chunk.type,
+    content: chunk.content,
+    streamType: chunk.streamType,
+    sequence: chunk.sequence,
   }));
-
-  const lastChunk = chunks[chunks.length - 1];
-  const nextCursor = lastChunk?.cursor ?? options.cursor ?? "0";
 
   return {
     chunks,
-    pagination: {
-      cursor: nextCursor,
-      hasMore: chunks.length >= limit,
-    },
+    pagination: result.pagination,
   };
 }
 
