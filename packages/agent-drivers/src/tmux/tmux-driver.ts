@@ -423,6 +423,7 @@ export class TmuxDriver extends BaseDriver {
     } catch (err) {
       // Session might have ended
       if (!(await this.isSessionRunning(agentId))) {
+        // Emit terminated event first (while agents Map still has subscribers)
         this.emitEvent(agentId, {
           type: "terminated",
           agentId,
@@ -431,10 +432,22 @@ export class TmuxDriver extends BaseDriver {
           exitCode: 0,
         });
 
-        // Clean up
+        // Clean up capture interval
         if (session.captureInterval) {
           clearInterval(session.captureInterval);
         }
+
+        // Clean up BaseDriver agent state
+        const state = this.agents.get(agentId);
+        if (state) {
+          if (state.stallCheckInterval) {
+            clearInterval(state.stallCheckInterval);
+          }
+          state.eventSubscribers.clear();
+          this.agents.delete(agentId);
+        }
+
+        // Clean up driver session
         this.sessions.delete(agentId);
       }
     }

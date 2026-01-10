@@ -349,7 +349,9 @@ export class ClaudeSDKDriver extends BaseDriver {
       this.updateState(agentId, { activityState: "working" });
 
       // Add simulated response output
-      const responseText = `[Simulated Claude response to: "${messages[messages.length - 1]?.content?.slice(0, 50)}..."]`;
+      const lastMessage = messages[messages.length - 1];
+      const messagePreview = lastMessage?.content?.slice(0, 50) ?? "(no message)";
+      const responseText = `[Simulated Claude response to: "${messagePreview}..."]`;
 
       this.addOutput(agentId, {
         timestamp: new Date(),

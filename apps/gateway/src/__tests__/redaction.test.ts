@@ -64,6 +64,30 @@ describe("redaction utilities", () => {
       expect(result["apiKey"]).toBe("[REDACTED]");
     });
 
+    test("redacts camelCase and snake_case variants", () => {
+      const input = {
+        privateKey: "-----BEGIN PRIVATE KEY-----",
+        private_key: "-----BEGIN PRIVATE KEY-----",
+        accessToken: "eyJ...",
+        access_token: "eyJ...",
+        refreshToken: "refresh123",
+        refresh_token: "refresh456",
+        sessionId: "sess123",
+        session_id: "sess456",
+        Authorization: "Bearer xyz",
+      };
+      const result = redactSensitive(input);
+      expect(result["privateKey"]).toBe("[REDACTED]");
+      expect(result["private_key"]).toBe("[REDACTED]");
+      expect(result["accessToken"]).toBe("[REDACTED]");
+      expect(result["access_token"]).toBe("[REDACTED]");
+      expect(result["refreshToken"]).toBe("[REDACTED]");
+      expect(result["refresh_token"]).toBe("[REDACTED]");
+      expect(result["sessionId"]).toBe("[REDACTED]");
+      expect(result["session_id"]).toBe("[REDACTED]");
+      expect(result["Authorization"]).toBe("[REDACTED]");
+    });
+
     test("handles nested objects", () => {
       const input = {
         user: {

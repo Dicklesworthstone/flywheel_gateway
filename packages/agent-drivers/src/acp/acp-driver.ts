@@ -479,6 +479,7 @@ export class AcpDriver extends BaseDriver {
     // Handle process exit
     session.process.exited.then((exitCode) => {
       if (this.sessions.has(agentId)) {
+        // Emit terminated event first (while agents Map still has subscribers)
         this.emitEvent(agentId, {
           type: "terminated",
           agentId,
@@ -486,6 +487,18 @@ export class AcpDriver extends BaseDriver {
           reason: exitCode === 0 ? "normal" : "error",
           exitCode,
         });
+
+        // Clean up BaseDriver agent state
+        const state = this.agents.get(agentId);
+        if (state) {
+          if (state.stallCheckInterval) {
+            clearInterval(state.stallCheckInterval);
+          }
+          state.eventSubscribers.clear();
+          this.agents.delete(agentId);
+        }
+
+        // Clean up driver session
         this.sessions.delete(agentId);
       }
     });

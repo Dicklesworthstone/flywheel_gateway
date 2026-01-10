@@ -35,6 +35,7 @@ export function redactEmail(email: string | undefined): string {
 
 /**
  * Keys that should be redacted when logging objects.
+ * All keys MUST be lowercase since we compare with key.toLowerCase().
  */
 const SENSITIVE_KEYS = new Set([
   "password",
@@ -43,18 +44,22 @@ const SENSITIVE_KEYS = new Set([
   "token",
   "apikey",
   "api_key",
-  "apiKey",
   "authorization",
   "auth",
   "credentials",
   "private_key",
-  "privateKey",
-  "accessToken",
+  "privatekey",
+  "accesstoken",
   "access_token",
-  "refreshToken",
+  "refreshtoken",
   "refresh_token",
   "x-api-key",
   "x-auth-token",
+  "bearer",
+  "session",
+  "sessionid",
+  "session_id",
+  "cookie",
 ]);
 
 /**

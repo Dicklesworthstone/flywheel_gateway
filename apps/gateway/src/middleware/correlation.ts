@@ -43,11 +43,10 @@ export function getLogger(): Logger {
 }
 
 /**
- * Generate a UUID v7 (time-ordered) for correlation IDs.
- * Falls back to crypto.randomUUID if uuidv7 is not available.
+ * Generate a UUID v4 for correlation IDs.
+ * Uses crypto.randomUUID which is available in Bun/Node.
  */
 function generateId(): string {
-  // Bun/Node have crypto.randomUUID built-in
   return crypto.randomUUID();
 }
 

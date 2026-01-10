@@ -12,7 +12,7 @@ const app = new Hono();
 app.use("*", correlationMiddleware());
 app.use("*", loggingMiddleware());
 
-// Health endpoint (exempt from correlation/logging overhead)
+// Health endpoint - includes correlation ID in response
 app.get("/health", (c) => {
   return c.json({
     ok: true,
