@@ -54,7 +54,7 @@ export function Sidebar() {
         <div className="sidebar__hint">
           <Command size={16} />
           <span>Command palette</span>
-          <kbd>⌘K</kbd>
+          <kbd>Cmd K</kbd>
         </div>
       </div>
     </aside>

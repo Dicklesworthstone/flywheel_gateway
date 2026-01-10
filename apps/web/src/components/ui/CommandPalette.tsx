@@ -78,7 +78,7 @@ export function CommandPalette() {
                 ref={inputRef}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Jump to…"
+                placeholder="Jump to..."
                 aria-label="Command palette"
               />
               <kbd>ESC</kbd>
