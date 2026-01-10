@@ -234,8 +234,7 @@ export class TmuxDriver extends BaseDriver {
       throw new Error(`Failed to send Enter key to tmux: ${enterResult.stderr}`);
     }
 
-    // Update state to thinking
-    this.updateState(agentId, { activityState: "thinking" });
+    // Note: State is already set to "thinking" by base driver's send() method
 
     return { messageId, queued: false };
   }

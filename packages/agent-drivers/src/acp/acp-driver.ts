@@ -284,8 +284,7 @@ export class AcpDriver extends BaseDriver {
       throw new Error(`Failed to send message to agent: ${err}`);
     }
 
-    // Update state to thinking
-    this.updateState(agentId, { activityState: "thinking" });
+    // Note: State is already set to "thinking" by base driver's send() method
 
     return { messageId, queued: false };
   }
