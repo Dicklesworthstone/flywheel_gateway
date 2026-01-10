@@ -390,11 +390,17 @@ export class ClaudeSDKDriver extends BaseDriver {
    */
   private delay(ms: number, signal: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(resolve, ms);
-      signal.addEventListener("abort", () => {
+      const abortHandler = () => {
         clearTimeout(timeout);
         reject(new DOMException("Aborted", "AbortError"));
-      });
+      };
+
+      const timeout = setTimeout(() => {
+        signal.removeEventListener("abort", abortHandler);
+        resolve();
+      }, ms);
+
+      signal.addEventListener("abort", abortHandler);
     });
   }
 }

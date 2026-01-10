@@ -278,6 +278,11 @@ export abstract class BaseDriver implements AgentDriver {
           }
         }
       }
+      // Drain any remaining queued events after done is set
+      // This handles the case where terminated arrives while we're processing a previous event
+      while (queue.length > 0) {
+        yield queue.shift()!;
+      }
     } finally {
       state.eventSubscribers.delete(subscriber);
     }
