@@ -33,7 +33,8 @@ export type UserChannel =
  */
 export type SystemChannel =
   | { type: "system:health" }
-  | { type: "system:metrics" };
+  | { type: "system:metrics" }
+  | { type: "system:dcg" };
 
 /**
  * All channel types.
@@ -53,7 +54,8 @@ export type ChannelTypePrefix =
   | "user:mail"
   | "user:notifications"
   | "system:health"
-  | "system:metrics";
+  | "system:metrics"
+  | "system:dcg";
 
 /**
  * Convert a channel to its string representation.
@@ -80,6 +82,7 @@ export function channelToString(channel: Channel): string {
 
     case "system:health":
     case "system:metrics":
+    case "system:dcg":
       return channel.type;
   }
 }
@@ -97,6 +100,9 @@ export function parseChannel(str: string): Channel | undefined {
   }
   if (str === "system:metrics") {
     return { type: "system:metrics" };
+  }
+  if (str === "system:dcg") {
+    return { type: "system:dcg" };
   }
 
   // Channels with IDs: split into type and ID
