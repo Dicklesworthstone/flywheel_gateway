@@ -108,7 +108,7 @@ export function generateClientSDK(
 
   // Generate methods for each command
   for (const method of methods) {
-    lines.push(generateMethodCode(method));
+    lines.push(generateMethodCode(method, baseUrlVar));
     lines.push("");
   }
 
@@ -120,7 +120,7 @@ export function generateClientSDK(
 /**
  * Generate method code for a single command.
  */
-function generateMethodCode(method: GeneratedClientMethod): string {
+function generateMethodCode(method: GeneratedClientMethod, baseUrlVar: string): string {
   const { methodName, httpMethod, path, pathParams, streaming } = method;
 
   // Build parameter list
@@ -157,9 +157,12 @@ function generateMethodCode(method: GeneratedClientMethod): string {
 
   if (streaming) {
     lines.push("  async *" + methodName + "(" + params.join(", ") + "): AsyncGenerator<unknown> {");
-    lines.push("    const response = await this.fetchFn(this.baseUrl + " + urlExpr + ", {");
+    lines.push("    const response = await this.fetchFn(this." + baseUrlVar + " + " + urlExpr + ", {");
     lines.push("      method: '" + httpMethod + "',");
     lines.push("      headers: {");
+    if (needsBody) {
+      lines.push("        'Content-Type': 'application/json',");
+    }
     lines.push("        'Accept': 'text/event-stream',");
     lines.push("        ...(this.token ? { 'Authorization': 'Bearer ' + this.token } : {}),");
     lines.push("        ...options?.headers,");
