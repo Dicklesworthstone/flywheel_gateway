@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { correlationMiddleware } from "./middleware/correlation";
+import { idempotencyMiddleware } from "./middleware/idempotency";
 import { loggingMiddleware } from "./middleware/logging";
 import { routes } from "./routes";
 import { logger } from "./services/logger";
@@ -16,6 +17,9 @@ const app = new Hono();
 // Apply global middlewares
 app.use("*", correlationMiddleware());
 app.use("*", loggingMiddleware());
+app.use("*", idempotencyMiddleware({
+  excludePaths: ["/health"],
+}));
 
 // Mount all routes
 app.route("/", routes);
