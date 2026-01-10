@@ -132,7 +132,8 @@ function generateMethodCode(method: GeneratedClientMethod, baseUrlVar: string): 
   const needsBody = httpMethod === "POST" || httpMethod === "PUT" || httpMethod === "PATCH";
   if (needsBody) {
     params.push("body: Record<string, unknown>");
-  } else if (pathParams.length === 0) {
+  } else {
+    // GET/DELETE without body can have query params
     params.push("params?: Record<string, unknown>");
   }
 
@@ -146,9 +147,9 @@ function generateMethodCode(method: GeneratedClientMethod, baseUrlVar: string): 
   // Clean up empty string concatenations
   pathExpr = pathExpr.replace(/ \+ ''$/g, "").replace(/^'' \+ /g, "");
 
-  // Build query string for GET without body
+  // Build query string for GET/DELETE (methods without body)
   let urlExpr = pathExpr;
-  if (!needsBody && pathParams.length === 0) {
+  if (!needsBody) {
     urlExpr = pathExpr + " + (params ? '?' + new URLSearchParams(params as Record<string, string>).toString() : '')";
   }
 
