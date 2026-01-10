@@ -30,6 +30,7 @@ import {
   allocateBudget,
   getTotalAllocated,
   getModelLimit,
+  createStrategy,
 } from "./context-budget.service";
 import { countTokens, truncateToTokens } from "./tokenizer.service";
 
@@ -257,8 +258,10 @@ export async function buildContextPack(
     request.maxTokens ?? DEFAULT_CONTEXT_BUILDER_CONFIG.defaultMaxTokens
   );
 
-  // Allocate budget
-  const strategy = request.strategy ?? DEFAULT_BUDGET_STRATEGY;
+  // Allocate budget - merge partial strategy with defaults
+  const strategy = request.strategy
+    ? createStrategy(request.strategy)
+    : DEFAULT_BUDGET_STRATEGY;
   const breakdown = allocateBudget(totalBudget, strategy);
 
   log.info(
@@ -355,7 +358,10 @@ export async function previewContextPack(
     request.maxTokens ?? DEFAULT_CONTEXT_BUILDER_CONFIG.defaultMaxTokens
   );
 
-  const strategy = request.strategy ?? DEFAULT_BUDGET_STRATEGY;
+  // Merge partial strategy with defaults
+  const strategy = request.strategy
+    ? createStrategy(request.strategy)
+    : DEFAULT_BUDGET_STRATEGY;
   const breakdown = allocateBudget(totalBudget, strategy);
 
   const warnings: string[] = [];
