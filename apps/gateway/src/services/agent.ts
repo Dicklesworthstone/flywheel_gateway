@@ -97,6 +97,7 @@ export async function spawnAgent(config: {
   initializeAgentState(agentId);
 
   const drv = await getDriver();
+  let spawned = false;
 
   const agentConfig: AgentConfig = {
     id: agentId,
@@ -110,6 +111,7 @@ export async function spawnAgent(config: {
 
   try {
     const result = await drv.spawn(agentConfig);
+    spawned = true;
     const agent = result.agent;
 
     const record: AgentRecord = {
@@ -136,6 +138,14 @@ export async function spawnAgent(config: {
 
     // Transition to READY state
     markAgentReady(agentId);
+    await db
+      .update(agentsTable)
+      .set({ status: "ready", updatedAt: new Date() })
+      .where(eq(agentsTable.id, agentId));
+    await db
+      .update(agentsTable)
+      .set({ status: "ready", updatedAt: new Date() })
+      .where(eq(agentsTable.id, agentId));
 
     log.info({ agentId, workingDirectory: config.workingDirectory }, "Agent spawned");
 
@@ -154,11 +164,29 @@ export async function spawnAgent(config: {
       driver: agent.driverType,
     };
   } catch (error) {
+    if (spawned) {
+      try {
+        await drv.terminate(agentId, true);
+      } catch {
+        // Best-effort cleanup; proceed with error handling
+      }
+      agents.delete(agentId);
+    }
     // Mark agent as failed in lifecycle state
     markAgentFailed(agentId, "error", {
       code: "SPAWN_FAILED",
       message: String(error),
     });
+
+    // Best-effort cleanup to avoid leaking agents on partial failures.
+    if (agents.has(agentId)) {
+      try {
+        await drv.terminate(agentId, true);
+      } catch {
+        // Ignore cleanup failures; we already have a spawn failure.
+      }
+      agents.delete(agentId);
+    }
 
     log.error({ error, agentId }, "Failed to spawn agent");
     audit({
@@ -391,7 +419,7 @@ export async function sendMessage(
   }
 
   if (record.agent.activityState === "error") {
-    throw new AgentError("AGENT_NOT_READY", `Agent ${agentId} is in error state`);
+    throw new AgentError("AGENT_ERROR_STATE", `Agent ${agentId} is in error state`);
   }
 
   // Transition to EXECUTING state when processing a message
