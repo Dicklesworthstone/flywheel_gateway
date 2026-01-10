@@ -121,7 +121,7 @@ export function getProcedureMetadata(
   permissions: string[];
 }> {
   return registry.all().map((cmd) => ({
-    name: cmd.name.replace(".", "_"),
+    name: cmd.name.replace(/\./g, "_"),
     type: getProcedureType(cmd),
     description: cmd.description,
     permissions: cmd.metadata.permissions,

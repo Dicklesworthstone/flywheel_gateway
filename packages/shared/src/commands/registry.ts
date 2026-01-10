@@ -90,7 +90,6 @@ export function validateRegistry(
       issues.push(`Command "${cmd.name}" has no permissions defined.`);
     }
 
-
     // Check for related commands that don't exist
     for (const related of cmd.aiHints.relatedCommands) {
       if (!registry.has(related)) {
