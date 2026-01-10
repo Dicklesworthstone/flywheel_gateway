@@ -81,6 +81,8 @@ export function correlationMiddleware() {
     // Set response headers
     c.header("X-Correlation-ID", correlationId);
     c.header("X-Request-ID", requestId);
+    c.set("correlationId", correlationId);
+    c.set("requestId", requestId);
 
     // Run the rest of the middleware chain within the context
     await requestContextStorage.run(context, async () => {

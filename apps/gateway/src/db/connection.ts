@@ -1,4 +1,6 @@
 import { Database } from "bun:sqlite";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { DefaultLogger, type LogWriter } from "drizzle-orm/logger";
 import { logger } from "../services/logger";
@@ -19,6 +21,14 @@ class PinoLogWriter implements LogWriter {
 const drizzleLogger = isDev ? new DefaultLogger({ writer: new PinoLogWriter() }) : false;
 
 const dbFile = process.env["DB_FILE_NAME"] ?? "./data/gateway.db";
+if (dbFile !== ":memory:") {
+  const dir = dirname(dbFile);
+  try {
+    mkdirSync(dir, { recursive: true });
+  } catch {
+    // If directory creation fails, sqlite will surface the error on open.
+  }
+}
 const sqlite = new Database(dbFile);
 
 sqlite.exec("PRAGMA journal_mode = WAL");

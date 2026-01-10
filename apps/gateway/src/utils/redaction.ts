@@ -67,12 +67,15 @@ const SENSITIVE_KEYS = new Set([
  * Returns a new object with sensitive values replaced.
  */
 export function redactSensitive<T>(obj: T, depth = 0): T {
-  if (depth > 10) return obj; // Prevent infinite recursion
+  if (depth > 10) return REDACTED as T; // Prevent infinite recursion and avoid leaking data
   if (obj === null || obj === undefined) return obj;
   if (typeof obj !== "object") return obj;
 
   if (Array.isArray(obj)) {
     return obj.map((item) => redactSensitive(item, depth + 1)) as T;
+  }
+  if (!isPlainObject(obj)) {
+    return obj;
   }
 
   const result: Record<string, unknown> = {};
@@ -87,4 +90,10 @@ export function redactSensitive<T>(obj: T, depth = 0): T {
     }
   }
   return result as T;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== "object") return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
 }
