@@ -420,3 +420,129 @@ input {
     gap: 6px;
   }
 }
+
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  min-height: 300px;
+}
+
+.error-boundary__icon {
+  color: var(--danger);
+  margin-bottom: 16px;
+}
+
+.error-boundary__title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+}
+
+.error-boundary__message {
+  color: var(--ink-muted);
+  max-width: 400px;
+  margin-bottom: 8px;
+}
+
+.error-boundary__reference {
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+  margin-bottom: 20px;
+}
+
+.error-boundary__reference code {
+  font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+  background: var(--surface-muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.toaster {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 100;
+  max-width: 420px;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+}
+
+.toast__icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.toast--info .toast__icon {
+  color: var(--accent);
+}
+
+.toast--success .toast__icon {
+  color: var(--positive);
+}
+
+.toast--warning .toast__icon {
+  color: var(--warning);
+}
+
+.toast--error .toast__icon {
+  color: var(--danger);
+}
+
+.toast__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast__message {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.toast__reference {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.toast__close {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+}
+
+.toast__close:hover {
+  background: var(--surface-muted);
+  color: var(--ink);
+}
+
+@media (max-width: 480px) {
+  .toaster {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    max-width: none;
+  }
+}

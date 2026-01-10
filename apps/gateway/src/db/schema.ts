@@ -158,3 +158,90 @@ export const agentSweeps = sqliteTable(
   },
   (table) => [index("agent_sweeps_status_idx").on(table.status)],
 );
+
+// ============================================================================
+// CAAM (Coding Agent Account Manager) Tables
+// ============================================================================
+
+/**
+ * Account profiles for BYOA (Bring Your Own Account).
+ * Gateway stores only metadata - auth artifacts live in workspace containers.
+ */
+export const accountProfiles = sqliteTable(
+  "account_profiles",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id").notNull(),
+    provider: text("provider").notNull(), // 'claude' | 'codex' | 'gemini'
+    name: text("name").notNull(), // Profile label (e.g., "work", "personal")
+    authMode: text("auth_mode").notNull(), // 'oauth_browser' | 'device_code' | 'api_key'
+
+    // Status & health (no secrets)
+    status: text("status").notNull().default("unlinked"), // 'unlinked' | 'linked' | 'verified' | 'expired' | 'cooldown' | 'error'
+    statusMessage: text("status_message"),
+    healthScore: integer("health_score"), // 0..100
+    lastVerifiedAt: integer("last_verified_at", { mode: "timestamp" }),
+    expiresAt: integer("expires_at", { mode: "timestamp" }),
+    cooldownUntil: integer("cooldown_until", { mode: "timestamp" }),
+    lastUsedAt: integer("last_used_at", { mode: "timestamp" }),
+
+    // Auth artifacts metadata (no secrets)
+    authFilesPresent: integer("auth_files_present", { mode: "boolean" }).notNull().default(false),
+    authFileHash: text("auth_file_hash"),
+    storageMode: text("storage_mode"), // 'file' | 'keyring' | 'unknown'
+
+    // Labels for organization
+    labels: blob("labels", { mode: "json" }).$type<string[]>(),
+
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    index("account_profiles_workspace_idx").on(table.workspaceId),
+    index("account_profiles_provider_idx").on(table.provider),
+    index("account_profiles_status_idx").on(table.status),
+    index("account_profiles_workspace_provider_idx").on(table.workspaceId, table.provider),
+  ],
+);
+
+/**
+ * Account pools group profiles by provider for rotation.
+ */
+export const accountPools = sqliteTable(
+  "account_pools",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id").notNull(),
+    provider: text("provider").notNull(), // 'claude' | 'codex' | 'gemini'
+    rotationStrategy: text("rotation_strategy").notNull().default("smart"), // 'smart' | 'round_robin' | 'least_recent' | 'random'
+    cooldownMinutesDefault: integer("cooldown_minutes_default").notNull().default(15),
+    maxRetries: integer("max_retries").notNull().default(3),
+    activeProfileId: text("active_profile_id"),
+    lastRotatedAt: integer("last_rotated_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    index("account_pools_workspace_idx").on(table.workspaceId),
+    uniqueIndex("account_pools_workspace_provider_idx").on(table.workspaceId, table.provider),
+  ],
+);
+
+/**
+ * Links profiles to pools (many-to-many, though typically 1 pool per provider).
+ */
+export const accountPoolMembers = sqliteTable(
+  "account_pool_members",
+  {
+    id: text("id").primaryKey(),
+    poolId: text("pool_id").notNull().references(() => accountPools.id, { onDelete: "cascade" }),
+    profileId: text("profile_id").notNull().references(() => accountProfiles.id, { onDelete: "cascade" }),
+    priority: integer("priority").notNull().default(0), // Lower = higher priority
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    index("account_pool_members_pool_idx").on(table.poolId),
+    index("account_pool_members_profile_idx").on(table.profileId),
+    uniqueIndex("account_pool_members_unique_idx").on(table.poolId, table.profileId),
+  ],
+);
