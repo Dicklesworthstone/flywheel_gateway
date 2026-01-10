@@ -22,7 +22,7 @@ export class TestWsClient {
     });
 
     this.socket.addEventListener('message', (event) => {
-      const payload = typeof event.data === 'string' ? event.data : event.data.toString();
+      const payload = normalizeWsPayload(event.data);
       this.events.push({
         type: 'message',
         payload,
@@ -92,4 +92,20 @@ export function mockWsHub() {
       }
     }
   };
+}
+
+function normalizeWsPayload(data: unknown): string {
+  if (typeof data === 'string') {
+    return data;
+  }
+  if (data instanceof ArrayBuffer) {
+    return new TextDecoder().decode(new Uint8Array(data));
+  }
+  if (ArrayBuffer.isView(data)) {
+    return new TextDecoder().decode(data as Uint8Array);
+  }
+  if (typeof Blob !== 'undefined' && data instanceof Blob) {
+    return '[blob]';
+  }
+  return String(data);
 }
