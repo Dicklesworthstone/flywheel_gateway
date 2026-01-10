@@ -11,17 +11,17 @@
 
 import { Hono, type Context } from "hono";
 import { z } from "zod";
+import { serializeGatewayError } from "@flywheel/shared/errors";
+import type { GatewayError } from "@flywheel/shared/errors";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
-  createAgentMailService,
+  createAgentMailServiceFromEnv,
   type AgentMailService,
 } from "../services/agentmail";
 import {
   AgentMailClientError,
   type AgentMailPriority,
 } from "@flywheel/flywheel-clients";
-
-const mail = new Hono<{ Variables: { agentMail: AgentMailService } }>();
 
 // ============================================================================
 // Validation Schemas
@@ -76,10 +76,29 @@ const StartSessionSchema = z.object({
 // Helper Functions
 // ============================================================================
 
+function respondWithGatewayError(c: Context, error: GatewayError) {
+  const correlationId = getCorrelationId();
+  const timestamp = new Date().toISOString();
+  const payload = serializeGatewayError(error);
+  return c.json(
+    {
+      error: {
+        code: payload.code,
+        message: payload.message,
+        correlationId,
+        timestamp,
+        ...(payload.details && { details: payload.details }),
+      },
+    },
+    payload.httpStatus
+  );
+}
+
 function handleError(error: unknown, c: Context) {
   const log = getLogger();
   const correlationId = getCorrelationId();
   const timestamp = new Date().toISOString();
+  const service = c.get("agentMail") ?? createAgentMailServiceFromEnv();
 
   if (error instanceof z.ZodError) {
     return c.json(
@@ -97,26 +116,8 @@ function handleError(error: unknown, c: Context) {
   }
 
   if (error instanceof AgentMailClientError) {
-    const statusMap = {
-      input_validation: 400,
-      response_validation: 502,
-      transport: 503,
-    } as const;
-
-    const status = statusMap[error.kind];
-
-    return c.json(
-      {
-        error: {
-          code: `AGENT_MAIL_${error.kind.toUpperCase()}`,
-          message: error.message,
-          correlationId,
-          timestamp,
-          details: error.details,
-        },
-      },
-      status
-    );
+    const mapped = service.mapError(error);
+    return respondWithGatewayError(c, mapped);
   }
 
   log.error({ error }, "Unexpected error in mail route");
@@ -140,7 +141,19 @@ function handleError(error: unknown, c: Context) {
 /**
  * POST /mail/projects - Ensure a project exists (idempotent)
  */
-mail.post("/projects", async (c) => {
+function createMailRoutes(service?: AgentMailService) {
+  const mail = new Hono<{ Variables: { agentMail: AgentMailService } }>();
+  let cachedService: AgentMailService | undefined = service;
+
+  mail.use("*", async (c, next) => {
+    if (!cachedService) {
+      cachedService = createAgentMailServiceFromEnv();
+    }
+    c.set("agentMail", cachedService);
+    await next();
+  });
+
+  mail.post("/projects", async (c) => {
   try {
     const body = await c.req.json();
     const validated = EnsureProjectSchema.parse(body);
@@ -158,7 +171,7 @@ mail.post("/projects", async (c) => {
   } catch (error) {
     return handleError(error, c);
   }
-});
+  });
 
 // ============================================================================
 // Agent Routes
@@ -167,7 +180,7 @@ mail.post("/projects", async (c) => {
 /**
  * POST /mail/agents - Register an agent
  */
-mail.post("/agents", async (c) => {
+  mail.post("/agents", async (c) => {
   try {
     const body = await c.req.json();
     const validated = RegisterAgentSchema.parse(body);
@@ -179,7 +192,7 @@ mail.post("/agents", async (c) => {
   } catch (error) {
     return handleError(error, c);
   }
-});
+  });
 
 // ============================================================================
 // Message Routes
@@ -188,7 +201,7 @@ mail.post("/agents", async (c) => {
 /**
  * POST /mail/messages - Send a message
  */
-mail.post("/messages", async (c) => {
+  mail.post("/messages", async (c) => {
   try {
     const body = await c.req.json();
     const validated = SendMessageSchema.parse(body);
@@ -207,12 +220,12 @@ mail.post("/messages", async (c) => {
   } catch (error) {
     return handleError(error, c);
   }
-});
+  });
 
 /**
  * POST /mail/messages/:messageId/reply - Reply to a message
  */
-mail.post("/messages/:messageId/reply", async (c) => {
+  mail.post("/messages/:messageId/reply", async (c) => {
   try {
     const messageId = c.req.param("messageId");
     const body = await c.req.json();
@@ -229,12 +242,12 @@ mail.post("/messages/:messageId/reply", async (c) => {
   } catch (error) {
     return handleError(error, c);
   }
-});
+  });
 
 /**
  * GET /mail/messages/inbox - Fetch inbox for an agent
  */
-mail.get("/messages/inbox", async (c) => {
+  mail.get("/messages/inbox", async (c) => {
   try {
     const projectId = c.req.query("projectId");
     const agentId = c.req.query("agentId");
@@ -255,7 +268,9 @@ mail.get("/messages/inbox", async (c) => {
 
     const service = c.get("agentMail");
     const limitStr = c.req.query("limit");
-    const limit = limitStr ? parseInt(limitStr, 10) : undefined;
+    const parsedLimit = limitStr ? parseInt(limitStr, 10) : undefined;
+    // Ensure we don't pass NaN if limit is not a valid number
+    const limit = parsedLimit !== undefined && !Number.isNaN(parsedLimit) ? parsedLimit : undefined;
     const since = c.req.query("since");
     const priority = c.req.query("priority") as AgentMailPriority | undefined;
 
@@ -273,7 +288,7 @@ mail.get("/messages/inbox", async (c) => {
   } catch (error) {
     return handleError(error, c);
   }
-});
+  });
 
 // ============================================================================
 // Reservation Routes
@@ -282,13 +297,13 @@ mail.get("/messages/inbox", async (c) => {
 /**
  * POST /mail/reservations - Create file reservations
  */
-mail.post("/reservations", async (c) => {
+  mail.post("/reservations", async (c) => {
   try {
     const body = await c.req.json();
     const validated = ReserveFilesSchema.parse(body);
     const service = c.get("agentMail");
 
-    const result = await service.client.requestFileReservation({
+    const result = await service.client.reservationCycle({
       projectId: validated.projectId,
       requesterId: validated.requesterId,
       patterns: validated.patterns,
@@ -300,7 +315,7 @@ mail.post("/reservations", async (c) => {
   } catch (error) {
     return handleError(error, c);
   }
-});
+  });
 
 // ============================================================================
 // Session Macro Routes
@@ -309,7 +324,7 @@ mail.post("/reservations", async (c) => {
 /**
  * POST /mail/sessions - Start a session (macro: ensure project + register agent)
  */
-mail.post("/sessions", async (c) => {
+  mail.post("/sessions", async (c) => {
   try {
     const body = await c.req.json();
     const validated = StartSessionSchema.parse(body);
@@ -339,6 +354,11 @@ mail.post("/sessions", async (c) => {
   } catch (error) {
     return handleError(error, c);
   }
-});
+  });
 
-export { mail };
+  return mail;
+}
+
+const mail = createMailRoutes();
+
+export { mail, createMailRoutes };

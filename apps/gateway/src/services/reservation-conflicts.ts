@@ -285,11 +285,11 @@ export class ReservationConflictEngine {
   ): ReservationConflict {
     const resolutions: ConflictResolution[] = [];
 
-    // Suggest waiting if reservation expires soon
+    // Suggest waiting if reservation expires soon (but not already expired)
     const now = new Date();
     const msUntilExpiry = existing.expiresAt.getTime() - now.getTime();
-    if (msUntilExpiry < 300000) {
-      // Less than 5 minutes
+    if (msUntilExpiry > 0 && msUntilExpiry < 300000) {
+      // Between 0 and 5 minutes
       resolutions.push({
         type: "wait",
         description: `Wait ${Math.ceil(msUntilExpiry / 1000)}s for existing reservation to expire`,
