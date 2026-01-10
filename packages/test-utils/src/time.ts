@@ -6,7 +6,15 @@ export function freezeTime(isoTime?: string): void {
     originalDateNow = Date.now;
   }
   const now = originalDateNow();
-  frozenTime = isoTime ? Date.parse(isoTime) : now;
+  if (isoTime) {
+    const parsed = Date.parse(isoTime);
+    if (Number.isNaN(parsed)) {
+      throw new Error(`freezeTime received invalid ISO time: ${isoTime}`);
+    }
+    frozenTime = parsed;
+  } else {
+    frozenTime = now;
+  }
   Date.now = () => (frozenTime ?? originalDateNow?.() ?? now);
 }
 

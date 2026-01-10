@@ -44,7 +44,7 @@ export class TestWsClient {
   }
 
   getEvents(): WsEvent[] {
-    return [...this.events];
+    return this.events;
   }
 }
 

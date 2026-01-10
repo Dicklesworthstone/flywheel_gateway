@@ -706,10 +706,12 @@ export class AcpDriver extends BaseDriver {
     // Update token usage if provided
     const usage = event["usage"] as Record<string, number> | undefined;
     if (usage) {
+      const promptTokens = usage["input_tokens"] ?? session.tokenUsage.promptTokens;
+      const completionTokens = usage["output_tokens"] ?? session.tokenUsage.completionTokens;
       const tokenUsage: TokenUsage = {
-        promptTokens: usage["input_tokens"] ?? session.tokenUsage.promptTokens,
-        completionTokens: usage["output_tokens"] ?? session.tokenUsage.completionTokens,
-        totalTokens: (usage["input_tokens"] ?? 0) + (usage["output_tokens"] ?? 0),
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens + completionTokens,
       };
       session.tokenUsage = tokenUsage;
       this.updateTokenUsage(agentId, tokenUsage);

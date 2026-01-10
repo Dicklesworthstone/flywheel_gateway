@@ -219,17 +219,19 @@ export class TmuxDriver extends BaseDriver {
       message,
     ]);
 
-    // Send Enter separately (not literal, so it's interpreted as the key)
-    if (result.success) {
-      await this.runTmux([
-        "send-keys",
-        "-t", `${session.sessionName}:${session.windowName}`,
-        "Enter",
-      ]);
-    }
-
     if (!result.success) {
       throw new Error(`Failed to send keys to tmux: ${result.stderr}`);
+    }
+
+    // Send Enter separately (not literal, so it's interpreted as the key)
+    const enterResult = await this.runTmux([
+      "send-keys",
+      "-t", `${session.sessionName}:${session.windowName}`,
+      "Enter",
+    ]);
+
+    if (!enterResult.success) {
+      throw new Error(`Failed to send Enter key to tmux: ${enterResult.stderr}`);
     }
 
     // Update state to thinking
