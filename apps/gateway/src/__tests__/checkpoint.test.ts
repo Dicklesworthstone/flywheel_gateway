@@ -314,6 +314,8 @@ describe("Checkpoint Service", () => {
     test("imports to different agent when specified", async () => {
       const originalAgentId = `original-${Date.now()}`;
       const targetAgentId = `target-${Date.now()}`;
+      await ensureAgent(originalAgentId);
+      await ensureAgent(targetAgentId);
 
       const metadata = await createCheckpoint(originalAgentId, {
         conversationHistory: [],
@@ -362,6 +364,7 @@ describe("Checkpoint Service", () => {
 
     test("throws when checkpoint has dependents", async () => {
       const uniqueAgentId = `agent-delete-${Date.now()}`;
+      await ensureAgent(uniqueAgentId);
 
       // Create first checkpoint
       const first = await createCheckpoint(uniqueAgentId, {
@@ -389,6 +392,7 @@ describe("Checkpoint Service", () => {
   describe("pruneCheckpoints", () => {
     test("prunes old checkpoints keeping most recent", async () => {
       const uniqueAgentId = `agent-prune-${Date.now()}`;
+      await ensureAgent(uniqueAgentId);
 
       // Create 5 checkpoints
       for (let i = 0; i < 5; i++) {
