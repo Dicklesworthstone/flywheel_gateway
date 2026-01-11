@@ -12,14 +12,19 @@ import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
   checkReservation,
   createReservation,
+  type CreateReservationParams,
   getReservation,
   getReservationStats,
-  listReservations,
   listConflicts,
-  resolveConflict,
-  type ReservationMode,
+  type ListConflictsParams,
+  listReservations,
+  type ListReservationsParams,
   releaseReservation,
+  type RenewReservationParams,
   renewReservation,
+  type ReservationMode,
+  resolveConflict,
+  type ResolveConflictParams,
 } from "../services/reservation.service";
 
 const reservations = new Hono();
@@ -122,15 +127,18 @@ reservations.post("/", async (c) => {
     const body = await c.req.json();
     const validated = CreateReservationSchema.parse(body);
 
-    const result = await createReservation({
+    // Build params conditionally (for exactOptionalPropertyTypes)
+    const params: CreateReservationParams = {
       projectId: validated.projectId,
       agentId: validated.agentId,
       patterns: validated.patterns,
       mode: validated.mode as ReservationMode,
-      ttl: validated.ttl,
-      reason: validated.reason,
-      taskId: validated.taskId,
-    });
+    };
+    if (validated.ttl !== undefined) params.ttl = validated.ttl;
+    if (validated.reason !== undefined) params.reason = validated.reason;
+    if (validated.taskId !== undefined) params.taskId = validated.taskId;
+
+    const result = await createReservation(params);
 
     if (!result.granted) {
       return c.json(
@@ -246,11 +254,14 @@ reservations.get("/conflicts", async (c) => {
       limit: c.req.query("limit"),
     });
 
-    const results = await listConflicts({
+    // Build params conditionally (for exactOptionalPropertyTypes)
+    const conflictParams: ListConflictsParams = {
       projectId: query.projectId,
-      status: query.status,
-      limit: query.limit,
-    });
+    };
+    if (query.status !== undefined) conflictParams.status = query.status;
+    if (query.limit !== undefined) conflictParams.limit = query.limit;
+
+    const results = await listConflicts(conflictParams);
 
     return c.json({
       conflicts: results.map((conflict) => ({
@@ -301,11 +312,14 @@ reservations.post("/conflicts/:id/resolve", async (c) => {
     const body = await c.req.json();
     const validated = ResolveConflictSchema.parse(body);
 
-    const result = await resolveConflict({
+    // Build params conditionally (for exactOptionalPropertyTypes)
+    const resolveParams: ResolveConflictParams = {
       conflictId: id,
-      resolvedBy: validated.resolvedBy,
-      reason: validated.reason,
-    });
+    };
+    if (validated.resolvedBy !== undefined) resolveParams.resolvedBy = validated.resolvedBy;
+    if (validated.reason !== undefined) resolveParams.reason = validated.reason;
+
+    const result = await resolveConflict(resolveParams);
 
     if (!result.resolved) {
       return c.json(
@@ -350,11 +364,14 @@ reservations.get("/", async (c) => {
       filePath: c.req.query("filePath"),
     });
 
-    const results = await listReservations({
+    // Build params conditionally (for exactOptionalPropertyTypes)
+    const listParams: ListReservationsParams = {
       projectId: query.projectId,
-      agentId: query.agentId,
-      filePath: query.filePath,
-    });
+    };
+    if (query.agentId !== undefined) listParams.agentId = query.agentId;
+    if (query.filePath !== undefined) listParams.filePath = query.filePath;
+
+    const results = await listReservations(listParams);
 
     return c.json({
       reservations: results.map((r) => ({
@@ -485,11 +502,14 @@ reservations.post("/:id/renew", async (c) => {
     const body = await c.req.json();
     const validated = RenewReservationSchema.parse(body);
 
-    const result = await renewReservation({
+    // Build params conditionally (for exactOptionalPropertyTypes)
+    const renewParams: RenewReservationParams = {
       reservationId: id,
       agentId: validated.agentId,
-      additionalTtl: validated.additionalTtl,
-    });
+    };
+    if (validated.additionalTtl !== undefined) renewParams.additionalTtl = validated.additionalTtl;
+
+    const result = await renewReservation(renewParams);
 
     if (!result.renewed) {
       const errorCode =

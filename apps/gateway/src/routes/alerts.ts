@@ -5,7 +5,7 @@
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
-import type { AlertSeverity, AlertType } from "../models/alert";
+import type { AlertFilter, AlertRuleUpdate, AlertSeverity, AlertType } from "../models/alert";
 import {
   acknowledgeAlert,
   dismissAlert,
@@ -108,17 +108,24 @@ function safeParseInt(value: string | undefined, defaultValue: number): number {
  */
 alerts.get("/", (c) => {
   try {
-    const result = getActiveAlerts({
-      type: parseArrayQuery(c.req.query("type")) as AlertType[] | undefined,
-      severity: parseArrayQuery(c.req.query("severity")) as
-        | AlertSeverity[]
-        | undefined,
-      acknowledged: parseBooleanQuery(c.req.query("acknowledged")),
-      since: parseDateQuery(c.req.query("since")),
-      until: parseDateQuery(c.req.query("until")),
+    // Build filter conditionally (for exactOptionalPropertyTypes)
+    const filter: AlertFilter = {
       limit: safeParseInt(c.req.query("limit"), 50),
-      cursor: c.req.query("cursor"),
-    });
+    };
+    const typeParam = parseArrayQuery(c.req.query("type"));
+    if (typeParam) filter.type = typeParam as AlertType[];
+    const severityParam = parseArrayQuery(c.req.query("severity"));
+    if (severityParam) filter.severity = severityParam as AlertSeverity[];
+    const acknowledgedParam = parseBooleanQuery(c.req.query("acknowledged"));
+    if (acknowledgedParam !== undefined) filter.acknowledged = acknowledgedParam;
+    const sinceParam = parseDateQuery(c.req.query("since"));
+    if (sinceParam) filter.since = sinceParam;
+    const untilParam = parseDateQuery(c.req.query("until"));
+    if (untilParam) filter.until = untilParam;
+    const cursorParam = c.req.query("cursor");
+    if (cursorParam) filter.cursor = cursorParam;
+
+    const result = getActiveAlerts(filter);
 
     return c.json({
       alerts: result.alerts.map((alert) => ({
@@ -144,16 +151,22 @@ alerts.get("/", (c) => {
  */
 alerts.get("/history", (c) => {
   try {
-    const result = getAlertHistory({
-      type: parseArrayQuery(c.req.query("type")) as AlertType[] | undefined,
-      severity: parseArrayQuery(c.req.query("severity")) as
-        | AlertSeverity[]
-        | undefined,
-      since: parseDateQuery(c.req.query("since")),
-      until: parseDateQuery(c.req.query("until")),
+    // Build filter conditionally (for exactOptionalPropertyTypes)
+    const filter: AlertFilter = {
       limit: safeParseInt(c.req.query("limit"), 50),
-      cursor: c.req.query("cursor"),
-    });
+    };
+    const typeParam = parseArrayQuery(c.req.query("type"));
+    if (typeParam) filter.type = typeParam as AlertType[];
+    const severityParam = parseArrayQuery(c.req.query("severity"));
+    if (severityParam) filter.severity = severityParam as AlertSeverity[];
+    const sinceParam = parseDateQuery(c.req.query("since"));
+    if (sinceParam) filter.since = sinceParam;
+    const untilParam = parseDateQuery(c.req.query("until"));
+    if (untilParam) filter.until = untilParam;
+    const cursorParam = c.req.query("cursor");
+    if (cursorParam) filter.cursor = cursorParam;
+
+    const result = getAlertHistory(filter);
 
     return c.json({
       alerts: result.alerts.map((alert) => ({
@@ -207,7 +220,13 @@ alerts.put("/rules/:ruleId", async (c) => {
     const body = await c.req.json();
     const validated = UpdateRuleSchema.parse(body);
 
-    const updated = updateAlertRule(ruleId, validated);
+    // Build update object conditionally (for exactOptionalPropertyTypes)
+    const update: AlertRuleUpdate = {};
+    if (validated.enabled !== undefined) update.enabled = validated.enabled;
+    if (validated.cooldown !== undefined) update.cooldown = validated.cooldown;
+    if (validated.severity !== undefined) update.severity = validated.severity;
+
+    const updated = updateAlertRule(ruleId, update);
     if (!updated) {
       return c.json(
         {

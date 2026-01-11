@@ -10,6 +10,7 @@ import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
   addToAllowlist,
+  type DCGConfig,
   type DCGSeverity,
   disablePack,
   enablePack,
@@ -155,7 +156,13 @@ dcg.put("/config", async (c) => {
   try {
     const body = await c.req.json();
     const validated = UpdateConfigSchema.parse(body);
-    const config = await updateConfig(validated);
+
+    // Build update object conditionally (for exactOptionalPropertyTypes)
+    const updates: Partial<DCGConfig> = {};
+    if (validated.enabledPacks !== undefined) updates.enabledPacks = validated.enabledPacks;
+    if (validated.disabledPacks !== undefined) updates.disabledPacks = validated.disabledPacks;
+
+    const config = await updateConfig(updates);
 
     return c.json({
       config,
@@ -266,15 +273,15 @@ dcg.get("/blocks", async (c) => {
       cursor: c.req.query("cursor"),
     });
 
-    const severities = query.severity?.split(",") as DCGSeverity[] | undefined;
+    // Build options conditionally (for exactOptionalPropertyTypes)
+    const options: Parameters<typeof getBlockEvents>[0] = {};
+    if (query.agentId !== undefined) options.agentId = query.agentId;
+    if (query.severity !== undefined) options.severity = query.severity.split(",") as DCGSeverity[];
+    if (query.pack !== undefined) options.pack = query.pack;
+    if (query.limit !== undefined) options.limit = query.limit;
+    if (query.cursor !== undefined) options.cursor = query.cursor;
 
-    const result = await getBlockEvents({
-      agentId: query.agentId,
-      severity: severities,
-      pack: query.pack,
-      limit: query.limit,
-      cursor: query.cursor,
-    });
+    const result = await getBlockEvents(options);
 
     return c.json({
       blocks: result.events,
@@ -349,15 +356,16 @@ dcg.post("/allowlist", async (c) => {
     const validated = AddAllowlistSchema.parse(body);
 
     // In production, addedBy would come from auth context
-    const entry = await addToAllowlist({
+    // Build entry conditionally (for exactOptionalPropertyTypes)
+    const entryInput: Parameters<typeof addToAllowlist>[0] = {
       ruleId: validated.ruleId,
       pattern: validated.pattern,
       reason: validated.reason,
       addedBy: "api-user",
-      expiresAt: validated.expiresAt
-        ? new Date(validated.expiresAt)
-        : undefined,
-    });
+    };
+    if (validated.expiresAt) entryInput.expiresAt = new Date(validated.expiresAt);
+
+    const entry = await addToAllowlist(entryInput);
 
     return c.json(
       {

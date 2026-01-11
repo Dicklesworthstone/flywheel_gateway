@@ -8,12 +8,14 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
+  type ExportOptions,
   type ExtractionType,
-  type HistoryOutcome,
   exportHistory,
   extractFromOutput,
   getHistoryEntry,
   getHistoryStats,
+  type HistoryOutcome,
+  type HistoryQueryOptions,
   incrementReplayCount,
   pruneHistory,
   queryHistory,
@@ -122,22 +124,20 @@ history.get("/", async (c) => {
       cursor: c.req.query("cursor"),
     });
 
-    const result = await queryHistory({
-      agentId: params.agentId,
-      outcome: params.outcome?.split(",") as HistoryOutcome[],
-      starred:
-        params.starred === "true"
-          ? true
-          : params.starred === "false"
-            ? false
-            : undefined,
-      startDate: params.startDate ? new Date(params.startDate) : undefined,
-      endDate: params.endDate ? new Date(params.endDate) : undefined,
-      search: params.search,
-      tags: params.tags?.split(","),
-      limit: params.limit,
-      cursor: params.cursor,
-    });
+    // Build options conditionally (for exactOptionalPropertyTypes)
+    const options: HistoryQueryOptions = {};
+    if (params.agentId !== undefined) options.agentId = params.agentId;
+    if (params.outcome !== undefined) options.outcome = params.outcome.split(",") as HistoryOutcome[];
+    if (params.starred === "true") options.starred = true;
+    else if (params.starred === "false") options.starred = false;
+    if (params.startDate !== undefined) options.startDate = new Date(params.startDate);
+    if (params.endDate !== undefined) options.endDate = new Date(params.endDate);
+    if (params.search !== undefined) options.search = params.search;
+    if (params.tags !== undefined) options.tags = params.tags.split(",");
+    if (params.limit !== undefined) options.limit = params.limit;
+    if (params.cursor !== undefined) options.cursor = params.cursor;
+
+    const result = await queryHistory(options);
 
     return c.json({
       entries: result.entries,
@@ -172,8 +172,15 @@ history.get("/search", async (c) => {
       );
     }
 
-    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
-    const entries = await searchHistory(query, { agentId, limit });
+    // Build options conditionally (for exactOptionalPropertyTypes)
+    const searchOptions: Parameters<typeof searchHistory>[1] = {};
+    if (agentId !== undefined) searchOptions.agentId = agentId;
+    if (limitParam) {
+      const parsed = parseInt(limitParam, 10);
+      if (!Number.isNaN(parsed)) searchOptions.limit = parsed;
+    }
+
+    const entries = await searchHistory(query, searchOptions);
 
     return c.json({
       entries,
@@ -194,11 +201,13 @@ history.get("/stats", async (c) => {
     const startDate = c.req.query("startDate");
     const endDate = c.req.query("endDate");
 
-    const stats = await getHistoryStats({
-      agentId,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
-    });
+    // Build options conditionally (for exactOptionalPropertyTypes)
+    const statsOptions: Parameters<typeof getHistoryStats>[0] = {};
+    if (agentId !== undefined) statsOptions.agentId = agentId;
+    if (startDate) statsOptions.startDate = new Date(startDate);
+    if (endDate) statsOptions.endDate = new Date(endDate);
+
+    const stats = await getHistoryStats(statsOptions);
 
     return c.json({
       stats,
@@ -323,14 +332,15 @@ history.post("/export", async (c) => {
     const body = await c.req.json();
     const validated = ExportSchema.parse(body);
 
-    const content = await exportHistory({
+    // Build options conditionally (for exactOptionalPropertyTypes)
+    const exportOptions: ExportOptions = {
       format: validated.format,
-      agentId: validated.agentId,
-      startDate: validated.startDate
-        ? new Date(validated.startDate)
-        : undefined,
-      endDate: validated.endDate ? new Date(validated.endDate) : undefined,
-    });
+    };
+    if (validated.agentId !== undefined) exportOptions.agentId = validated.agentId;
+    if (validated.startDate) exportOptions.startDate = new Date(validated.startDate);
+    if (validated.endDate) exportOptions.endDate = new Date(validated.endDate);
+
+    const content = await exportHistory(exportOptions);
 
     const contentType =
       validated.format === "json" ? "application/json" : "text/csv";
@@ -382,13 +392,15 @@ history.post("/extract", async (c) => {
     const body = await c.req.json();
     const validated = ExtractSchema.parse(body);
 
+    // Build options conditionally (for exactOptionalPropertyTypes)
+    const extractOptions: Parameters<typeof extractFromOutput>[2] = {};
+    if (validated.language !== undefined) extractOptions.language = validated.language;
+    if (validated.customPattern !== undefined) extractOptions.customPattern = validated.customPattern;
+
     const result = extractFromOutput(
       validated.output,
       validated.type as ExtractionType,
-      {
-        language: validated.language,
-        customPattern: validated.customPattern,
-      },
+      extractOptions,
     );
 
     return c.json({
