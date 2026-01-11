@@ -90,6 +90,7 @@ interface CaamStatusTool {
 
 /**
  * Full activate output from `caam activate --json`.
+ * @see coding_agent_account_manager/cmd/caam/cmd/activate.go activateOutput
  */
 interface CaamActivateOutput {
   success: boolean;
@@ -97,7 +98,24 @@ interface CaamActivateOutput {
   profile: string;
   previous_profile?: string;
   source?: string;
+  auto_backup?: string; // Path to auto-backup if created
+  refreshed?: boolean; // Whether token was refreshed
+  rotation?: CaamActivateRotation; // Rotation details if --auto was used
   error?: string;
+}
+
+/**
+ * Rotation result details from activate --auto.
+ */
+interface CaamActivateRotation {
+  algorithm: string; // "smart", "round_robin", "random"
+  selected: string; // Selected profile name
+  alternatives?: CaamRotationAlternative[];
+}
+
+interface CaamRotationAlternative {
+  profile: string;
+  score: number;
 }
 
 /**

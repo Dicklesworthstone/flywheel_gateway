@@ -335,7 +335,9 @@ function selectByStrategy(
     case "random":
       return selectRandom(profiles);
     case "smart":
+      return selectSmart(profiles, currentProfileId);
     default:
+      // Default to smart strategy for unknown values
       return selectSmart(profiles, currentProfileId);
   }
 }

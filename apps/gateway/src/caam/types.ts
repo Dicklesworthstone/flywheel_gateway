@@ -204,15 +204,38 @@ export interface UpdateProfileOptions {
 
 /**
  * Provider-specific error codes that indicate rate limiting.
+ * Harmonized with CAAM CLI defaults from spm_config.go.
  */
 export const RATE_LIMIT_SIGNATURES: Record<ProviderId, string[]> = {
-  claude: ["rate_limit_error", "overloaded_error", "429"],
-  codex: ["rate_limit_exceeded", "429", "Too Many Requests"],
-  gemini: ["RESOURCE_EXHAUSTED", "429", "quota exceeded"],
+  claude: [
+    "rate limit",
+    "rate_limit_error",
+    "usage limit reached",
+    "too many requests",
+    "overloaded_error",
+    "429",
+  ],
+  codex: [
+    "rate limit exceeded",
+    "rate_limit_exceeded",
+    "quota exceeded",
+    "too many requests",
+    "429",
+  ],
+  gemini: [
+    "RESOURCE_EXHAUSTED",
+    "quota exceeded",
+    "rate limit",
+    "429",
+  ],
 };
 
 /**
  * Default cooldown durations by provider (in minutes).
+ *
+ * Note: Gateway uses shorter cooldowns than CAAM CLI's default of 60 minutes
+ * because Gateway manages pools and can rotate to other accounts faster.
+ * These values balance recovery time with availability.
  */
 export const DEFAULT_COOLDOWN_MINUTES: Record<ProviderId, number> = {
   claude: 15,
@@ -288,13 +311,15 @@ export interface CaamCliRotationResult {
 
 /**
  * Cooldown entry from `caam cooldown list --json`.
+ * @see coding_agent_account_manager/cmd/caam/cmd/cooldown.go CooldownListItem
  */
 export interface CaamCliCooldown {
   provider: string;
   profile: string;
-  until: string; // ISO 8601
-  reason?: string;
+  hit_at: string; // ISO 8601 - when the rate limit was hit
+  cooldown_until: string; // ISO 8601 - when cooldown expires
   remaining_minutes: number;
+  notes?: string; // Optional reason for cooldown
 }
 
 /**
