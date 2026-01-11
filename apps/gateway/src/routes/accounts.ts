@@ -29,7 +29,12 @@ const accounts = new Hono();
 // ============================================================================
 
 const ProviderSchema = z.enum(["claude", "codex", "gemini"]);
-const AuthModeSchema = z.enum(["oauth_browser", "device_code", "api_key"]);
+const AuthModeSchema = z.enum([
+  "oauth_browser",
+  "device_code",
+  "api_key",
+  "vertex_adc",
+]);
 
 const CreateProfileSchema = z.object({
   workspaceId: z.string().min(1),

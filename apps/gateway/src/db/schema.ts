@@ -2,6 +2,7 @@ import {
   blob,
   index,
   integer,
+  real,
   sqliteTable,
   text,
   uniqueIndex,
@@ -189,11 +190,20 @@ export const accountProfiles = sqliteTable(
     // Status & health (no secrets)
     status: text("status").notNull().default("unlinked"), // 'unlinked' | 'linked' | 'verified' | 'expired' | 'cooldown' | 'error'
     statusMessage: text("status_message"),
-    healthScore: integer("health_score"), // 0..100
+    healthScore: integer("health_score"), // 0..100 (gateway-computed)
+    healthStatus: text("health_status"), // 'unknown' | 'healthy' | 'warning' | 'critical'
     lastVerifiedAt: integer("last_verified_at", { mode: "timestamp" }),
-    expiresAt: integer("expires_at", { mode: "timestamp" }),
+    expiresAt: integer("expires_at", { mode: "timestamp" }), // Legacy
     cooldownUntil: integer("cooldown_until", { mode: "timestamp" }),
     lastUsedAt: integer("last_used_at", { mode: "timestamp" }),
+
+    // Health penalty tracking (harmonized with CAAM CLI health/storage.go)
+    tokenExpiresAt: integer("token_expires_at", { mode: "timestamp" }),
+    lastErrorAt: integer("last_error_at", { mode: "timestamp" }),
+    errorCount1h: integer("error_count_1h").default(0),
+    penaltyScore: real("penalty_score").default(0),
+    penaltyUpdatedAt: integer("penalty_updated_at", { mode: "timestamp" }),
+    planType: text("plan_type"), // 'free' | 'pro' | 'enterprise'
 
     // Auth artifacts metadata (no secrets)
     authFilesPresent: integer("auth_files_present", { mode: "boolean" })

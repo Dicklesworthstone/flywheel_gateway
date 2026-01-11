@@ -19,6 +19,7 @@ import type {
   AccountProfile,
   ByoaStatus,
   CreateProfileOptions,
+  HealthStatus,
   ListProfilesOptions,
   ProfileStatus,
   ProviderId,
@@ -538,10 +539,19 @@ function rowToProfile(row: {
   status: string;
   statusMessage: string | null;
   healthScore: number | null;
+  healthStatus: string | null;
   lastVerifiedAt: Date | null;
   expiresAt: Date | null;
   cooldownUntil: Date | null;
   lastUsedAt: Date | null;
+  // Health penalty tracking
+  tokenExpiresAt: Date | null;
+  lastErrorAt: Date | null;
+  errorCount1h: number | null;
+  penaltyScore: number | null;
+  penaltyUpdatedAt: Date | null;
+  planType: string | null;
+  // Auth artifacts
   authFilesPresent: boolean;
   authFileHash: string | null;
   storageMode: string | null;
@@ -567,10 +577,23 @@ function rowToProfile(row: {
   // Conditionally add optional fields (for exactOptionalPropertyTypes)
   if (row.statusMessage !== null) profile.statusMessage = row.statusMessage;
   if (row.healthScore !== null) profile.healthScore = row.healthScore;
+  if (row.healthStatus !== null)
+    profile.healthStatus = row.healthStatus as HealthStatus;
   if (row.lastVerifiedAt !== null) profile.lastVerifiedAt = row.lastVerifiedAt;
   if (row.expiresAt !== null) profile.expiresAt = row.expiresAt;
   if (row.cooldownUntil !== null) profile.cooldownUntil = row.cooldownUntil;
   if (row.lastUsedAt !== null) profile.lastUsedAt = row.lastUsedAt;
+
+  // Health penalty tracking fields
+  if (row.tokenExpiresAt !== null) profile.tokenExpiresAt = row.tokenExpiresAt;
+  if (row.lastErrorAt !== null) profile.lastErrorAt = row.lastErrorAt;
+  if (row.errorCount1h !== null) profile.errorCount1h = row.errorCount1h;
+  if (row.penaltyScore !== null) profile.penaltyScore = row.penaltyScore;
+  if (row.penaltyUpdatedAt !== null)
+    profile.penaltyUpdatedAt = row.penaltyUpdatedAt;
+  if (row.planType !== null) profile.planType = row.planType;
+
+  // Auth artifacts
   if (row.authFileHash !== null)
     profile.artifacts.authFileHash = row.authFileHash;
   if (row.storageMode !== null)
