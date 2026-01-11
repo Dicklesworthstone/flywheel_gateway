@@ -7,6 +7,6 @@ export function useThemeEffect() {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.dataset.theme = theme;
+    root.dataset["theme"] = theme;
   }, [theme]);
 }

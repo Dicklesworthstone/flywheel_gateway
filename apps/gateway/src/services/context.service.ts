@@ -5,6 +5,7 @@
  * and intelligently allocates token budget to maximize prompt effectiveness.
  */
 
+import type { BvRecommendation } from "@flywheel/flywheel-clients";
 import { ulid } from "ulid";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
@@ -26,6 +27,7 @@ import {
   type TriageSection,
   type TruncationRecord,
 } from "../types/context.types";
+import { getBvTriage } from "./bv.service";
 import {
   allocateBudget,
   createStrategy,
@@ -33,8 +35,6 @@ import {
   getTotalAllocated,
 } from "./context-budget.service";
 import { countTokens, truncateToTokens } from "./tokenizer.service";
-import { getBvTriage } from "./bv.service";
-import type { BvRecommendation } from "@flywheel/flywheel-clients";
 
 // ============================================================================
 // Section Builders

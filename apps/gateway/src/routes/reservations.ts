@@ -10,21 +10,21 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
+  type CreateReservationParams,
   checkReservation,
   createReservation,
-  type CreateReservationParams,
   getReservation,
   getReservationStats,
-  listConflicts,
   type ListConflictsParams,
-  listReservations,
   type ListReservationsParams,
-  releaseReservation,
+  listConflicts,
+  listReservations,
   type RenewReservationParams,
-  renewReservation,
   type ReservationMode,
-  resolveConflict,
   type ResolveConflictParams,
+  releaseReservation,
+  renewReservation,
+  resolveConflict,
 } from "../services/reservation.service";
 
 const reservations = new Hono();
@@ -316,7 +316,8 @@ reservations.post("/conflicts/:id/resolve", async (c) => {
     const resolveParams: ResolveConflictParams = {
       conflictId: id,
     };
-    if (validated.resolvedBy !== undefined) resolveParams.resolvedBy = validated.resolvedBy;
+    if (validated.resolvedBy !== undefined)
+      resolveParams.resolvedBy = validated.resolvedBy;
     if (validated.reason !== undefined) resolveParams.reason = validated.reason;
 
     const result = await resolveConflict(resolveParams);
@@ -507,7 +508,8 @@ reservations.post("/:id/renew", async (c) => {
       reservationId: id,
       agentId: validated.agentId,
     };
-    if (validated.additionalTtl !== undefined) renewParams.additionalTtl = validated.additionalTtl;
+    if (validated.additionalTtl !== undefined)
+      renewParams.additionalTtl = validated.additionalTtl;
 
     const result = await renewReservation(renewParams);
 

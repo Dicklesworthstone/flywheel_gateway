@@ -128,10 +128,11 @@ function compareSemver(a: string, b: string): number {
 }
 
 // Allowed base directories for output (security)
+const homeDir = process.env["HOME"];
 const ALLOWED_OUTPUT_BASES = [
   "/tmp",
-  process.env.HOME ? path.join(process.env.HOME, "Downloads") : "/tmp",
-  process.env.HOME ? path.join(process.env.HOME, ".flywheel") : "/tmp",
+  homeDir ? path.join(homeDir, "Downloads") : "/tmp",
+  homeDir ? path.join(homeDir, ".flywheel") : "/tmp",
 ];
 
 // ============================================================================
@@ -234,12 +235,13 @@ async function checkUtility(
     installedVersion = versionMatch?.[1];
   }
 
+  // Build status conditionally (for exactOptionalPropertyTypes)
   const status: DeveloperUtility = {
     ...utility,
     installed,
-    installedVersion,
     lastCheckedAt: now,
   };
+  if (installedVersion !== undefined) status.installedVersion = installedVersion;
 
   statusCache.set(utility.name, { status, checkedAt: now });
 
@@ -252,14 +254,18 @@ async function checkUtility(
 export async function listUtilities(): Promise<UtilityStatus[]> {
   const results = await Promise.all(KNOWN_UTILITIES.map(checkUtility));
 
-  return results.map((u) => ({
-    name: u.name,
-    installed: u.installed,
-    version: u.installedVersion,
-    installCommand: u.installCommand,
-    description: u.description,
-    lastCheckedAt: u.lastCheckedAt?.toISOString(),
-  }));
+  return results.map((u) => {
+    // Build status conditionally (for exactOptionalPropertyTypes)
+    const status: UtilityStatus = {
+      name: u.name,
+      installed: u.installed,
+      installCommand: u.installCommand,
+      description: u.description,
+    };
+    if (u.installedVersion !== undefined) status.version = u.installedVersion;
+    if (u.lastCheckedAt) status.lastCheckedAt = u.lastCheckedAt.toISOString();
+    return status;
+  });
 }
 
 /**
@@ -273,16 +279,19 @@ export async function getUtilityStatus(
     return null;
   }
 
-  const status = await checkUtility(utility);
+  const checked = await checkUtility(utility);
 
-  return {
-    name: status.name,
-    installed: status.installed,
-    version: status.installedVersion,
-    installCommand: status.installCommand,
-    description: status.description,
-    lastCheckedAt: status.lastCheckedAt?.toISOString(),
+  // Build status conditionally (for exactOptionalPropertyTypes)
+  const status: UtilityStatus = {
+    name: checked.name,
+    installed: checked.installed,
+    installCommand: checked.installCommand,
+    description: checked.description,
   };
+  if (checked.installedVersion !== undefined) status.version = checked.installedVersion;
+  if (checked.lastCheckedAt) status.lastCheckedAt = checked.lastCheckedAt.toISOString();
+
+  return status;
 }
 
 /**
@@ -298,7 +307,10 @@ export async function runDoctor(): Promise<DoctorResult> {
     if (!u.installed) {
       status = "missing";
       message = `Not installed. Run: ${u.installCommand}`;
-    } else if (u.installedVersion && compareSemver(u.installedVersion, u.version) < 0) {
+    } else if (
+      u.installedVersion &&
+      compareSemver(u.installedVersion, u.version) < 0
+    ) {
       status = "outdated";
       message = `Version ${u.installedVersion} installed, ${u.version} available`;
     } else {
@@ -306,13 +318,21 @@ export async function runDoctor(): Promise<DoctorResult> {
       message = `Version ${u.installedVersion ?? "unknown"} installed`;
     }
 
-    return {
+    // Build result conditionally (for exactOptionalPropertyTypes)
+    const result: {
+      name: string;
+      status: "installed" | "missing" | "outdated" | "error";
+      version?: string;
+      expectedVersion: string;
+      message: string;
+    } = {
       name: u.name,
       status,
-      version: u.installedVersion,
       expectedVersion: u.version,
       message,
     };
+    if (u.installedVersion !== undefined) result.version = u.installedVersion;
+    return result;
   });
 
   const healthy = utilities.every((u) => u.status === "installed");
@@ -384,7 +404,9 @@ export async function runGiil(request: GiilRequest): Promise<GiilResponse> {
   const outputDir = request.outputDir ?? "/tmp/flywheel-giil";
   const validation = validateOutputDir(outputDir);
   if (!validation.valid) {
-    return { success: false, error: validation.error };
+    const errResponse: GiilResponse = { success: false };
+    if (validation.error) errResponse.error = validation.error;
+    return errResponse;
   }
 
   // Build command arguments
@@ -418,25 +440,22 @@ export async function runGiil(request: GiilRequest): Promise<GiilResponse> {
   if (request.format === "json") {
     try {
       const parsed = JSON.parse(result.stdout);
-      return {
-        success: true,
-        path: parsed.path,
-        width: parsed.width,
-        height: parsed.height,
-        captureMethod: parsed.captureMethod,
-      };
+      const jsonResponse: GiilResponse = { success: true };
+      if (parsed.path) jsonResponse.path = parsed.path;
+      if (typeof parsed.width === "number") jsonResponse.width = parsed.width;
+      if (typeof parsed.height === "number") jsonResponse.height = parsed.height;
+      if (parsed.captureMethod) jsonResponse.captureMethod = parsed.captureMethod;
+      return jsonResponse;
     } catch {
-      return {
-        success: true,
-        path: validation.resolvedPath,
-      };
+      const fallbackResponse: GiilResponse = { success: true };
+      if (validation.resolvedPath) fallbackResponse.path = validation.resolvedPath;
+      return fallbackResponse;
     }
   }
 
-  return {
-    success: true,
-    path: validation.resolvedPath,
-  };
+  const successResponse: GiilResponse = { success: true };
+  if (validation.resolvedPath) successResponse.path = validation.resolvedPath;
+  return successResponse;
 }
 
 // ============================================================================
@@ -463,7 +482,9 @@ export async function runCsctf(request: CsctfRequest): Promise<CsctfResponse> {
   const outputDir = request.outputDir ?? "/tmp/flywheel-csctf";
   const validation = validateOutputDir(outputDir);
   if (!validation.valid) {
-    return { success: false, error: validation.error };
+    const errResponse: CsctfResponse = { success: false };
+    if (validation.error) errResponse.error = validation.error;
+    return errResponse;
   }
 
   // Build command arguments
@@ -508,13 +529,14 @@ export async function runCsctf(request: CsctfRequest): Promise<CsctfResponse> {
   const titleMatch = result.stdout.match(/Title: (.+)/);
   const countMatch = result.stdout.match(/(\d+) messages?/);
 
-  return {
-    success: true,
-    markdownPath: mdMatch?.[1],
-    htmlPath: htmlMatch?.[1],
-    title: titleMatch?.[1],
-    messageCount: countMatch ? parseInt(countMatch[1], 10) : undefined,
-  };
+  // Build response conditionally (for exactOptionalPropertyTypes)
+  const response: CsctfResponse = { success: true };
+  if (mdMatch?.[1]) response.markdownPath = mdMatch[1];
+  if (htmlMatch?.[1]) response.htmlPath = htmlMatch[1];
+  if (titleMatch?.[1]) response.title = titleMatch[1];
+  if (countMatch?.[1]) response.messageCount = parseInt(countMatch[1], 10);
+
+  return response;
 }
 
 // ============================================================================

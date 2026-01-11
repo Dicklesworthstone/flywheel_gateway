@@ -127,11 +127,14 @@ history.get("/", async (c) => {
     // Build options conditionally (for exactOptionalPropertyTypes)
     const options: HistoryQueryOptions = {};
     if (params.agentId !== undefined) options.agentId = params.agentId;
-    if (params.outcome !== undefined) options.outcome = params.outcome.split(",") as HistoryOutcome[];
+    if (params.outcome !== undefined)
+      options.outcome = params.outcome.split(",") as HistoryOutcome[];
     if (params.starred === "true") options.starred = true;
     else if (params.starred === "false") options.starred = false;
-    if (params.startDate !== undefined) options.startDate = new Date(params.startDate);
-    if (params.endDate !== undefined) options.endDate = new Date(params.endDate);
+    if (params.startDate !== undefined)
+      options.startDate = new Date(params.startDate);
+    if (params.endDate !== undefined)
+      options.endDate = new Date(params.endDate);
     if (params.search !== undefined) options.search = params.search;
     if (params.tags !== undefined) options.tags = params.tags.split(",");
     if (params.limit !== undefined) options.limit = params.limit;
@@ -336,8 +339,10 @@ history.post("/export", async (c) => {
     const exportOptions: ExportOptions = {
       format: validated.format,
     };
-    if (validated.agentId !== undefined) exportOptions.agentId = validated.agentId;
-    if (validated.startDate) exportOptions.startDate = new Date(validated.startDate);
+    if (validated.agentId !== undefined)
+      exportOptions.agentId = validated.agentId;
+    if (validated.startDate)
+      exportOptions.startDate = new Date(validated.startDate);
     if (validated.endDate) exportOptions.endDate = new Date(validated.endDate);
 
     const content = await exportHistory(exportOptions);
@@ -394,8 +399,10 @@ history.post("/extract", async (c) => {
 
     // Build options conditionally (for exactOptionalPropertyTypes)
     const extractOptions: Parameters<typeof extractFromOutput>[2] = {};
-    if (validated.language !== undefined) extractOptions.language = validated.language;
-    if (validated.customPattern !== undefined) extractOptions.customPattern = validated.customPattern;
+    if (validated.language !== undefined)
+      extractOptions.language = validated.language;
+    if (validated.customPattern !== undefined)
+      extractOptions.customPattern = validated.customPattern;
 
     const result = extractFromOutput(
       validated.output,

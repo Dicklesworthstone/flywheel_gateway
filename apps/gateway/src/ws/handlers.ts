@@ -6,6 +6,7 @@ import { type AuthContext, type ConnectionData, getHub } from "./hub";
 import {
   parseClientMessage,
   type ServerMessage,
+  type SubscribedMessage,
   serializeServerMessage,
 } from "./messages";
 
@@ -111,11 +112,11 @@ export function handleWSMessage(
           }
 
           // THEN send acknowledgement with the latest cursor
-          const subMsg: ServerMessage = {
+          const subMsg: SubscribedMessage = {
             type: "subscribed",
             channel: channelStr,
-            cursor: result.cursor,
           };
+          if (result.cursor !== undefined) subMsg.cursor = result.cursor;
           ws.send(serializeServerMessage(subMsg));
         }
         break;
@@ -209,7 +210,7 @@ export function handleWSMessage(
 
       default:
         logger.warn(
-          { connectionId, type: clientMsg.type },
+          { connectionId, type: (clientMsg as { type: string }).type },
           "Unknown message type",
         );
     }

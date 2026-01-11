@@ -4,14 +4,14 @@ import { correlationMiddleware } from "./middleware/correlation";
 import { idempotencyMiddleware } from "./middleware/idempotency";
 import { loggingMiddleware } from "./middleware/logging";
 import { routes } from "./routes";
-import { createGuestAuthContext } from "./ws/authorization";
-import { handleWSClose, handleWSMessage, handleWSOpen } from "./ws/handlers";
-import { startHeartbeat } from "./ws/heartbeat";
-import { getHub } from "./ws/hub";
 import { startAgentEvents } from "./services/agent-events";
 import { logger } from "./services/logger";
 import { registerAgentMailToolCallerFromEnv } from "./services/mcp-agentmail";
 import { startCleanupJob } from "./services/reservation.service";
+import { createGuestAuthContext } from "./ws/authorization";
+import { handleWSClose, handleWSMessage, handleWSOpen } from "./ws/handlers";
+import { startHeartbeat } from "./ws/heartbeat";
+import { getHub } from "./ws/hub";
 
 // Register available agent drivers
 registerDrivers();

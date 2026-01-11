@@ -326,7 +326,8 @@ export class AutoCheckpointService {
         checkpointId: metadata.id,
         trigger,
       };
-      if (metadata.compressionStats !== undefined) result.compressionStats = metadata.compressionStats;
+      if (metadata.compressionStats !== undefined)
+        result.compressionStats = metadata.compressionStats;
       return result;
     } catch (error) {
       log.error(

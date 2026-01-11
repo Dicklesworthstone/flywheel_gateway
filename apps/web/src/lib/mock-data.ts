@@ -1,4 +1,4 @@
-export const DEFAULT_MOCK_MODE = import.meta.env.VITE_MOCK_DATA === "true";
+export const DEFAULT_MOCK_MODE = import.meta.env["VITE_MOCK_DATA"] === "true";
 
 export const mockAgents = [
   { id: "agent-ax7", name: "Claude", status: "ready", model: "claude-3.7" },

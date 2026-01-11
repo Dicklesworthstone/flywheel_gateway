@@ -53,7 +53,8 @@ export function canSubscribe(
     // Agent channels: require access to the specific agent
     case "agent:output":
     case "agent:state":
-    case "agent:tools": {
+    case "agent:tools":
+    case "agent:checkpoints": {
       // If we have an agent access checker, use it
       if (agentAccess) {
         const hasAccess = agentAccess(
@@ -99,13 +100,10 @@ export function canSubscribe(
 
     // System channels: just need authentication
     case "system:health":
-    case "system:metrics": {
+    case "system:metrics":
+    case "system:dcg":
+    case "system:fleet": {
       return { allowed: true };
-    }
-
-    default: {
-      // Unknown channel type
-      return { allowed: false, reason: "Unknown channel type" };
     }
   }
 }
@@ -136,7 +134,8 @@ export function canPublish(
     // Agent channels: only internal services can publish
     case "agent:output":
     case "agent:state":
-    case "agent:tools": {
+    case "agent:tools":
+    case "agent:checkpoints": {
       // Regular users cannot publish to agent channels
       // These are populated by the gateway internals
       return {
@@ -176,15 +175,13 @@ export function canPublish(
 
     // System channels: only admin/system can publish
     case "system:health":
-    case "system:metrics": {
+    case "system:metrics":
+    case "system:dcg":
+    case "system:fleet": {
       return {
         allowed: false,
         reason: "Only system services can publish to system channels",
       };
-    }
-
-    default: {
-      return { allowed: false, reason: "Unknown channel type" };
     }
   }
 }
@@ -207,7 +204,6 @@ export function createInternalAuthContext(): AuthContext {
  */
 export function createGuestAuthContext(): AuthContext {
   return {
-    userId: undefined,
     workspaceIds: [],
     isAdmin: false,
   };
@@ -222,10 +218,11 @@ export function validateAuthContext(auth: Partial<AuthContext>): AuthContext {
     ? auth.workspaceIds.filter((id): id is string => typeof id === "string")
     : [];
 
-  return {
-    userId: auth.userId,
-    apiKeyId: auth.apiKeyId,
+  const result: AuthContext = {
     workspaceIds,
     isAdmin: auth.isAdmin ?? false,
   };
+  if (auth.userId !== undefined) result.userId = auth.userId;
+  if (auth.apiKeyId !== undefined) result.apiKeyId = auth.apiKeyId;
+  return result;
 }

@@ -163,7 +163,9 @@ export const fleetRepos = sqliteTable(
 
     // Local state
     localPath: text("local_path"),
-    isCloned: integer("is_cloned", { mode: "boolean" }).notNull().default(false),
+    isCloned: integer("is_cloned", { mode: "boolean" })
+      .notNull()
+      .default(false),
 
     // Git state
     currentBranch: text("current_branch"),
@@ -174,8 +176,14 @@ export const fleetRepos = sqliteTable(
 
     // Status: healthy | dirty | behind | ahead | diverged | unknown
     status: text("status").notNull().default("unknown"),
-    hasUncommittedChanges: integer("has_uncommitted_changes", { mode: "boolean" }).notNull().default(false),
-    hasUnpushedCommits: integer("has_unpushed_commits", { mode: "boolean" }).notNull().default(false),
+    hasUncommittedChanges: integer("has_uncommitted_changes", {
+      mode: "boolean",
+    })
+      .notNull()
+      .default(false),
+    hasUnpushedCommits: integer("has_unpushed_commits", { mode: "boolean" })
+      .notNull()
+      .default(false),
     aheadBy: integer("ahead_by").notNull().default(0),
     behindBy: integer("behind_by").notNull().default(0),
 
@@ -291,7 +299,9 @@ export const agentSweepSessions = sqliteTable(
     totalDurationMs: integer("total_duration_ms"),
 
     // SLB integration
-    slbApprovalRequired: integer("slb_approval_required", { mode: "boolean" }).notNull().default(true),
+    slbApprovalRequired: integer("slb_approval_required", { mode: "boolean" })
+      .notNull()
+      .default(true),
     slbApprovalId: text("slb_approval_id"),
     slbApprovedBy: text("slb_approved_by"),
     slbApprovedAt: integer("slb_approved_at", { mode: "timestamp" }),

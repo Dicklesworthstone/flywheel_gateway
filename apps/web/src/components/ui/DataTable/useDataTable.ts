@@ -303,8 +303,11 @@ export function useDataTable<T>(
           const start = Math.min(prev.lastSelectedIndex, index);
           const end = Math.max(prev.lastSelectedIndex, index);
           for (let i = start; i <= end; i++) {
-            const rowId = getRowId(displayedData[i]);
-            newSelected.add(rowId);
+            const row = displayedData[i];
+            if (row) {
+              const rowId = getRowId(row);
+              newSelected.add(rowId);
+            }
           }
         } else if (event.ctrlKey || event.metaKey) {
           // Ctrl/Cmd-click: toggle single

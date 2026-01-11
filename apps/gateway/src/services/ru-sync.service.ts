@@ -12,7 +12,12 @@ import { fleetRepos, fleetSyncOps } from "../db/schema";
 import { getCorrelationId } from "../middleware/correlation";
 import { getHub } from "../ws/hub";
 import { logger } from "./logger";
-import { type FleetRepo, type RepoStatus, updateFleetRepo } from "./ru-fleet.service";
+import {
+  type FleetRepo,
+  type RepoStatus,
+  type UpdateRepoParams,
+  updateFleetRepo,
+} from "./ru-fleet.service";
 
 // ============================================================================
 // Types
@@ -89,11 +94,14 @@ export interface SyncResult {
 const activeSyncs = new Map<string, Subprocess>();
 
 // Active sync sessions
-const activeSessions = new Map<string, {
-  aborted: boolean;
-  startTime: number;
-  repos: FleetRepo[];
-}>();
+const activeSessions = new Map<
+  string,
+  {
+    aborted: boolean;
+    startTime: number;
+    repos: FleetRepo[];
+  }
+>();
 
 // ============================================================================
 // Helpers
@@ -321,13 +329,14 @@ async function runSyncProcess(
                 ),
               );
 
-            // Update repo status
-            await updateFleetRepo(repo.id, {
+            // Update repo status - build params conditionally for exactOptionalPropertyTypes
+            const updateParams: UpdateRepoParams = {
               isCloned: true,
               status: "healthy" as RepoStatus,
               lastSyncAt: new Date(),
-              lastCommit: result.commit,
-            });
+            };
+            if (result.commit) updateParams.lastCommit = result.commit;
+            await updateFleetRepo(repo.id, updateParams);
 
             completed++;
           } else {
@@ -432,7 +441,10 @@ export async function cancelSync(sessionId: string): Promise<void> {
   const session = activeSessions.get(sessionId);
 
   if (!session) {
-    logger.warn({ correlationId, sessionId }, "Session not found or already completed");
+    logger.warn(
+      { correlationId, sessionId },
+      "Session not found or already completed",
+    );
     return;
   }
 
@@ -524,7 +536,9 @@ export async function getSyncHistory(options?: {
 /**
  * Get a specific sync operation.
  */
-export async function getSyncOperation(opId: string): Promise<SyncOpRecord | null> {
+export async function getSyncOperation(
+  opId: string,
+): Promise<SyncOpRecord | null> {
   const op = await db
     .select()
     .from(fleetSyncOps)

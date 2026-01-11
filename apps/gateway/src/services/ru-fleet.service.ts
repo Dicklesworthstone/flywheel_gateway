@@ -273,7 +273,9 @@ export async function getFleetStats(): Promise<FleetStats> {
 /**
  * Add a repository to the fleet.
  */
-export async function addRepoToFleet(params: AddRepoParams): Promise<FleetRepo> {
+export async function addRepoToFleet(
+  params: AddRepoParams,
+): Promise<FleetRepo> {
   const correlationId = getCorrelationId();
   const startTime = Date.now();
 
@@ -376,41 +378,41 @@ export async function updateFleetRepo(
     updatedAt: new Date(),
   };
 
-  // Map params to schema fields
-  if (updates.localPath !== undefined) updateData.localPath = updates.localPath;
-  if (updates.isCloned !== undefined) updateData.isCloned = updates.isCloned;
+  // Map params to schema fields (using bracket notation for index signature access)
+  if (updates.localPath !== undefined) updateData["localPath"] = updates.localPath;
+  if (updates.isCloned !== undefined) updateData["isCloned"] = updates.isCloned;
   if (updates.currentBranch !== undefined)
-    updateData.currentBranch = updates.currentBranch;
+    updateData["currentBranch"] = updates.currentBranch;
   if (updates.defaultBranch !== undefined)
-    updateData.defaultBranch = updates.defaultBranch;
+    updateData["defaultBranch"] = updates.defaultBranch;
   if (updates.lastCommit !== undefined)
-    updateData.lastCommit = updates.lastCommit;
+    updateData["lastCommit"] = updates.lastCommit;
   if (updates.lastCommitDate !== undefined)
-    updateData.lastCommitDate = updates.lastCommitDate;
+    updateData["lastCommitDate"] = updates.lastCommitDate;
   if (updates.lastCommitAuthor !== undefined)
-    updateData.lastCommitAuthor = updates.lastCommitAuthor;
-  if (updates.status !== undefined) updateData.status = updates.status;
+    updateData["lastCommitAuthor"] = updates.lastCommitAuthor;
+  if (updates.status !== undefined) updateData["status"] = updates.status;
   if (updates.hasUncommittedChanges !== undefined)
-    updateData.hasUncommittedChanges = updates.hasUncommittedChanges;
+    updateData["hasUncommittedChanges"] = updates.hasUncommittedChanges;
   if (updates.hasUnpushedCommits !== undefined)
-    updateData.hasUnpushedCommits = updates.hasUnpushedCommits;
-  if (updates.aheadBy !== undefined) updateData.aheadBy = updates.aheadBy;
-  if (updates.behindBy !== undefined) updateData.behindBy = updates.behindBy;
+    updateData["hasUnpushedCommits"] = updates.hasUnpushedCommits;
+  if (updates.aheadBy !== undefined) updateData["aheadBy"] = updates.aheadBy;
+  if (updates.behindBy !== undefined) updateData["behindBy"] = updates.behindBy;
   if (updates.description !== undefined)
-    updateData.description = updates.description;
-  if (updates.language !== undefined) updateData.language = updates.language;
-  if (updates.stars !== undefined) updateData.stars = updates.stars;
-  if (updates.isPrivate !== undefined) updateData.isPrivate = updates.isPrivate;
+    updateData["description"] = updates.description;
+  if (updates.language !== undefined) updateData["language"] = updates.language;
+  if (updates.stars !== undefined) updateData["stars"] = updates.stars;
+  if (updates.isPrivate !== undefined) updateData["isPrivate"] = updates.isPrivate;
   if (updates.isArchived !== undefined)
-    updateData.isArchived = updates.isArchived;
-  if (updates.ruGroup !== undefined) updateData.ruGroup = updates.ruGroup;
-  if (updates.ruConfig !== undefined) updateData.ruConfig = updates.ruConfig;
+    updateData["isArchived"] = updates.isArchived;
+  if (updates.ruGroup !== undefined) updateData["ruGroup"] = updates.ruGroup;
+  if (updates.ruConfig !== undefined) updateData["ruConfig"] = updates.ruConfig;
   if (updates.agentsmdPath !== undefined)
-    updateData.agentsmdPath = updates.agentsmdPath;
+    updateData["agentsmdPath"] = updates.agentsmdPath;
   if (updates.lastScanDate !== undefined)
-    updateData.lastScanDate = updates.lastScanDate;
+    updateData["lastScanDate"] = updates.lastScanDate;
   if (updates.lastSyncAt !== undefined)
-    updateData.lastSyncAt = updates.lastSyncAt;
+    updateData["lastSyncAt"] = updates.lastSyncAt;
 
   await db.update(fleetRepos).set(updateData).where(eq(fleetRepos.id, repoId));
 
@@ -445,9 +447,7 @@ export async function updateFleetRepo(
 /**
  * Get repos by group.
  */
-export async function getReposByGroup(
-  group: string,
-): Promise<FleetRepo[]> {
+export async function getReposByGroup(group: string): Promise<FleetRepo[]> {
   const repos = await db
     .select()
     .from(fleetRepos)
@@ -466,9 +466,7 @@ export async function getFleetGroups(): Promise<string[]> {
     .from(fleetRepos)
     .where(sql`${fleetRepos.ruGroup} IS NOT NULL`);
 
-  return result
-    .map((r) => r.group)
-    .filter((g): g is string => g !== null);
+  return result.map((r) => r.group).filter((g): g is string => g !== null);
 }
 
 /**

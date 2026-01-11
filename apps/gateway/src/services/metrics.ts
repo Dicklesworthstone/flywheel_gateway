@@ -394,11 +394,11 @@ export function createNamedSnapshot(
   const snapshot: NamedSnapshot = {
     id,
     name,
-    description,
     createdAt: new Date(),
-    createdBy,
     snapshot: getMetricsSnapshot(),
   };
+  if (description !== undefined) snapshot.description = description;
+  if (createdBy !== undefined) snapshot.createdBy = createdBy;
 
   namedSnapshots.set(id, snapshot);
   logger.info({ snapshotId: id, name }, "Created named metrics snapshot");

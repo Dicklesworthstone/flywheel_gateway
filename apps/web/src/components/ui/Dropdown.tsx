@@ -121,7 +121,7 @@ export function Dropdown({
           event.preventDefault();
           if (focusedIndex >= 0 && focusedIndex < navigableItems.length) {
             const item = navigableItems[focusedIndex];
-            if (item.onClick) {
+            if (item?.onClick) {
               item.onClick();
             }
             if (closeOnClick) {

@@ -16,6 +16,7 @@ import { history } from "./history";
 import { mail } from "./mail";
 import { metrics } from "./metrics";
 import { reservations } from "./reservations";
+import { ru } from "./ru";
 import { utilities } from "./utilities";
 
 const routes = new Hono();
@@ -34,6 +35,7 @@ routes.route("/metrics", metrics);
 routes.route("/reservations", reservations);
 routes.route("/sessions", checkpoints);
 routes.route("/sessions", context);
+routes.route("/ru", ru);
 routes.route("/utilities", utilities);
 
 export { routes };

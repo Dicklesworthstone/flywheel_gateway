@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, mock, test } from "bun:test";
-import { audit, auditSuccess, auditFailure } from "../services/audit";
 import type { AuditEventOptions } from "../services/audit";
+import { audit, auditFailure, auditSuccess } from "../services/audit";
 
 // Mock the correlation middleware
 mock.module("../middleware/correlation", () => ({

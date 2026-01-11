@@ -52,7 +52,7 @@ function ErrorState({
   onRetry,
 }: {
   error: Error | string;
-  onRetry?: () => void;
+  onRetry?: (() => void) | undefined;
 }) {
   const errorMessage = error instanceof Error ? error.message : error;
 
@@ -80,8 +80,8 @@ function EmptyState({
   title = "No data found",
   message = "There are no items to display.",
 }: {
-  title?: string;
-  message?: string;
+  title?: string | undefined;
+  message?: string | undefined;
 }) {
   return (
     <div className="data-table__empty">

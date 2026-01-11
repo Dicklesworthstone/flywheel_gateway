@@ -569,7 +569,10 @@ describe("Checkpoint Service", () => {
       // Verify error context is in toolState
       const restored = await restoreCheckpoint(metadata!.id);
       expect(restored.toolState["_errorContext"]).toBeDefined();
-      const ctx = restored.toolState["_errorContext"] as Record<string, unknown>;
+      const ctx = restored.toolState["_errorContext"] as Record<
+        string,
+        unknown
+      >;
       expect(ctx["errorType"]).toBe("TestError");
       expect(ctx["errorMessage"]).toBe("Something went wrong");
     });

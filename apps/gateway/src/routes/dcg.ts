@@ -159,8 +159,10 @@ dcg.put("/config", async (c) => {
 
     // Build update object conditionally (for exactOptionalPropertyTypes)
     const updates: Partial<DCGConfig> = {};
-    if (validated.enabledPacks !== undefined) updates.enabledPacks = validated.enabledPacks;
-    if (validated.disabledPacks !== undefined) updates.disabledPacks = validated.disabledPacks;
+    if (validated.enabledPacks !== undefined)
+      updates.enabledPacks = validated.enabledPacks;
+    if (validated.disabledPacks !== undefined)
+      updates.disabledPacks = validated.disabledPacks;
 
     const config = await updateConfig(updates);
 
@@ -276,7 +278,8 @@ dcg.get("/blocks", async (c) => {
     // Build options conditionally (for exactOptionalPropertyTypes)
     const options: Parameters<typeof getBlockEvents>[0] = {};
     if (query.agentId !== undefined) options.agentId = query.agentId;
-    if (query.severity !== undefined) options.severity = query.severity.split(",") as DCGSeverity[];
+    if (query.severity !== undefined)
+      options.severity = query.severity.split(",") as DCGSeverity[];
     if (query.pack !== undefined) options.pack = query.pack;
     if (query.limit !== undefined) options.limit = query.limit;
     if (query.cursor !== undefined) options.cursor = query.cursor;
@@ -363,7 +366,8 @@ dcg.post("/allowlist", async (c) => {
       reason: validated.reason,
       addedBy: "api-user",
     };
-    if (validated.expiresAt) entryInput.expiresAt = new Date(validated.expiresAt);
+    if (validated.expiresAt)
+      entryInput.expiresAt = new Date(validated.expiresAt);
 
     const entry = await addToAllowlist(entryInput);
 

@@ -26,7 +26,7 @@ interface DataTableCardsProps<T> {
   selectable?: boolean;
   selectedIds: Set<string>;
   onSelectRow: (id: string, index: number, event: React.MouseEvent) => void;
-  onRowClick?: (row: T, event: React.MouseEvent) => void;
+  onRowClick?: ((row: T, event: React.MouseEvent) => void) | undefined;
 }
 
 /**
@@ -114,20 +114,20 @@ export function DataTableCards<T>({
           >
             <div className="responsive-card__header">
               <div>
-                {primaryValue && (
+                {primaryValue != null ? (
                   <div className="responsive-card__title">
                     {primaryColumn?.cell
                       ? primaryColumn.cell(row, index)
                       : String(primaryValue)}
                   </div>
-                )}
-                {secondaryValue && (
+                ) : null}
+                {secondaryValue != null ? (
                   <div className="responsive-card__subtitle">
                     {secondaryColumn?.cell
                       ? secondaryColumn.cell(row, index)
                       : String(secondaryValue)}
                   </div>
-                )}
+                ) : null}
               </div>
               {selectable && (
                 <CardCheckbox

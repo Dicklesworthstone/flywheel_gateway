@@ -311,6 +311,10 @@ export const BUFFER_CONFIGS: Record<string, RingBufferConfig> = {
     capacity: 500, // Medium volume
     ttlMs: 600000, // 10 minutes
   },
+  "agent:checkpoints": {
+    capacity: 50, // Low volume - checkpoint events
+    ttlMs: 3600000, // 1 hour - checkpoint history
+  },
   "workspace:agents": {
     capacity: 200,
     ttlMs: 1800000, // 30 minutes
@@ -338,6 +342,14 @@ export const BUFFER_CONFIGS: Record<string, RingBufferConfig> = {
   "system:metrics": {
     capacity: 120,
     ttlMs: 120000, // 2 minutes
+  },
+  "system:dcg": {
+    capacity: 100, // DCG block updates
+    ttlMs: 300000, // 5 minutes
+  },
+  "system:fleet": {
+    capacity: 200, // Fleet repo updates
+    ttlMs: 600000, // 10 minutes
   },
 };
 

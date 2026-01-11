@@ -392,7 +392,7 @@ export function createAgentMailClient(
         options.callTool,
         toolName(prefix, "fetch_inbox"),
         input,
-        FetchInboxInputSchema,
+        FetchInboxInputSchema as z.ZodType<FetchInboxInput>,
         FetchInboxOutputSchema,
         callOptions,
       ),

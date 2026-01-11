@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { Hono } from "hono";
-import { createBeadsRoutes } from "../routes/beads";
 import type { BvTriageResult } from "@flywheel/flywheel-clients";
 import { BvClientError } from "@flywheel/flywheel-clients";
+import { Hono } from "hono";
+import { createBeadsRoutes } from "../routes/beads";
 
 const sampleTriage: BvTriageResult = {
   generated_at: "2026-01-10T00:00:00Z",

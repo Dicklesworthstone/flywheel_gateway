@@ -295,7 +295,7 @@ export async function createCheckpoint(
     );
   }
 
-  // Build checkpoint
+  // Build checkpoint (description and tags are required but can be undefined)
   const checkpoint: DeltaCheckpoint = {
     id: checkpointId,
     agentId,
@@ -306,14 +306,16 @@ export async function createCheckpoint(
     // Store uncompressed if not compressing, or leave undefined if compressed
     conversationHistory: options.compress ? [] : state.conversationHistory,
     toolState: options.compress ? {} : state.toolState,
-    contextPack: state.contextPack,
     isDelta: false,
-    // Compression fields
-    compression: compressionMeta,
-    compressedConversationHistory,
-    compressedToolState,
     parentCheckpointId: undefined,
   };
+  // Add truly optional properties only if defined
+  if (state.contextPack !== undefined)
+    checkpoint.contextPack = state.contextPack;
+  if (compressionMeta) checkpoint.compression = compressionMeta;
+  if (compressedConversationHistory)
+    checkpoint.compressedConversationHistory = compressedConversationHistory;
+  if (compressedToolState) checkpoint.compressedToolState = compressedToolState;
 
   // If delta mode and we have a parent
   if (options.delta && lastCheckpointId) {
@@ -379,15 +381,18 @@ export async function createCheckpoint(
     `[CHECKPOINT] Created checkpoint ${checkpointId} for agent ${agentId}${options.compress ? ` (compressed ${compressionMeta?.ratio.toFixed(2)}x)` : ""}`,
   );
 
-  return {
+  // Build result (description and tags are required but can be undefined)
+  const result: CheckpointMetadata & { compressionStats?: CompressionStats } = {
     id: checkpointId,
     agentId,
     createdAt: now,
     tokenUsage: state.tokenUsage,
     description: options.description,
     tags: options.tags,
-    compressionStats: totalCompressionStats,
   };
+  // Add truly optional properties only if defined
+  if (totalCompressionStats) result.compressionStats = totalCompressionStats;
+  return result;
 }
 
 // ============================================================================
@@ -520,13 +525,15 @@ export async function withErrorCheckpoint<T>(
     // Capture error checkpoint
     try {
       const state = await getState();
+      // Build error context conditionally (for exactOptionalPropertyTypes)
       const errorContext: ErrorContext = {
         errorType:
           error instanceof Error ? error.constructor.name : "UnknownError",
         errorMessage: error instanceof Error ? error.message : String(error),
-        errorStack: error instanceof Error ? error.stack : undefined,
         correlationId: getCorrelationId(),
       };
+      if (error instanceof Error && error.stack)
+        errorContext.errorStack = error.stack;
 
       await createErrorCheckpoint(agentId, state, errorContext);
     } catch {

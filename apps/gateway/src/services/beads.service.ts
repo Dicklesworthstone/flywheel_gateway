@@ -3,9 +3,13 @@ import type {
   BvPlanResult,
   BvTriageResult,
 } from "@flywheel/flywheel-clients";
-import { getBvInsights, getBvPlan, getBvTriage } from "./bv.service";
-import { getBvProjectRoot } from "./bv.service";
 import { getLogger } from "../middleware/correlation";
+import {
+  getBvInsights,
+  getBvPlan,
+  getBvProjectRoot,
+  getBvTriage,
+} from "./bv.service";
 
 export interface BeadsService {
   getTriage: () => Promise<BvTriageResult>;

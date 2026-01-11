@@ -479,14 +479,15 @@ export function pushOutput(
   const hub = getHub();
   const channel: Channel = { type: "agent:output", agentId };
 
-  const chunk = buffer.push({
+  const chunkData: Omit<OutputChunk, "id" | "sequence"> = {
     agentId,
     timestamp: new Date().toISOString(),
     type,
     content,
     streamType,
-    metadata,
-  });
+  };
+  if (metadata !== undefined) chunkData.metadata = metadata;
+  const chunk = buffer.push(chunkData);
 
   // Publish to WebSocket hub
   hub.publish(channel, "output.chunk", chunk, {

@@ -54,7 +54,8 @@ export function createAgentMailServiceFromEnv(): AgentMailService {
   // Build config conditionally (for exactOptionalPropertyTypes)
   const config: AgentMailServiceConfig = { callTool };
   if (toolPrefix !== undefined) config.toolPrefix = toolPrefix;
-  if (defaultTtlSeconds !== undefined) config.defaultTtlSeconds = defaultTtlSeconds;
+  if (defaultTtlSeconds !== undefined)
+    config.defaultTtlSeconds = defaultTtlSeconds;
 
   return createAgentMailService(config);
 }

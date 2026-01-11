@@ -113,6 +113,7 @@ export async function createHistoryEntry(
   const id = generateHistoryId();
   const now = new Date();
 
+  // Build entry conditionally (for exactOptionalPropertyTypes)
   const entry: HistoryEntry = {
     id,
     agentId,
@@ -126,8 +127,8 @@ export async function createHistoryEntry(
     tags: input.tags ?? [],
     starred: false,
     replayCount: 0,
-    metadata: input.metadata,
   };
+  if (input.metadata) entry.metadata = input.metadata;
 
   // Store in database
   await db.insert(historyTable).values({
@@ -194,23 +195,28 @@ export async function completeHistoryEntry(
     })
     .where(eq(historyTable.id, entryId));
 
+  // Build entry conditionally (for exactOptionalPropertyTypes)
+  // Use bracket notation for index signature access
   const entry: HistoryEntry = {
     id: entryId,
     agentId: row.agentId,
     timestamp: row.createdAt,
-    prompt: (inputData?.prompt as string) ?? "",
-    promptTokens: (inputData?.promptTokens as number) ?? 0,
+    prompt: (inputData?.["prompt"] as string) ?? "",
+    promptTokens: (inputData?.["promptTokens"] as number) ?? 0,
     responseSummary: output.responseSummary,
     responseTokens:
       output.responseTokens ?? estimateTokens(output.responseSummary),
     durationMs,
     outcome: output.outcome,
-    error: output.error,
-    tags: (inputData?.tags as string[]) ?? [],
+    tags: (inputData?.["tags"] as string[]) ?? [],
     starred: false,
     replayCount: 0,
-    metadata: inputData?.metadata as Record<string, unknown> | undefined,
   };
+  if (output.error) entry.error = output.error;
+  const metadata = inputData?.["metadata"] as
+    | Record<string, unknown>
+    | undefined;
+  if (metadata) entry.metadata = metadata;
 
   log.info(
     {
@@ -318,13 +324,11 @@ export async function queryHistory(options: HistoryQueryOptions = {}): Promise<{
   const result = filtered.slice(0, limit);
   const lastEntry = result[result.length - 1];
 
-  return {
-    entries: result,
-    pagination: {
-      cursor: lastEntry?.id,
-      hasMore,
-    },
-  };
+  // Build pagination conditionally (for exactOptionalPropertyTypes)
+  const pagination: { cursor?: string; hasMore: boolean } = { hasMore };
+  if (lastEntry?.id) pagination.cursor = lastEntry.id;
+
+  return { entries: result, pagination };
 }
 
 /**
@@ -391,7 +395,7 @@ export async function toggleStar(
 
   const row = rows[0]!;
   const inputData = (row.input as Record<string, unknown>) ?? {};
-  const currentStarred = (inputData.starred as boolean) ?? false;
+  const currentStarred = (inputData["starred"] as boolean) ?? false;
 
   // Toggle starred in input JSON
   await db
@@ -430,7 +434,7 @@ export async function incrementReplayCount(entryId: string): Promise<void> {
 
   const row = rows[0]!;
   const inputData = (row.input as Record<string, unknown>) ?? {};
-  const currentCount = (inputData.replayCount as number) ?? 0;
+  const currentCount = (inputData["replayCount"] as number) ?? 0;
 
   await db
     .update(historyTable)
@@ -454,14 +458,14 @@ export async function incrementReplayCount(entryId: string): Promise<void> {
 export async function pruneHistory(olderThan: Date): Promise<number> {
   const result = await db
     .delete(historyTable)
-    .where(lte(historyTable.createdAt, olderThan));
+    .where(lte(historyTable.createdAt, olderThan))
+    .returning({ id: historyTable.id });
 
-  logger.info(
-    { olderThan, deletedCount: result.rowsAffected },
-    "History pruned",
-  );
+  const deletedCount = result.length;
 
-  return result.rowsAffected;
+  logger.info({ olderThan, deletedCount }, "History pruned");
+
+  return deletedCount;
 }
 
 // ============================================================================
@@ -547,12 +551,13 @@ export interface ExportOptions {
  * Export history entries.
  */
 export async function exportHistory(options: ExportOptions): Promise<string> {
-  const { entries } = await queryHistory({
-    agentId: options.agentId,
-    startDate: options.startDate,
-    endDate: options.endDate,
-    limit: 10000, // Max export size
-  });
+  // Build query options conditionally (for exactOptionalPropertyTypes)
+  const queryOptions: HistoryQueryOptions = { limit: 10000 }; // Max export size
+  if (options.agentId !== undefined) queryOptions.agentId = options.agentId;
+  if (options.startDate !== undefined) queryOptions.startDate = options.startDate;
+  if (options.endDate !== undefined) queryOptions.endDate = options.endDate;
+
+  const { entries } = await queryHistory(queryOptions);
 
   if (options.format === "json") {
     return JSON.stringify(entries, null, 2);
@@ -786,22 +791,29 @@ function rowToEntry(row: {
   const inputData = (row.input as Record<string, unknown>) ?? {};
   const outputData = (row.output as Record<string, unknown>) ?? {};
 
-  return {
+  // Build entry conditionally (for exactOptionalPropertyTypes)
+  const entry: HistoryEntry = {
     id: row.id,
     agentId: row.agentId,
     timestamp: row.createdAt,
-    prompt: (inputData.prompt as string) ?? "",
-    promptTokens: (inputData.promptTokens as number) ?? 0,
-    responseSummary: (outputData.responseSummary as string) ?? "",
-    responseTokens: (outputData.responseTokens as number) ?? 0,
+    prompt: (inputData["prompt"] as string) ?? "",
+    promptTokens: (inputData["promptTokens"] as number) ?? 0,
+    responseSummary: (outputData["responseSummary"] as string) ?? "",
+    responseTokens: (outputData["responseTokens"] as number) ?? 0,
     durationMs: row.durationMs,
-    outcome: (outputData.outcome as HistoryOutcome) ?? "pending",
-    error: outputData.error as string | undefined,
-    tags: (inputData.tags as string[]) ?? [],
-    starred: (inputData.starred as boolean) ?? false,
-    replayCount: (inputData.replayCount as number) ?? 0,
-    metadata: inputData.metadata as Record<string, unknown> | undefined,
+    outcome: (outputData["outcome"] as HistoryOutcome) ?? "pending",
+    tags: (inputData["tags"] as string[]) ?? [],
+    starred: (inputData["starred"] as boolean) ?? false,
+    replayCount: (inputData["replayCount"] as number) ?? 0,
   };
+
+  const errorValue = outputData["error"] as string | undefined;
+  if (errorValue !== undefined) entry.error = errorValue;
+
+  const metadataValue = inputData["metadata"] as Record<string, unknown> | undefined;
+  if (metadataValue !== undefined) entry.metadata = metadataValue;
+
+  return entry;
 }
 
 /**

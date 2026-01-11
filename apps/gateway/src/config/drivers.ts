@@ -1,7 +1,7 @@
 import {
   createClaudeDriver,
-  getDriverRegistry,
   type DriverRegistryEntry,
+  getDriverRegistry,
 } from "@flywheel/agent-drivers";
 
 export function registerDrivers() {

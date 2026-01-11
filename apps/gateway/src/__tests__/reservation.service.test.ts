@@ -12,11 +12,11 @@ import {
   createReservation,
   getReservation,
   getReservationStats,
-  listReservations,
   listConflicts,
+  listReservations,
   releaseReservation,
-  resolveConflict,
   renewReservation,
+  resolveConflict,
   startCleanupJob,
   stopCleanupJob,
 } from "../services/reservation.service";

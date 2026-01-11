@@ -235,7 +235,7 @@ export interface DataTableProps<T> {
 export interface DataTableToolbarProps {
   searchable?: boolean;
   searchValue: string;
-  searchPlaceholder?: string;
+  searchPlaceholder?: string | undefined;
   onSearchChange: (value: string) => void;
   filters?: Filter[];
   onFilterRemove?: (filterId: string) => void;
@@ -267,11 +267,11 @@ export interface DataTableBodyProps<T> {
   selectable?: boolean;
   selectedIds: Set<string>;
   onSelectRow: (id: string, index: number, event: React.MouseEvent) => void;
-  onRowClick?: (row: T, event: React.MouseEvent) => void;
+  onRowClick?: ((row: T, event: React.MouseEvent) => void) | undefined;
   expandable?: boolean;
   expandedIds: Set<string>;
   onToggleExpand: (id: string) => void;
-  renderExpandedRow?: (row: T) => ReactNode;
+  renderExpandedRow?: ((row: T) => ReactNode) | undefined;
 }
 
 /**
@@ -285,11 +285,11 @@ export interface DataTableRowProps<T> {
   selectable?: boolean;
   isSelected: boolean;
   onSelect: (id: string, index: number, event: React.MouseEvent) => void;
-  onClick?: (row: T, event: React.MouseEvent) => void;
+  onClick?: ((row: T, event: React.MouseEvent) => void) | undefined;
   expandable?: boolean;
   isExpanded: boolean;
   onToggleExpand: (id: string) => void;
-  renderExpandedRow?: (row: T) => ReactNode;
+  renderExpandedRow?: ((row: T) => ReactNode) | undefined;
 }
 
 /**
@@ -318,9 +318,9 @@ export interface DataTableBulkActionsProps<T> {
 export interface DataTableEmptyProps {
   loading?: boolean;
   error?: Error | string | null;
-  emptyTitle?: string;
-  emptyMessage?: string;
-  onRetry?: () => void;
+  emptyTitle?: string | undefined;
+  emptyMessage?: string | undefined;
+  onRetry?: (() => void) | undefined;
   loadingComponent?: ReactNode;
   errorComponent?: ReactNode;
   emptyComponent?: ReactNode;

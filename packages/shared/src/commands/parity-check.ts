@@ -53,8 +53,8 @@ function schemaHasField(schema: z.ZodType, fieldName: string): boolean {
   let currentDef = def;
   while (currentDef) {
     // Check for inner schema (effects, optional, nullable)
-    const innerSchema = currentDef.schema as z.ZodType | undefined;
-    const innerType = currentDef.innerType as z.ZodType | undefined;
+    const innerSchema = currentDef["schema"] as z.ZodType | undefined;
+    const innerType = currentDef["innerType"] as z.ZodType | undefined;
 
     if (innerSchema) {
       const innerDef = (innerSchema as { _def?: unknown })._def as
@@ -80,7 +80,7 @@ function schemaHasField(schema: z.ZodType, fieldName: string): boolean {
   }
 
   // Check for object shape
-  const shape = currentDef?.shape as Record<string, unknown> | undefined;
+  const shape = currentDef?.["shape"] as Record<string, unknown> | undefined;
   if (shape && typeof shape === "object") {
     return fieldName in shape;
   }

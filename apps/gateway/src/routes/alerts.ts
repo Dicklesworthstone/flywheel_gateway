@@ -5,7 +5,12 @@
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
-import type { AlertFilter, AlertRuleUpdate, AlertSeverity, AlertType } from "../models/alert";
+import type {
+  AlertFilter,
+  AlertRuleUpdate,
+  AlertSeverity,
+  AlertType,
+} from "../models/alert";
 import {
   acknowledgeAlert,
   dismissAlert,
@@ -117,7 +122,8 @@ alerts.get("/", (c) => {
     const severityParam = parseArrayQuery(c.req.query("severity"));
     if (severityParam) filter.severity = severityParam as AlertSeverity[];
     const acknowledgedParam = parseBooleanQuery(c.req.query("acknowledged"));
-    if (acknowledgedParam !== undefined) filter.acknowledged = acknowledgedParam;
+    if (acknowledgedParam !== undefined)
+      filter.acknowledged = acknowledgedParam;
     const sinceParam = parseDateQuery(c.req.query("since"));
     if (sinceParam) filter.since = sinceParam;
     const untilParam = parseDateQuery(c.req.query("until"));

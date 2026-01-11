@@ -65,8 +65,9 @@ export function useRowSelection<T>(
           const shouldSelect = !prev.has(id);
 
           for (let i = start; i <= end; i++) {
-            if (i < displayedData.length) {
-              const rowId = getRowId(displayedData[i]);
+            const row = displayedData[i];
+            if (row) {
+              const rowId = getRowId(row);
               if (shouldSelect) {
                 newSelected.add(rowId);
               } else {

@@ -128,7 +128,7 @@ export function createMcpAgentMailToolCaller(
 
     const callPromise = client.callTool({
       name: toolName,
-      arguments: input,
+      arguments: input as Record<string, unknown> | undefined,
     });
 
     const timeoutMs = options?.timeoutMs;

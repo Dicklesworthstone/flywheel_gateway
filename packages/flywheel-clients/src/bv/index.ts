@@ -98,7 +98,9 @@ async function runBvCommand(
   args: string[],
   cwd?: string,
 ): Promise<string> {
-  const result = await runner.run("bv", args, { cwd });
+  const runOptions: { cwd?: string } = {};
+  if (cwd !== undefined) runOptions.cwd = cwd;
+  const result = await runner.run("bv", args, runOptions);
   if (result.exitCode !== 0) {
     throw new BvClientError("command_failed", "BV command failed", {
       exitCode: result.exitCode,

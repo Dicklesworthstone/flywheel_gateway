@@ -271,8 +271,10 @@ export class AgentStateMachine {
       to,
       timestamp: new Date(),
       reason: options.reason,
-      correlationId: options.correlationId,
     };
+    if (options.correlationId !== undefined) {
+      transition.correlationId = options.correlationId;
+    }
 
     // Only include error for transitions to FAILED state
     if (to === AgentState.FAILED && options.error) {
@@ -311,12 +313,15 @@ export class AgentStateMachine {
    * Get state metadata.
    */
   getMetadata(): AgentStateMetadata {
-    return {
+    const metadata: AgentStateMetadata = {
       state: this._state,
       stateEnteredAt: this._stateEnteredAt,
-      previousState: this._previousState,
       history: [...this._history],
     };
+    if (this._previousState !== undefined) {
+      metadata.previousState = this._previousState;
+    }
+    return metadata;
   }
 
   /**
@@ -335,19 +340,25 @@ export class AgentStateMachine {
       correlationId?: string;
     }>;
   } {
-    return {
+    const result: ReturnType<AgentStateMachine["toJSON"]> = {
       state: this._state,
       stateEnteredAt: this._stateEnteredAt.toISOString(),
-      previousState: this._previousState,
-      history: this._history.map((t) => ({
-        from: t.from,
-        to: t.to,
-        timestamp: t.timestamp.toISOString(),
-        reason: t.reason,
-        ...(t.error && { error: t.error }),
-        ...(t.correlationId && { correlationId: t.correlationId }),
-      })),
+      history: this._history.map((t) => {
+        const entry: ReturnType<AgentStateMachine["toJSON"]>["history"][number] = {
+          from: t.from,
+          to: t.to,
+          timestamp: t.timestamp.toISOString(),
+          reason: t.reason,
+        };
+        if (t.error !== undefined) entry.error = t.error;
+        if (t.correlationId !== undefined) entry.correlationId = t.correlationId;
+        return entry;
+      }),
     };
+    if (this._previousState !== undefined) {
+      result.previousState = this._previousState;
+    }
+    return result;
   }
 
   /**
@@ -359,15 +370,20 @@ export class AgentStateMachine {
   ): AgentStateMachine {
     const machine = new AgentStateMachine(json.state, options);
     machine._stateEnteredAt = new Date(json.stateEnteredAt);
-    machine._previousState = json.previousState;
-    machine._history = json.history.map((t) => ({
-      from: t.from,
-      to: t.to,
-      timestamp: new Date(t.timestamp),
-      reason: t.reason,
-      error: t.error,
-      correlationId: t.correlationId,
-    }));
+    if (json.previousState !== undefined) {
+      machine._previousState = json.previousState;
+    }
+    machine._history = json.history.map((t) => {
+      const transition: StateTransition = {
+        from: t.from,
+        to: t.to,
+        timestamp: new Date(t.timestamp),
+        reason: t.reason,
+      };
+      if (t.error !== undefined) transition.error = t.error;
+      if (t.correlationId !== undefined) transition.correlationId = t.correlationId;
+      return transition;
+    });
     return machine;
   }
 }

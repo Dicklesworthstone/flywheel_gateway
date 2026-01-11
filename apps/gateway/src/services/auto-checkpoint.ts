@@ -52,7 +52,7 @@ interface AgentCheckpointState {
   /** Total checkpoints created (for full/delta decision) */
   checkpointSequence: number;
   /** Interval timer handle */
-  intervalTimer?: ReturnType<typeof setInterval>;
+  intervalTimer?: ReturnType<typeof setInterval> | undefined;
 }
 
 // ============================================================================

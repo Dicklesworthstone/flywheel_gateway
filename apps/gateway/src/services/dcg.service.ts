@@ -269,7 +269,7 @@ export async function markFalsePositive(
 ): Promise<DCGBlockEvent | null> {
   const result = await db
     .update(dcgBlocks)
-    .set({ falsePositive: true, updatedAt: new Date() })
+    .set({ falsePositive: true })
     .where(eq(dcgBlocks.id, eventId))
     .returning();
 
@@ -287,21 +287,27 @@ export async function markFalsePositive(
   getHub().publish(channel, "dcg.false_positive", { eventId, markedBy }, {});
 
   // Return the updated event from cache or construct from db result
-  return (
-    cachedEvent ?? {
-      id: result[0].id,
-      timestamp: result[0].createdAt,
-      agentId: result[0].createdBy,
-      command: "",
-      pack: "",
-      pattern: result[0].pattern,
-      ruleId: "",
-      severity: "medium" as DCGSeverity,
-      reason: result[0].reason,
-      contextClassification: "executed" as DCGContextClassification,
-      falsePositive: true,
-    }
-  );
+  if (cachedEvent) {
+    return cachedEvent;
+  }
+
+  const row = result[0];
+  if (!row) {
+    return null;
+  }
+  return {
+    id: row.id,
+    timestamp: row.createdAt,
+    agentId: row.createdBy ?? "unknown",
+    command: "",
+    pack: "",
+    pattern: row.pattern,
+    ruleId: "",
+    severity: "medium" as DCGSeverity,
+    reason: row.reason,
+    contextClassification: "executed" as DCGContextClassification,
+    falsePositive: true,
+  };
 }
 
 // ============================================================================
@@ -466,9 +472,10 @@ export async function addToAllowlist(entry: {
 export async function removeFromAllowlist(ruleId: string): Promise<boolean> {
   const result = await db
     .delete(dcgAllowlist)
-    .where(eq(dcgAllowlist.ruleId, ruleId));
+    .where(eq(dcgAllowlist.ruleId, ruleId))
+    .returning();
 
-  if (result.rowsAffected === 0) {
+  if (result.length === 0) {
     return false;
   }
 

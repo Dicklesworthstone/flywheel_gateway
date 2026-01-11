@@ -38,6 +38,7 @@ export type MessageType =
   | "checkpoint.restored"
   | "checkpoint.deleted"
   | "checkpoint.pruned"
+  | "checkpoint.compacted"
   | "checkpoint.imported"
   // Agent mail
   | "mail.received"

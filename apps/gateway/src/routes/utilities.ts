@@ -251,7 +251,8 @@ utilities.post("/giil/run", async (c) => {
     const giilRequest: Parameters<typeof runGiil>[0] = {
       url: validated.url,
     };
-    if (validated.outputDir !== undefined) giilRequest.outputDir = validated.outputDir;
+    if (validated.outputDir !== undefined)
+      giilRequest.outputDir = validated.outputDir;
     if (validated.format !== undefined) giilRequest.format = validated.format;
 
     log.info({ format: validated.format }, "Running giil");
@@ -296,9 +297,12 @@ utilities.post("/csctf/run", async (c) => {
     const csctfRequest: Parameters<typeof runCsctf>[0] = {
       url: validated.url,
     };
-    if (validated.outputDir !== undefined) csctfRequest.outputDir = validated.outputDir;
-    if (validated.formats !== undefined) csctfRequest.formats = validated.formats;
-    if (validated.publishToGhPages !== undefined) csctfRequest.publishToGhPages = validated.publishToGhPages;
+    if (validated.outputDir !== undefined)
+      csctfRequest.outputDir = validated.outputDir;
+    if (validated.formats !== undefined)
+      csctfRequest.formats = validated.formats;
+    if (validated.publishToGhPages !== undefined)
+      csctfRequest.publishToGhPages = validated.publishToGhPages;
 
     log.info({ formats: validated.formats }, "Running csctf");
     const result = await runCsctf(csctfRequest);
