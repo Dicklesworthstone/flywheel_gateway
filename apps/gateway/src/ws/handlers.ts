@@ -83,7 +83,7 @@ export function handleWSMessage(
           if (!authResult.allowed) {
             ws.send(
               serializeServerMessage(
-                createWSError("FORBIDDEN", `Subscription denied: ${authResult.reason}`, channelStr),
+                createWSError("WS_SUBSCRIPTION_DENIED", `Subscription denied: ${authResult.reason}`, channelStr),
               ),
             );
             break;
@@ -173,7 +173,7 @@ export function handleWSMessage(
         if (!authResult.allowed) {
           ws.send(
             serializeServerMessage(
-              createWSError("FORBIDDEN", `Backfill denied: ${authResult.reason}`, channelStr),
+              createWSError("WS_SUBSCRIPTION_DENIED", `Backfill denied: ${authResult.reason}`, channelStr),
             ),
           );
           break;

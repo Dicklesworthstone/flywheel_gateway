@@ -428,14 +428,8 @@ export function serializeServerMessage(message: ServerMessage): string {
     return JSON.stringify(message);
   } catch {
     // Handle circular references or other serialization errors
-    const errorMessage: ErrorMessage = {
-      type: "error",
-      code: "SERIALIZATION_ERROR",
-      message: "Failed to serialize message",
-      severity: "retry",
-      hint: "This is a transient serialization error. Retry the request.",
-    };
-    return JSON.stringify(errorMessage);
+    // Note: createWSError is safe to use here as it's defined in the same module
+    return JSON.stringify(createWSError("SERIALIZATION_ERROR", "Failed to serialize message"));
   }
 }
 
@@ -460,10 +454,10 @@ const WS_ERROR_HINTS: Record<
     hint: "Messages must be valid JSON with a 'type' field. Check message format.",
     alternative: "Use the SDK client which handles message formatting automatically.",
   },
-  FORBIDDEN: {
-    severity: "terminal",
-    hint: "You don't have permission to access this channel. Check authentication.",
-    alternative: "Verify your auth token has the required scopes for this channel.",
+  WS_CONNECTION_FAILED: {
+    severity: "retry",
+    hint: "WebSocket connection failed. Check network connectivity and server availability.",
+    alternative: "Retry connection with exponential backoff.",
   },
   WS_SUBSCRIPTION_DENIED: {
     severity: "terminal",
