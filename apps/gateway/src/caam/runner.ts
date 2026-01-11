@@ -441,10 +441,10 @@ export class CaamRunner implements ICaamRunner {
     const log = getLogger();
     const args = ["cooldown", "list", "--json"];
 
-    const result = await this.exec<{ cooldowns: CaamCliCooldown[] }>(
-      workspaceId,
-      args,
-    );
+    // CLI may return either { cooldowns: [...] } or [...] directly
+    const result = await this.exec<
+      { cooldowns: CaamCliCooldown[] } | CaamCliCooldown[]
+    >(workspaceId, args);
 
     if (!result.success || !result.data) {
       log.warn(
@@ -454,6 +454,10 @@ export class CaamRunner implements ICaamRunner {
       return [];
     }
 
+    // Handle both array and wrapped object formats
+    if (Array.isArray(result.data)) {
+      return result.data;
+    }
     return result.data.cooldowns ?? [];
   }
 
