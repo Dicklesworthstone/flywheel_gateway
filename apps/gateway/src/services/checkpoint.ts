@@ -569,27 +569,39 @@ export async function getCheckpoint(
 
 /**
  * Get all checkpoints for an agent.
+ * Skips checkpoints that fail to normalize (e.g., corrupted compression).
  */
 export async function getAgentCheckpoints(
   agentId: string,
 ): Promise<CheckpointMetadata[]> {
+  const log = getLogger();
   const results = await db
     .select()
     .from(checkpointsTable)
     .where(eq(checkpointsTable.agentId, agentId))
     .orderBy(desc(checkpointsTable.id));
 
-  return results.map((row) => {
-    const chk = normalizeCheckpoint(row.state as DeltaCheckpoint);
-    return {
-      id: chk.id,
-      agentId: chk.agentId,
-      createdAt: chk.createdAt,
-      tokenUsage: chk.tokenUsage,
-      description: chk.description,
-      tags: chk.tags,
-    };
-  });
+  const checkpoints: CheckpointMetadata[] = [];
+  for (const row of results) {
+    try {
+      const chk = normalizeCheckpoint(row.state as DeltaCheckpoint);
+      checkpoints.push({
+        id: chk.id,
+        agentId: chk.agentId,
+        createdAt: chk.createdAt,
+        tokenUsage: chk.tokenUsage,
+        description: chk.description,
+        tags: chk.tags,
+      });
+    } catch (error) {
+      // Skip corrupted checkpoints but log for debugging
+      log.warn(
+        { checkpointId: row.id, agentId, error },
+        "[CHECKPOINT] Skipping corrupted checkpoint in listing",
+      );
+    }
+  }
+  return checkpoints;
 }
 
 /**
@@ -770,9 +782,21 @@ export async function restoreCheckpoint(
 export async function verifyCheckpoint(
   checkpointId: string,
 ): Promise<VerifyResult> {
-  const checkpoint = (await getCheckpoint(checkpointId)) as
-    | DeltaCheckpoint
-    | undefined;
+  let checkpoint: DeltaCheckpoint | undefined;
+  try {
+    checkpoint = (await getCheckpoint(checkpointId)) as
+      | DeltaCheckpoint
+      | undefined;
+  } catch (error) {
+    // Decompression or other errors mean the checkpoint is corrupted
+    return {
+      valid: false,
+      errors: [
+        `Checkpoint ${checkpointId} is corrupted: ${error instanceof Error ? error.message : String(error)}`,
+      ],
+      warnings: [],
+    };
+  }
 
   if (!checkpoint) {
     return {
