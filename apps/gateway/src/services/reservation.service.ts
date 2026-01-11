@@ -175,13 +175,15 @@ const warnedExpiringReservations: Set<string> = new Set();
 // ============================================================================
 
 /**
- * Generate a unique reservation ID.
+ * Generate a cryptographically secure unique reservation ID.
  */
 function generateReservationId(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const randomBytes = new Uint8Array(12);
+  crypto.getRandomValues(randomBytes);
   let result = "";
   for (let i = 0; i < 12; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+    result += chars.charAt(randomBytes[i]! % chars.length);
   }
   return `rsv_${result}`;
 }

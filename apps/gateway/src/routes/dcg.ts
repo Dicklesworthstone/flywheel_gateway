@@ -10,6 +10,7 @@ import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
   addToAllowlist,
+  type DCGSeverity,
   disablePack,
   enablePack,
   getAllowlist,
@@ -22,7 +23,6 @@ import {
   markFalsePositive,
   removeFromAllowlist,
   updateConfig,
-  type DCGSeverity,
 } from "../services/dcg.service";
 
 const dcg = new Hono();
@@ -263,7 +263,7 @@ dcg.get("/blocks", async (c) => {
       severity: c.req.query("severity"),
       pack: c.req.query("pack"),
       limit: c.req.query("limit"),
-      cursor: query.cursor,
+      cursor: c.req.query("cursor"),
     });
 
     const severities = query.severity?.split(",") as DCGSeverity[] | undefined;

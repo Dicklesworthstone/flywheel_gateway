@@ -134,6 +134,7 @@ export const dcgAllowlist = sqliteTable(
     id: text("id").primaryKey(),
     ruleId: text("rule_id").notNull(),
     pattern: text("pattern").notNull(),
+    reason: text("reason"),
     approvedBy: text("approved_by"),
     expiresAt: integer("expires_at", { mode: "timestamp" }),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),

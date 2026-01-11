@@ -20,13 +20,16 @@ import type { MessageType } from "../ws/messages";
 import { logger } from "./logger";
 
 /**
- * Generate a random ID (alternative to nanoid).
+ * Generate a cryptographically secure random ID.
+ * Uses crypto.getRandomValues() for security-sensitive contexts.
  */
 function generateId(prefix: string, length = 12): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const randomBytes = new Uint8Array(length);
+  crypto.getRandomValues(randomBytes);
   let result = "";
   for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+    result += chars.charAt(randomBytes[i]! % chars.length);
   }
   return `${prefix}_${result}`;
 }
@@ -412,9 +415,9 @@ export async function getAllowlist(): Promise<DCGAllowlistEntry[]> {
   return rows.map((row) => ({
     ruleId: row.ruleId,
     pattern: row.pattern,
-    addedAt: row.addedAt,
-    addedBy: row.addedBy,
-    reason: row.reason,
+    addedAt: row.createdAt,
+    addedBy: row.approvedBy ?? "unknown",
+    reason: row.reason ?? "",
     ...(row.expiresAt !== null && { expiresAt: row.expiresAt }),
   }));
 }
@@ -430,20 +433,22 @@ export async function addToAllowlist(entry: {
   expiresAt?: Date;
 }): Promise<DCGAllowlistEntry> {
   const id = generateId("allow");
+  const now = new Date();
 
   await db.insert(dcgAllowlist).values({
     id,
     ruleId: entry.ruleId,
     pattern: entry.pattern,
+    reason: entry.reason,
     approvedBy: entry.addedBy,
     expiresAt: entry.expiresAt,
-    createdAt: new Date(),
+    createdAt: now,
   });
 
   const result: DCGAllowlistEntry = {
     ruleId: entry.ruleId,
     pattern: entry.pattern,
-    addedAt: entry.addedAt,
+    addedAt: now,
     addedBy: entry.addedBy,
     reason: entry.reason,
     ...(entry.expiresAt !== undefined && { expiresAt: entry.expiresAt }),
