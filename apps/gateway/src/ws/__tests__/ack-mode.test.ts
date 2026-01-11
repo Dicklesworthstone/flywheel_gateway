@@ -15,12 +15,11 @@ import type { ServerWebSocket } from "bun";
 import {
   type AuthContext,
   type ConnectionData,
-  type PendingAck,
   setHub,
   WebSocketHub,
 } from "../hub";
 import type { Channel } from "../channels";
-import type { HubMessage, ServerMessage } from "../messages";
+import type { ServerMessage } from "../messages";
 
 // Helper to create mock WebSocket
 function createMockWS(connectionId: string): {
@@ -266,9 +265,9 @@ describe("WebSocket Ack Mode", () => {
       const channelStr = "workspace:conflicts:workspace-1";
 
       // First, publish a message without the connection subscribed
-      const msg1 = hub.publish(channel, "conflict.detected", { fileId: "file-1" });
+      hub.publish(channel, "conflict.detected", { fileId: "file-1" });
 
-      // Now subscribe and reconnect with old cursor (before msg1)
+      // Now subscribe and reconnect with old cursor (from beginning)
       hub.subscribe("conn-11", channel);
 
       // Clear initial messages
