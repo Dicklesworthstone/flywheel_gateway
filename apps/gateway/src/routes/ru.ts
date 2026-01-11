@@ -30,6 +30,12 @@ import {
   updateFleetRepo,
 } from "../services/ru-fleet.service";
 import {
+  createExceptionsForPlan,
+  getSweepDCGSummary,
+  validateSweepPlan,
+  validateSweepSession,
+} from "../services/dcg-ru-integration.service";
+import {
   type PlanApprovalStatus,
   type PlanExecutionStatus,
   type SweepConfig,
@@ -842,6 +848,100 @@ ru.post("/plans/:id/reject", async (c) => {
       planId: id,
       rejectedBy: validated.rejectedBy,
       reason: validated.reason,
+    });
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+// ============================================================================
+// DCG INTEGRATION ROUTES
+// ============================================================================
+
+/**
+ * POST /ru/plans/:id/validate - Validate a plan against DCG
+ */
+ru.post("/plans/:id/validate", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const result = await validateSweepPlan(id);
+
+    return sendResource(c, "validation_result", {
+      planId: id,
+      valid: result.valid,
+      riskLevel: result.riskLevel,
+      blockedCommands: result.blockedCommands,
+      warnings: result.warnings,
+      findingCount: result.findings.length,
+      findings: result.findings,
+    });
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * POST /ru/sweeps/:id/validate - Validate all plans in a session against DCG
+ */
+ru.post("/sweeps/:id/validate", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const result = await validateSweepSession(id);
+
+    return sendResource(c, "session_validation_result", {
+      sessionId: id,
+      totalPlans: result.totalPlans,
+      validPlans: result.validPlans,
+      invalidPlans: result.invalidPlans,
+      planResults: result.planResults,
+    });
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * POST /ru/plans/:id/create-exceptions - Create pending exceptions for blocked commands
+ */
+ru.post("/plans/:id/create-exceptions", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const user = c.req.header("X-User") ?? "api-user";
+
+    const exceptionCodes = await createExceptionsForPlan(id, user);
+
+    return sendResource(c, "exceptions_result", {
+      planId: id,
+      exceptionCount: exceptionCodes.length,
+      exceptionCodes,
+    });
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * GET /ru/sweeps/:id/dcg-summary - Get DCG safety summary for a sweep
+ */
+ru.get("/sweeps/:id/dcg-summary", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const summary = await getSweepDCGSummary(id);
+
+    return sendResource(c, "dcg_summary", {
+      sessionId: id,
+      blocks: summary.blocks,
+      pending: summary.pending,
+      approved: summary.approved,
+      denied: summary.denied,
+      blockDetails: summary.blockDetails.map((b) => ({
+        ...b,
+        timestamp: b.timestamp.toISOString(),
+      })),
+      pendingDetails: summary.pendingDetails.map((p) => ({
+        ...p,
+        createdAt: p.createdAt.toISOString(),
+      })),
     });
   } catch (error) {
     return handleError(error, c);
