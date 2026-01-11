@@ -11,10 +11,10 @@
  */
 
 import { getCorrelationId, getLogger } from "../middleware/correlation";
-import { createCheckpoint } from "./checkpoint";
-import { incrementCounter, setGauge } from "./metrics";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
+import { createCheckpoint } from "./checkpoint";
+import { incrementCounter, setGauge } from "./metrics";
 
 // ============================================================================
 // Types
@@ -514,7 +514,9 @@ export function getAutoCheckpointStats(): {
  * Clear all auto-checkpoint state (for testing).
  */
 export function clearAutoCheckpointState(): void {
-  for (const [agentId] of agentStates) {
+  // Collect IDs first to avoid modifying Map while iterating
+  const agentIds = Array.from(agentStates.keys());
+  for (const agentId of agentIds) {
     stopAutoCheckpoint(agentId);
   }
 }

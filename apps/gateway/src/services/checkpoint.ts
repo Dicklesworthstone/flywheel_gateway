@@ -347,11 +347,9 @@ export async function createCheckpoint(
     compressed: options.compress ? "true" : "false",
   });
 
-  recordHistogram(
-    "flywheel_checkpoint_create_duration_ms",
-    createDurationMs,
-    { type: checkpointType },
-  );
+  recordHistogram("flywheel_checkpoint_create_duration_ms", createDurationMs, {
+    type: checkpointType,
+  });
 
   if (compressionMeta) {
     recordHistogram(
@@ -523,7 +521,8 @@ export async function withErrorCheckpoint<T>(
     try {
       const state = await getState();
       const errorContext: ErrorContext = {
-        errorType: error instanceof Error ? error.constructor.name : "UnknownError",
+        errorType:
+          error instanceof Error ? error.constructor.name : "UnknownError",
         errorMessage: error instanceof Error ? error.message : String(error),
         errorStack: error instanceof Error ? error.stack : undefined,
         correlationId: getCorrelationId(),
@@ -784,8 +783,8 @@ export async function verifyCheckpoint(
   if (!checkpoint.createdAt) {
     errors.push("Missing createdAt");
   }
-  if (!checkpoint.conversationHistory) {
-    errors.push("Missing conversationHistory");
+  if (!Array.isArray(checkpoint.conversationHistory)) {
+    errors.push("Missing or invalid conversationHistory");
   }
 
   // Check delta chain integrity

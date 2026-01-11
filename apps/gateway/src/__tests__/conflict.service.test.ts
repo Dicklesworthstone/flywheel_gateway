@@ -204,6 +204,49 @@ describe("Conflict Service", () => {
       expect(conflicts.length).toBeGreaterThan(0);
     });
 
+    test("detects contention with multiple write accesses from different agents", () => {
+      const now = new Date();
+
+      recordResourceAccess({
+        resourceId: "project-1:database/table",
+        agentId: "agent-1",
+        accessType: "write",
+        timestamp: now,
+      });
+
+      recordResourceAccess({
+        resourceId: "project-1:database/table",
+        agentId: "agent-2",
+        accessType: "write",
+        timestamp: now,
+      });
+
+      const conflicts = detectResourceContention("project-1");
+      expect(conflicts.length).toBeGreaterThan(0);
+      expect(conflicts[0]!.type).toBe("resource_contention");
+    });
+
+    test("does not detect contention for same agent multiple accesses", () => {
+      const now = new Date();
+
+      recordResourceAccess({
+        resourceId: "project-1:api/endpoint",
+        agentId: "agent-1",
+        accessType: "write",
+        timestamp: now,
+      });
+
+      recordResourceAccess({
+        resourceId: "project-1:api/endpoint",
+        agentId: "agent-1",
+        accessType: "write",
+        timestamp: now,
+      });
+
+      const conflicts = detectResourceContention("project-1");
+      expect(conflicts).toHaveLength(0);
+    });
+
     test("ignores old accesses outside window", () => {
       const oldTime = new Date(Date.now() - 10000); // 10 seconds ago
       const now = new Date();
@@ -283,10 +326,12 @@ describe("Conflict Service", () => {
         type: ["resource_contention"],
       });
 
-      expect(reservationConflicts.every((c) => c.type === "reservation_overlap"))
-        .toBe(true);
-      expect(contentionConflicts.every((c) => c.type === "resource_contention"))
-        .toBe(true);
+      expect(
+        reservationConflicts.every((c) => c.type === "reservation_overlap"),
+      ).toBe(true);
+      expect(
+        contentionConflicts.every((c) => c.type === "resource_contention"),
+      ).toBe(true);
     });
 
     test("filters conflicts by severity", () => {
@@ -306,7 +351,9 @@ describe("Conflict Service", () => {
         severity: ["warning"],
       });
 
-      expect(warningConflicts.every((c) => c.severity === "warning")).toBe(true);
+      expect(warningConflicts.every((c) => c.severity === "warning")).toBe(
+        true,
+      );
     });
 
     test("filters conflicts by project", () => {

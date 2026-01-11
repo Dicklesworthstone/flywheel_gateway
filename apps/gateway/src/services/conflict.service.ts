@@ -354,10 +354,12 @@ export async function detectGitConflicts(
 
     for (const line of lines) {
       // In porcelain v2, unmerged entries start with "u"
+      // Format: u <XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>
+      // Fields are space-separated, with path as the last field (index 10)
       if (line.startsWith("u ")) {
-        // Format: u <info> <path>
-        const parts = line.split("\t");
-        const filePath = parts[1];
+        const parts = line.split(" ");
+        // Path is at index 10 (the 11th field)
+        const filePath = parts[10];
         if (filePath) {
           conflictedFiles.push(filePath);
         }
@@ -575,23 +577,30 @@ export function detectResourceContention(
 function hasContention(accesses: ResourceAccess[]): boolean {
   if (accesses.length < 2) return false;
 
-  // Check for multiple exclusive accesses
+  const uniqueAgents = new Set(accesses.map((a) => a.agentId));
+  // Single agent can't contend with itself
+  if (uniqueAgents.size < 2) return false;
+
+  // Check for multiple exclusive accesses from different agents
   const exclusiveAccesses = accesses.filter(
     (a) => a.accessType === "exclusive",
   );
   if (exclusiveAccesses.length >= 2) return true;
 
-  // Check for write + any other access
+  // Check for multiple write accesses from different agents
   const writeAccesses = accesses.filter((a) => a.accessType === "write");
+  const writeAgents = new Set(writeAccesses.map((a) => a.agentId));
+  if (writeAgents.size >= 2) return true;
+
+  // Check for write + any other access from different agent
   if (writeAccesses.length > 0 && accesses.length > writeAccesses.length) {
     return true;
   }
 
-  // Check for multiple different agents accessing exclusively
-  const uniqueAgents = new Set(accesses.map((a) => a.agentId));
+  // Check for exclusive access with any other access from different agent
   if (
-    uniqueAgents.size >= 2 &&
-    accesses.some((a) => a.accessType === "exclusive")
+    exclusiveAccesses.length > 0 &&
+    accesses.length > exclusiveAccesses.length
   ) {
     return true;
   }
