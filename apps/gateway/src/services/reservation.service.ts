@@ -16,6 +16,7 @@ import type { MessageType } from "../ws/messages";
 import { logger } from "./logger";
 import {
   createReservationConflictEngine,
+  globToRegex,
   type Reservation,
   type ReservationConflict,
 } from "./reservation-conflicts";
@@ -285,43 +286,6 @@ function resolveConflictsForReservation(
   }
 
   return resolvedCount;
-}
-
-/**
- * Convert a glob pattern to a regex for matching file paths.
- *
- * @param pattern - Glob pattern (supports *, **, ?)
- * @returns RegExp for matching
- */
-function globToRegex(pattern: string): RegExp {
-  // Use placeholder to avoid ** replacement affecting later * replacement
-  const GLOBSTAR_PLACEHOLDER = "\x00GLOBSTAR\x00";
-
-  const regex = pattern
-    // Normalize path separators
-    .replace(/\/+/g, "/")
-    // Remove trailing slash
-    .replace(/\/$/, "")
-    // Handle **/ at the start or middle - matches zero or more directories
-    .replace(/\*\*\//g, GLOBSTAR_PLACEHOLDER + "/")
-    // Handle /** at the end - matches zero or more path segments
-    .replace(/\/\*\*/g, "/" + GLOBSTAR_PLACEHOLDER)
-    // Handle remaining ** (in case it's standalone)
-    .replace(/\*\*/g, GLOBSTAR_PLACEHOLDER)
-    // Escape regex special chars (except glob chars)
-    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    // * matches anything except path separator
-    .replace(/\*/g, "[^/]*")
-    // ? matches single character except path separator
-    .replace(/\?/g, "[^/]")
-    // Now replace placeholder/ with (.*/)? - matches zero or more directories
-    .replace(new RegExp(GLOBSTAR_PLACEHOLDER + "/", "g"), "(.*/)?")
-    // Replace /placeholder with (/.*)? - matches zero or more path segments
-    .replace(new RegExp("/" + GLOBSTAR_PLACEHOLDER, "g"), "(/.*)?")
-    // Replace standalone placeholder with .* - matches anything
-    .replace(new RegExp(GLOBSTAR_PLACEHOLDER, "g"), ".*");
-
-  return new RegExp(`^${regex}$`);
 }
 
 /**

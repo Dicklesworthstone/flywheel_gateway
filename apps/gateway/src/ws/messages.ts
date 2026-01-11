@@ -370,7 +370,18 @@ export function parseClientMessage(json: string): ClientMessage | undefined {
 
 /**
  * Serialize a server message to JSON.
+ * Handles circular references gracefully by returning an error message.
  */
 export function serializeServerMessage(message: ServerMessage): string {
-  return JSON.stringify(message);
+  try {
+    return JSON.stringify(message);
+  } catch (err) {
+    // Handle circular references or other serialization errors
+    const errorMessage: ErrorMessage = {
+      type: "error",
+      code: "SERIALIZATION_ERROR",
+      message: "Failed to serialize message",
+    };
+    return JSON.stringify(errorMessage);
+  }
 }

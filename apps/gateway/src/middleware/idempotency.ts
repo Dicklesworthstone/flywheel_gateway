@@ -64,7 +64,7 @@ export function getIdempotencyRecord(
     return undefined;
   }
   // Check expiration
-  if (record.expiresAt < new Date()) {
+  if (record.expiresAt <= new Date()) {
     idempotencyStore.delete(key);
     return undefined;
   }

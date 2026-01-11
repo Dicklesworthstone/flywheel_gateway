@@ -63,7 +63,7 @@ export interface ConflictCheckResult {
  * @param pattern - Glob pattern (supports *, **, ?)
  * @returns RegExp for matching
  */
-function globToRegex(pattern: string): RegExp {
+export function globToRegex(pattern: string): RegExp {
   // Use placeholder to avoid ** replacement affecting later * replacement
   const GLOBSTAR_PLACEHOLDER = "\x00GLOBSTAR\x00";
 
@@ -214,6 +214,12 @@ export class ReservationConflictEngine {
     if (index === -1) return false;
 
     projectReservations.splice(index, 1);
+
+    // Clean up empty project entries to prevent memory leak
+    if (projectReservations.length === 0) {
+      this.reservations.delete(projectId);
+    }
+
     return true;
   }
 
@@ -230,7 +236,12 @@ export class ReservationConflictEngine {
     // Filter out expired reservations and clean up
     const active = projectReservations.filter((r) => r.expiresAt > now);
     if (active.length !== projectReservations.length) {
-      this.reservations.set(projectId, active);
+      if (active.length === 0) {
+        // Remove empty project entries to prevent memory leak
+        this.reservations.delete(projectId);
+      } else {
+        this.reservations.set(projectId, active);
+      }
     }
 
     return active;

@@ -6,7 +6,7 @@ import { type ErrorCode, getHttpStatus } from "@flywheel/shared";
 import { type Context, Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
-import { getCorrelationId, getLogger } from "../middleware/correlation";
+import { getLogger } from "../middleware/correlation";
 import { isAlive } from "../models/agent-state";
 import {
   AgentError,
@@ -22,6 +22,15 @@ import {
   getAgentState,
   getAgentStateHistory,
 } from "../services/agent-state-machine";
+import {
+  sendCreated,
+  sendError,
+  sendInternalError,
+  sendList,
+  sendNotFound,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
 
 const agents = new Hono();
 
@@ -72,7 +81,6 @@ function safeParseInt(value: string | undefined, defaultValue: number): number {
 
 function handleAgentError(error: unknown, c: Context) {
   const log = getLogger();
-  const correlationId = getCorrelationId();
 
   if (error instanceof AgentError) {
     // Try to get HTTP status from error codes, fall back to 500
@@ -87,61 +95,25 @@ function handleAgentError(error: unknown, c: Context) {
       { error: error.code, message: error.message },
       "Agent operation failed",
     );
-    return c.json(
-      {
-        error: {
-          code: error.code,
-          message: error.message,
-          correlationId,
-          timestamp: new Date().toISOString(),
-        },
-      },
-      httpStatus,
-    );
+    return sendError(c, error.code, error.message, httpStatus);
   }
 
   if (error instanceof z.ZodError) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Validation failed",
-          correlationId,
-          timestamp: new Date().toISOString(),
-          details: error.issues,
-        },
-      },
-      400,
-    );
+    const validationErrors = error.issues.map((issue) => ({
+      path: issue.path.join("."),
+      message: issue.message,
+      code: issue.code,
+    }));
+    return sendValidationError(c, validationErrors);
   }
 
   // Handle JSON parse errors (SyntaxError from c.req.json())
   if (error instanceof SyntaxError && error.message.includes("JSON")) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Invalid JSON in request body",
-          correlationId,
-          timestamp: new Date().toISOString(),
-        },
-      },
-      400,
-    );
+    return sendError(c, "INVALID_REQUEST", "Invalid JSON in request body", 400);
   }
 
   log.error({ error }, "Unexpected error in agent route");
-  return c.json(
-    {
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Internal server error",
-        correlationId,
-        timestamp: new Date().toISOString(),
-      },
-    },
-    500,
-  );
+  return sendInternalError(c);
 }
 
 // ============================================================================
@@ -165,17 +137,13 @@ agents.post("/", async (c) => {
 
     const baseUrl = new URL(c.req.url).origin;
 
-    return c.json(
-      {
-        ...result,
-        links: {
-          self: `${baseUrl}/agents/${result.agentId}`,
-          output: `${baseUrl}/agents/${result.agentId}/output`,
-          ws: `${toWebSocketUrl(baseUrl)}/agents/${result.agentId}/ws`,
-        },
+    return sendResource(c, "agent", result, 201, {
+      links: {
+        self: `${baseUrl}/agents/${result.agentId}`,
+        output: `${baseUrl}/agents/${result.agentId}/output`,
+        ws: `${toWebSocketUrl(baseUrl)}/agents/${result.agentId}/ws`,
       },
-      201,
-    );
+    });
   } catch (error) {
     return handleAgentError(error, c);
   }
@@ -204,15 +172,25 @@ agents.get("/", async (c) => {
 
     const baseUrl = new URL(c.req.url).origin;
 
-    return c.json({
-      agents: result.agents.map((agent) => ({
-        ...agent,
-        links: {
-          self: `${baseUrl}/agents/${agent.agentId}`,
-        },
-      })),
-      pagination: result.pagination,
-    });
+    // Add links to each agent
+    const agentsWithLinks = result.agents.map((agent) => ({
+      ...agent,
+      links: {
+        self: `${baseUrl}/agents/${agent.agentId}`,
+      },
+    }));
+
+    const listOptions: Parameters<typeof sendList>[2] = {
+      hasMore: result.pagination?.hasMore ?? false,
+    };
+    if (result.pagination?.cursor) {
+      listOptions.nextCursor = result.pagination.cursor;
+    }
+    if (result.pagination?.total !== undefined) {
+      listOptions.total = result.pagination.total;
+    }
+
+    return sendList(c, agentsWithLinks, listOptions);
   } catch (error) {
     return handleAgentError(error, c);
   }
@@ -228,13 +206,14 @@ agents.get("/:agentId", async (c) => {
 
     const baseUrl = new URL(c.req.url).origin;
 
-    return c.json({
-      ...result,
+    return sendResource(c, "agent", result, 200, {
       links: {
         self: `${baseUrl}/agents/${agentId}`,
         output: `${baseUrl}/agents/${agentId}/output`,
         ws: `${toWebSocketUrl(baseUrl)}/agents/${agentId}/ws`,
         terminate: `${baseUrl}/agents/${agentId}`,
+        send: `${baseUrl}/agents/${agentId}/send`,
+        interrupt: `${baseUrl}/agents/${agentId}/interrupt`,
       },
     });
   } catch (error) {
@@ -250,22 +229,11 @@ agents.get("/:agentId", async (c) => {
 agents.get("/:agentId/status", async (c) => {
   try {
     const agentId = c.req.param("agentId");
-    const correlationId = getCorrelationId();
 
     // Get lifecycle state
     const stateRecord = getAgentState(agentId);
     if (!stateRecord) {
-      return c.json(
-        {
-          error: {
-            code: "AGENT_NOT_FOUND",
-            message: `Agent ${agentId} not found`,
-            correlationId,
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "agent", agentId);
     }
 
     // Get agent details for additional metrics
@@ -298,7 +266,7 @@ agents.get("/:agentId/status", async (c) => {
     // Get recent history (last 10 transitions)
     const history = getAgentStateHistory(agentId).slice(-10);
 
-    return c.json({
+    const statusData = {
       agentId,
       lifecycleState: stateRecord.currentState,
       stateEnteredAt: stateEnteredAt.toISOString(),
@@ -322,8 +290,9 @@ agents.get("/:agentId/status", async (c) => {
         reason: t.reason,
         ...(t.error && { error: t.error }),
       })),
-      correlationId,
-    });
+    };
+
+    return sendResource(c, "agent_status", statusData);
   } catch (error) {
     return handleAgentError(error, c);
   }
@@ -338,7 +307,7 @@ agents.delete("/:agentId", async (c) => {
     const graceful = c.req.query("graceful") !== "false";
     const result = await terminateAgent(agentId, graceful);
 
-    return c.json(result, 202);
+    return sendResource(c, "agent_termination", result, 202);
   } catch (error) {
     return handleAgentError(error, c);
   }
@@ -358,7 +327,7 @@ agents.post("/:agentId/send", async (c) => {
       validated.content,
     );
 
-    return c.json(result);
+    return sendResource(c, "message_sent", result, 202);
   } catch (error) {
     return handleAgentError(error, c);
   }
@@ -385,7 +354,7 @@ agents.post("/:agentId/interrupt", async (c) => {
     }
 
     const result = await interruptAgent(agentId, signal);
-    return c.json(result);
+    return sendResource(c, "interrupt_sent", result, 202);
   } catch (error) {
     return handleAgentError(error, c);
   }
@@ -406,7 +375,15 @@ agents.get("/:agentId/output", async (c) => {
       limit: safeParseInt(limitParam, 100),
       ...(typesParam && { types: typesParam.split(",") }),
     });
-    return c.json(result);
+
+    const outputListOptions: Parameters<typeof sendList>[2] = {
+      hasMore: result.pagination?.hasMore ?? false,
+    };
+    if (result.pagination?.cursor) {
+      outputListOptions.nextCursor = result.pagination.cursor;
+    }
+
+    return sendList(c, result.chunks, outputListOptions);
   } catch (error) {
     return handleAgentError(error, c);
   }

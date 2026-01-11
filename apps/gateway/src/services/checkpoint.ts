@@ -194,9 +194,11 @@ function normalizeCheckpoint(checkpoint: DeltaCheckpoint): DeltaCheckpoint {
         { error, checkpointId: checkpoint.id },
         "[CHECKPOINT] Failed to decompress checkpoint data",
       );
-      // Return checkpoint with empty data rather than crashing
-      conversationHistory = [];
-      toolState = {};
+      // Re-throw as CheckpointError so callers know data is corrupted
+      throw new CheckpointError(
+        "DECOMPRESSION_FAILED",
+        `Failed to decompress checkpoint ${checkpoint.id}: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 

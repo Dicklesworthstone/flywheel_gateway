@@ -137,7 +137,7 @@ function isProfileAvailable(profile: AccountProfile): boolean {
   }
 
   // Must not be expired
-  if (profile.expiresAt && profile.expiresAt < new Date()) {
+  if (profile.expiresAt && profile.expiresAt <= new Date()) {
     return false;
   }
 

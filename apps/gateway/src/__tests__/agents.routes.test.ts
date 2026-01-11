@@ -10,26 +10,31 @@ describe("Agent Routes", () => {
   const app = new Hono().route("/agents", agentRoutes);
 
   describe("GET /agents", () => {
-    test("returns list of agents", async () => {
+    test("returns list of agents with canonical envelope", async () => {
       const res = await app.request("/agents");
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.agents).toBeDefined();
-      expect(Array.isArray(body.agents)).toBe(true);
+      // Canonical envelope format
+      expect(body.object).toBe("list");
+      expect(body.data).toBeDefined();
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.requestId).toBeDefined();
+      expect(body.timestamp).toBeDefined();
+      expect(body.url).toBe("/agents");
     });
 
-    test("returns pagination info", async () => {
+    test("returns pagination info in canonical envelope", async () => {
       const res = await app.request("/agents");
       const body = await res.json();
 
-      expect(body.pagination).toBeDefined();
-      expect(typeof body.pagination.hasMore).toBe("boolean");
+      // Canonical list envelope has hasMore at top level
+      expect(typeof body.hasMore).toBe("boolean");
     });
   });
 
   describe("POST /agents - validation", () => {
-    test("rejects empty workingDirectory", async () => {
+    test("rejects empty workingDirectory with canonical error envelope", async () => {
       const res = await app.request("/agents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -38,7 +43,12 @@ describe("Agent Routes", () => {
 
       expect(res.status).toBe(400);
       const body = await res.json();
+      // Canonical error envelope format
+      expect(body.object).toBe("error");
       expect(body.error).toBeDefined();
+      expect(body.error.code).toBe("VALIDATION_FAILED");
+      expect(body.requestId).toBeDefined();
+      expect(body.timestamp).toBeDefined();
     });
 
     test("rejects missing workingDirectory", async () => {
@@ -66,13 +76,18 @@ describe("Agent Routes", () => {
   });
 
   describe("GET /agents/:id", () => {
-    test("returns 404 for non-existent agent", async () => {
+    test("returns 404 for non-existent agent with canonical error envelope", async () => {
       const res = await app.request("/agents/nonexistent-agent-id");
 
       expect(res.status).toBe(404);
       const body = await res.json();
+      // Canonical error envelope format
+      expect(body.object).toBe("error");
       expect(body.error).toBeDefined();
       expect(body.error.code).toBe("AGENT_NOT_FOUND");
+      expect(body.error.severity).toBe("terminal");
+      expect(body.error.hint).toBeDefined();
+      expect(body.requestId).toBeDefined();
     });
   });
 
