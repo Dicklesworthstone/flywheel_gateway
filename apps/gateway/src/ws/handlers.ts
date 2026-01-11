@@ -1,12 +1,12 @@
 import type { ServerWebSocket } from "bun";
 import { logger } from "../services/logger";
 import { canSubscribe } from "./authorization";
-import { parseChannel, type Channel } from "./channels";
-import { getHub, type AuthContext, type ConnectionData } from "./hub";
+import { type Channel, parseChannel } from "./channels";
+import { type AuthContext, type ConnectionData, getHub } from "./hub";
 import {
   parseClientMessage,
-  serializeServerMessage,
   type ServerMessage,
+  serializeServerMessage,
 } from "./messages";
 
 /**
@@ -158,6 +158,52 @@ export function handleWSMessage(
         // Handle reconnection logic
         const result = hub.handleReconnect(connectionId, clientMsg.cursors);
         ws.send(serializeServerMessage(result));
+        break;
+      }
+
+      case "backfill": {
+        const channelStr = clientMsg.channel;
+        const channel = parseChannel(channelStr);
+        if (!channel) {
+          const errorMsg: ServerMessage = {
+            type: "error",
+            code: "INVALID_CHANNEL",
+            message: "Invalid channel format",
+            channel: channelStr,
+          };
+          ws.send(serializeServerMessage(errorMsg));
+          break;
+        }
+
+        // Check authorization
+        const authResult = canSubscribe(ws.data.auth, channel);
+        if (!authResult.allowed) {
+          const errorMsg: ServerMessage = {
+            type: "error",
+            code: "FORBIDDEN",
+            message: `Backfill denied: ${authResult.reason}`,
+            channel: channelStr,
+          };
+          ws.send(serializeServerMessage(errorMsg));
+          break;
+        }
+
+        const replayResult = hub.replay(
+          channel,
+          clientMsg.fromCursor,
+          clientMsg.limit,
+        );
+
+        const backfillResponse: ServerMessage = {
+          type: "backfill_response",
+          channel: channelStr,
+          messages: replayResult.messages,
+          hasMore: replayResult.hasMore,
+          ...(replayResult.lastCursor !== undefined && {
+            lastCursor: replayResult.lastCursor,
+          }),
+        };
+        ws.send(serializeServerMessage(backfillResponse));
         break;
       }
 
