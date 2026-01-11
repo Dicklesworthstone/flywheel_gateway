@@ -76,10 +76,16 @@ function broadcastStateChange(event: StateChangeEvent): void {
 }
 
 /**
- * Generate a unique connection ID.
+ * Generate a cryptographically secure unique connection ID.
  */
 function generateConnectionId(): string {
-  return `ws_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const randomBytes = new Uint8Array(6);
+  crypto.getRandomValues(randomBytes);
+  const random = Array.from(randomBytes)
+    .map((b) => b.toString(36).padStart(2, "0"))
+    .join("")
+    .slice(0, 8);
+  return `ws_${Date.now()}_${random}`;
 }
 
 /**

@@ -257,8 +257,8 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
         headers: originalRequest.headers,
         body: bodyText,
       });
-      // @ts-expect-error - Hono internal
-      c.req.raw = newRequest;
+      // Note: Mutating c.req.raw to allow body re-reading downstream
+      (c.req as { raw: Request }).raw = newRequest;
     } catch {
       // No body or already consumed
     }

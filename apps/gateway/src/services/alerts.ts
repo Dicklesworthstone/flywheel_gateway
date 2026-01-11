@@ -39,10 +39,16 @@ type AlertListener = (alert: Alert) => void;
 const listeners: AlertListener[] = [];
 
 /**
- * Generate a unique alert ID.
+ * Generate a cryptographically secure unique alert ID.
  */
 function generateAlertId(): string {
-  return `alert_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const randomBytes = new Uint8Array(6);
+  crypto.getRandomValues(randomBytes);
+  const random = Array.from(randomBytes)
+    .map((b) => b.toString(36).padStart(2, "0"))
+    .join("")
+    .slice(0, 8);
+  return `alert_${Date.now()}_${random}`;
 }
 
 /**

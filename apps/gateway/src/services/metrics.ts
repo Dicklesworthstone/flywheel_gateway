@@ -384,7 +384,13 @@ export function createNamedSnapshot(
   description?: string,
   createdBy?: string,
 ): NamedSnapshot {
-  const id = `snapshot_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const randomBytes = new Uint8Array(6);
+  crypto.getRandomValues(randomBytes);
+  const random = Array.from(randomBytes)
+    .map((b) => b.toString(36).padStart(2, "0"))
+    .join("")
+    .slice(0, 8);
+  const id = `snapshot_${Date.now()}_${random}`;
   const snapshot: NamedSnapshot = {
     id,
     name,
