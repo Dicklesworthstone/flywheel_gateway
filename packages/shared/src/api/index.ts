@@ -21,3 +21,21 @@ export {
   isApiErrorResponse,
   isSuccessResponse,
 } from "./envelope";
+
+export {
+  // Request ID generation
+  generateRequestId,
+  // Wrapper options types
+  type WrapResourceOptions,
+  type WrapListOptions,
+  type WrapErrorOptions,
+  // Core wrapper functions
+  wrapResource,
+  wrapList,
+  wrapError,
+  // Convenience wrappers
+  wrapCreated,
+  wrapEmptyList,
+  wrapValidationError,
+  wrapNotFound,
+} from "./response-utils";
