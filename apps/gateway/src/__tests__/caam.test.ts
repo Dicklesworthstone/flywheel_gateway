@@ -19,6 +19,7 @@ import {
   setCooldown,
   updateProfile,
 } from "../caam/account.service";
+import { CaamRunner } from "../caam/runner";
 import {
   handleRateLimit,
   isRateLimitError,
@@ -32,6 +33,7 @@ import {
   accountPools,
   accountProfiles,
 } from "../db/schema";
+import { createMockCaamExecutor, type MockCaamExecutor } from "@flywheel/test-utils";
 
 describe("CAAM Account Service", () => {
   // Clean up test data after each test
@@ -575,6 +577,362 @@ describe("CAAM Rotation", () => {
     test("returns null when no pool exists", async () => {
       const next = await peekNextProfile("non-existent", "claude");
       expect(next).toBeNull();
+    });
+  });
+});
+
+describe("CAAM Types", () => {
+  // Import type conversion functions
+  const {
+    caamAuthModeToGateway,
+    gatewayAuthModeToCaam,
+    parseHealthStatus,
+    RATE_LIMIT_SIGNATURES,
+    DEFAULT_COOLDOWN_MINUTES,
+  } = require("../caam/types");
+
+  describe("caamAuthModeToGateway", () => {
+    test("converts oauth to oauth_browser", () => {
+      expect(caamAuthModeToGateway("oauth")).toBe("oauth_browser");
+    });
+
+    test("converts device-code to device_code", () => {
+      expect(caamAuthModeToGateway("device-code")).toBe("device_code");
+    });
+
+    test("converts api-key to api_key", () => {
+      expect(caamAuthModeToGateway("api-key")).toBe("api_key");
+    });
+
+    test("converts vertex-adc to vertex_adc", () => {
+      expect(caamAuthModeToGateway("vertex-adc")).toBe("vertex_adc");
+    });
+
+    test("returns device_code for unknown mode", () => {
+      expect(caamAuthModeToGateway("unknown" as any)).toBe("device_code");
+    });
+  });
+
+  describe("gatewayAuthModeToCaam", () => {
+    test("converts oauth_browser to oauth", () => {
+      expect(gatewayAuthModeToCaam("oauth_browser")).toBe("oauth");
+    });
+
+    test("converts device_code to device-code", () => {
+      expect(gatewayAuthModeToCaam("device_code")).toBe("device-code");
+    });
+
+    test("converts api_key to api-key", () => {
+      expect(gatewayAuthModeToCaam("api_key")).toBe("api-key");
+    });
+
+    test("converts vertex_adc to vertex-adc", () => {
+      expect(gatewayAuthModeToCaam("vertex_adc")).toBe("vertex-adc");
+    });
+
+    test("returns device-code for unknown mode", () => {
+      expect(gatewayAuthModeToCaam("unknown" as any)).toBe("device-code");
+    });
+  });
+
+  describe("parseHealthStatus", () => {
+    test("parses healthy status", () => {
+      expect(parseHealthStatus("healthy")).toBe("healthy");
+      expect(parseHealthStatus("HEALTHY")).toBe("healthy");
+      expect(parseHealthStatus("Healthy")).toBe("healthy");
+    });
+
+    test("parses warning status", () => {
+      expect(parseHealthStatus("warning")).toBe("warning");
+      expect(parseHealthStatus("WARNING")).toBe("warning");
+    });
+
+    test("parses critical status", () => {
+      expect(parseHealthStatus("critical")).toBe("critical");
+      expect(parseHealthStatus("CRITICAL")).toBe("critical");
+    });
+
+    test("returns unknown for invalid input", () => {
+      expect(parseHealthStatus("invalid")).toBe("unknown");
+      expect(parseHealthStatus("")).toBe("unknown");
+      expect(parseHealthStatus("error")).toBe("unknown");
+    });
+  });
+
+  describe("RATE_LIMIT_SIGNATURES", () => {
+    test("has patterns for claude", () => {
+      expect(RATE_LIMIT_SIGNATURES.claude).toBeDefined();
+      expect(RATE_LIMIT_SIGNATURES.claude.length).toBeGreaterThan(0);
+      expect(RATE_LIMIT_SIGNATURES.claude).toContain("rate limit");
+      expect(RATE_LIMIT_SIGNATURES.claude).toContain("429");
+    });
+
+    test("has patterns for codex", () => {
+      expect(RATE_LIMIT_SIGNATURES.codex).toBeDefined();
+      expect(RATE_LIMIT_SIGNATURES.codex.length).toBeGreaterThan(0);
+      expect(RATE_LIMIT_SIGNATURES.codex).toContain("429");
+    });
+
+    test("has patterns for gemini", () => {
+      expect(RATE_LIMIT_SIGNATURES.gemini).toBeDefined();
+      expect(RATE_LIMIT_SIGNATURES.gemini.length).toBeGreaterThan(0);
+      expect(RATE_LIMIT_SIGNATURES.gemini).toContain("RESOURCE_EXHAUSTED");
+      expect(RATE_LIMIT_SIGNATURES.gemini).toContain("429");
+    });
+  });
+
+  describe("DEFAULT_COOLDOWN_MINUTES", () => {
+    test("has values for all providers", () => {
+      expect(DEFAULT_COOLDOWN_MINUTES.claude).toBeDefined();
+      expect(DEFAULT_COOLDOWN_MINUTES.codex).toBeDefined();
+      expect(DEFAULT_COOLDOWN_MINUTES.gemini).toBeDefined();
+    });
+
+    test("has positive cooldown values", () => {
+      expect(DEFAULT_COOLDOWN_MINUTES.claude).toBeGreaterThan(0);
+      expect(DEFAULT_COOLDOWN_MINUTES.codex).toBeGreaterThan(0);
+      expect(DEFAULT_COOLDOWN_MINUTES.gemini).toBeGreaterThan(0);
+    });
+
+    test("claude has longer cooldown than gemini", () => {
+      // Claude has stricter rate limits, so longer cooldown
+      expect(DEFAULT_COOLDOWN_MINUTES.claude).toBeGreaterThan(
+        DEFAULT_COOLDOWN_MINUTES.gemini,
+      );
+    });
+  });
+});
+
+describe("CAAM Runner", () => {
+  let mockExecutor: MockCaamExecutor;
+  let runner: CaamRunner;
+
+  beforeEach(() => {
+    mockExecutor = createMockCaamExecutor({
+      profiles: [
+        {
+          tool: "claude",
+          name: "work",
+          active: true,
+          health: { status: "healthy", error_count: 0 },
+          identity: { email: "user@example.com", plan_type: "pro" },
+        },
+        {
+          tool: "claude",
+          name: "personal",
+          active: false,
+          health: { status: "warning", error_count: 2 },
+        },
+        {
+          tool: "codex",
+          name: "default",
+          active: true,
+          health: { status: "healthy" },
+        },
+      ],
+      statusTools: [
+        {
+          tool: "claude",
+          logged_in: true,
+          active_profile: "work",
+          health: { status: "healthy", error_count: 0 },
+          identity: { email: "user@example.com", plan_type: "pro" },
+        },
+      ],
+    });
+    runner = new CaamRunner(mockExecutor as any);
+  });
+
+  describe("listProfiles", () => {
+    test("lists all profiles from mock CLI", async () => {
+      const profiles = await runner.listProfiles("test-ws");
+
+      expect(profiles.length).toBe(3);
+      expect(profiles[0]!.name).toBe("work");
+      expect(profiles[0]!.active).toBe(true);
+    });
+
+    test("filters profiles by provider", async () => {
+      const profiles = await runner.listProfiles("test-ws", "claude");
+
+      expect(profiles.length).toBe(2);
+      expect(profiles.every((p) => p.provider === "claude")).toBe(true);
+    });
+
+    test("returns empty array on CLI failure", async () => {
+      mockExecutor.injectFailure("ls", "CLI not found", 127);
+
+      const profiles = await runner.listProfiles("test-ws");
+
+      expect(profiles).toEqual([]);
+    });
+  });
+
+  describe("getStatus", () => {
+    test("returns status for provider", async () => {
+      const status = await runner.getStatus("test-ws", "claude");
+
+      expect(status.provider).toBe("claude");
+      expect(status.logged_in).toBe(true);
+      expect(status.profile).toBe("work");
+    });
+
+    test("returns error status on CLI failure", async () => {
+      mockExecutor.injectFailure("status", "Command failed", 1);
+
+      const status = await runner.getStatus("test-ws", "claude");
+
+      expect(status.logged_in).toBe(false);
+      expect(status.error).toBeDefined();
+    });
+  });
+
+  describe("activate", () => {
+    test("activates a specific profile", async () => {
+      const result = await runner.activate("test-ws", "claude", "personal");
+
+      expect(result.success).toBe(true);
+      expect(result.profile).toBe("personal");
+    });
+
+    test("returns failure on CLI error", async () => {
+      mockExecutor.injectFailure("activate", "Profile not found", 1);
+
+      const result = await runner.activate("test-ws", "claude", "nonexistent");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
+    });
+  });
+
+  describe("activateAuto", () => {
+    test("activates using smart rotation", async () => {
+      const result = await runner.activateAuto("test-ws", "claude");
+
+      expect(result.success).toBe(true);
+      expect(result.new_profile).toBeDefined();
+    });
+
+    test("returns failure when no profiles available", async () => {
+      mockExecutor.injectFailure("activate", "No profiles available", 1);
+
+      const result = await runner.activateAuto("test-ws", "claude");
+
+      expect(result.success).toBe(false);
+      expect(result.reason).toContain("No profiles available");
+    });
+  });
+
+  describe("setCooldown", () => {
+    test("sets cooldown for a profile", async () => {
+      // Should complete without throwing
+      await runner.setCooldown("test-ws", "claude", "work", 15, "Rate limited");
+
+      const calls = mockExecutor.getCallHistory();
+      const cooldownCall = calls.find((c) => c.args[0] === "cooldown");
+      expect(cooldownCall).toBeDefined();
+      expect(cooldownCall!.args).toContain("set");
+      expect(cooldownCall!.args).toContain("15");
+    });
+
+    test("throws on CLI failure", async () => {
+      mockExecutor.injectFailure("cooldown set", "Failed to set", 1);
+
+      await expect(
+        runner.setCooldown("test-ws", "claude", "work", 15),
+      ).rejects.toThrow();
+    });
+  });
+
+  describe("clearCooldown", () => {
+    test("clears cooldown for a profile", async () => {
+      // Should complete without throwing
+      await runner.clearCooldown("test-ws", "claude", "work");
+
+      const calls = mockExecutor.getCallHistory();
+      const cooldownCall = calls.find((c) => c.args[0] === "cooldown");
+      expect(cooldownCall).toBeDefined();
+      expect(cooldownCall!.args).toContain("clear");
+    });
+  });
+
+  describe("listCooldowns", () => {
+    test("lists active cooldowns", async () => {
+      mockExecutor.setCooldowns([
+        {
+          provider: "claude",
+          profile: "work",
+          hit_at: new Date().toISOString(),
+          cooldown_until: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+          remaining_minutes: 15,
+          notes: "Rate limited",
+        },
+      ]);
+
+      const cooldowns = await runner.listCooldowns("test-ws");
+
+      expect(cooldowns.length).toBe(1);
+      expect(cooldowns[0]!.profile).toBe("work");
+      expect(cooldowns[0]!.remaining_minutes).toBe(15);
+    });
+
+    test("returns empty array when no cooldowns", async () => {
+      const cooldowns = await runner.listCooldowns("test-ws");
+      expect(cooldowns).toEqual([]);
+    });
+  });
+
+  describe("backup", () => {
+    test("creates a backup", async () => {
+      // Should complete without throwing
+      await runner.backup("test-ws", "claude", "pre-update");
+
+      const calls = mockExecutor.getCallHistory();
+      const backupCall = calls.find((c) => c.args[0] === "backup");
+      expect(backupCall).toBeDefined();
+      expect(backupCall!.args).toContain("claude");
+      expect(backupCall!.args).toContain("pre-update");
+    });
+  });
+
+  describe("clear", () => {
+    test("clears auth files for a provider", async () => {
+      // Should complete without throwing
+      await runner.clear("test-ws", "claude");
+
+      const calls = mockExecutor.getCallHistory();
+      const clearCall = calls.find((c) => c.args[0] === "clear");
+      expect(clearCall).toBeDefined();
+      expect(clearCall!.args).toContain("claude");
+      expect(clearCall!.args).toContain("--force");
+    });
+  });
+
+  describe("isAvailable", () => {
+    test("returns true when CLI responds", async () => {
+      const available = await runner.isAvailable("test-ws");
+      expect(available).toBe(true);
+    });
+
+    test("returns false when CLI fails", async () => {
+      mockExecutor.injectFailure("version", "Not found", 127);
+
+      const available = await runner.isAvailable("test-ws");
+      expect(available).toBe(false);
+    });
+  });
+
+  describe("call history tracking", () => {
+    test("tracks all CLI calls", async () => {
+      await runner.listProfiles("test-ws");
+      await runner.getStatus("test-ws", "claude");
+      await runner.isAvailable("test-ws");
+
+      const calls = mockExecutor.getCallHistory();
+      expect(calls.length).toBe(3);
+      expect(calls[0]!.args[0]).toBe("ls");
+      expect(calls[1]!.args[0]).toBe("status");
+      expect(calls[2]!.args[0]).toBe("version");
     });
   });
 });
