@@ -7,7 +7,7 @@
 
 import { type Context, Hono } from "hono";
 import { z } from "zod";
-import { getCorrelationId, getLogger } from "../middleware/correlation";
+import { getLogger } from "../middleware/correlation";
 import {
   CheckpointError,
   createCheckpoint,
@@ -20,6 +20,14 @@ import {
   restoreCheckpoint,
   verifyCheckpoint,
 } from "../services/checkpoint";
+import {
+  sendError,
+  sendInternalError,
+  sendList,
+  sendNotFound,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
 
@@ -80,71 +88,33 @@ const ImportCheckpointSchema = z.object({
 
 function handleError(error: unknown, c: Context) {
   const log = getLogger();
-  const correlationId = getCorrelationId();
 
   if (error instanceof CheckpointError) {
-    const statusMap: Record<string, number> = {
+    const statusMap: Record<string, 400 | 404 | 500> = {
       CHECKPOINT_NOT_FOUND: 404,
       PARENT_NOT_FOUND: 404,
       CHECKPOINT_INVALID: 400,
       IMPORT_HASH_MISMATCH: 400,
     };
     const status = statusMap[error.code] ?? 500;
-
-    return c.json(
-      {
-        error: {
-          code: error.code,
-          message: error.message,
-          correlationId,
-          timestamp: new Date().toISOString(),
-        },
-      },
-      status as 400 | 404 | 500,
-    );
+    return sendError(c, error.code, error.message, status);
   }
 
   if (error instanceof z.ZodError) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Validation failed",
-          correlationId,
-          timestamp: new Date().toISOString(),
-          details: error.issues,
-        },
-      },
-      400,
-    );
+    const validationErrors = error.issues.map((issue) => ({
+      path: issue.path.join("."),
+      message: issue.message,
+      code: issue.code,
+    }));
+    return sendValidationError(c, validationErrors);
   }
 
   if (error instanceof SyntaxError && error.message.includes("JSON")) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Invalid JSON in request body",
-          correlationId,
-          timestamp: new Date().toISOString(),
-        },
-      },
-      400,
-    );
+    return sendError(c, "INVALID_REQUEST", "Invalid JSON in request body", 400);
   }
 
   log.error({ error }, "Unexpected error in checkpoint route");
-  return c.json(
-    {
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Internal server error",
-        correlationId,
-        timestamp: new Date().toISOString(),
-      },
-    },
-    500,
-  );
+  return sendInternalError(c);
 }
 
 // ============================================================================
@@ -209,24 +179,23 @@ checkpoints.post("/:sessionId/checkpoints", async (c) => {
 
     const baseUrl = new URL(c.req.url).origin;
 
-    return c.json(
-      {
-        checkpoint: {
-          id: metadata.id,
-          sessionId: metadata.agentId,
-          createdAt: metadata.createdAt.toISOString(),
-          tokenUsage: metadata.tokenUsage,
-          description: metadata.description,
-          tags: metadata.tags,
-        },
-        links: {
-          self: `${baseUrl}/sessions/${sessionId}/checkpoints/${metadata.id}`,
-          restore: `${baseUrl}/sessions/${sessionId}/checkpoints/${metadata.id}/restore`,
-        },
-        correlationId: getCorrelationId(),
+    const checkpointData = {
+      id: metadata.id,
+      sessionId: metadata.agentId,
+      createdAt: metadata.createdAt.toISOString(),
+      tokenUsage: metadata.tokenUsage,
+      description: metadata.description,
+      tags: metadata.tags,
+    };
+
+    return sendResource(c, "checkpoint", checkpointData, 201, {
+      links: {
+        self: `${baseUrl}/sessions/${sessionId}/checkpoints/${metadata.id}`,
+        restore: `${baseUrl}/sessions/${sessionId}/checkpoints/${metadata.id}/restore`,
+        export: `${baseUrl}/sessions/${sessionId}/checkpoints/${metadata.id}/export`,
+        delete: `${baseUrl}/sessions/${sessionId}/checkpoints/${metadata.id}`,
       },
-      201,
-    );
+    });
   } catch (error) {
     return handleError(error, c);
   }
@@ -250,23 +219,22 @@ checkpoints.get("/:sessionId/checkpoints", async (c) => {
 
     const baseUrl = new URL(c.req.url).origin;
 
-    return c.json({
-      checkpoints: checkpointList.map((chk) => ({
-        id: chk.id,
-        sessionId: chk.agentId,
-        createdAt: chk.createdAt.toISOString(),
-        tokenUsage: chk.tokenUsage,
-        description: chk.description,
-        tags: chk.tags,
-        links: {
-          self: `${baseUrl}/sessions/${sessionId}/checkpoints/${chk.id}`,
-        },
-      })),
-      pagination: {
-        hasMore,
-        total: allCheckpoints.length,
+    // Add links to each checkpoint
+    const checkpointsWithLinks = checkpointList.map((chk) => ({
+      id: chk.id,
+      sessionId: chk.agentId,
+      createdAt: chk.createdAt.toISOString(),
+      tokenUsage: chk.tokenUsage,
+      description: chk.description,
+      tags: chk.tags,
+      links: {
+        self: `${baseUrl}/sessions/${sessionId}/checkpoints/${chk.id}`,
       },
-      correlationId: getCorrelationId(),
+    }));
+
+    return sendList(c, checkpointsWithLinks, {
+      hasMore,
+      total: allCheckpoints.length,
     });
   } catch (error) {
     return handleError(error, c);
@@ -284,32 +252,12 @@ checkpoints.get("/:sessionId/checkpoints/:checkpointId", async (c) => {
     const checkpoint = await getCheckpoint(checkpointId);
 
     if (!checkpoint) {
-      return c.json(
-        {
-          error: {
-            code: "CHECKPOINT_NOT_FOUND",
-            message: `Checkpoint ${checkpointId} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "checkpoint", checkpointId);
     }
 
     // Verify it belongs to this session
     if (checkpoint.agentId !== sessionId) {
-      return c.json(
-        {
-          error: {
-            code: "CHECKPOINT_NOT_FOUND",
-            message: `Checkpoint ${checkpointId} not found for session ${sessionId}`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "checkpoint", checkpointId);
     }
 
     // Verify checkpoint
@@ -317,39 +265,40 @@ checkpoints.get("/:sessionId/checkpoints/:checkpointId", async (c) => {
 
     const baseUrl = new URL(c.req.url).origin;
 
-    return c.json({
-      checkpoint: {
-        id: checkpoint.id,
-        sessionId: checkpoint.agentId,
-        createdAt:
-          checkpoint.createdAt instanceof Date
-            ? checkpoint.createdAt.toISOString()
-            : checkpoint.createdAt,
-        tokenUsage: checkpoint.tokenUsage,
-        description: checkpoint.description,
-        tags: checkpoint.tags,
-        conversationHistoryCount: Array.isArray(checkpoint.conversationHistory)
-          ? checkpoint.conversationHistory.length
-          : 0,
-        hasToolState:
-          checkpoint.toolState !== null &&
-          typeof checkpoint.toolState === "object" &&
-          Object.keys(checkpoint.toolState).length > 0,
-        hasContextPack:
-          checkpoint.contextPack !== undefined &&
-          checkpoint.contextPack !== null,
-      },
+    const checkpointData = {
+      id: checkpoint.id,
+      sessionId: checkpoint.agentId,
+      createdAt:
+        checkpoint.createdAt instanceof Date
+          ? checkpoint.createdAt.toISOString()
+          : checkpoint.createdAt,
+      tokenUsage: checkpoint.tokenUsage,
+      description: checkpoint.description,
+      tags: checkpoint.tags,
+      conversationHistoryCount: Array.isArray(checkpoint.conversationHistory)
+        ? checkpoint.conversationHistory.length
+        : 0,
+      hasToolState:
+        checkpoint.toolState !== null &&
+        typeof checkpoint.toolState === "object" &&
+        Object.keys(checkpoint.toolState).length > 0,
+      hasContextPack:
+        checkpoint.contextPack !== undefined &&
+        checkpoint.contextPack !== null,
       verification: {
         valid: verification.valid,
         errors: verification.errors,
         warnings: verification.warnings,
       },
+    };
+
+    return sendResource(c, "checkpoint", checkpointData, 200, {
       links: {
         self: `${baseUrl}/sessions/${sessionId}/checkpoints/${checkpointId}`,
         restore: `${baseUrl}/sessions/${sessionId}/checkpoints/${checkpointId}/restore`,
         export: `${baseUrl}/sessions/${sessionId}/checkpoints/${checkpointId}/export`,
+        delete: `${baseUrl}/sessions/${sessionId}/checkpoints/${checkpointId}`,
       },
-      correlationId: getCorrelationId(),
     });
   } catch (error) {
     return handleError(error, c);
@@ -367,17 +316,7 @@ checkpoints.post("/:sessionId/checkpoints/:checkpointId/restore", async (c) => {
     // Verify the checkpoint belongs to this session before restoring
     const checkpoint = await getCheckpoint(checkpointId);
     if (!checkpoint || checkpoint.agentId !== sessionId) {
-      return c.json(
-        {
-          error: {
-            code: "CHECKPOINT_NOT_FOUND",
-            message: `Checkpoint ${checkpointId} not found for session ${sessionId}`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "checkpoint", checkpointId);
     }
 
     const body = await c.req.json().catch(() => ({}));
@@ -401,22 +340,21 @@ checkpoints.post("/:sessionId/checkpoints/:checkpointId/restore", async (c) => {
       restorationTimeMs,
     });
 
-    return c.json({
-      restored: {
-        checkpointId: restored.id,
-        sessionId: restored.agentId,
-        createdAt:
-          restored.createdAt instanceof Date
-            ? restored.createdAt.toISOString()
-            : restored.createdAt,
-        messageCount: Array.isArray(restored.conversationHistory)
-          ? restored.conversationHistory.length
-          : 0,
-        tokenUsage: restored.tokenUsage,
-      },
+    const restorationData = {
+      checkpointId: restored.id,
+      sessionId: restored.agentId,
+      createdAt:
+        restored.createdAt instanceof Date
+          ? restored.createdAt.toISOString()
+          : restored.createdAt,
+      messageCount: Array.isArray(restored.conversationHistory)
+        ? restored.conversationHistory.length
+        : 0,
+      tokenUsage: restored.tokenUsage,
       restorationTimeMs,
-      correlationId: getCorrelationId(),
-    });
+    };
+
+    return sendResource(c, "checkpoint_restoration", restorationData);
   } catch (error) {
     return handleError(error, c);
   }
@@ -433,25 +371,12 @@ checkpoints.get("/:sessionId/checkpoints/:checkpointId/export", async (c) => {
     // First verify the checkpoint belongs to this session
     const checkpoint = await getCheckpoint(checkpointId);
     if (!checkpoint || checkpoint.agentId !== sessionId) {
-      return c.json(
-        {
-          error: {
-            code: "CHECKPOINT_NOT_FOUND",
-            message: `Checkpoint ${checkpointId} not found for session ${sessionId}`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "checkpoint", checkpointId);
     }
 
     const exported = await exportCheckpoint(checkpointId);
 
-    return c.json({
-      export: exported,
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "checkpoint_export", exported);
   } catch (error) {
     return handleError(error, c);
   }
@@ -500,24 +425,23 @@ checkpoints.post("/:sessionId/checkpoints/import", async (c) => {
 
     const baseUrl = new URL(c.req.url).origin;
 
-    return c.json(
-      {
-        checkpoint: {
-          id: imported.id,
-          sessionId: imported.agentId,
-          createdAt: imported.createdAt.toISOString(),
-          tokenUsage: imported.tokenUsage,
-          description: imported.description,
-          tags: imported.tags,
-        },
-        originalId: validated.checkpoint.id,
-        links: {
-          self: `${baseUrl}/sessions/${sessionId}/checkpoints/${imported.id}`,
-        },
-        correlationId: getCorrelationId(),
+    const checkpointData = {
+      id: imported.id,
+      sessionId: imported.agentId,
+      createdAt: imported.createdAt.toISOString(),
+      tokenUsage: imported.tokenUsage,
+      description: imported.description,
+      tags: imported.tags,
+      originalId: validated.checkpoint.id,
+    };
+
+    return sendResource(c, "checkpoint", checkpointData, 201, {
+      links: {
+        self: `${baseUrl}/sessions/${sessionId}/checkpoints/${imported.id}`,
+        restore: `${baseUrl}/sessions/${sessionId}/checkpoints/${imported.id}/restore`,
+        export: `${baseUrl}/sessions/${sessionId}/checkpoints/${imported.id}/export`,
       },
-      201,
-    );
+    });
   } catch (error) {
     return handleError(error, c);
   }
@@ -534,17 +458,7 @@ checkpoints.delete("/:sessionId/checkpoints/:checkpointId", async (c) => {
     // First verify the checkpoint belongs to this session
     const checkpoint = await getCheckpoint(checkpointId);
     if (!checkpoint || checkpoint.agentId !== sessionId) {
-      return c.json(
-        {
-          error: {
-            code: "CHECKPOINT_NOT_FOUND",
-            message: `Checkpoint ${checkpointId} not found for session ${sessionId}`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "checkpoint", checkpointId);
     }
 
     await deleteCheckpoint(checkpointId);
@@ -555,11 +469,13 @@ checkpoints.delete("/:sessionId/checkpoints/:checkpointId", async (c) => {
       sessionId,
     });
 
-    return c.json({
+    const deletionData = {
       deleted: true,
       checkpointId,
-      correlationId: getCorrelationId(),
-    });
+      sessionId,
+    };
+
+    return sendResource(c, "checkpoint_deletion", deletionData);
   } catch (error) {
     return handleError(error, c);
   }
@@ -583,12 +499,14 @@ checkpoints.post("/:sessionId/checkpoints/prune", async (c) => {
       keepCount: validated.keepCount,
     });
 
-    return c.json({
+    const pruneResult = {
       pruned: true,
       deletedCount,
       keepCount: validated.keepCount,
-      correlationId: getCorrelationId(),
-    });
+      sessionId,
+    };
+
+    return sendResource(c, "checkpoint_prune_result", pruneResult);
   } catch (error) {
     return handleError(error, c);
   }
