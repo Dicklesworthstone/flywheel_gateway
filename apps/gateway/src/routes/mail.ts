@@ -16,6 +16,7 @@ import {
 import type { GatewayError } from "@flywheel/shared/errors";
 import { serializeGatewayError } from "@flywheel/shared/errors";
 import { type Context, Hono } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
@@ -94,7 +95,7 @@ function respondWithGatewayError(c: Context, error: GatewayError) {
         ...(payload.details && { details: payload.details }),
       },
     },
-    payload.httpStatus,
+    payload.httpStatus as ContentfulStatusCode,
   );
 }
 

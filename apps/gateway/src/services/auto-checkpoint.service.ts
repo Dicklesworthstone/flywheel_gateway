@@ -320,12 +320,14 @@ export class AutoCheckpointService {
         `[AUTO-CHECKPOINT] Created checkpoint ${metadata.id} (trigger: ${trigger})`,
       );
 
-      return {
+      // Build result conditionally (for exactOptionalPropertyTypes)
+      const result: AutoCheckpointResult = {
         created: true,
         checkpointId: metadata.id,
         trigger,
-        compressionStats: metadata.compressionStats,
       };
+      if (metadata.compressionStats !== undefined) result.compressionStats = metadata.compressionStats;
+      return result;
     } catch (error) {
       log.error(
         { error, agentId: this.agentId, trigger },

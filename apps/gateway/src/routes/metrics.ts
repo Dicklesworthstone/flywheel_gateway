@@ -5,6 +5,7 @@
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
+import type { NamedSnapshot } from "../models/metrics";
 import {
   compareMetrics,
   createNamedSnapshot,

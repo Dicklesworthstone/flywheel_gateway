@@ -140,6 +140,7 @@ export function fireAlert(rule: AlertRule, context: AlertContext): Alert {
   const message =
     typeof rule.message === "function" ? rule.message(context) : rule.message;
 
+  // Build alert conditionally (for exactOptionalPropertyTypes)
   const alert: Alert = {
     id: generateAlertId(),
     type: rule.type,
@@ -149,9 +150,9 @@ export function fireAlert(rule: AlertRule, context: AlertContext): Alert {
     source: rule.source ?? rule.id,
     createdAt: context.timestamp,
     acknowledged: false,
-    actions: rule.actions,
     correlationId,
   };
+  if (rule.actions !== undefined) alert.actions = rule.actions;
 
   // Store in active alerts
   activeAlerts.set(alert.id, alert);
@@ -211,7 +212,7 @@ export function evaluateAlertRules(): Alert[] {
       const previousAlert = alertHistory.find(
         (a) => a.source === (rule.source ?? rule.id) && !a.acknowledged,
       );
-      context.previousAlert = previousAlert;
+      if (previousAlert !== undefined) context.previousAlert = previousAlert;
 
       if (rule.condition(context)) {
         const alert = fireAlert(rule, context);
@@ -348,7 +349,7 @@ export function acknowledgeAlert(
 
   alert.acknowledged = true;
   alert.acknowledgedAt = new Date();
-  alert.acknowledgedBy = acknowledgedBy;
+  if (acknowledgedBy !== undefined) alert.acknowledgedBy = acknowledgedBy;
 
   const log = getLogger();
   log.info({
@@ -372,7 +373,7 @@ export function dismissAlert(
   if (!alert) return undefined;
 
   alert.dismissedAt = new Date();
-  alert.dismissedBy = dismissedBy;
+  if (dismissedBy !== undefined) alert.dismissedBy = dismissedBy;
   activeAlerts.delete(alertId);
 
   const log = getLogger();

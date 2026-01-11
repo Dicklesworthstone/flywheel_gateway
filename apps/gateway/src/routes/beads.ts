@@ -2,20 +2,21 @@
  * Beads Routes - REST API endpoints for BV-backed triage.
  */
 
-import { Hono, type Context } from "hono";
-import { z } from "zod";
+import { BvClientError } from "@flywheel/flywheel-clients";
+import type { GatewayError } from "@flywheel/shared/errors";
 import {
   createGatewayError,
   serializeGatewayError,
   toGatewayError,
 } from "@flywheel/shared/errors";
-import type { GatewayError } from "@flywheel/shared/errors";
+import { type Context, Hono } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
-  createBeadsService,
   type BeadsService,
+  createBeadsService,
 } from "../services/beads.service";
-import { BvClientError } from "@flywheel/flywheel-clients";
 
 const beads = new Hono<{ Variables: { beadsService: BeadsService } }>();
 
@@ -33,7 +34,7 @@ function respondWithGatewayError(c: Context, error: GatewayError) {
         ...(payload.details && { details: payload.details }),
       },
     },
-    payload.httpStatus,
+    payload.httpStatus as ContentfulStatusCode,
   );
 }
 

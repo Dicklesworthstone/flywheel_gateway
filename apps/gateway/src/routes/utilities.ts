@@ -247,8 +247,15 @@ utilities.post("/giil/run", async (c) => {
     const validated = GiilRequestSchema.parse(body);
     const log = getLogger();
 
+    // Build request conditionally (for exactOptionalPropertyTypes)
+    const giilRequest: Parameters<typeof runGiil>[0] = {
+      url: validated.url,
+    };
+    if (validated.outputDir !== undefined) giilRequest.outputDir = validated.outputDir;
+    if (validated.format !== undefined) giilRequest.format = validated.format;
+
     log.info({ format: validated.format }, "Running giil");
-    const result = await runGiil(validated);
+    const result = await runGiil(giilRequest);
 
     if (!result.success) {
       return c.json(
@@ -264,9 +271,11 @@ utilities.post("/giil/run", async (c) => {
       );
     }
 
+    // Destructure to avoid duplicate 'success' property
+    const { success: _success, ...restResult } = result;
     return c.json({
       success: true,
-      ...result,
+      ...restResult,
       correlationId: getCorrelationId(),
     });
   } catch (error) {
@@ -283,8 +292,16 @@ utilities.post("/csctf/run", async (c) => {
     const validated = CsctfRequestSchema.parse(body);
     const log = getLogger();
 
+    // Build request conditionally (for exactOptionalPropertyTypes)
+    const csctfRequest: Parameters<typeof runCsctf>[0] = {
+      url: validated.url,
+    };
+    if (validated.outputDir !== undefined) csctfRequest.outputDir = validated.outputDir;
+    if (validated.formats !== undefined) csctfRequest.formats = validated.formats;
+    if (validated.publishToGhPages !== undefined) csctfRequest.publishToGhPages = validated.publishToGhPages;
+
     log.info({ formats: validated.formats }, "Running csctf");
-    const result = await runCsctf(validated);
+    const result = await runCsctf(csctfRequest);
 
     if (!result.success) {
       return c.json(
@@ -300,9 +317,11 @@ utilities.post("/csctf/run", async (c) => {
       );
     }
 
+    // Destructure to avoid duplicate 'success' property
+    const { success: _success, ...restResult } = result;
     return c.json({
       success: true,
-      ...result,
+      ...restResult,
       correlationId: getCorrelationId(),
     });
   } catch (error) {

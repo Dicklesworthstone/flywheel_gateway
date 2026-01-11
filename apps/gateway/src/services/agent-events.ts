@@ -165,13 +165,15 @@ export class AgentEventsService {
     content: string,
     correlationId?: string,
   ): void {
-    this.publishOutput(agentId, {
+    // Build payload conditionally (for exactOptionalPropertyTypes)
+    const payload: AgentOutputPayload = {
       agentId,
       type: "text",
       content,
       timestamp: new Date().toISOString(),
-      correlationId,
-    });
+    };
+    if (correlationId !== undefined) payload.correlationId = correlationId;
+    this.publishOutput(agentId, payload);
   }
 
   /**
@@ -184,15 +186,17 @@ export class AgentEventsService {
     input: unknown,
     correlationId?: string,
   ): void {
-    this.publishToolEvent(agentId, {
+    // Build payload conditionally (for exactOptionalPropertyTypes)
+    const payload: AgentToolPayload = {
       agentId,
       type: "tool_call",
       toolName,
       toolId,
       input,
       timestamp: new Date().toISOString(),
-      correlationId,
-    });
+    };
+    if (correlationId !== undefined) payload.correlationId = correlationId;
+    this.publishToolEvent(agentId, payload);
   }
 
   /**
@@ -207,17 +211,19 @@ export class AgentEventsService {
     error?: string,
     correlationId?: string,
   ): void {
-    this.publishToolEvent(agentId, {
+    // Build payload conditionally (for exactOptionalPropertyTypes)
+    const payload: AgentToolPayload = {
       agentId,
       type: "tool_result",
       toolName,
       toolId,
       output,
       duration,
-      error,
       timestamp: new Date().toISOString(),
-      correlationId,
-    });
+    };
+    if (error !== undefined) payload.error = error;
+    if (correlationId !== undefined) payload.correlationId = correlationId;
+    this.publishToolEvent(agentId, payload);
   }
 }
 

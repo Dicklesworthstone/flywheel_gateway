@@ -679,12 +679,14 @@ export async function getAgentOutput(
     throw new AgentError("AGENT_NOT_FOUND", `Agent ${agentId} not found`);
   }
 
+  // Build options conditionally (for exactOptionalPropertyTypes)
+  const bufferOptions: Parameters<typeof getOutputFromBuffer>[1] = {};
+  if (options.cursor !== undefined) bufferOptions.cursor = options.cursor;
+  if (options.limit !== undefined) bufferOptions.limit = options.limit;
+  if (options.types !== undefined) bufferOptions.types = options.types;
+
   // Use the output buffer service for cursor-based pagination
-  const result = getOutputFromBuffer(agentId, {
-    ...(options.cursor !== undefined && { cursor: options.cursor }),
-    limit: options.limit,
-    types: options.types,
-  });
+  const result = getOutputFromBuffer(agentId, bufferOptions);
 
   // Transform chunks to match the existing API format
   const chunks = result.chunks.map((chunk) => ({
