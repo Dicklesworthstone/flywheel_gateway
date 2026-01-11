@@ -43,14 +43,15 @@ describe("Agent Events Service", () => {
   beforeEach(() => {
     publishCalls = [];
     mockHub = {
-      publish: (channel: unknown, type: string, payload: unknown, metadata: unknown) => {
+      publish: (
+        channel: unknown,
+        type: string,
+        payload: unknown,
+        metadata: unknown,
+      ) => {
         publishCalls.push({ channel, type, payload, metadata });
       },
     } as unknown as WebSocketHub;
-
-    // Reset singleton
-    // @ts-expect-error accessing private for testing
-    (globalThis as Record<string, unknown>).__agentEventsService = undefined;
   });
 
   afterEach(() => {
