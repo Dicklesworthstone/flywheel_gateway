@@ -16,6 +16,7 @@ import { dcgAllowlist, dcgBlocks } from "../db/schema";
 import { getCorrelationId } from "../middleware/correlation";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
+import type { MessageType } from "../ws/messages";
 import { logger } from "./logger";
 
 /**
@@ -182,14 +183,14 @@ export async function ingestBlockEvent(
   }
 
   // Publish to WebSocket
-  const hub = getHub();
   const channel: Channel = { type: "system:dcg" };
-  const eventType =
-    event.severity === "critical" || event.severity === "high"
+  const eventType: MessageType =
+    blockEvent.severity === "critical" || blockEvent.severity === "high"
       ? "dcg.block"
       : "dcg.warn";
 
-  hub.publish(channel, eventType, blockEvent, {
+  getHub().publish(channel, eventType, blockEvent, {
+    correlationId: getCorrelationId(),
     agentId: event.agentId,
   });
 
@@ -249,7 +250,7 @@ export async function getBlockEvents(options: {
   return {
     events: result,
     pagination: {
-      cursor: lastEvent?.id,
+      ...(lastEvent && { cursor: lastEvent.id }),
       hasMore,
     },
   };
@@ -257,36 +258,47 @@ export async function getBlockEvents(options: {
 
 /**
  * Mark a block event as a false positive.
+ * Returns the updated event or null if not found.
  */
 export async function markFalsePositive(
   eventId: string,
   markedBy: string,
 ): Promise<DCGBlockEvent | null> {
-  const event = recentBlocks.find((e) => e.id === eventId);
-  if (!event) {
+  const result = await db
+    .update(dcgBlocks)
+    .set({ falsePositive: true, updatedAt: new Date() })
+    .where(eq(dcgBlocks.id, eventId))
+    .returning();
+
+  if (result.length === 0) {
     return null;
   }
 
-  event.falsePositive = true;
-
-  // Persist update
-  try {
-    await db
-      .update(dcgBlocks)
-      .set({ falsePositive: true })
-      .where(eq(dcgBlocks.id, eventId));
-  } catch (error) {
-    logger.error({ error, eventId }, "Failed to persist false positive status");
+  // Also update in-memory cache
+  const cachedEvent = recentBlocks.find((e) => e.id === eventId);
+  if (cachedEvent) {
+    cachedEvent.falsePositive = true;
   }
 
-  // Publish update
-  const hub = getHub();
   const channel: Channel = { type: "system:dcg" };
-  hub.publish(channel, "dcg.false_positive", { eventId, markedBy }, {});
+  getHub().publish(channel, "dcg.false_positive", { eventId, markedBy }, {});
 
-  logger.info({ eventId, markedBy }, "DCG block marked as false positive");
-
-  return event;
+  // Return the updated event from cache or construct from db result
+  return (
+    cachedEvent ?? {
+      id: result[0].id,
+      timestamp: result[0].createdAt,
+      agentId: result[0].createdBy,
+      command: "",
+      pack: "",
+      pattern: result[0].pattern,
+      ruleId: "",
+      severity: "medium" as DCGSeverity,
+      reason: result[0].reason,
+      contextClassification: "executed" as DCGContextClassification,
+      falsePositive: true,
+    }
+  );
 }
 
 // ============================================================================
@@ -400,10 +412,10 @@ export async function getAllowlist(): Promise<DCGAllowlistEntry[]> {
   return rows.map((row) => ({
     ruleId: row.ruleId,
     pattern: row.pattern,
-    addedAt: row.createdAt,
-    addedBy: row.approvedBy ?? "system",
-    reason: "Allowlisted",
-    expiresAt: row.expiresAt ?? undefined,
+    addedAt: row.addedAt,
+    addedBy: row.addedBy,
+    reason: row.reason,
+    ...(row.expiresAt !== null && { expiresAt: row.expiresAt }),
   }));
 }
 
@@ -431,21 +443,15 @@ export async function addToAllowlist(entry: {
   const result: DCGAllowlistEntry = {
     ruleId: entry.ruleId,
     pattern: entry.pattern,
-    addedAt: new Date(),
+    addedAt: entry.addedAt,
     addedBy: entry.addedBy,
     reason: entry.reason,
-    expiresAt: entry.expiresAt,
+    ...(entry.expiresAt !== undefined && { expiresAt: entry.expiresAt }),
   };
 
   // Publish to WebSocket
-  const hub = getHub();
   const channel: Channel = { type: "system:dcg" };
-  hub.publish(channel, "dcg.allowlist_added", result, {});
-
-  logger.info(
-    { ruleId: entry.ruleId, pattern: entry.pattern },
-    "DCG allowlist entry added",
-  );
+  getHub().publish(channel, "dcg.allowlist_added", result, {});
 
   return result;
 }

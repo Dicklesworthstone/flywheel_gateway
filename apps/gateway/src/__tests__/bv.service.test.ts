@@ -1,8 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-  createBvCommandRunner,
-  runCommand,
-} from "../services/bv.service";
+import { createBvCommandRunner, runCommand } from "../services/bv.service";
 
 describe("BV service runner", () => {
   it("propagates non-zero exit codes", async () => {
@@ -19,14 +16,14 @@ describe("BV service runner", () => {
 
   it("returns output even when stderr is present", async () => {
     const runner = createBvCommandRunner(async () => ({
-      stdout: "{\"ok\":true}",
+      stdout: '{"ok":true}',
       stderr: "warning",
       exitCode: 0,
     }));
 
     const result = await runner.run("bv", ["--robot-triage"]);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe("{\"ok\":true}");
+    expect(result.stdout).toBe('{"ok":true}');
     expect(result.stderr).toBe("warning");
   });
 
@@ -45,12 +42,20 @@ describe("BV service runner", () => {
             controller.close();
           },
         });
+      // Create a resolvable promise that kill() will resolve
+      let resolveExited: () => void;
+      const exitedPromise = new Promise<void>((resolve) => {
+        resolveExited = resolve;
+      });
       const proc = {
         stdout: makeStream(),
         stderr: makeStream(),
-        exited: new Promise<void>(() => {}),
+        exited: exitedPromise,
         exitCode: null,
-        kill: () => {},
+        kill: () => {
+          // When killed, resolve the exited promise after a tick
+          setTimeout(() => resolveExited(), 0);
+        },
       } as unknown as ReturnType<typeof Bun.spawn>;
       void options;
       void args;
