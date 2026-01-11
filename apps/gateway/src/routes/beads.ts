@@ -12,7 +12,7 @@ import {
 import { type Context, Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
-import { getCorrelationId, getLogger } from "../middleware/correlation";
+import { getLogger } from "../middleware/correlation";
 import {
   type BeadsService,
   createBeadsService,
@@ -26,7 +26,6 @@ import {
 const beads = new Hono<{ Variables: { beadsService: BeadsService } }>();
 
 function respondWithGatewayError(c: Context, error: GatewayError) {
-  const correlationId = getCorrelationId();
   const timestamp = new Date().toISOString();
   const payload = serializeGatewayError(error);
   return sendError(
