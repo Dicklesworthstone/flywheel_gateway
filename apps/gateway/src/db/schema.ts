@@ -142,33 +142,261 @@ export const dcgAllowlist = sqliteTable(
   (table) => [uniqueIndex("dcg_allowlist_rule_id_idx").on(table.ruleId)],
 );
 
+// ============================================================================
+// RU (Repo Updater) Fleet Management Tables
+// ============================================================================
+
+/**
+ * Fleet repositories - all repos being managed by RU.
+ */
 export const fleetRepos = sqliteTable(
   "fleet_repos",
   {
     id: text("id").primaryKey(),
+
+    // Repository identification
+    owner: text("owner").notNull(),
+    name: text("name").notNull(),
+    fullName: text("full_name").notNull(), // owner/name
     url: text("url").notNull(),
-    branch: text("branch").notNull(),
-    path: text("path").notNull(),
-    status: text("status").notNull(),
+    sshUrl: text("ssh_url"),
+
+    // Local state
+    localPath: text("local_path"),
+    isCloned: integer("is_cloned", { mode: "boolean" }).notNull().default(false),
+
+    // Git state
+    currentBranch: text("current_branch"),
+    defaultBranch: text("default_branch"),
+    lastCommit: text("last_commit"),
+    lastCommitDate: integer("last_commit_date", { mode: "timestamp" }),
+    lastCommitAuthor: text("last_commit_author"),
+
+    // Status: healthy | dirty | behind | ahead | diverged | unknown
+    status: text("status").notNull().default("unknown"),
+    hasUncommittedChanges: integer("has_uncommitted_changes", { mode: "boolean" }).notNull().default(false),
+    hasUnpushedCommits: integer("has_unpushed_commits", { mode: "boolean" }).notNull().default(false),
+    aheadBy: integer("ahead_by").notNull().default(0),
+    behindBy: integer("behind_by").notNull().default(0),
+
+    // Metadata
+    description: text("description"),
+    language: text("language"),
+    stars: integer("stars"),
+    isPrivate: integer("is_private", { mode: "boolean" }),
+    isArchived: integer("is_archived", { mode: "boolean" }),
+
+    // RU integration
+    ruGroup: text("ru_group"),
+    ruConfig: blob("ru_config", { mode: "json" }),
+    agentsmdPath: text("agentsmd_path"),
+    lastScanDate: integer("last_scan_date", { mode: "timestamp" }),
+
+    // Timestamps
+    addedAt: integer("added_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }),
     lastSyncAt: integer("last_sync_at", { mode: "timestamp" }),
-    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
-  (table) => [uniqueIndex("fleet_repos_path_idx").on(table.path)],
+  (table) => [
+    index("fleet_repos_owner_idx").on(table.owner),
+    index("fleet_repos_status_idx").on(table.status),
+    index("fleet_repos_group_idx").on(table.ruGroup),
+    uniqueIndex("fleet_repos_full_name_idx").on(table.fullName),
+  ],
 );
 
-export const agentSweeps = sqliteTable(
-  "agent_sweeps",
+/**
+ * Sync operations - history of clone/pull/fetch/push operations.
+ */
+export const fleetSyncOps = sqliteTable(
+  "fleet_sync_ops",
   {
     id: text("id").primaryKey(),
-    query: text("query").notNull(),
-    action: text("action").notNull(),
+
+    // Target
+    repoId: text("repo_id").references(() => fleetRepos.id),
+    repoFullName: text("repo_full_name").notNull(),
+
+    // Operation type: clone | pull | fetch | push
+    operation: text("operation").notNull(),
+
+    // Status: pending | running | success | failed | cancelled
     status: text("status").notNull(),
-    affectedCount: integer("affected_count").notNull().default(0),
+
+    // Results
+    startedAt: integer("started_at", { mode: "timestamp" }),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
+    durationMs: integer("duration_ms"),
+
+    // Git details
+    fromCommit: text("from_commit"),
+    toCommit: text("to_commit"),
+    commitCount: integer("commit_count"),
+    filesChanged: integer("files_changed"),
+
+    // Error handling
+    error: text("error"),
+    errorCode: text("error_code"),
+    retryCount: integer("retry_count").notNull().default(0),
+
+    // Metadata
+    triggeredBy: text("triggered_by"),
+    correlationId: text("correlation_id"),
+
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
-  (table) => [index("agent_sweeps_status_idx").on(table.status)],
+  (table) => [
+    index("fleet_sync_ops_repo_idx").on(table.repoId),
+    index("fleet_sync_ops_status_idx").on(table.status),
+    index("fleet_sync_ops_created_at_idx").on(table.createdAt),
+    index("fleet_sync_ops_correlation_idx").on(table.correlationId),
+  ],
+);
+
+/**
+ * Agent sweep sessions - multi-phase automated maintenance runs.
+ */
+export const agentSweepSessions = sqliteTable(
+  "agent_sweep_sessions",
+  {
+    id: text("id").primaryKey(),
+
+    // Scope
+    targetRepos: text("target_repos").notNull(), // JSON array of repo IDs or "*"
+    repoCount: integer("repo_count").notNull(),
+
+    // Configuration
+    config: blob("config", { mode: "json" }),
+    parallelism: integer("parallelism").notNull().default(1),
+
+    // Phase tracking: phase1_analysis | phase2_planning | phase3_execution
+    currentPhase: text("current_phase"),
+    phase1CompletedAt: integer("phase1_completed_at", { mode: "timestamp" }),
+    phase2CompletedAt: integer("phase2_completed_at", { mode: "timestamp" }),
+    phase3CompletedAt: integer("phase3_completed_at", { mode: "timestamp" }),
+
+    // Status: pending | running | paused | completed | failed | cancelled
+    status: text("status").notNull(),
+
+    // Progress
+    reposAnalyzed: integer("repos_analyzed").notNull().default(0),
+    reposPlanned: integer("repos_planned").notNull().default(0),
+    reposExecuted: integer("repos_executed").notNull().default(0),
+    reposFailed: integer("repos_failed").notNull().default(0),
+    reposSkipped: integer("repos_skipped").notNull().default(0),
+
+    // Timing
+    startedAt: integer("started_at", { mode: "timestamp" }),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
+    totalDurationMs: integer("total_duration_ms"),
+
+    // SLB integration
+    slbApprovalRequired: integer("slb_approval_required", { mode: "boolean" }).notNull().default(true),
+    slbApprovalId: text("slb_approval_id"),
+    slbApprovedBy: text("slb_approved_by"),
+    slbApprovedAt: integer("slb_approved_at", { mode: "timestamp" }),
+
+    // Metadata
+    triggeredBy: text("triggered_by"),
+    notes: text("notes"),
+
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }),
+  },
+  (table) => [
+    index("agent_sweep_sessions_status_idx").on(table.status),
+    index("agent_sweep_sessions_phase_idx").on(table.currentPhase),
+    index("agent_sweep_sessions_created_at_idx").on(table.createdAt),
+  ],
+);
+
+/**
+ * Agent sweep plans - JSON plans produced by agents in Phase 2.
+ */
+export const agentSweepPlans = sqliteTable(
+  "agent_sweep_plans",
+  {
+    id: text("id").primaryKey(),
+
+    // References
+    sessionId: text("session_id").references(() => agentSweepSessions.id),
+    repoId: text("repo_id").references(() => fleetRepos.id),
+    repoFullName: text("repo_full_name").notNull(),
+
+    // Plan content
+    planJson: text("plan_json").notNull(),
+    planVersion: integer("plan_version").notNull().default(1),
+
+    // Plan summary
+    actionCount: integer("action_count"),
+    estimatedDurationMs: integer("estimated_duration_ms"),
+    riskLevel: text("risk_level"), // low | medium | high | critical
+
+    // Actions breakdown
+    commitActions: integer("commit_actions").notNull().default(0),
+    releaseActions: integer("release_actions").notNull().default(0),
+    branchActions: integer("branch_actions").notNull().default(0),
+    prActions: integer("pr_actions").notNull().default(0),
+    otherActions: integer("other_actions").notNull().default(0),
+
+    // Validation
+    validatedAt: integer("validated_at", { mode: "timestamp" }),
+    validationResult: text("validation_result"), // valid | invalid | warning
+    validationErrors: text("validation_errors"), // JSON array
+
+    // Approval: pending | approved | rejected | auto_approved
+    approvalStatus: text("approval_status").notNull().default("pending"),
+    approvedBy: text("approved_by"),
+    approvedAt: integer("approved_at", { mode: "timestamp" }),
+    rejectedReason: text("rejected_reason"),
+
+    // Execution: pending | running | completed | failed | skipped
+    executionStatus: text("execution_status"),
+    executedAt: integer("executed_at", { mode: "timestamp" }),
+    executionResult: text("execution_result"), // JSON result
+
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }),
+  },
+  (table) => [
+    index("agent_sweep_plans_session_idx").on(table.sessionId),
+    index("agent_sweep_plans_repo_idx").on(table.repoId),
+    index("agent_sweep_plans_approval_idx").on(table.approvalStatus),
+  ],
+);
+
+/**
+ * Agent sweep logs - detailed execution logs.
+ */
+export const agentSweepLogs = sqliteTable(
+  "agent_sweep_logs",
+  {
+    id: text("id").primaryKey(),
+
+    // References
+    sessionId: text("session_id").references(() => agentSweepSessions.id),
+    planId: text("plan_id").references(() => agentSweepPlans.id),
+    repoId: text("repo_id").references(() => fleetRepos.id),
+
+    // Log entry
+    phase: text("phase").notNull(), // phase1 | phase2 | phase3
+    level: text("level").notNull(), // debug | info | warn | error
+    message: text("message").notNull(),
+    data: blob("data", { mode: "json" }),
+
+    // Timing
+    timestamp: integer("timestamp", { mode: "timestamp" }).notNull(),
+    durationMs: integer("duration_ms"),
+
+    // Context
+    actionType: text("action_type"),
+    actionIndex: integer("action_index"),
+  },
+  (table) => [
+    index("agent_sweep_logs_session_idx").on(table.sessionId),
+    index("agent_sweep_logs_timestamp_idx").on(table.timestamp),
+    index("agent_sweep_logs_level_idx").on(table.level),
+  ],
 );
 
 // ============================================================================
