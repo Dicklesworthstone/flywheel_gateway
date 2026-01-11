@@ -28,6 +28,7 @@ import {
   sendResource,
   sendValidationError,
 } from "../utils/response";
+import { transformZodError } from "../utils/validation";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
 
@@ -101,12 +102,7 @@ function handleError(error: unknown, c: Context) {
   }
 
   if (error instanceof z.ZodError) {
-    const validationErrors = error.issues.map((issue) => ({
-      path: issue.path.join("."),
-      message: issue.message,
-      code: issue.code,
-    }));
-    return sendValidationError(c, validationErrors);
+    return sendValidationError(c, transformZodError(error));
   }
 
   if (error instanceof SyntaxError && error.message.includes("JSON")) {

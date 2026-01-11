@@ -35,6 +35,7 @@ import {
   sendResource,
   sendValidationError,
 } from "../utils/response";
+import { transformZodError } from "../utils/validation";
 
 const conflicts = new Hono();
 
@@ -232,12 +233,7 @@ conflicts.patch("/config", async (c) => {
     return sendResource(c, "alert_config", updated);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const validationErrors = error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-        code: issue.code,
-      }));
-      return sendValidationError(c, validationErrors);
+      return sendValidationError(c, transformZodError(error));
     }
     log.error({ error }, "Error updating alert configuration");
     throw error;
@@ -324,12 +320,7 @@ conflicts.post("/:conflictId/resolve", async (c) => {
     return sendResource(c, "conflict", transformedResolution, 200);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const validationErrors = error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-        code: issue.code,
-      }));
-      return sendValidationError(c, validationErrors);
+      return sendValidationError(c, transformZodError(error));
     }
     log.error({ error, conflictId }, "Error resolving conflict");
     throw error;
@@ -368,12 +359,7 @@ conflicts.post("/check/reservation", async (c) => {
     return sendResource(c, "reservation_check", checkResult);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const validationErrors = error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-        code: issue.code,
-      }));
-      return sendValidationError(c, validationErrors);
+      return sendValidationError(c, transformZodError(error));
     }
     log.error({ error }, "Error checking reservation conflicts");
     throw error;
@@ -439,12 +425,7 @@ conflicts.post("/scan/git", async (c) => {
     return sendResource(c, "git_scan_result", scanResult);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const validationErrors = error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-        code: issue.code,
-      }));
-      return sendValidationError(c, validationErrors);
+      return sendValidationError(c, transformZodError(error));
     }
     log.error({ error }, "Error scanning for git conflicts");
     throw error;

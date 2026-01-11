@@ -29,6 +29,7 @@ import {
   sendResource,
   sendValidationError,
 } from "../utils/response";
+import { transformZodError } from "../utils/validation";
 
 const accounts = new Hono();
 

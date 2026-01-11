@@ -31,6 +31,7 @@ import {
   sendResource,
   sendValidationError,
 } from "../utils/response";
+import { transformZodError } from "../utils/validation";
 
 const agents = new Hono();
 
@@ -99,12 +100,7 @@ function handleAgentError(error: unknown, c: Context) {
   }
 
   if (error instanceof z.ZodError) {
-    const validationErrors = error.issues.map((issue) => ({
-      path: issue.path.join("."),
-      message: issue.message,
-      code: issue.code,
-    }));
-    return sendValidationError(c, validationErrors);
+    return sendValidationError(c, transformZodError(error));
   }
 
   // Handle JSON parse errors (SyntaxError from c.req.json())
