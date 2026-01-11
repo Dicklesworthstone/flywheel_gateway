@@ -77,62 +77,74 @@ export function handleWSMessage(
       case "subscribe": {
         const channelStr = clientMsg.channel;
         const channel = parseChannel(channelStr);
-        if (channel) {
-          // Check authorization
-          const authResult = canSubscribe(ws.data.auth, channel);
-          if (!authResult.allowed) {
-            ws.send(
-              serializeServerMessage(
-                createWSError("WS_SUBSCRIPTION_DENIED", `Subscription denied: ${authResult.reason}`, channelStr),
-              ),
-            );
-            break;
-          }
-
-          const cursor = clientMsg.cursor;
-
-          // Subscribe and get missed messages
-          const result = hub.subscribe(connectionId, channel, cursor);
-
-          // Replay missed messages FIRST (so client state is consistent)
-          if (result.missedMessages && result.missedMessages.length > 0) {
-            for (const msg of result.missedMessages) {
-              const serverMsg: ServerMessage = {
-                type: "message",
-                message: msg,
-              };
-              ws.send(serializeServerMessage(serverMsg));
-            }
-          }
-
-          // THEN send acknowledgement with the latest cursor
-          const subMsg: SubscribedMessage = {
-            type: "subscribed",
-            channel: channelStr,
-          };
-          if (result.cursor !== undefined) subMsg.cursor = result.cursor;
-          ws.send(serializeServerMessage(subMsg));
+        if (!channel) {
+          ws.send(
+            serializeServerMessage(
+              createWSError("INVALID_CHANNEL", "Invalid channel format", channelStr),
+            ),
+          );
+          break;
         }
+
+        // Check authorization
+        const authResult = canSubscribe(ws.data.auth, channel);
+        if (!authResult.allowed) {
+          ws.send(
+            serializeServerMessage(
+              createWSError("WS_SUBSCRIPTION_DENIED", `Subscription denied: ${authResult.reason}`, channelStr),
+            ),
+          );
+          break;
+        }
+
+        const cursor = clientMsg.cursor;
+
+        // Subscribe and get missed messages
+        const result = hub.subscribe(connectionId, channel, cursor);
+
+        // Replay missed messages FIRST (so client state is consistent)
+        if (result.missedMessages && result.missedMessages.length > 0) {
+          for (const msg of result.missedMessages) {
+            const serverMsg: ServerMessage = {
+              type: "message",
+              message: msg,
+            };
+            ws.send(serializeServerMessage(serverMsg));
+          }
+        }
+
+        // THEN send acknowledgement with the latest cursor
+        const subMsg: SubscribedMessage = {
+          type: "subscribed",
+          channel: channelStr,
+        };
+        if (result.cursor !== undefined) subMsg.cursor = result.cursor;
+        ws.send(serializeServerMessage(subMsg));
         break;
       }
 
       case "unsubscribe": {
         const channelStr = clientMsg.channel;
         const channel = parseChannel(channelStr);
-        if (channel) {
-          hub.unsubscribe(connectionId, channel);
-          const unsubMsg: ServerMessage = {
-            type: "unsubscribed",
-            channel: channelStr,
-          };
-          ws.send(serializeServerMessage(unsubMsg));
+        if (!channel) {
+          ws.send(
+            serializeServerMessage(
+              createWSError("INVALID_CHANNEL", "Invalid channel format", channelStr),
+            ),
+          );
+          break;
         }
+
+        hub.unsubscribe(connectionId, channel);
+        const unsubMsg: ServerMessage = {
+          type: "unsubscribed",
+          channel: channelStr,
+        };
+        ws.send(serializeServerMessage(unsubMsg));
         break;
       }
 
       case "ping": {
-        // Pong is handled via specialized message type in messages.ts?
-        // messages.ts has PongMessage.
         const pongMsg: ServerMessage = {
           type: "pong",
           timestamp: clientMsg.timestamp,
