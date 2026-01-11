@@ -1,4 +1,7 @@
 /**
+ * @deprecated This service is replaced by the WebSocket Hub architecture in ../ws/hub.ts and ../ws/handlers.ts
+ * Do not use for new code.
+ *
  * Agent WebSocket Service
  *
  * Manages WebSocket connections for real-time agent state updates.

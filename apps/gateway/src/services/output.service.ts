@@ -473,6 +473,7 @@ export function pushOutput(
   type: string,
   content: string | Record<string, unknown>,
   streamType: "stdout" | "stderr" | "system" = "stdout",
+  metadata?: Record<string, unknown>,
 ): OutputChunk {
   const buffer = getOutputBuffer(agentId);
   const hub = getHub();
@@ -484,6 +485,7 @@ export function pushOutput(
     type,
     content,
     streamType,
+    metadata,
   });
 
   // Publish to WebSocket hub

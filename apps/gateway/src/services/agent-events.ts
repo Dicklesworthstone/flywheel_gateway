@@ -148,16 +148,12 @@ export class AgentEventsService {
     metadata?: MessageMetadata,
   ): void {
     // Map payload.type to appropriate message type
-    const messageType = payload.type === "tool_call" ? "tool.start" : "tool.end";
-    this.hub.publish(
-      { type: "agent:tools", agentId },
-      messageType,
-      payload,
-      {
-        ...metadata,
-        agentId,
-      },
-    );
+    const messageType =
+      payload.type === "tool_call" ? "tool.start" : "tool.end";
+    this.hub.publish({ type: "agent:tools", agentId }, messageType, payload, {
+      ...metadata,
+      agentId,
+    });
   }
 
   /**

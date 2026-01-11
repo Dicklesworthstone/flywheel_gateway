@@ -12,6 +12,7 @@
 import { getCorrelationId } from "../middleware/correlation";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
+import type { MessageType } from "../ws/messages";
 import { logger } from "./logger";
 import {
   createReservationConflictEngine,
@@ -205,7 +206,7 @@ function toConflictReservation(res: FileReservation): Reservation {
  */
 function publishReservationEvent(
   workspaceId: string,
-  eventType: string,
+  eventType: MessageType,
   payload: Record<string, unknown>,
 ): void {
   const hub = getHub();
@@ -218,7 +219,7 @@ function publishReservationEvent(
  */
 function publishConflictEvent(
   workspaceId: string,
-  eventType: string,
+  eventType: MessageType,
   payload: Record<string, unknown>,
 ): void {
   const hub = getHub();
@@ -266,7 +267,11 @@ function resolveConflictsForReservation(
     conflict.status = "resolved";
     conflict.resolvedAt = now;
     conflict.resolutionReason = reason;
-    conflict.resolvedBy = resolvedBy;
+    if (resolvedBy !== undefined) {
+      conflict.resolvedBy = resolvedBy;
+    } else {
+      delete conflict.resolvedBy;
+    }
     resolvedCount++;
 
     publishConflictEvent(projectId, "conflict.resolved", {
@@ -305,8 +310,8 @@ function globToRegex(pattern: string): RegExp {
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
     // * matches anything except path separator
     .replace(/\*/g, "[^/]*")
-    // ? matches single character
-    .replace(/\?/g, ".")
+    // ? matches single character except path separator
+    .replace(/\?/g, "[^/]")
     // Now replace placeholder/ with (.*/)? - matches zero or more directories
     .replace(new RegExp(GLOBSTAR_PLACEHOLDER + "/", "g"), "(.*/)?")
     // Replace /placeholder with (/.*)? - matches zero or more path segments
@@ -440,8 +445,8 @@ export async function createReservation(
     expiresAt,
     renewCount: 0,
     metadata: {
-      reason: params.reason,
-      taskId: params.taskId,
+      ...(params.reason !== undefined && { reason: params.reason }),
+      ...(params.taskId !== undefined && { taskId: params.taskId }),
     },
   };
 
@@ -764,7 +769,11 @@ export async function resolveConflict(
   conflict.status = "resolved";
   conflict.resolvedAt = now;
   conflict.resolutionReason = params.reason ?? "manual";
-  conflict.resolvedBy = params.resolvedBy;
+  if (params.resolvedBy !== undefined) {
+    conflict.resolvedBy = params.resolvedBy;
+  } else {
+    delete conflict.resolvedBy;
+  }
 
   publishConflictEvent(conflict.projectId, "conflict.resolved", {
     conflictId: conflict.conflictId,

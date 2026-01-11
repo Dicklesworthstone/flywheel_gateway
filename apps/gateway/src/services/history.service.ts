@@ -240,9 +240,7 @@ export async function getHistoryEntry(
 /**
  * Query history entries with filters.
  */
-export async function queryHistory(
-  options: HistoryQueryOptions = {},
-): Promise<{
+export async function queryHistory(options: HistoryQueryOptions = {}): Promise<{
   entries: HistoryEntry[];
   pagination: { cursor?: string; hasMore: boolean };
 }> {

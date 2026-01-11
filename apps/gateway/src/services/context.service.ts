@@ -86,7 +86,10 @@ async function buildTriageSection(
     recommendations = triage.triage.recommendations ?? [];
     dataHash = triage.data_hash;
   } catch (error) {
-    log.warn({ error }, "BV triage unavailable; returning empty triage section");
+    log.warn(
+      { error },
+      "BV triage unavailable; returning empty triage section",
+    );
   }
 
   const filtered = recommendations

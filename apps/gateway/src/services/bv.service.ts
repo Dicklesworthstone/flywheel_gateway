@@ -36,24 +36,6 @@ export function getBvProjectRoot(): string {
   );
 }
 
-export async function runCommand(
-  command: string,
-  args: string[],
-  options: RunOptions = {},
-): Promise<BvCommandResult> {
-  const log = getLogger();
-  const cwd = options.cwd ?? getBvProjectRoot();
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const maxOutputBytes = options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
-
-  const start = performance.now();
-  const proc = Bun.spawn([command, ...args], {
-    cwd,
-    stdout: "pipe",
-    stderr: "pipe",
-    env: { ...process.env, NO_COLOR: "1" },
-  });
-
 /**
  * Safely read a stream up to a limit, draining excess to avoid pipe blocking.
  */
@@ -173,7 +155,9 @@ export function clearBvCache(): void {
 
 export async function getBvTriage(): Promise<BvTriageResult> {
   const log = getLogger();
-  const ttlMs = Number(process.env["BV_TRIAGE_TTL_MS"] ?? DEFAULT_TRIAGE_TTL_MS);
+  const ttlMs = Number(
+    process.env["BV_TRIAGE_TTL_MS"] ?? DEFAULT_TRIAGE_TTL_MS,
+  );
   if (
     cachedTriage &&
     Date.now() - cachedTriage.fetchedAt < Math.max(0, ttlMs)

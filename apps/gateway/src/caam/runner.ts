@@ -221,7 +221,10 @@ export class CaamRunner implements ICaamRunner {
     const result = await this.exec<CaamLsOutput>(workspaceId, args);
 
     if (!result.success || !result.data) {
-      log.warn({ workspaceId, provider, error: result.error }, "caam ls failed");
+      log.warn(
+        { workspaceId, provider, error: result.error },
+        "caam ls failed",
+      );
       return [];
     }
 
@@ -292,8 +295,10 @@ export class CaamRunner implements ICaamRunner {
       logged_in: toolStatus.logged_in,
     };
 
-    if (toolStatus.identity?.email) status.account_id = toolStatus.identity.email;
-    if (toolStatus.health?.expires_at) status.expires_at = toolStatus.health.expires_at;
+    if (toolStatus.identity?.email)
+      status.account_id = toolStatus.identity.email;
+    if (toolStatus.health?.expires_at)
+      status.expires_at = toolStatus.health.expires_at;
     if (toolStatus.error) status.error = toolStatus.error;
 
     if (toolStatus.health) {
@@ -301,8 +306,10 @@ export class CaamRunner implements ICaamRunner {
         error_count_1h: toolStatus.health.error_count,
         penalty: 0, // Not exposed in status output
       };
-      if (toolStatus.health.expires_at) health.token_expires_at = toolStatus.health.expires_at;
-      if (toolStatus.identity?.plan_type) health.plan_type = toolStatus.identity.plan_type;
+      if (toolStatus.health.expires_at)
+        health.token_expires_at = toolStatus.health.expires_at;
+      if (toolStatus.identity?.plan_type)
+        health.plan_type = toolStatus.identity.plan_type;
       status.health = health;
     }
 
@@ -482,7 +489,9 @@ export class CaamRunner implements ICaamRunner {
         { workspaceId, provider, name, error: result.error },
         "caam backup failed",
       );
-      throw new Error(`Failed to backup: ${result.error ?? result.data?.error}`);
+      throw new Error(
+        `Failed to backup: ${result.error ?? result.data?.error}`,
+      );
     }
 
     log.info({ workspaceId, provider, name }, "Backed up auth files");
@@ -639,13 +648,10 @@ export class DockerExecutor implements WorkspaceExecutor {
     // Container name derived from workspace ID
     const containerName = `flywheel-workspace-${workspaceId}`;
 
-    const proc = Bun.spawn(
-      ["docker", "exec", containerName, "caam", ...args],
-      {
-        stdout: "pipe",
-        stderr: "pipe",
-      },
-    );
+    const proc = Bun.spawn(["docker", "exec", containerName, "caam", ...args], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
 
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error("Command timed out")), timeout);
@@ -679,7 +685,8 @@ export class DockerExecutor implements WorkspaceExecutor {
 export function createCaamRunner(
   mode: "local" | "docker" = "local",
 ): CaamRunner {
-  const executor = mode === "docker" ? new DockerExecutor() : new LocalExecutor();
+  const executor =
+    mode === "docker" ? new DockerExecutor() : new LocalExecutor();
   return new CaamRunner(executor);
 }
 

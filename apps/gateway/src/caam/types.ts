@@ -222,12 +222,7 @@ export const RATE_LIMIT_SIGNATURES: Record<ProviderId, string[]> = {
     "too many requests",
     "429",
   ],
-  gemini: [
-    "RESOURCE_EXHAUSTED",
-    "quota exceeded",
-    "rate limit",
-    "429",
-  ],
+  gemini: ["RESOURCE_EXHAUSTED", "quota exceeded", "rate limit", "429"],
 };
 
 /**

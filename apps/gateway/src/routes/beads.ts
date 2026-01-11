@@ -11,7 +11,10 @@ import {
 } from "@flywheel/shared/errors";
 import type { GatewayError } from "@flywheel/shared/errors";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
-import { createBeadsService, type BeadsService } from "../services/beads.service";
+import {
+  createBeadsService,
+  type BeadsService,
+} from "../services/beads.service";
 import { BvClientError } from "@flywheel/flywheel-clients";
 
 const beads = new Hono<{ Variables: { beadsService: BeadsService } }>();

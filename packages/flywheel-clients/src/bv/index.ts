@@ -114,7 +114,11 @@ export function createBvClient(options: BvClientOptions): BvClient {
   return {
     getTriage: async (opts) => {
       const cwd = opts?.cwd ?? baseCwd;
-      const stdout = await runBvCommand(options.runner, ["--robot-triage"], cwd);
+      const stdout = await runBvCommand(
+        options.runner,
+        ["--robot-triage"],
+        cwd,
+      );
       let parsed: unknown;
       try {
         parsed = JSON.parse(stdout);

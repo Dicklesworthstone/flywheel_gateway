@@ -1,18 +1,13 @@
 import type { ServerWebSocket } from "bun";
 import { logger } from "../services/logger";
+import { canSubscribe } from "./authorization";
+import { parseChannel, type Channel } from "./channels";
+import { getHub, type AuthContext, type ConnectionData } from "./hub";
 import {
-  canSubscribe,
-} from "./authorization";
-import {
-  parseChannel,
-  type Channel,
-} from "./channels";
-import {
-  getHub,
-  type AuthContext,
-  type ConnectionData,
-} from "./hub";
-import { parseClientMessage } from "./messages";
+  parseClientMessage,
+  serializeServerMessage,
+  type ServerMessage,
+} from "./messages";
 
 /**
  * Handle WebSocket connection open event.
@@ -21,33 +16,38 @@ import { parseClientMessage } from "./messages";
 export function handleWSOpen(ws: ServerWebSocket<ConnectionData>): void {
   const hub = getHub();
   const connectionId = ws.data.connectionId;
-  
+
   hub.addConnection(ws, ws.data.auth);
-  
+
   // Register pre-existing subscriptions (e.g. from upgrade)
   // These are considered "system-assigned" so we skip auth checks here
   if (ws.data.subscriptions.size > 0) {
-    for (const [channelStr, cursor] of ws.data.subscriptions) {
+    // Clone entries to avoid iterator invalidation issues as hub.subscribe modifies the map
+    const initialSubs = Array.from(ws.data.subscriptions.entries());
+
+    for (const [channelStr, cursor] of initialSubs) {
       const channel = parseChannel(channelStr);
       if (channel) {
         const result = hub.subscribe(connectionId, channel, cursor);
-        
+
         // Send missed messages immediately
         if (result.missedMessages && result.missedMessages.length > 0) {
-           for (const msg of result.missedMessages) {
-              ws.send(JSON.stringify({ type: 'message', message: msg }));
-           }
+          for (const msg of result.missedMessages) {
+            const serverMsg: ServerMessage = { type: "message", message: msg };
+            ws.send(serializeServerMessage(serverMsg));
+          }
         }
       }
     }
   }
-  
+
   // Send welcome message
-  ws.send(JSON.stringify({
-     type: 'connected',
-     connectionId: connectionId,
-     timestamp: new Date().toISOString()
-  }));
+  const connectedMsg: ServerMessage = {
+    type: "connected",
+    connectionId: connectionId,
+    serverTime: new Date().toISOString(),
+  };
+  ws.send(serializeServerMessage(connectedMsg));
 }
 
 /**
@@ -67,11 +67,12 @@ export function handleWSMessage(
 
     if (!clientMsg) {
       logger.warn({ connectionId, text }, "Invalid WebSocket message format");
-      ws.send(JSON.stringify({
-         type: 'error',
-         message: 'Invalid message format',
-         timestamp: new Date().toISOString()
-      }));
+      const errorMsg: ServerMessage = {
+        type: "error",
+        code: "INVALID_FORMAT",
+        message: "Invalid message format",
+      };
+      ws.send(serializeServerMessage(errorMsg));
       return;
     }
 
@@ -83,34 +84,39 @@ export function handleWSMessage(
           // Check authorization
           const authResult = canSubscribe(ws.data.auth, channel);
           if (!authResult.allowed) {
-              ws.send(JSON.stringify({
-                type: 'error',
-                message: `Subscription denied: ${authResult.reason}`,
-                channel: channelStr,
-                timestamp: new Date().toISOString()
-              }));
-              break;
+            const errorMsg: ServerMessage = {
+              type: "error",
+              code: "FORBIDDEN",
+              message: `Subscription denied: ${authResult.reason}`,
+              channel: channelStr,
+            };
+            ws.send(serializeServerMessage(errorMsg));
+            break;
           }
 
           const cursor = clientMsg.cursor;
-          
+
           // Subscribe and get missed messages
           const result = hub.subscribe(connectionId, channel, cursor);
 
           // Replay missed messages FIRST (so client state is consistent)
           if (result.missedMessages && result.missedMessages.length > 0) {
-              for (const msg of result.missedMessages) {
-                ws.send(JSON.stringify({ type: 'message', message: msg }));
-              }
+            for (const msg of result.missedMessages) {
+              const serverMsg: ServerMessage = {
+                type: "message",
+                message: msg,
+              };
+              ws.send(serializeServerMessage(serverMsg));
+            }
           }
-          
+
           // THEN send acknowledgement with the latest cursor
-          ws.send(JSON.stringify({
-              type: 'subscribed',
-              channel: channelStr,
-              cursor: result.cursor,
-              timestamp: new Date().toISOString()
-          }));
+          const subMsg: ServerMessage = {
+            type: "subscribed",
+            channel: channelStr,
+            cursor: result.cursor,
+          };
+          ws.send(serializeServerMessage(subMsg));
         }
         break;
       }
@@ -120,43 +126,55 @@ export function handleWSMessage(
         const channel = parseChannel(channelStr);
         if (channel) {
           hub.unsubscribe(connectionId, channel);
-          ws.send(JSON.stringify({
-              type: 'unsubscribed',
-              channel: channelStr,
-              timestamp: new Date().toISOString()
-          }));
+          const unsubMsg: ServerMessage = {
+            type: "unsubscribed",
+            channel: channelStr,
+          };
+          ws.send(serializeServerMessage(unsubMsg));
         }
         break;
       }
 
       case "ping": {
-        ws.send(
-          JSON.stringify({
-            type: "pong",
-            timestamp: new Date().toISOString(),
-          }),
-        );
+        // Pong is handled via specialized message type in messages.ts?
+        // messages.ts has PongMessage.
+        const pongMsg: ServerMessage = {
+          type: "pong",
+          timestamp: clientMsg.timestamp,
+          serverTime: Date.now(),
+          subscriptions: Array.from(ws.data.subscriptions.keys()),
+          cursors: Object.fromEntries(
+            Array.from(ws.data.subscriptions.entries()).filter(
+              ([_, v]) => v !== undefined,
+            ) as [string, string][],
+          ),
+        };
+        ws.send(serializeServerMessage(pongMsg));
         hub.updateHeartbeat(connectionId);
         break;
       }
-      
+
       case "reconnect": {
-         // Handle reconnection logic
-         const result = hub.handleReconnect(connectionId, clientMsg.cursors);
-         ws.send(JSON.stringify(result));
-         break;
+        // Handle reconnection logic
+        const result = hub.handleReconnect(connectionId, clientMsg.cursors);
+        ws.send(serializeServerMessage(result));
+        break;
       }
 
       default:
-        logger.warn({ connectionId, type: clientMsg.type }, "Unknown message type");
+        logger.warn(
+          { connectionId, type: clientMsg.type },
+          "Unknown message type",
+        );
     }
   } catch (err) {
     logger.error({ err, connectionId }, "Error handling WebSocket message");
-    ws.send(JSON.stringify({
-       type: 'error',
-       message: 'Internal server error',
-       timestamp: new Date().toISOString()
-    }));
+    const errorMsg: ServerMessage = {
+      type: "error",
+      code: "INTERNAL_ERROR",
+      message: "Internal server error",
+    };
+    ws.send(serializeServerMessage(errorMsg));
   }
 }
 
@@ -180,7 +198,7 @@ export function handleWSError(
     { connectionId: ws.data.connectionId, error },
     "WebSocket error",
   );
-  // Connection removal is handled by close event usually, 
+  // Connection removal is handled by close event usually,
   // but we can ensure cleanup here if needed.
   // Bun emits close after error typically.
 }

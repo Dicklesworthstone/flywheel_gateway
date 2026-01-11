@@ -4,15 +4,8 @@ import { correlationMiddleware } from "./middleware/correlation";
 import { idempotencyMiddleware } from "./middleware/idempotency";
 import { loggingMiddleware } from "./middleware/logging";
 import { routes } from "./routes";
-import {
-  createGuestAuthContext,
-} from "./ws/authorization";
-import {
-  handleWSClose,
-  handleWSError,
-  handleWSMessage,
-  handleWSOpen,
-} from "./ws/handlers";
+import { createGuestAuthContext } from "./ws/authorization";
+import { handleWSClose, handleWSMessage, handleWSOpen } from "./ws/handlers";
 import { startHeartbeat } from "./ws/heartbeat";
 import { getHub } from "./ws/hub";
 import { startAgentEvents } from "./services/agent-events";
@@ -57,12 +50,12 @@ if (import.meta.main) {
     fetch(req, server) {
       // Handle WebSocket upgrade
       const url = new URL(req.url);
-      
+
       // New generic WS endpoint (e.g. /ws) or keep existing /agents/*/ws for backward compat?
       const agentMatch = url.pathname.match(/^\/agents\/([^/]+)\/ws$/);
       if (agentMatch || url.pathname === "/ws") {
         const initialSubscriptions = new Map<string, string | undefined>();
-        
+
         // Auto-subscribe if connecting to specific agent endpoint
         if (agentMatch) {
           const agentId = agentMatch[1];

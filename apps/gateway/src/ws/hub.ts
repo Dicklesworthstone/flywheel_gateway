@@ -334,8 +334,9 @@ export class WebSocketHub {
       const messages = buffer.getAll(limit + 1);
       const hasMore = messages.length > limit;
       const trimmed = hasMore ? messages.slice(0, limit) : messages;
-      const lastCursor = trimmed.length > 0 ? trimmed[trimmed.length - 1]!.cursor : undefined;
-      
+      const lastCursor =
+        trimmed.length > 0 ? trimmed[trimmed.length - 1]!.cursor : undefined;
+
       return {
         messages: trimmed,
         hasMore,
@@ -348,7 +349,8 @@ export class WebSocketHub {
     const messages = buffer.slice(cursor, limit + 1);
     const hasMore = messages.length > limit;
     const trimmed = hasMore ? messages.slice(0, limit) : messages;
-    const lastCursor = trimmed.length > 0 ? trimmed[trimmed.length - 1]!.cursor : undefined;
+    const lastCursor =
+      trimmed.length > 0 ? trimmed[trimmed.length - 1]!.cursor : undefined;
 
     return {
       messages: trimmed,

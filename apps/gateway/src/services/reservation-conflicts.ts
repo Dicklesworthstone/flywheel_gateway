@@ -78,12 +78,12 @@ function globToRegex(pattern: string): RegExp {
     .replace(/\/\*\*/g, "/" + GLOBSTAR_PLACEHOLDER)
     // Handle remaining ** (in case it's standalone)
     .replace(/\*\*/g, GLOBSTAR_PLACEHOLDER)
-    // Escape regex special chars (except glob chars)
+    // Escape regex special chars (except glob chars *, ?, and **)
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
     // * matches anything except path separator
     .replace(/\*/g, "[^/]*")
-    // ? matches single character
-    .replace(/\?/g, ".")
+    // ? matches single character except path separator
+    .replace(/\?/g, "[^/]")
     // Now replace placeholder/ with (.*/)? - matches zero or more directories
     .replace(new RegExp(GLOBSTAR_PLACEHOLDER + "/", "g"), "(.*/)?")
     // Replace /placeholder with (/.*)? - matches zero or more path segments

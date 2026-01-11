@@ -11,7 +11,8 @@
 export type AgentChannel =
   | { type: "agent:output"; agentId: string }
   | { type: "agent:state"; agentId: string }
-  | { type: "agent:tools"; agentId: string };
+  | { type: "agent:tools"; agentId: string }
+  | { type: "agent:checkpoints"; agentId: string };
 
 /**
  * Workspace-scoped channels for workspace-wide subscriptions.
@@ -52,6 +53,7 @@ export type ChannelTypePrefix =
   | "agent:output"
   | "agent:state"
   | "agent:tools"
+  | "agent:checkpoints"
   | "workspace:agents"
   | "workspace:reservations"
   | "workspace:conflicts"
@@ -73,6 +75,7 @@ export function channelToString(channel: Channel): string {
     case "agent:output":
     case "agent:state":
     case "agent:tools":
+    case "agent:checkpoints":
       return `${channel.type}:${channel.agentId}`;
 
     case "workspace:agents":
@@ -126,6 +129,8 @@ export function parseChannel(str: string): Channel | undefined {
       return { type: "agent:state", agentId: id };
     case "agent:tools":
       return { type: "agent:tools", agentId: id };
+    case "agent:checkpoints":
+      return { type: "agent:checkpoints", agentId: id };
     case "workspace:agents":
       return { type: "workspace:agents", workspaceId: id };
     case "workspace:reservations":
@@ -174,6 +179,7 @@ export function getChannelResourceId(channel: Channel): string | undefined {
     case "agent:output":
     case "agent:state":
     case "agent:tools":
+    case "agent:checkpoints":
       return channel.agentId;
     case "workspace:agents":
     case "workspace:reservations":
@@ -184,6 +190,7 @@ export function getChannelResourceId(channel: Channel): string | undefined {
       return channel.userId;
     case "system:health":
     case "system:metrics":
+    case "system:dcg":
       return undefined;
   }
 }
