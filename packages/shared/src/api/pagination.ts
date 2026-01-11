@@ -226,11 +226,14 @@ export function decodeCursor(
       return undefined;
     }
 
-    return {
+    const result: CursorPayload = {
       id: obj["id"] as string,
-      sortValue: obj["sortValue"] as string | number | undefined,
       createdAt: obj["createdAt"] as number,
     };
+    if (obj["sortValue"] !== undefined) {
+      result.sortValue = obj["sortValue"] as string | number;
+    }
+    return result;
   } catch {
     // Invalid base64 or JSON
     return undefined;
@@ -251,11 +254,14 @@ export function decodeCursor(
  * ```
  */
 export function createCursor(id: string, sortValue?: string | number): string {
-  return encodeCursor({
+  const payload: CursorPayload = {
     id,
-    sortValue,
     createdAt: Date.now(),
-  });
+  };
+  if (sortValue !== undefined) {
+    payload.sortValue = sortValue;
+  }
+  return encodeCursor(payload);
 }
 
 // ============================================================================
