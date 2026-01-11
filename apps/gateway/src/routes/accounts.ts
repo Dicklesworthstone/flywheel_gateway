@@ -35,6 +35,14 @@ const AuthModeSchema = z.enum([
   "api_key",
   "vertex_adc",
 ]);
+const ProfileStatusSchema = z.enum([
+  "unlinked",
+  "linked",
+  "verified",
+  "expired",
+  "cooldown",
+  "error",
+]);
 
 const CreateProfileSchema = z.object({
   workspaceId: z.string().min(1),
@@ -145,7 +153,17 @@ accounts.get("/profiles", async (c) => {
     const options: Parameters<typeof listProfiles>[0] = {};
     if (workspaceId) options.workspaceId = workspaceId;
     if (provider) options.provider = provider;
-    if (statusParam) options.status = statusParam.split(",") as any;
+    if (statusParam) {
+      // Validate each status value, filtering out any invalid ones
+      const validStatuses = statusParam
+        .split(",")
+        .map((s) => ProfileStatusSchema.safeParse(s.trim()))
+        .filter((r) => r.success)
+        .map((r) => r.data!);
+      if (validStatuses.length > 0) {
+        options.status = validStatuses;
+      }
+    }
     if (limitParam) options.limit = parseInt(limitParam, 10);
 
     const result = await listProfiles(options);
@@ -380,11 +398,9 @@ accounts.post("/providers/:provider/login/complete", async (c) => {
     const body = await c.req.json();
     const { profileId } = z.object({ profileId: z.string() }).parse(body);
 
-    // In real implementation, this would verify the OAuth callback/device code
-    // For now, mark the profile as verified
-    const profile = await markVerified(profileId);
-
-    if (!profile) {
+    // Verify the profile exists and belongs to the correct provider
+    const existingProfile = await getProfile(profileId);
+    if (!existingProfile) {
       return c.json(
         {
           error: {
@@ -397,6 +413,25 @@ accounts.post("/providers/:provider/login/complete", async (c) => {
         404,
       );
     }
+
+    // Validate provider matches
+    if (existingProfile.provider !== provider) {
+      return c.json(
+        {
+          error: {
+            code: "INVALID_REQUEST",
+            message: `Profile ${profileId} belongs to provider '${existingProfile.provider}', not '${provider}'`,
+            correlationId: getCorrelationId(),
+            timestamp: new Date().toISOString(),
+          },
+        },
+        400,
+      );
+    }
+
+    // In real implementation, this would verify the OAuth callback/device code
+    // For now, mark the profile as verified
+    const profile = await markVerified(profileId);
 
     return c.json({ profile, status: "linked" });
   } catch (error) {
