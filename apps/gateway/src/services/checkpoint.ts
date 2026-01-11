@@ -23,6 +23,7 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { ulid } from "ulid";
 import { checkpoints as checkpointsTable, db } from "../db";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
+import { incrementCounter, recordHistogram, setGauge } from "./metrics";
 
 // ============================================================================
 // Compression Utilities
@@ -320,6 +321,9 @@ export async function createCheckpoint(
     checkpoint.parentCheckpointId = lastCheckpointId;
   }
 
+  // Record checkpoint creation start time for metrics
+  const createStartTime = performance.now();
+
   // Persist to DB
   await db.insert(checkpointsTable).values({
     id: checkpointId,
@@ -327,6 +331,40 @@ export async function createCheckpoint(
     state: checkpoint,
     createdAt: now,
   });
+
+  // Record metrics
+  const createDurationMs = performance.now() - createStartTime;
+  const checkpointType = checkpoint.isDelta ? "delta" : "full";
+  const trigger = options.tags?.includes("error")
+    ? "error"
+    : options.tags?.includes("auto")
+      ? "auto"
+      : "manual";
+
+  incrementCounter("flywheel_checkpoints_created_total", 1, {
+    type: checkpointType,
+    trigger,
+    compressed: options.compress ? "true" : "false",
+  });
+
+  recordHistogram(
+    "flywheel_checkpoint_create_duration_ms",
+    createDurationMs,
+    { type: checkpointType },
+  );
+
+  if (compressionMeta) {
+    recordHistogram(
+      "flywheel_checkpoint_size_bytes",
+      compressionMeta.compressedSize,
+      { type: checkpointType, compressed: "true" },
+    );
+    recordHistogram(
+      "flywheel_checkpoint_compression_ratio",
+      compressionMeta.ratio,
+      {},
+    );
+  }
 
   log.info(
     {
@@ -337,6 +375,7 @@ export async function createCheckpoint(
       compressed: !!options.compress,
       compressionRatio: compressionMeta?.ratio,
       tokenUsage: state.tokenUsage.totalTokens,
+      createDurationMs,
       correlationId,
     },
     `[CHECKPOINT] Created checkpoint ${checkpointId} for agent ${agentId}${options.compress ? ` (compressed ${compressionMeta?.ratio.toFixed(2)}x)` : ""}`,
@@ -653,9 +692,13 @@ export async function restoreCheckpoint(
 ): Promise<Checkpoint> {
   const log = getLogger();
   const correlationId = getCorrelationId();
+  const restoreStartTime = performance.now();
 
   const checkpoint = await getCheckpoint(checkpointId);
   if (!checkpoint) {
+    incrementCounter("flywheel_checkpoint_restore_errors_total", 1, {
+      error: "not_found",
+    });
     throw new CheckpointError(
       "CHECKPOINT_NOT_FOUND",
       `Checkpoint ${checkpointId} not found`,
@@ -666,6 +709,9 @@ export async function restoreCheckpoint(
   if (options.verify) {
     const verifyResult = await verifyCheckpoint(checkpointId);
     if (!verifyResult.valid) {
+      incrementCounter("flywheel_checkpoint_restore_errors_total", 1, {
+        error: "invalid",
+      });
       throw new CheckpointError(
         "CHECKPOINT_INVALID",
         `Checkpoint verification failed: ${verifyResult.errors.join(", ")}`,
@@ -674,8 +720,21 @@ export async function restoreCheckpoint(
   }
 
   // Resolve delta chain if needed
-  const resolvedCheckpoint = await resolveDeltaCheckpoint(
-    checkpoint as DeltaCheckpoint,
+  const deltaCheckpoint = checkpoint as DeltaCheckpoint;
+  const resolvedCheckpoint = await resolveDeltaCheckpoint(deltaCheckpoint);
+
+  // Record metrics
+  const restoreDurationMs = performance.now() - restoreStartTime;
+  const checkpointType = deltaCheckpoint.isDelta ? "delta" : "full";
+
+  incrementCounter("flywheel_checkpoint_restores_total", 1, {
+    type: checkpointType,
+  });
+
+  recordHistogram(
+    "flywheel_checkpoint_restore_duration_ms",
+    restoreDurationMs,
+    { type: checkpointType },
   );
 
   log.info(
@@ -684,6 +743,7 @@ export async function restoreCheckpoint(
       action: "restore",
       checkpointId,
       agentId: checkpoint.agentId,
+      restoreDurationMs,
       correlationId,
     },
     `[CHECKPOINT] Restored checkpoint ${checkpointId} for agent ${checkpoint.agentId}`,
@@ -906,6 +966,8 @@ export async function deleteCheckpoint(checkpointId: string): Promise<void> {
     .delete(checkpointsTable)
     .where(eq(checkpointsTable.id, checkpointId));
 
+  incrementCounter("flywheel_checkpoints_deleted_total", 1, {});
+
   log.info(
     { type: "checkpoint", action: "delete", checkpointId },
     `[CHECKPOINT] Deleted checkpoint ${checkpointId}`,
@@ -941,6 +1003,8 @@ export async function pruneCheckpoints(
   await db
     .delete(checkpointsTable)
     .where(inArray(checkpointsTable.id, deleteIds));
+
+  incrementCounter("flywheel_checkpoints_pruned_total", deleteIds.length, {});
 
   log.info(
     { type: "checkpoint", action: "prune", agentId, deleted: deleteIds.length },

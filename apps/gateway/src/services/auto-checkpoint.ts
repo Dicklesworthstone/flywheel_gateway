@@ -12,6 +12,7 @@
 
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import { createCheckpoint } from "./checkpoint";
+import { incrementCounter, setGauge } from "./metrics";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
 
@@ -113,6 +114,9 @@ export function initializeAutoCheckpoint(
 
   agentStates.set(agentId, state);
 
+  // Update gauge for tracked agents
+  setGauge("flywheel_auto_checkpoint_tracked_agents", agentStates.size, {});
+
   log.debug(
     {
       type: "auto_checkpoint",
@@ -136,6 +140,9 @@ export function stopAutoCheckpoint(agentId: string): void {
       clearInterval(state.intervalTimer);
     }
     agentStates.delete(agentId);
+
+    // Update gauge for tracked agents
+    setGauge("flywheel_auto_checkpoint_tracked_agents", agentStates.size, {});
 
     const log = getLogger();
     log.debug(
@@ -323,6 +330,10 @@ async function maybeCreateCheckpoint(
   const minIntervalMs = state.config.minIntervalSeconds * 1000;
   if (timeSinceLastCheckpoint < minIntervalMs) {
     const log = getLogger();
+    incrementCounter("flywheel_auto_checkpoint_skipped_total", 1, {
+      reason: "cooldown",
+      trigger,
+    });
     log.debug(
       {
         type: "auto_checkpoint",
@@ -387,6 +398,12 @@ async function createAutoCheckpoint(
     state.tokensAtLastCheckpoint = checkpointState.tokenUsage.totalTokens;
     state.checkpointSequence++;
 
+    // Record metrics for auto-checkpoint trigger
+    incrementCounter("flywheel_auto_checkpoint_triggers_total", 1, {
+      trigger,
+      type: forceFull ? "full" : "delta",
+    });
+
     // Publish WebSocket event
     const hub = getHub();
     const channel: Channel = { type: "agent:checkpoints", agentId };
@@ -419,6 +436,9 @@ async function createAutoCheckpoint(
 
     return true;
   } catch (error) {
+    incrementCounter("flywheel_auto_checkpoint_failures_total", 1, {
+      trigger,
+    });
     log.error(
       {
         type: "auto_checkpoint",
