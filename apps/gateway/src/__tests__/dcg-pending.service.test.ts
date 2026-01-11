@@ -2,7 +2,9 @@
  * Unit tests for the DCG Pending Exceptions Service.
  */
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { migrate } from "drizzle-orm/bun-sqlite/migrator";
+import { db } from "../db";
 import {
   approvePendingException,
   cleanupExpiredExceptions,
@@ -22,6 +24,15 @@ import {
 } from "../services/dcg-pending.service";
 
 describe("DCG Pending Exceptions Service", () => {
+  // Run migrations to ensure database schema exists
+  beforeAll(async () => {
+    try {
+      await migrate(db, { migrationsFolder: "src/db/migrations" });
+    } catch (e) {
+      console.warn("Migration failed or not needed:", e);
+    }
+  });
+
   // Clean up before and after each test
   beforeEach(async () => {
     await _clearAllPendingExceptions();
@@ -445,18 +456,18 @@ describe("DCG Pending Exceptions Service", () => {
 
   describe("cleanupExpiredExceptions", () => {
     test("marks expired pending exceptions as expired", async () => {
-      // Create exception that expires immediately
+      // Create exception that expires immediately (use -1 to ensure it's in the past)
       await createPendingException({
         command: "test command",
         pack: "test",
         ruleId: "test:rule",
         reason: "Test",
         severity: "low",
-        ttlSeconds: 0,
+        ttlSeconds: -1, // Already expired
       });
 
-      // Wait for expiration
-      await new Promise((r) => setTimeout(r, 100));
+      // Small delay to ensure DB write completes
+      await new Promise((r) => setTimeout(r, 50));
 
       const expiredCount = await cleanupExpiredExceptions();
 
