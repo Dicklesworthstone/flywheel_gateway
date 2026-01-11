@@ -34,6 +34,11 @@ import {
   getModelLimit,
   getTotalAllocated,
 } from "./context-budget.service";
+import {
+  isCassAvailable,
+  searchWithTokenBudget,
+  type CassSearchHit,
+} from "./cass.service";
 import { countTokens, truncateToTokens } from "./tokenizer.service";
 
 // ============================================================================
@@ -217,7 +222,7 @@ async function buildMemorySection(
 /**
  * Build the search section from CASS.
  *
- * Currently uses a stub implementation since CASS is not yet integrated.
+ * Queries CASS for semantically similar content from prior agent sessions.
  */
 async function buildSearchSection(
   query: string | undefined,
@@ -230,9 +235,6 @@ async function buildSearchSection(
   const log = getLogger();
   const startTime = performance.now();
 
-  // Stub: In production, query CASS for semantically similar content
-  // const results = await cass.search({ query, ... });
-
   const section: SearchSection = {
     results: [],
     totalTokens: 0,
@@ -240,22 +242,115 @@ async function buildSearchSection(
     metadata: {
       totalMatches: 0,
       includedMatches: 0,
-      searchTimeMs: Math.round(performance.now() - startTime),
+      searchTimeMs: 0,
     },
   };
 
-  // When CASS integration is available, populate with real results
+  // If no query or CASS unavailable, return empty section
+  if (!query) {
+    section.metadata.searchTimeMs = Math.round(performance.now() - startTime);
+    log.debug({ tokenBudget }, "No search query provided, skipping CASS");
+    return section;
+  }
 
-  log.debug(
-    {
-      query,
-      tokenBudget,
-      buildTimeMs: section.metadata.searchTimeMs,
-    },
-    "Built search section (stub)",
-  );
+  // Check if CASS is available
+  const cassAvailable = await isCassAvailable();
+  if (!cassAvailable) {
+    section.metadata.searchTimeMs = Math.round(performance.now() - startTime);
+    log.debug({ query, tokenBudget }, "CASS unavailable, returning empty search section");
+    return section;
+  }
+
+  try {
+    const maxResults = options?.maxResults ?? 5;
+    const minScore = options?.minScore ?? 0;
+
+    const searchResult = await searchWithTokenBudget(query, tokenBudget, {
+      limit: maxResults,
+      fields: "summary",
+    });
+
+    section.metadata.totalMatches = searchResult.total_matches;
+
+    // Convert CASS hits to SearchResult format
+    for (const hit of searchResult.hits) {
+      // Skip low-score results
+      if (hit.score !== undefined && hit.score < minScore) {
+        continue;
+      }
+
+      const content = hit.snippet ?? hit.content ?? hit.title ?? "";
+      const resultTokens = countTokens(content);
+
+      // Check if we can fit this result
+      if (section.totalTokens + resultTokens > tokenBudget) {
+        // Try truncating
+        const truncatedContent = truncateToTokens(
+          content,
+          tokenBudget - section.totalTokens,
+        );
+        if (truncatedContent.length > 20) {
+          section.results.push({
+            id: `${hit.source_path}:${hit.line_number}`,
+            source: hit.source_path,
+            content: truncatedContent,
+            score: hit.score ?? 0,
+            tokens: countTokens(truncatedContent),
+            context: formatHitContext(hit),
+          });
+          section.totalTokens += countTokens(truncatedContent);
+          section.metadata.includedMatches++;
+        }
+        break;
+      }
+
+      section.results.push({
+        id: `${hit.source_path}:${hit.line_number}`,
+        source: hit.source_path,
+        content,
+        score: hit.score ?? 0,
+        tokens: resultTokens,
+        context: formatHitContext(hit),
+      });
+      section.totalTokens += resultTokens;
+      section.metadata.includedMatches++;
+    }
+
+    section.metadata.searchTimeMs = Math.round(performance.now() - startTime);
+
+    log.debug(
+      {
+        query,
+        tokenBudget,
+        totalMatches: section.metadata.totalMatches,
+        includedMatches: section.metadata.includedMatches,
+        buildTimeMs: section.metadata.searchTimeMs,
+      },
+      "Built search section from CASS",
+    );
+  } catch (error) {
+    section.metadata.searchTimeMs = Math.round(performance.now() - startTime);
+    log.warn(
+      {
+        query,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      "CASS search failed, returning empty search section",
+    );
+  }
 
   return section;
+}
+
+/**
+ * Format hit context for display.
+ */
+function formatHitContext(hit: CassSearchHit): string {
+  const parts: string[] = [];
+  if (hit.agent) parts.push(`agent: ${hit.agent}`);
+  if (hit.workspace) parts.push(`workspace: ${hit.workspace}`);
+  if (hit.title) parts.push(`title: ${hit.title}`);
+  return parts.join(", ");
 }
 
 /**
