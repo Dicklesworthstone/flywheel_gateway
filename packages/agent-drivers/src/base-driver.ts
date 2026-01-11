@@ -33,6 +33,24 @@ type DriverLogger = (
 const DRIVER_DEBUG_ENABLED = process.env["FLYWHEEL_DRIVER_DEBUG"] === "1";
 let driverLogger: DriverLogger | undefined;
 
+// Alphanumeric charset for secure ID generation
+const ID_CHARSET =
+  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+/**
+ * Generate a cryptographically secure random ID with the given prefix.
+ * Uses crypto.getRandomValues() for secure randomness.
+ */
+export function generateSecureId(prefix: string, length = 6): string {
+  const randomBytes = new Uint8Array(length);
+  crypto.getRandomValues(randomBytes);
+  let suffix = "";
+  for (let i = 0; i < length; i++) {
+    suffix += ID_CHARSET[randomBytes[i]! % ID_CHARSET.length];
+  }
+  return `${prefix}_${Date.now()}_${suffix}`;
+}
+
 export function logDriver(
   level: DriverLogLevel,
   driverType: AgentDriverType,

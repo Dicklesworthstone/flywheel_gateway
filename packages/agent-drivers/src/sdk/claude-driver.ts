@@ -13,6 +13,7 @@ import {
   BaseDriver,
   type BaseDriverConfig,
   createDriverOptions,
+  generateSecureId,
   logDriver,
 } from "../base-driver";
 import type { DriverOptions } from "../interface";
@@ -145,7 +146,7 @@ export class ClaudeSDKDriver extends BaseDriver {
       throw new Error(`Session not found for agent: ${agentId}`);
     }
 
-    const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const messageId = generateSecureId("msg");
 
     // Add user message to history
     session.conversationHistory.push({
@@ -235,7 +236,7 @@ export class ClaudeSDKDriver extends BaseDriver {
       throw new Error(`Agent state not found: ${agentId}`);
     }
 
-    const checkpointId = `chk_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const checkpointId = generateSecureId("chk");
     const now = new Date();
 
     const checkpoint: Checkpoint = {

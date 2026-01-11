@@ -23,6 +23,7 @@ import {
   BaseDriver,
   type BaseDriverConfig,
   createDriverOptions,
+  generateSecureId,
   logDriver,
 } from "../base-driver";
 import type { DriverOptions } from "../interface";
@@ -223,7 +224,7 @@ export class TmuxDriver extends BaseDriver {
       throw new Error(`Session not found for agent: ${agentId}`);
     }
 
-    const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const messageId = generateSecureId("msg");
 
     // Send keys to tmux session using -l flag for literal interpretation
     // This prevents tmux from interpreting special key sequences
