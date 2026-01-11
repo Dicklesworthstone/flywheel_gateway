@@ -9,6 +9,17 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { getLogger } from "../middleware/correlation";
 import {
+  approvePendingException,
+  denyPendingException,
+  getPendingException,
+  listPendingExceptions,
+  PendingExceptionConflictError,
+  PendingExceptionExpiredError,
+  PendingExceptionNotFoundError,
+  type PendingExceptionStatus,
+  validateExceptionForExecution,
+} from "../services/dcg-pending.service";
+import {
   addToAllowlist,
   type DCGConfig,
   type DCGSeverity,
@@ -60,6 +71,20 @@ const BlocksQuerySchema = z.object({
   pack: z.string().optional(),
   limit: z.coerce.number().min(1).max(200).optional(),
   cursor: z.string().optional(),
+});
+
+const PendingQuerySchema = z.object({
+  status: z.enum(["pending", "approved", "denied", "expired", "executed"]).optional(),
+  agentId: z.string().optional(),
+  limit: z.coerce.number().min(1).max(200).optional(),
+});
+
+const DenyRequestSchema = z.object({
+  reason: z.string().max(500).optional(),
+});
+
+const ValidateRequestSchema = z.object({
+  commandHash: z.string().length(64),
 });
 
 // ============================================================================
