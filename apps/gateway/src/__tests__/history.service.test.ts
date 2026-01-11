@@ -29,7 +29,7 @@ And more text.`;
 
         expect(result.totalMatches).toBe(1);
         expect(result.matches[0]?.content).toContain("function hello");
-        expect(result.matches[0]?.metadata?.language).toBe("typescript");
+        expect(result.matches[0]?.metadata?.["language"]).toBe("typescript");
       });
 
       test("extracts multiple code blocks", () => {

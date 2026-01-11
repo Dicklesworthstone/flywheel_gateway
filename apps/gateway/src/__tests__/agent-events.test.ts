@@ -112,12 +112,12 @@ describe("Agent Events Service", () => {
       service.publishOutput("agent-123", payload);
 
       expect(publishCalls).toHaveLength(1);
-      expect(publishCalls[0].channel).toEqual({
+      expect(publishCalls[0]!.channel).toEqual({
         type: "agent:output",
         agentId: "agent-123",
       });
-      expect(publishCalls[0].type).toBe("output.chunk");
-      expect(publishCalls[0].payload).toEqual(payload);
+      expect(publishCalls[0]!.type).toBe("output.chunk");
+      expect(publishCalls[0]!.payload).toEqual(payload);
     });
 
     test("includes metadata in publish", () => {
@@ -133,7 +133,7 @@ describe("Agent Events Service", () => {
         correlationId: "corr-123",
       });
 
-      expect(publishCalls[0].metadata).toMatchObject({
+      expect(publishCalls[0]!.metadata).toMatchObject({
         correlationId: "corr-123",
         agentId: "agent-123",
       });
@@ -154,11 +154,11 @@ describe("Agent Events Service", () => {
 
       service.publishToolEvent("agent-123", payload);
 
-      expect(publishCalls[0].channel).toEqual({
+      expect(publishCalls[0]!.channel).toEqual({
         type: "agent:tools",
         agentId: "agent-123",
       });
-      expect(publishCalls[0].type).toBe("tool.start");
+      expect(publishCalls[0]!.type).toBe("tool.start");
     });
 
     test("publishes tool_result as tool.end", () => {
@@ -175,7 +175,7 @@ describe("Agent Events Service", () => {
 
       service.publishToolEvent("agent-123", payload);
 
-      expect(publishCalls[0].type).toBe("tool.end");
+      expect(publishCalls[0]!.type).toBe("tool.end");
     });
   });
 
@@ -186,12 +186,12 @@ describe("Agent Events Service", () => {
       service.publishTextOutput("agent-123", "Hello world", "corr-123");
 
       expect(publishCalls).toHaveLength(1);
-      const payload = publishCalls[0].payload as Record<string, unknown>;
-      expect(payload.agentId).toBe("agent-123");
-      expect(payload.type).toBe("text");
-      expect(payload.content).toBe("Hello world");
-      expect(payload.correlationId).toBe("corr-123");
-      expect(payload.timestamp).toBeDefined();
+      const payload = publishCalls[0]!.payload as Record<string, unknown>;
+      expect(payload["agentId"]).toBe("agent-123");
+      expect(payload["type"]).toBe("text");
+      expect(payload["content"]).toBe("Hello world");
+      expect(payload["correlationId"]).toBe("corr-123");
+      expect(payload["timestamp"]).toBeDefined();
     });
   });
 
@@ -209,13 +209,13 @@ describe("Agent Events Service", () => {
       );
 
       expect(publishCalls).toHaveLength(1);
-      expect(publishCalls[0].type).toBe("tool.start");
-      const payload = publishCalls[0].payload as Record<string, unknown>;
-      expect(payload.agentId).toBe("agent-123");
-      expect(payload.type).toBe("tool_call");
-      expect(payload.toolName).toBe("read_file");
-      expect(payload.toolId).toBe("tool-456");
-      expect(payload.input).toEqual(input);
+      expect(publishCalls[0]!.type).toBe("tool.start");
+      const payload = publishCalls[0]!.payload as Record<string, unknown>;
+      expect(payload["agentId"]).toBe("agent-123");
+      expect(payload["type"]).toBe("tool_call");
+      expect(payload["toolName"]).toBe("read_file");
+      expect(payload["toolId"]).toBe("tool-456");
+      expect(payload["input"]).toEqual(input);
     });
   });
 
@@ -235,14 +235,14 @@ describe("Agent Events Service", () => {
       );
 
       expect(publishCalls).toHaveLength(1);
-      expect(publishCalls[0].type).toBe("tool.end");
-      const payload = publishCalls[0].payload as Record<string, unknown>;
-      expect(payload.agentId).toBe("agent-123");
-      expect(payload.type).toBe("tool_result");
-      expect(payload.toolName).toBe("read_file");
-      expect(payload.toolId).toBe("tool-456");
-      expect(payload.output).toEqual(output);
-      expect(payload.duration).toBe(150);
+      expect(publishCalls[0]!.type).toBe("tool.end");
+      const payload = publishCalls[0]!.payload as Record<string, unknown>;
+      expect(payload["agentId"]).toBe("agent-123");
+      expect(payload["type"]).toBe("tool_result");
+      expect(payload["toolName"]).toBe("read_file");
+      expect(payload["toolId"]).toBe("tool-456");
+      expect(payload["output"]).toEqual(output);
+      expect(payload["duration"]).toBe(150);
     });
 
     test("includes error when provided", () => {
@@ -258,8 +258,8 @@ describe("Agent Events Service", () => {
         "corr-123",
       );
 
-      const payload = publishCalls[0].payload as Record<string, unknown>;
-      expect(payload.error).toBe("File not found");
+      const payload = publishCalls[0]!.payload as Record<string, unknown>;
+      expect(payload["error"]).toBe("File not found");
     });
   });
 
@@ -279,14 +279,14 @@ describe("Agent Events Service", () => {
       });
 
       expect(publishCalls).toHaveLength(1);
-      expect(publishCalls[0].channel).toEqual({
+      expect(publishCalls[0]!.channel).toEqual({
         type: "agent:state",
         agentId: "agent-123",
       });
-      expect(publishCalls[0].type).toBe("state.change");
-      const payload = publishCalls[0].payload as Record<string, unknown>;
-      expect(payload.previousState).toBe("idle");
-      expect(payload.currentState).toBe("running");
+      expect(publishCalls[0]!.type).toBe("state.change");
+      const payload = publishCalls[0]!.payload as Record<string, unknown>;
+      expect(payload["previousState"]).toBe("idle");
+      expect(payload["currentState"]).toBe("running");
     });
 
     test("includes error in state change payload when present", () => {
@@ -306,8 +306,8 @@ describe("Agent Events Service", () => {
         },
       });
 
-      const payload = publishCalls[0].payload as Record<string, unknown>;
-      expect(payload.error).toEqual({
+      const payload = publishCalls[0]!.payload as Record<string, unknown>;
+      expect(payload["error"]).toEqual({
         code: "TOOL_FAILED",
         message: "Tool execution failed",
       });

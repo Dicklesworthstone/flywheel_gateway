@@ -3,16 +3,16 @@
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import type { WebSocketHub } from "../ws/hub";
 import {
-  MailEventsService,
+  type ConflictDetectedPayload,
+  type ConflictResolvedPayload,
   createMailEventsService,
+  MailEventsService,
   type MailReceivedPayload,
   type ReservationAcquiredPayload,
   type ReservationReleasedPayload,
-  type ConflictDetectedPayload,
-  type ConflictResolvedPayload,
 } from "../services/mail-events";
+import type { WebSocketHub } from "../ws/hub";
 
 describe("Mail Events Service", () => {
   let mockHub: WebSocketHub;
@@ -67,12 +67,12 @@ describe("Mail Events Service", () => {
       service.publishMailReceived("user-789", payload);
 
       expect(publishCalls).toHaveLength(1);
-      expect(publishCalls[0].channel).toEqual({
+      expect(publishCalls[0]!.channel).toEqual({
         type: "user:mail",
         userId: "user-789",
       });
-      expect(publishCalls[0].type).toBe("mail.received");
-      expect(publishCalls[0].payload).toEqual(payload);
+      expect(publishCalls[0]!.type).toBe("mail.received");
+      expect(publishCalls[0]!.payload).toEqual(payload);
     });
 
     test("includes userId in metadata", () => {
@@ -89,7 +89,7 @@ describe("Mail Events Service", () => {
 
       service.publishMailReceived("user-789", payload);
 
-      expect(publishCalls[0].metadata).toMatchObject({
+      expect(publishCalls[0]!.metadata).toMatchObject({
         userId: "user-789",
       });
     });
@@ -111,7 +111,7 @@ describe("Mail Events Service", () => {
         correlationId: "corr-123",
       });
 
-      expect(publishCalls[0].metadata).toMatchObject({
+      expect(publishCalls[0]!.metadata).toMatchObject({
         userId: "user-789",
         correlationId: "corr-123",
       });
@@ -160,12 +160,12 @@ describe("Mail Events Service", () => {
       service.publishReservationAcquired("workspace-abc", payload);
 
       expect(publishCalls).toHaveLength(1);
-      expect(publishCalls[0].channel).toEqual({
+      expect(publishCalls[0]!.channel).toEqual({
         type: "workspace:reservations",
         workspaceId: "workspace-abc",
       });
-      expect(publishCalls[0].type).toBe("reservation.acquired");
-      expect(publishCalls[0].payload).toEqual(payload);
+      expect(publishCalls[0]!.type).toBe("reservation.acquired");
+      expect(publishCalls[0]!.payload).toEqual(payload);
     });
 
     test("includes workspaceId in metadata", () => {
@@ -182,7 +182,7 @@ describe("Mail Events Service", () => {
 
       service.publishReservationAcquired("workspace-abc", payload);
 
-      expect(publishCalls[0].metadata).toMatchObject({
+      expect(publishCalls[0]!.metadata).toMatchObject({
         workspaceId: "workspace-abc",
       });
     });
@@ -202,11 +202,11 @@ describe("Mail Events Service", () => {
       service.publishReservationReleased("workspace-abc", payload);
 
       expect(publishCalls).toHaveLength(1);
-      expect(publishCalls[0].channel).toEqual({
+      expect(publishCalls[0]!.channel).toEqual({
         type: "workspace:reservations",
         workspaceId: "workspace-abc",
       });
-      expect(publishCalls[0].type).toBe("reservation.released");
+      expect(publishCalls[0]!.type).toBe("reservation.released");
     });
 
     test("includes metadata", () => {
@@ -223,7 +223,7 @@ describe("Mail Events Service", () => {
         correlationId: "corr-456",
       });
 
-      expect(publishCalls[0].metadata).toMatchObject({
+      expect(publishCalls[0]!.metadata).toMatchObject({
         workspaceId: "workspace-abc",
         correlationId: "corr-456",
       });
@@ -249,12 +249,12 @@ describe("Mail Events Service", () => {
       service.publishConflictDetected("workspace-abc", payload);
 
       expect(publishCalls).toHaveLength(1);
-      expect(publishCalls[0].channel).toEqual({
+      expect(publishCalls[0]!.channel).toEqual({
         type: "workspace:conflicts",
         workspaceId: "workspace-abc",
       });
-      expect(publishCalls[0].type).toBe("conflict.detected");
-      expect(publishCalls[0].payload).toEqual(payload);
+      expect(publishCalls[0]!.type).toBe("conflict.detected");
+      expect(publishCalls[0]!.payload).toEqual(payload);
     });
 
     test("includes workspaceId in metadata", () => {
@@ -274,7 +274,7 @@ describe("Mail Events Service", () => {
 
       service.publishConflictDetected("workspace-abc", payload);
 
-      expect(publishCalls[0].metadata).toMatchObject({
+      expect(publishCalls[0]!.metadata).toMatchObject({
         workspaceId: "workspace-abc",
       });
     });
@@ -293,11 +293,11 @@ describe("Mail Events Service", () => {
       service.publishConflictResolved("workspace-abc", payload);
 
       expect(publishCalls).toHaveLength(1);
-      expect(publishCalls[0].channel).toEqual({
+      expect(publishCalls[0]!.channel).toEqual({
         type: "workspace:conflicts",
         workspaceId: "workspace-abc",
       });
-      expect(publishCalls[0].type).toBe("conflict.resolved");
+      expect(publishCalls[0]!.type).toBe("conflict.resolved");
     });
 
     test("handles all resolution types", () => {
@@ -321,13 +321,13 @@ describe("Mail Events Service", () => {
 
       expect(publishCalls).toHaveLength(3);
       expect(
-        (publishCalls[0].payload as ConflictResolvedPayload).resolution,
+        (publishCalls[0]!.payload as ConflictResolvedPayload).resolution,
       ).toBe("expired");
       expect(
-        (publishCalls[1].payload as ConflictResolvedPayload).resolution,
+        (publishCalls[1]!.payload as ConflictResolvedPayload).resolution,
       ).toBe("released");
       expect(
-        (publishCalls[2].payload as ConflictResolvedPayload).resolution,
+        (publishCalls[2]!.payload as ConflictResolvedPayload).resolution,
       ).toBe("overridden");
     });
 
@@ -344,7 +344,7 @@ describe("Mail Events Service", () => {
         correlationId: "corr-789",
       });
 
-      expect(publishCalls[0].metadata).toMatchObject({
+      expect(publishCalls[0]!.metadata).toMatchObject({
         workspaceId: "workspace-abc",
         correlationId: "corr-789",
       });
