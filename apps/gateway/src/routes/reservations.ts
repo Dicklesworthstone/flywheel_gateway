@@ -8,7 +8,7 @@
 
 import { type Context, Hono } from "hono";
 import { z } from "zod";
-import { getCorrelationId, getLogger } from "../middleware/correlation";
+import { getLogger } from "../middleware/correlation";
 import {
   type CreateReservationParams,
   checkReservation,
@@ -26,6 +26,16 @@ import {
   renewReservation,
   resolveConflict,
 } from "../services/reservation.service";
+import {
+  sendResource,
+  sendList,
+  sendNotFound,
+  sendError,
+  sendValidationError,
+  sendInternalError,
+  sendConflict,
+  sendForbidden,
+} from "../utils/response";
 
 const reservations = new Hono();
 
@@ -81,35 +91,18 @@ const ResolveConflictSchema = z.object({
 
 function handleError(error: unknown, c: Context) {
   const log = getLogger();
-  const correlationId = getCorrelationId();
 
   if (error instanceof z.ZodError) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Validation failed",
-          correlationId,
-          timestamp: new Date().toISOString(),
-          details: error.issues,
-        },
-      },
-      400,
-    );
+    const errors = error.issues.map((issue) => ({
+      path: issue.path.join(".") || "root",
+      message: issue.message,
+      code: issue.code,
+    }));
+    return sendValidationError(c, errors);
   }
 
   log.error({ error }, "Unexpected error in reservations route");
-  return c.json(
-    {
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Internal server error",
-        correlationId,
-        timestamp: new Date().toISOString(),
-      },
-    },
-    500,
-  );
+  return sendInternalError(c);
 }
 
 // ============================================================================
@@ -141,43 +134,47 @@ reservations.post("/", async (c) => {
     const result = await createReservation(params);
 
     if (!result.granted) {
-      return c.json(
+      return sendConflict(
+        c,
+        "RESERVATION_CONFLICT",
+        "Reservation cannot be granted due to conflicting exclusive reservations",
         {
-          granted: false,
-          conflicts: result.conflicts.map((conflict) => ({
-            conflictId: conflict.conflictId,
-            overlappingPattern: conflict.overlappingPattern,
-            existingReservation: {
-              id: conflict.existingReservation.id,
-              requesterId: conflict.existingReservation.requesterId,
-              patterns: conflict.existingReservation.patterns,
-              expiresAt: conflict.existingReservation.expiresAt.toISOString(),
-            },
-            requestedPatterns: conflict.requestedPatterns,
-            resolutions: conflict.resolutions,
-          })),
-          correlationId: getCorrelationId(),
+          details: {
+            conflicts: result.conflicts.map((conflict) => ({
+              conflictId: conflict.conflictId,
+              overlappingPattern: conflict.overlappingPattern,
+              existingReservation: {
+                id: conflict.existingReservation.id,
+                requesterId: conflict.existingReservation.requesterId,
+                patterns: conflict.existingReservation.patterns,
+                expiresAt: conflict.existingReservation.expiresAt.toISOString(),
+              },
+              requestedPatterns: conflict.requestedPatterns,
+              resolutions: conflict.resolutions,
+            })),
+          },
         },
-        409,
       );
     }
 
     return c.json(
       {
-        granted: true,
-        reservation: {
-          id: result.reservation!.id,
-          projectId: result.reservation!.projectId,
-          agentId: result.reservation!.agentId,
-          patterns: result.reservation!.patterns,
-          mode: result.reservation!.mode,
-          ttl: result.reservation!.ttl,
-          createdAt: result.reservation!.createdAt.toISOString(),
-          expiresAt: result.reservation!.expiresAt.toISOString(),
-          renewCount: result.reservation!.renewCount,
-          metadata: result.reservation!.metadata,
+        data: {
+          type: "reservation",
+          granted: true,
+          reservation: {
+            id: result.reservation!.id,
+            projectId: result.reservation!.projectId,
+            agentId: result.reservation!.agentId,
+            patterns: result.reservation!.patterns,
+            mode: result.reservation!.mode,
+            ttl: result.reservation!.ttl,
+            createdAt: result.reservation!.createdAt.toISOString(),
+            expiresAt: result.reservation!.expiresAt.toISOString(),
+            renewCount: result.reservation!.renewCount,
+            metadata: result.reservation!.metadata,
+          },
         },
-        correlationId: getCorrelationId(),
       },
       201,
     );
@@ -207,13 +204,12 @@ reservations.post("/check", async (c) => {
       filePath: validated.filePath,
     });
 
-    return c.json({
+    return sendResource(c, "reservation_check", {
       allowed: result.allowed,
       heldBy: result.heldBy,
       expiresAt: result.expiresAt?.toISOString(),
       mode: result.mode,
       reservationId: result.reservationId,
-      correlationId: getCorrelationId(),
     });
   } catch (error) {
     return handleError(error, c);
@@ -230,10 +226,7 @@ reservations.post("/check", async (c) => {
 reservations.get("/stats", async (c) => {
   try {
     const stats = getReservationStats();
-    return c.json({
-      stats,
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "reservation_stats", stats);
   } catch (error) {
     return handleError(error, c);
   }
@@ -263,37 +256,34 @@ reservations.get("/conflicts", async (c) => {
 
     const results = await listConflicts(conflictParams);
 
-    return c.json({
-      conflicts: results.map((conflict) => ({
-        conflictId: conflict.conflictId,
-        projectId: conflict.projectId,
-        type: conflict.type,
-        status: conflict.status,
-        detectedAt: conflict.detectedAt.toISOString(),
-        resolvedAt: conflict.resolvedAt?.toISOString(),
-        requesterId: conflict.requesterId,
-        existingReservationId: conflict.existingReservationId,
-        overlappingPattern: conflict.overlappingPattern,
-        resolutionReason: conflict.resolutionReason,
-        resolvedBy: conflict.resolvedBy,
-        conflict: {
-          conflictId: conflict.conflict.conflictId,
-          overlappingPattern: conflict.conflict.overlappingPattern,
-          existingReservation: {
-            id: conflict.conflict.existingReservation.id,
-            requesterId: conflict.conflict.existingReservation.requesterId,
-            patterns: conflict.conflict.existingReservation.patterns,
-            expiresAt:
-              conflict.conflict.existingReservation.expiresAt.toISOString(),
-          },
-          requestedPatterns: conflict.conflict.requestedPatterns,
-          resolutions: conflict.conflict.resolutions,
-          detectedAt: conflict.conflict.detectedAt.toISOString(),
+    const conflicts = results.map((conflict) => ({
+      conflictId: conflict.conflictId,
+      projectId: conflict.projectId,
+      type: conflict.type,
+      status: conflict.status,
+      detectedAt: conflict.detectedAt.toISOString(),
+      resolvedAt: conflict.resolvedAt?.toISOString(),
+      requesterId: conflict.requesterId,
+      existingReservationId: conflict.existingReservationId,
+      overlappingPattern: conflict.overlappingPattern,
+      resolutionReason: conflict.resolutionReason,
+      resolvedBy: conflict.resolvedBy,
+      conflict: {
+        conflictId: conflict.conflict.conflictId,
+        overlappingPattern: conflict.conflict.overlappingPattern,
+        existingReservation: {
+          id: conflict.conflict.existingReservation.id,
+          requesterId: conflict.conflict.existingReservation.requesterId,
+          patterns: conflict.conflict.existingReservation.patterns,
+          expiresAt: conflict.conflict.existingReservation.expiresAt.toISOString(),
         },
-      })),
-      count: results.length,
-      correlationId: getCorrelationId(),
-    });
+        requestedPatterns: conflict.conflict.requestedPatterns,
+        resolutions: conflict.conflict.resolutions,
+        detectedAt: conflict.conflict.detectedAt.toISOString(),
+      },
+    }));
+
+    return sendList(c, conflicts, { total: conflicts.length });
   } catch (error) {
     return handleError(error, c);
   }
@@ -323,24 +313,13 @@ reservations.post("/conflicts/:id/resolve", async (c) => {
     const result = await resolveConflict(resolveParams);
 
     if (!result.resolved) {
-      return c.json(
-        {
-          error: {
-            code: "CONFLICT_NOT_FOUND",
-            message: result.error ?? "Conflict not found",
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "conflict", id);
     }
 
-    return c.json({
+    return sendResource(c, "conflict_resolution", {
       resolved: true,
       conflictId: id,
       resolvedAt: result.conflict?.resolvedAt?.toISOString(),
-      correlationId: getCorrelationId(),
     });
   } catch (error) {
     return handleError(error, c);
@@ -374,22 +353,20 @@ reservations.get("/", async (c) => {
 
     const results = await listReservations(listParams);
 
-    return c.json({
-      reservations: results.map((r) => ({
-        id: r.id,
-        projectId: r.projectId,
-        agentId: r.agentId,
-        patterns: r.patterns,
-        mode: r.mode,
-        ttl: r.ttl,
-        createdAt: r.createdAt.toISOString(),
-        expiresAt: r.expiresAt.toISOString(),
-        renewCount: r.renewCount,
-        metadata: r.metadata,
-      })),
-      count: results.length,
-      correlationId: getCorrelationId(),
-    });
+    const reservations_data = results.map((r) => ({
+      id: r.id,
+      projectId: r.projectId,
+      agentId: r.agentId,
+      patterns: r.patterns,
+      mode: r.mode,
+      ttl: r.ttl,
+      createdAt: r.createdAt.toISOString(),
+      expiresAt: r.expiresAt.toISOString(),
+      renewCount: r.renewCount,
+      metadata: r.metadata,
+    }));
+
+    return sendList(c, reservations_data, { total: reservations_data.length });
   } catch (error) {
     return handleError(error, c);
   }
@@ -408,33 +385,20 @@ reservations.get("/:id", async (c) => {
     const reservation = await getReservation(id);
 
     if (!reservation) {
-      return c.json(
-        {
-          error: {
-            code: "RESERVATION_NOT_FOUND",
-            message: `Reservation ${id} not found or expired`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "reservation", id);
     }
 
-    return c.json({
-      reservation: {
-        id: reservation.id,
-        projectId: reservation.projectId,
-        agentId: reservation.agentId,
-        patterns: reservation.patterns,
-        mode: reservation.mode,
-        ttl: reservation.ttl,
-        createdAt: reservation.createdAt.toISOString(),
-        expiresAt: reservation.expiresAt.toISOString(),
-        renewCount: reservation.renewCount,
-        metadata: reservation.metadata,
-      },
-      correlationId: getCorrelationId(),
+    return sendResource(c, "reservation", {
+      id: reservation.id,
+      projectId: reservation.projectId,
+      agentId: reservation.agentId,
+      patterns: reservation.patterns,
+      mode: reservation.mode,
+      ttl: reservation.ttl,
+      createdAt: reservation.createdAt.toISOString(),
+      expiresAt: reservation.expiresAt.toISOString(),
+      renewCount: reservation.renewCount,
+      metadata: reservation.metadata,
     });
   } catch (error) {
     return handleError(error, c);
@@ -463,24 +427,15 @@ reservations.delete("/:id", async (c) => {
     });
 
     if (!result.released) {
-      const status = result.error === "Reservation not found" ? 404 : 403;
-      return c.json(
-        {
-          error: {
-            code: status === 404 ? "RESERVATION_NOT_FOUND" : "FORBIDDEN",
-            message: result.error,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        status,
-      );
+      if (result.error === "Reservation not found") {
+        return sendNotFound(c, "reservation", id);
+      }
+      return sendForbidden(c, result.error);
     }
 
-    return c.json({
+    return sendResource(c, "release_result", {
       released: true,
       reservationId: id,
-      correlationId: getCorrelationId(),
     });
   } catch (error) {
     return handleError(error, c);
@@ -514,37 +469,24 @@ reservations.post("/:id/renew", async (c) => {
     const result = await renewReservation(renewParams);
 
     if (!result.renewed) {
-      const errorCode =
-        result.error === "Reservation not found"
-          ? "RESERVATION_NOT_FOUND"
-          : result.error?.includes("Maximum renewals")
-            ? "RENEWAL_LIMIT_EXCEEDED"
-            : "FORBIDDEN";
-      const status =
-        result.error === "Reservation not found"
-          ? 404
-          : result.error?.includes("Maximum renewals")
-            ? 400
-            : 403;
-
-      return c.json(
-        {
-          error: {
-            code: errorCode,
-            message: result.error,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        status,
-      );
+      if (result.error === "Reservation not found") {
+        return sendNotFound(c, "reservation", id);
+      }
+      if (result.error?.includes("Maximum renewals")) {
+        return sendError(
+          c,
+          "RENEWAL_LIMIT_EXCEEDED",
+          result.error,
+          400,
+        );
+      }
+      return sendForbidden(c, result.error);
     }
 
-    return c.json({
+    return sendResource(c, "renewal_result", {
       renewed: true,
       reservationId: id,
       newExpiresAt: result.newExpiresAt?.toISOString(),
-      correlationId: getCorrelationId(),
     });
   } catch (error) {
     return handleError(error, c);

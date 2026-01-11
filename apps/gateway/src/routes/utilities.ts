@@ -7,7 +7,7 @@
 
 import { type Context, Hono } from "hono";
 import { z } from "zod";
-import { getCorrelationId, getLogger } from "../middleware/correlation";
+import { getLogger } from "../middleware/correlation";
 import {
   getUtilityStatus,
   installUtility,
@@ -17,6 +17,14 @@ import {
   runGiil,
   updateUtility,
 } from "../services/utilities.service";
+import {
+  sendError,
+  sendInternalError,
+  sendList,
+  sendNotFound,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
 
 const utilities = new Hono();
 
@@ -43,49 +51,24 @@ const CsctfRequestSchema = z.object({
 
 function handleError(error: unknown, c: Context) {
   const log = getLogger();
-  const correlationId = getCorrelationId();
 
   if (error instanceof z.ZodError) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Validation failed",
-          correlationId,
-          timestamp: new Date().toISOString(),
-          details: error.issues,
-        },
-      },
-      400,
+    return sendValidationError(
+      c,
+      error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+        code: issue.code,
+      })),
     );
   }
 
   if (error instanceof SyntaxError && error.message.includes("JSON")) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Invalid JSON in request body",
-          correlationId,
-          timestamp: new Date().toISOString(),
-        },
-      },
-      400,
-    );
+    return sendError(c, "INVALID_REQUEST", "Invalid JSON in request body", 400);
   }
 
   log.error({ error }, "Unexpected error in utilities route");
-  return c.json(
-    {
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Internal server error",
-        correlationId,
-        timestamp: new Date().toISOString(),
-      },
-    },
-    500,
-  );
+  return sendInternalError(c);
 }
 
 // ============================================================================
@@ -98,10 +81,7 @@ function handleError(error: unknown, c: Context) {
 utilities.get("/", async (c) => {
   try {
     const result = await listUtilities();
-    return c.json({
-      utilities: result,
-      correlationId: getCorrelationId(),
-    });
+    return sendList(c, result);
   } catch (error) {
     return handleError(error, c);
   }
@@ -113,10 +93,7 @@ utilities.get("/", async (c) => {
 utilities.get("/doctor", async (c) => {
   try {
     const result = await runDoctor();
-    return c.json({
-      ...result,
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "doctor_result", result);
   } catch (error) {
     return handleError(error, c);
   }
@@ -131,24 +108,10 @@ utilities.get("/:name", async (c) => {
     const status = await getUtilityStatus(name);
 
     if (!status) {
-      return c.json(
-        {
-          error: {
-            code: "NOT_FOUND",
-            message: `Unknown utility: ${name}`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-            hint: "Available utilities: giil, csctf",
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "utility", name);
     }
 
-    return c.json({
-      utility: status,
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "utility", status);
   } catch (error) {
     return handleError(error, c);
   }
@@ -170,26 +133,14 @@ utilities.post("/:name/install", async (c) => {
     const result = await installUtility(name);
 
     if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: "INSTALL_FAILED",
-            message: result.error,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-            output: result.output,
-          },
-        },
-        500,
-      );
+      return sendError(c, "INSTALL_FAILED", result.error ?? "Installation failed", 500);
     }
 
-    return c.json({
+    return sendResource(c, "installation_result", {
       success: true,
       utility: result.utility,
       message: "Installation successful",
       output: result.output,
-      correlationId: getCorrelationId(),
     });
   } catch (error) {
     return handleError(error, c);
@@ -208,26 +159,14 @@ utilities.post("/:name/update", async (c) => {
     const result = await updateUtility(name);
 
     if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: "UPDATE_FAILED",
-            message: result.error,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-            output: result.output,
-          },
-        },
-        500,
-      );
+      return sendError(c, "UPDATE_FAILED", result.error ?? "Update failed", 500);
     }
 
-    return c.json({
+    return sendResource(c, "update_result", {
       success: true,
       utility: result.utility,
       message: "Update successful",
       output: result.output,
-      correlationId: getCorrelationId(),
     });
   } catch (error) {
     return handleError(error, c);
@@ -259,26 +198,12 @@ utilities.post("/giil/run", async (c) => {
     const result = await runGiil(giilRequest);
 
     if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: "GIIL_FAILED",
-            message: result.error,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        500,
-      );
+      return sendError(c, "GIIL_FAILED", result.error ?? "GIIL execution failed", 500);
     }
 
     // Destructure to avoid duplicate 'success' property
     const { success: _success, ...restResult } = result;
-    return c.json({
-      success: true,
-      ...restResult,
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "giil_result", restResult);
   } catch (error) {
     return handleError(error, c);
   }
@@ -308,26 +233,12 @@ utilities.post("/csctf/run", async (c) => {
     const result = await runCsctf(csctfRequest);
 
     if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: "CSCTF_FAILED",
-            message: result.error,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        500,
-      );
+      return sendError(c, "CSCTF_FAILED", result.error ?? "CSCTF execution failed", 500);
     }
 
     // Destructure to avoid duplicate 'success' property
     const { success: _success, ...restResult } = result;
-    return c.json({
-      success: true,
-      ...restResult,
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "csctf_result", restResult);
   } catch (error) {
     return handleError(error, c);
   }

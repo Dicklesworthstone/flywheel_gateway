@@ -45,6 +45,16 @@ import {
   rejectSweepPlan,
   startAgentSweep,
 } from "../services/ru-sweep.service";
+import {
+  sendConflict,
+  sendCreated,
+  sendError,
+  sendInternalError,
+  sendList,
+  sendNotFound,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
 
 const ru = new Hono();
 
@@ -162,63 +172,26 @@ const RejectPlanSchema = z.object({
 
 function handleError(error: unknown, c: Context) {
   const log = getLogger();
-  const correlationId = getCorrelationId();
 
   if (error instanceof z.ZodError) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Validation failed",
-          correlationId,
-          timestamp: new Date().toISOString(),
-          details: error.issues,
-        },
-      },
-      400,
-    );
+    const details = error.issues.map((issue) => ({
+      path: issue.path.join("."),
+      message: issue.message,
+      code: issue.code,
+    }));
+    return sendValidationError(c, details);
   }
 
   if (error instanceof Error && error.message.includes("not found")) {
-    return c.json(
-      {
-        error: {
-          code: "NOT_FOUND",
-          message: error.message,
-          correlationId,
-          timestamp: new Date().toISOString(),
-        },
-      },
-      404,
-    );
+    return sendError(c, "NOT_FOUND", error.message, 404);
   }
 
   if (error instanceof Error && error.message.includes("not in pending")) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_STATE",
-          message: error.message,
-          correlationId,
-          timestamp: new Date().toISOString(),
-        },
-      },
-      409,
-    );
+    return sendConflict(c, "INVALID_STATE", error.message);
   }
 
   log.error({ error }, "Unexpected error in RU route");
-  return c.json(
-    {
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Internal server error",
-        correlationId,
-        timestamp: new Date().toISOString(),
-      },
-    },
-    500,
-  );
+  return sendInternalError(c);
 }
 
 // ============================================================================
@@ -288,11 +261,7 @@ ru.get("/fleet", async (c) => {
 
     const { repos, total } = await getFleetRepos(params);
 
-    return c.json({
-      repos: repos.map(serializeRepo),
-      total,
-      correlationId: getCorrelationId(),
-    });
+    return sendList(c, repos.map(serializeRepo), { total });
   } catch (error) {
     return handleError(error, c);
   }
@@ -304,10 +273,7 @@ ru.get("/fleet", async (c) => {
 ru.get("/fleet/stats", async (c) => {
   try {
     const stats = await getFleetStats();
-    return c.json({
-      stats,
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "fleet_stats", stats);
   } catch (error) {
     return handleError(error, c);
   }
@@ -319,10 +285,7 @@ ru.get("/fleet/stats", async (c) => {
 ru.get("/fleet/groups", async (c) => {
   try {
     const groups = await getFleetGroups();
-    return c.json({
-      groups,
-      correlationId: getCorrelationId(),
-    });
+    return sendList(c, groups);
   } catch (error) {
     return handleError(error, c);
   }
@@ -334,11 +297,7 @@ ru.get("/fleet/groups", async (c) => {
 ru.get("/fleet/needs-sync", async (c) => {
   try {
     const repos = await getReposNeedingSync();
-    return c.json({
-      repos: repos.map(serializeRepo),
-      count: repos.length,
-      correlationId: getCorrelationId(),
-    });
+    return sendList(c, repos.map(serializeRepo));
   } catch (error) {
     return handleError(error, c);
   }
@@ -350,11 +309,7 @@ ru.get("/fleet/needs-sync", async (c) => {
 ru.get("/fleet/uncommitted", async (c) => {
   try {
     const repos = await getReposWithUncommittedChanges();
-    return c.json({
-      repos: repos.map(serializeRepo),
-      count: repos.length,
-      correlationId: getCorrelationId(),
-    });
+    return sendList(c, repos.map(serializeRepo));
   } catch (error) {
     return handleError(error, c);
   }
@@ -366,11 +321,7 @@ ru.get("/fleet/uncommitted", async (c) => {
 ru.get("/fleet/unpushed", async (c) => {
   try {
     const repos = await getReposWithUnpushedCommits();
-    return c.json({
-      repos: repos.map(serializeRepo),
-      count: repos.length,
-      correlationId: getCorrelationId(),
-    });
+    return sendList(c, repos.map(serializeRepo));
   } catch (error) {
     return handleError(error, c);
   }
@@ -383,11 +334,7 @@ ru.get("/fleet/by-group/:group", async (c) => {
   try {
     const group = c.req.param("group");
     const repos = await getReposByGroup(group);
-    return c.json({
-      repos: repos.map(serializeRepo),
-      count: repos.length,
-      correlationId: getCorrelationId(),
-    });
+    return sendList(c, repos.map(serializeRepo));
   } catch (error) {
     return handleError(error, c);
   }
@@ -405,23 +352,10 @@ ru.get("/fleet/by-name/:owner/:name", async (c) => {
     const repo = await getFleetRepoByFullName(fullName);
 
     if (!repo) {
-      return c.json(
-        {
-          error: {
-            code: "REPO_NOT_FOUND",
-            message: `Repository ${fullName} not found in fleet`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "repo", fullName);
     }
 
-    return c.json({
-      repo: serializeRepo(repo),
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "repo", serializeRepo(repo));
   } catch (error) {
     return handleError(error, c);
   }
@@ -450,13 +384,7 @@ ru.post("/fleet", async (c) => {
 
     const repo = await addRepoToFleet(params);
 
-    return c.json(
-      {
-        repo: serializeRepo(repo),
-        correlationId: getCorrelationId(),
-      },
-      201,
-    );
+    return sendCreated(c, "repo", serializeRepo(repo), `/ru/fleet/${repo.id}`);
   } catch (error) {
     return handleError(error, c);
   }
@@ -471,23 +399,10 @@ ru.get("/fleet/:id", async (c) => {
     const repo = await getFleetRepo(id);
 
     if (!repo) {
-      return c.json(
-        {
-          error: {
-            code: "REPO_NOT_FOUND",
-            message: `Repository ${id} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "repo", id);
     }
 
-    return c.json({
-      repo: serializeRepo(repo),
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "repo", serializeRepo(repo));
   } catch (error) {
     return handleError(error, c);
   }
@@ -542,10 +457,7 @@ ru.patch("/fleet/:id", async (c) => {
 
     const repo = await updateFleetRepo(id, params);
 
-    return c.json({
-      repo: serializeRepo(repo),
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "repo", serializeRepo(repo));
   } catch (error) {
     return handleError(error, c);
   }
@@ -559,11 +471,7 @@ ru.delete("/fleet/:id", async (c) => {
     const id = c.req.param("id");
     await removeRepoFromFleet(id);
 
-    return c.json({
-      removed: true,
-      repoId: id,
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "deletion_result", { removed: true, repoId: id });
   } catch (error) {
     return handleError(error, c);
   }
@@ -595,31 +503,27 @@ ru.get("/sweeps", async (c) => {
 
     const { sessions, total } = await listSweepSessions(params);
 
-    return c.json({
-      sessions: sessions.map((s) => ({
-        id: s.id,
-        repoCount: s.repoCount,
-        parallelism: s.parallelism,
-        currentPhase: s.currentPhase,
-        status: s.status,
-        reposAnalyzed: s.reposAnalyzed,
-        reposPlanned: s.reposPlanned,
-        reposExecuted: s.reposExecuted,
-        reposFailed: s.reposFailed,
-        reposSkipped: s.reposSkipped,
-        startedAt: s.startedAt?.toISOString?.() ?? s.startedAt,
-        completedAt: s.completedAt?.toISOString?.() ?? s.completedAt,
-        totalDurationMs: s.totalDurationMs,
-        slbApprovalRequired: s.slbApprovalRequired,
-        slbApprovedBy: s.slbApprovedBy,
-        slbApprovedAt: s.slbApprovedAt?.toISOString?.() ?? s.slbApprovedAt,
-        triggeredBy: s.triggeredBy,
-        createdAt: s.createdAt?.toISOString?.() ?? s.createdAt,
-        updatedAt: s.updatedAt?.toISOString?.() ?? s.updatedAt,
-      })),
-      total,
-      correlationId: getCorrelationId(),
-    });
+    return sendList(c, sessions.map((s) => ({
+      id: s.id,
+      repoCount: s.repoCount,
+      parallelism: s.parallelism,
+      currentPhase: s.currentPhase,
+      status: s.status,
+      reposAnalyzed: s.reposAnalyzed,
+      reposPlanned: s.reposPlanned,
+      reposExecuted: s.reposExecuted,
+      reposFailed: s.reposFailed,
+      reposSkipped: s.reposSkipped,
+      startedAt: s.startedAt?.toISOString?.() ?? s.startedAt,
+      completedAt: s.completedAt?.toISOString?.() ?? s.completedAt,
+      totalDurationMs: s.totalDurationMs,
+      slbApprovalRequired: s.slbApprovalRequired,
+      slbApprovedBy: s.slbApprovedBy,
+      slbApprovedAt: s.slbApprovedAt?.toISOString?.() ?? s.slbApprovedAt,
+      triggeredBy: s.triggeredBy,
+      createdAt: s.createdAt?.toISOString?.() ?? s.createdAt,
+      updatedAt: s.updatedAt?.toISOString?.() ?? s.updatedAt,
+    })), { total });
   } catch (error) {
     return handleError(error, c);
   }
@@ -654,20 +558,14 @@ ru.post("/sweeps", async (c) => {
 
     const session = await startAgentSweep(triggeredBy, config);
 
-    return c.json(
-      {
-        session: {
-          id: session.id,
-          repoCount: session.repoCount,
-          status: session.status,
-          slbApprovalRequired: session.slbApprovalRequired,
-          triggeredBy: session.triggeredBy,
-          createdAt: session.createdAt?.toISOString?.() ?? session.createdAt,
-        },
-        correlationId: getCorrelationId(),
-      },
-      201,
-    );
+    return sendCreated(c, "sweep_session", {
+      id: session.id,
+      repoCount: session.repoCount,
+      status: session.status,
+      slbApprovalRequired: session.slbApprovalRequired,
+      triggeredBy: session.triggeredBy,
+      createdAt: session.createdAt?.toISOString?.() ?? session.createdAt,
+    }, `/ru/sweeps/${session.id}`);
   } catch (error) {
     return handleError(error, c);
   }
@@ -682,52 +580,39 @@ ru.get("/sweeps/:id", async (c) => {
     const session = await getSweepSession(id);
 
     if (!session) {
-      return c.json(
-        {
-          error: {
-            code: "SESSION_NOT_FOUND",
-            message: `Sweep session ${id} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "sweep_session", id);
     }
 
-    return c.json({
-      session: {
-        id: session.id,
-        repoCount: session.repoCount,
-        parallelism: session.parallelism,
-        currentPhase: session.currentPhase,
-        phase1CompletedAt:
-          session.phase1CompletedAt?.toISOString?.() ?? session.phase1CompletedAt,
-        phase2CompletedAt:
-          session.phase2CompletedAt?.toISOString?.() ?? session.phase2CompletedAt,
-        phase3CompletedAt:
-          session.phase3CompletedAt?.toISOString?.() ?? session.phase3CompletedAt,
-        status: session.status,
-        reposAnalyzed: session.reposAnalyzed,
-        reposPlanned: session.reposPlanned,
-        reposExecuted: session.reposExecuted,
-        reposFailed: session.reposFailed,
-        reposSkipped: session.reposSkipped,
-        startedAt: session.startedAt?.toISOString?.() ?? session.startedAt,
-        completedAt: session.completedAt?.toISOString?.() ?? session.completedAt,
-        totalDurationMs: session.totalDurationMs,
-        slbApprovalRequired: session.slbApprovalRequired,
-        slbApprovedBy: session.slbApprovedBy,
-        slbApprovedAt:
-          session.slbApprovedAt?.toISOString?.() ?? session.slbApprovedAt,
-        triggeredBy: session.triggeredBy,
-        notes: session.notes,
-        createdAt: session.createdAt?.toISOString?.() ?? session.createdAt,
-        updatedAt: session.updatedAt?.toISOString?.() ?? session.updatedAt,
-      },
+    return sendResource(c, "sweep_session", {
+      id: session.id,
+      repoCount: session.repoCount,
+      parallelism: session.parallelism,
+      currentPhase: session.currentPhase,
+      phase1CompletedAt:
+        session.phase1CompletedAt?.toISOString?.() ?? session.phase1CompletedAt,
+      phase2CompletedAt:
+        session.phase2CompletedAt?.toISOString?.() ?? session.phase2CompletedAt,
+      phase3CompletedAt:
+        session.phase3CompletedAt?.toISOString?.() ?? session.phase3CompletedAt,
+      status: session.status,
+      reposAnalyzed: session.reposAnalyzed,
+      reposPlanned: session.reposPlanned,
+      reposExecuted: session.reposExecuted,
+      reposFailed: session.reposFailed,
+      reposSkipped: session.reposSkipped,
+      startedAt: session.startedAt?.toISOString?.() ?? session.startedAt,
+      completedAt: session.completedAt?.toISOString?.() ?? session.completedAt,
+      totalDurationMs: session.totalDurationMs,
+      slbApprovalRequired: session.slbApprovalRequired,
+      slbApprovedBy: session.slbApprovedBy,
+      slbApprovedAt:
+        session.slbApprovedAt?.toISOString?.() ?? session.slbApprovedAt,
+      triggeredBy: session.triggeredBy,
+      notes: session.notes,
+      createdAt: session.createdAt?.toISOString?.() ?? session.createdAt,
+      updatedAt: session.updatedAt?.toISOString?.() ?? session.updatedAt,
       planCount: session.plans.length,
       logCount: session.logs.length,
-      correlationId: getCorrelationId(),
     });
   } catch (error) {
     return handleError(error, c);
@@ -745,11 +630,10 @@ ru.post("/sweeps/:id/approve", async (c) => {
 
     await approveSweepSession(id, validated.approvedBy);
 
-    return c.json({
+    return sendResource(c, "approval_result", {
       approved: true,
       sessionId: id,
       approvedBy: validated.approvedBy,
-      correlationId: getCorrelationId(),
     });
   } catch (error) {
     return handleError(error, c);
@@ -764,10 +648,9 @@ ru.post("/sweeps/:id/cancel", async (c) => {
     const id = c.req.param("id");
     await cancelSweepSession(id);
 
-    return c.json({
+    return sendResource(c, "cancellation_result", {
       cancelled: true,
       sessionId: id,
-      correlationId: getCorrelationId(),
     });
   } catch (error) {
     return handleError(error, c);
@@ -796,33 +679,29 @@ ru.get("/sweeps/:id/plans", async (c) => {
 
     const plans = await getSweepPlans(id, params);
 
-    return c.json({
-      plans: plans.map((p) => ({
-        id: p.id,
-        sessionId: p.sessionId,
-        repoId: p.repoId,
-        repoFullName: p.repoFullName,
-        planVersion: p.planVersion,
-        actionCount: p.actionCount,
-        estimatedDurationMs: p.estimatedDurationMs,
-        riskLevel: p.riskLevel,
-        commitActions: p.commitActions,
-        releaseActions: p.releaseActions,
-        branchActions: p.branchActions,
-        prActions: p.prActions,
-        otherActions: p.otherActions,
-        approvalStatus: p.approvalStatus,
-        approvedBy: p.approvedBy,
-        approvedAt: p.approvedAt?.toISOString?.() ?? p.approvedAt,
-        rejectedReason: p.rejectedReason,
-        executionStatus: p.executionStatus,
-        executedAt: p.executedAt?.toISOString?.() ?? p.executedAt,
-        createdAt: p.createdAt?.toISOString?.() ?? p.createdAt,
-        updatedAt: p.updatedAt?.toISOString?.() ?? p.updatedAt,
-      })),
-      count: plans.length,
-      correlationId: getCorrelationId(),
-    });
+    return sendList(c, plans.map((p) => ({
+      id: p.id,
+      sessionId: p.sessionId,
+      repoId: p.repoId,
+      repoFullName: p.repoFullName,
+      planVersion: p.planVersion,
+      actionCount: p.actionCount,
+      estimatedDurationMs: p.estimatedDurationMs,
+      riskLevel: p.riskLevel,
+      commitActions: p.commitActions,
+      releaseActions: p.releaseActions,
+      branchActions: p.branchActions,
+      prActions: p.prActions,
+      otherActions: p.otherActions,
+      approvalStatus: p.approvalStatus,
+      approvedBy: p.approvedBy,
+      approvedAt: p.approvedAt?.toISOString?.() ?? p.approvedAt,
+      rejectedReason: p.rejectedReason,
+      executionStatus: p.executionStatus,
+      executedAt: p.executedAt?.toISOString?.() ?? p.executedAt,
+      createdAt: p.createdAt?.toISOString?.() ?? p.createdAt,
+      updatedAt: p.updatedAt?.toISOString?.() ?? p.updatedAt,
+    })));
   } catch (error) {
     return handleError(error, c);
   }
@@ -854,24 +733,20 @@ ru.get("/sweeps/:id/logs", async (c) => {
 
     const { logs, total } = await getSweepLogs(id, params);
 
-    return c.json({
-      logs: logs.map((l) => ({
-        id: l.id,
-        sessionId: l.sessionId,
-        planId: l.planId,
-        repoId: l.repoId,
-        phase: l.phase,
-        level: l.level,
-        message: l.message,
-        data: l.data,
-        timestamp: l.timestamp?.toISOString?.() ?? l.timestamp,
-        durationMs: l.durationMs,
-        actionType: l.actionType,
-        actionIndex: l.actionIndex,
-      })),
-      total,
-      correlationId: getCorrelationId(),
-    });
+    return sendList(c, logs.map((l) => ({
+      id: l.id,
+      sessionId: l.sessionId,
+      planId: l.planId,
+      repoId: l.repoId,
+      phase: l.phase,
+      level: l.level,
+      message: l.message,
+      data: l.data,
+      timestamp: l.timestamp?.toISOString?.() ?? l.timestamp,
+      durationMs: l.durationMs,
+      actionType: l.actionType,
+      actionIndex: l.actionIndex,
+    })), { total });
   } catch (error) {
     return handleError(error, c);
   }
@@ -890,17 +765,7 @@ ru.get("/plans/:id", async (c) => {
     const plan = await getSweepPlan(id);
 
     if (!plan) {
-      return c.json(
-        {
-          error: {
-            code: "PLAN_NOT_FOUND",
-            message: `Plan ${id} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "plan", id);
     }
 
     // Parse the plan JSON for display
@@ -911,36 +776,33 @@ ru.get("/plans/:id", async (c) => {
       // Leave as null if parsing fails
     }
 
-    return c.json({
-      plan: {
-        id: plan.id,
-        sessionId: plan.sessionId,
-        repoId: plan.repoId,
-        repoFullName: plan.repoFullName,
-        planData,
-        planVersion: plan.planVersion,
-        actionCount: plan.actionCount,
-        estimatedDurationMs: plan.estimatedDurationMs,
-        riskLevel: plan.riskLevel,
-        commitActions: plan.commitActions,
-        releaseActions: plan.releaseActions,
-        branchActions: plan.branchActions,
-        prActions: plan.prActions,
-        otherActions: plan.otherActions,
-        validatedAt: plan.validatedAt?.toISOString?.() ?? plan.validatedAt,
-        validationResult: plan.validationResult,
-        validationErrors: plan.validationErrors,
-        approvalStatus: plan.approvalStatus,
-        approvedBy: plan.approvedBy,
-        approvedAt: plan.approvedAt?.toISOString?.() ?? plan.approvedAt,
-        rejectedReason: plan.rejectedReason,
-        executionStatus: plan.executionStatus,
-        executedAt: plan.executedAt?.toISOString?.() ?? plan.executedAt,
-        executionResult: plan.executionResult,
-        createdAt: plan.createdAt?.toISOString?.() ?? plan.createdAt,
-        updatedAt: plan.updatedAt?.toISOString?.() ?? plan.updatedAt,
-      },
-      correlationId: getCorrelationId(),
+    return sendResource(c, "plan", {
+      id: plan.id,
+      sessionId: plan.sessionId,
+      repoId: plan.repoId,
+      repoFullName: plan.repoFullName,
+      planData,
+      planVersion: plan.planVersion,
+      actionCount: plan.actionCount,
+      estimatedDurationMs: plan.estimatedDurationMs,
+      riskLevel: plan.riskLevel,
+      commitActions: plan.commitActions,
+      releaseActions: plan.releaseActions,
+      branchActions: plan.branchActions,
+      prActions: plan.prActions,
+      otherActions: plan.otherActions,
+      validatedAt: plan.validatedAt?.toISOString?.() ?? plan.validatedAt,
+      validationResult: plan.validationResult,
+      validationErrors: plan.validationErrors,
+      approvalStatus: plan.approvalStatus,
+      approvedBy: plan.approvedBy,
+      approvedAt: plan.approvedAt?.toISOString?.() ?? plan.approvedAt,
+      rejectedReason: plan.rejectedReason,
+      executionStatus: plan.executionStatus,
+      executedAt: plan.executedAt?.toISOString?.() ?? plan.executedAt,
+      executionResult: plan.executionResult,
+      createdAt: plan.createdAt?.toISOString?.() ?? plan.createdAt,
+      updatedAt: plan.updatedAt?.toISOString?.() ?? plan.updatedAt,
     });
   } catch (error) {
     return handleError(error, c);
@@ -958,11 +820,10 @@ ru.post("/plans/:id/approve", async (c) => {
 
     await approveSweepPlan(id, validated.approvedBy);
 
-    return c.json({
+    return sendResource(c, "approval_result", {
       approved: true,
       planId: id,
       approvedBy: validated.approvedBy,
-      correlationId: getCorrelationId(),
     });
   } catch (error) {
     return handleError(error, c);
@@ -980,12 +841,11 @@ ru.post("/plans/:id/reject", async (c) => {
 
     await rejectSweepPlan(id, validated.rejectedBy, validated.reason);
 
-    return c.json({
+    return sendResource(c, "rejection_result", {
       rejected: true,
       planId: id,
       rejectedBy: validated.rejectedBy,
       reason: validated.reason,
-      correlationId: getCorrelationId(),
     });
   } catch (error) {
     return handleError(error, c);

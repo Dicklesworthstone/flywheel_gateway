@@ -15,8 +15,11 @@ describe("Utilities Routes", () => {
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.utilities).toBeDefined();
-      expect(Array.isArray(body.utilities)).toBe(true);
+      // Canonical envelope format - list response
+      expect(body.object).toBe("list");
+      expect(body.data).toBeDefined();
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.requestId).toBeDefined();
     });
   });
 
@@ -26,7 +29,10 @@ describe("Utilities Routes", () => {
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.correlationId).toBeDefined();
+      // Canonical envelope format
+      expect(body.object).toBe("doctor_result");
+      expect(body.data).toBeDefined();
+      expect(body.requestId).toBeDefined();
     });
   });
 
@@ -36,8 +42,11 @@ describe("Utilities Routes", () => {
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.utility).toBeDefined();
-      expect(body.utility.name).toBe("giil");
+      // Canonical envelope format
+      expect(body.object).toBe("utility");
+      expect(body.data).toBeDefined();
+      expect(body.data.name).toBe("giil");
+      expect(body.requestId).toBeDefined();
     });
 
     test("returns 404 for unknown utility", async () => {
@@ -45,7 +54,7 @@ describe("Utilities Routes", () => {
 
       expect(res.status).toBe(404);
       const body = await res.json();
-      expect(body.error.code).toBe("NOT_FOUND");
+      expect(body.error.code).toBe("UTILITY_NOT_FOUND");
     });
   });
 
@@ -59,7 +68,7 @@ describe("Utilities Routes", () => {
 
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error.code).toBe("INVALID_REQUEST");
+      expect(body.error.code).toBe("VALIDATION_FAILED");
     });
 
     test("rejects invalid url", async () => {

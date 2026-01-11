@@ -15,8 +15,11 @@ describe("DCG Routes", () => {
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.config).toBeDefined();
-      expect(body.config.enabledPacks).toBeDefined();
+      // Canonical envelope format
+      expect(body.object).toBe("dcg_config");
+      expect(body.data).toBeDefined();
+      expect(body.data.enabledPacks).toBeDefined();
+      expect(body.requestId).toBeDefined();
     });
   });
 
@@ -26,16 +29,19 @@ describe("DCG Routes", () => {
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.packs).toBeDefined();
-      expect(Array.isArray(body.packs)).toBe(true);
+      // Canonical envelope format - list response
+      expect(body.object).toBe("list");
+      expect(body.data).toBeDefined();
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.requestId).toBeDefined();
     });
 
     test("packs have required properties", async () => {
       const res = await app.request("/dcg/packs");
       const body = await res.json();
 
-      if (body.packs.length > 0) {
-        const pack = body.packs[0];
+      if (body.data.length > 0) {
+        const pack = body.data[0];
         expect(pack.name).toBeDefined();
         expect(pack.description).toBeDefined();
         expect(typeof pack.enabled).toBe("boolean");
@@ -49,8 +55,11 @@ describe("DCG Routes", () => {
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.allowlist).toBeDefined();
-      expect(Array.isArray(body.allowlist)).toBe(true);
+      // Canonical envelope format - list response
+      expect(body.object).toBe("list");
+      expect(body.data).toBeDefined();
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.requestId).toBeDefined();
     });
   });
 
@@ -60,10 +69,13 @@ describe("DCG Routes", () => {
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.stats).toBeDefined();
-      expect(typeof body.stats.totalBlocks).toBe("number");
-      expect(body.stats.blocksByPack).toBeDefined();
-      expect(body.stats.blocksBySeverity).toBeDefined();
+      // Canonical envelope format
+      expect(body.object).toBe("dcg_statistics");
+      expect(body.data).toBeDefined();
+      expect(typeof body.data.totalBlocks).toBe("number");
+      expect(body.data.blocksByPack).toBeDefined();
+      expect(body.data.blocksBySeverity).toBeDefined();
+      expect(body.requestId).toBeDefined();
     });
   });
 
@@ -73,8 +85,12 @@ describe("DCG Routes", () => {
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(typeof body.available).toBe("boolean");
-      expect(body.message).toBeDefined();
+      // Canonical envelope format
+      expect(body.object).toBe("dcg_status");
+      expect(body.data).toBeDefined();
+      expect(typeof body.data.available).toBe("boolean");
+      expect(body.data.message).toBeDefined();
+      expect(body.requestId).toBeDefined();
     });
   });
 
@@ -87,7 +103,7 @@ describe("DCG Routes", () => {
 
       expect(res.status).toBe(404);
       const body = await res.json();
-      expect(body.error.code).toBe("BLOCK_NOT_FOUND");
+      expect(body.error.code).toBe("BLOCK_EVENT_NOT_FOUND");
     });
   });
 });

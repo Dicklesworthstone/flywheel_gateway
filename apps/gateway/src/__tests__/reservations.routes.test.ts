@@ -55,8 +55,11 @@ describe("reservations routes", () => {
     );
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.conflicts).toHaveLength(1);
-    expect(data.conflicts[0]?.status).toBe("open");
+    // Canonical envelope format - list response
+    expect(data.object).toBe("list");
+    expect(data.data).toHaveLength(1);
+    expect(data.data[0]?.status).toBe("open");
+    expect(data.requestId).toBeDefined();
   });
 
   test("POST /reservations/conflicts/:id/resolve resolves conflict", async () => {
@@ -88,7 +91,8 @@ describe("reservations routes", () => {
       "/reservations/conflicts?projectId=project-1",
     );
     const listData = await listRes.json();
-    const conflictId = listData.conflicts[0]?.conflictId;
+    // Canonical envelope format - list response
+    const conflictId = listData.data[0]?.conflictId;
     expect(conflictId).toBeDefined();
     if (!conflictId) {
       throw new Error("Expected conflict id");
@@ -108,8 +112,10 @@ describe("reservations routes", () => {
       "/reservations/conflicts?projectId=project-1&status=resolved",
     );
     const resolvedData = await resolvedList.json();
-    expect(resolvedData.conflicts).toHaveLength(1);
-    expect(resolvedData.conflicts[0]?.status).toBe("resolved");
+    // Canonical envelope format - list response
+    expect(resolvedData.object).toBe("list");
+    expect(resolvedData.data).toHaveLength(1);
+    expect(resolvedData.data[0]?.status).toBe("resolved");
   });
 
   test("POST /reservations/conflicts/:id/resolve returns 404 for unknown id", async () => {

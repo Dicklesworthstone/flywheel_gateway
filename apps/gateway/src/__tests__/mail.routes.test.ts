@@ -53,8 +53,11 @@ describe("mail routes", () => {
 
     expect(res.status).toBe(201);
     const data = await res.json();
-    expect(data.projectId).toBe("proj-1");
-    expect(data.created).toBe(true);
+    // Canonical envelope format
+    expect(data.object).toBe("project");
+    expect(data.data.projectId).toBe("proj-1");
+    expect(data.data.created).toBe(true);
+    expect(data.requestId).toBeDefined();
   });
 
   test("POST /mail/messages sends message", async () => {
@@ -72,7 +75,10 @@ describe("mail routes", () => {
 
     expect(res.status).toBe(201);
     const data = await res.json();
-    expect(data.messageId).toBe("msg-1");
+    // Canonical envelope format
+    expect(data.object).toBe("message");
+    expect(data.data.messageId).toBe("msg-1");
+    expect(data.requestId).toBeDefined();
     expect(calls[0]?.tool).toBe("agentmail_send_message");
   });
 
@@ -84,8 +90,11 @@ describe("mail routes", () => {
 
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.messages).toEqual([]);
-    expect(data.hasMore).toBe(false);
+    // Canonical envelope format - list response
+    expect(data.object).toBe("list");
+    // The result contains the inbox object(s), not raw messages
+    expect(data.data).toEqual([{ messages: [], hasMore: false }]);
+    expect(data.requestId).toBeDefined();
   });
 
   test("POST /mail/reservations requests reservations", async () => {
@@ -103,7 +112,10 @@ describe("mail routes", () => {
 
     expect(res.status).toBe(201);
     const data = await res.json();
-    expect(data.reservationId).toBe("res-1");
+    // Canonical envelope format
+    expect(data.object).toBe("reservation");
+    expect(data.data.reservationId).toBe("res-1");
+    expect(data.requestId).toBeDefined();
   });
 
   test("POST /mail/sessions composes ensure/register", async () => {
@@ -120,8 +132,11 @@ describe("mail routes", () => {
 
     expect(res.status).toBe(201);
     const data = await res.json();
-    expect(data.project.projectId).toBe("proj-1");
-    expect(data.agent.mailboxId).toBe("mb-1");
+    // Canonical envelope format
+    expect(data.object).toBe("session");
+    expect(data.data.project.projectId).toBe("proj-1");
+    expect(data.data.agent.mailboxId).toBe("mb-1");
+    expect(data.requestId).toBeDefined();
     expect(calls.map((call) => call.tool)).toEqual([
       "agentmail_ensure_project",
       "agentmail_register_agent",
@@ -134,7 +149,10 @@ describe("mail routes", () => {
 
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.status).toBe("ok");
+    // Canonical envelope format
+    expect(data.object).toBe("health");
+    expect(data.data.status).toBe("ok");
+    expect(data.requestId).toBeDefined();
     expect(calls[0]?.tool).toBe("agentmail_health");
   });
 
@@ -175,6 +193,6 @@ describe("mail routes", () => {
 
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error.code).toBe("INVALID_REQUEST");
+    expect(data.error.code).toBe("VALIDATION_FAILED");
   });
 });

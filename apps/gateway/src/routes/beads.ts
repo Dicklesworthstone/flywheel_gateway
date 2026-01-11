@@ -17,6 +17,11 @@ import {
   type BeadsService,
   createBeadsService,
 } from "../services/beads.service";
+import {
+  sendError,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
 
 const beads = new Hono<{ Variables: { beadsService: BeadsService } }>();
 
@@ -24,37 +29,28 @@ function respondWithGatewayError(c: Context, error: GatewayError) {
   const correlationId = getCorrelationId();
   const timestamp = new Date().toISOString();
   const payload = serializeGatewayError(error);
-  return c.json(
-    {
-      error: {
-        code: payload.code,
-        message: payload.message,
-        correlationId,
-        timestamp,
-        ...(payload.details && { details: payload.details }),
-      },
-    },
+  return sendError(
+    c,
+    payload.code,
+    payload.message,
     payload.httpStatus as ContentfulStatusCode,
+    {
+      ...(payload.details && { details: payload.details }),
+      timestamp,
+    },
   );
 }
 
 function handleError(error: unknown, c: Context) {
   const log = getLogger();
-  const correlationId = getCorrelationId();
 
   if (error instanceof z.ZodError) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Validation failed",
-          correlationId,
-          timestamp: new Date().toISOString(),
-          details: error.issues,
-        },
-      },
-      400,
-    );
+    const validationErrors = error.issues.map((issue) => ({
+      path: issue.path.join("."),
+      message: issue.message,
+      code: issue.code,
+    }));
+    return sendValidationError(c, validationErrors);
   }
 
   if (error instanceof BvClientError) {
@@ -111,7 +107,7 @@ function createBeadsRoutes(service?: BeadsService) {
           minScore !== undefined ? rec.score >= minScore : true,
         );
         const sliced = limit ? filtered?.slice(0, limit) : filtered;
-        return c.json({
+        return sendResource(c, "triage", {
           ...triage,
           triage: {
             ...triage.triage,
@@ -119,7 +115,7 @@ function createBeadsRoutes(service?: BeadsService) {
           },
         });
       }
-      return c.json(triage);
+      return sendResource(c, "triage", triage);
     } catch (error) {
       return handleError(error, c);
     }
@@ -134,7 +130,9 @@ function createBeadsRoutes(service?: BeadsService) {
       const triage = await serviceInstance.getTriage();
       const limit = parseLimit(c.req.query("limit"));
       const beads = triage.triage.quick_wins ?? [];
-      return c.json({ beads: limit ? beads.slice(0, limit) : beads });
+      return sendResource(c, "ready", {
+        beads: limit ? beads.slice(0, limit) : beads,
+      });
     } catch (error) {
       return handleError(error, c);
     }
@@ -149,7 +147,9 @@ function createBeadsRoutes(service?: BeadsService) {
       const triage = await serviceInstance.getTriage();
       const limit = parseLimit(c.req.query("limit"));
       const beads = triage.triage.blockers_to_clear ?? [];
-      return c.json({ beads: limit ? beads.slice(0, limit) : beads });
+      return sendResource(c, "blocked", {
+        beads: limit ? beads.slice(0, limit) : beads,
+      });
     } catch (error) {
       return handleError(error, c);
     }
@@ -162,7 +162,7 @@ function createBeadsRoutes(service?: BeadsService) {
     try {
       const serviceInstance = c.get("beadsService");
       const insights = await serviceInstance.getInsights();
-      return c.json(insights);
+      return sendResource(c, "insights", insights);
     } catch (error) {
       return handleError(error, c);
     }
@@ -175,7 +175,7 @@ function createBeadsRoutes(service?: BeadsService) {
     try {
       const serviceInstance = c.get("beadsService");
       const plan = await serviceInstance.getPlan();
-      return c.json(plan);
+      return sendResource(c, "plan", plan);
     } catch (error) {
       return handleError(error, c);
     }
@@ -201,7 +201,7 @@ function createBeadsRoutes(service?: BeadsService) {
         );
         return respondWithGatewayError(c, mapped);
       }
-      return c.json({
+      return sendResource(c, "sync_result", {
         status: "ok",
         exitCode: result.exitCode,
         stdout: result.stdout,

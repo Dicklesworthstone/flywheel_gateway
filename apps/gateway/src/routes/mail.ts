@@ -23,6 +23,15 @@ import {
   type AgentMailService,
   createAgentMailServiceFromEnv,
 } from "../services/agentmail";
+import {
+  sendResource,
+  sendList,
+  sendNotFound,
+  sendError,
+  sendValidationError,
+  sendInternalError,
+  sendCreated,
+} from "../utils/response";
 
 // ============================================================================
 // Validation Schemas
@@ -82,42 +91,26 @@ const HealthSchema = z.object({
 // ============================================================================
 
 function respondWithGatewayError(c: Context, error: GatewayError) {
-  const correlationId = getCorrelationId();
-  const timestamp = new Date().toISOString();
   const payload = serializeGatewayError(error);
-  return c.json(
-    {
-      error: {
-        code: payload.code,
-        message: payload.message,
-        correlationId,
-        timestamp,
-        ...(payload.details && { details: payload.details }),
-      },
-    },
+  return sendError(
+    c,
+    payload.code,
+    payload.message,
     payload.httpStatus as ContentfulStatusCode,
   );
 }
 
 function handleError(error: unknown, c: Context) {
   const log = getLogger();
-  const correlationId = getCorrelationId();
-  const timestamp = new Date().toISOString();
   const service = c.get("agentMail") ?? createAgentMailServiceFromEnv();
 
   if (error instanceof z.ZodError) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Validation failed",
-          correlationId,
-          timestamp,
-          details: error.issues,
-        },
-      },
-      400,
-    );
+    const validationErrors = error.issues.map((issue) => ({
+      path: issue.path.join(".") || "unknown",
+      message: issue.message,
+      code: issue.code,
+    }));
+    return sendValidationError(c, validationErrors);
   }
 
   if (error instanceof AgentMailClientError) {
@@ -126,17 +119,7 @@ function handleError(error: unknown, c: Context) {
   }
 
   log.error({ error }, "Unexpected error in mail route");
-  return c.json(
-    {
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Internal server error",
-        correlationId,
-        timestamp,
-      },
-    },
-    500,
-  );
+  return sendInternalError(c);
 }
 
 // ============================================================================
@@ -166,12 +149,15 @@ function createMailRoutes(service?: AgentMailService) {
 
       const result = await service.client.ensureProject(validated);
 
-      return c.json(
+      const status = result.created ? 201 : 200;
+      return sendResource(
+        c,
+        "project",
         {
           projectId: result.projectId,
           created: result.created,
         },
-        result.created ? 201 : 200,
+        status as ContentfulStatusCode,
       );
     } catch (error) {
       return handleError(error, c);
@@ -193,7 +179,7 @@ function createMailRoutes(service?: AgentMailService) {
 
       const result = await service.client.registerAgent(validated);
 
-      return c.json(result, 201);
+      return sendCreated(c, "agent", result, `/mail/agents/${result["agentId"] || "unknown"}`);
     } catch (error) {
       return handleError(error, c);
     }
@@ -221,7 +207,12 @@ function createMailRoutes(service?: AgentMailService) {
         ttl: validated.ttl,
       });
 
-      return c.json(message, 201);
+      return sendCreated(
+        c,
+        "message",
+        message,
+        `/mail/messages/${message.messageId || "unknown"}`,
+      );
     } catch (error) {
       return handleError(error, c);
     }
@@ -243,7 +234,12 @@ function createMailRoutes(service?: AgentMailService) {
         priority: validated.priority as AgentMailPriority | undefined,
       });
 
-      return c.json(result, 201);
+      return sendCreated(
+        c,
+        "reply",
+        result,
+        `/mail/messages/${messageId}/reply`,
+      );
     } catch (error) {
       return handleError(error, c);
     }
@@ -258,15 +254,10 @@ function createMailRoutes(service?: AgentMailService) {
       const agentId = c.req.query("agentId");
 
       if (!projectId || !agentId) {
-        return c.json(
-          {
-            error: {
-              code: "MISSING_PARAMETERS",
-              message: "projectId and agentId are required",
-              correlationId: getCorrelationId(),
-              timestamp: new Date().toISOString(),
-            },
-          },
+        return sendError(
+          c,
+          "MISSING_PARAMETERS",
+          "projectId and agentId are required",
           400,
         );
       }
@@ -292,7 +283,11 @@ function createMailRoutes(service?: AgentMailService) {
 
       const result = await service.client.fetchInbox(fetchInput);
 
-      return c.json(result);
+      if (Array.isArray(result) && result.length === 0) {
+        return sendList(c, result);
+      }
+
+      return sendList(c, Array.isArray(result) ? result : [result]);
     } catch (error) {
       return handleError(error, c);
     }
@@ -319,7 +314,12 @@ function createMailRoutes(service?: AgentMailService) {
         exclusive: validated.exclusive,
       });
 
-      return c.json(result, 201);
+      return sendCreated(
+        c,
+        "reservation",
+        result,
+        `/mail/reservations/${result.reservationId || "unknown"}`,
+      );
     } catch (error) {
       return handleError(error, c);
     }
@@ -352,12 +352,14 @@ function createMailRoutes(service?: AgentMailService) {
 
       const result = await service.client.startSession(sessionInput);
 
-      return c.json(
+      return sendCreated(
+        c,
+        "session",
         {
           project: result.project,
           agent: result.registration,
         },
-        201,
+        `/mail/sessions/${result.registration?.["agentId"] || "unknown"}`,
       );
     } catch (error) {
       return handleError(error, c);
@@ -378,7 +380,7 @@ function createMailRoutes(service?: AgentMailService) {
         probe: c.req.query("probe"),
       });
       const result = await service.client.healthCheck(validated);
-      return c.json(result);
+      return sendResource(c, "health", result);
     } catch (error) {
       return handleError(error, c);
     }

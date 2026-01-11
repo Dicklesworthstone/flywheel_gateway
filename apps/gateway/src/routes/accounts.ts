@@ -20,7 +20,15 @@ import {
 } from "../caam/account.service";
 import { handleRateLimit, peekNextProfile, rotate } from "../caam/rotation";
 import type { ProviderId } from "../caam/types";
-import { getCorrelationId, getLogger } from "../middleware/correlation";
+import { getLogger } from "../middleware/correlation";
+import {
+  sendError,
+  sendInternalError,
+  sendList,
+  sendNotFound,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
 
 const accounts = new Hono();
 
@@ -73,49 +81,22 @@ const StartLoginSchema = z.object({
 
 function handleError(error: unknown, c: Context) {
   const log = getLogger();
-  const correlationId = getCorrelationId();
 
   if (error instanceof z.ZodError) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Validation failed",
-          correlationId,
-          timestamp: new Date().toISOString(),
-          details: error.issues,
-        },
-      },
-      400,
-    );
+    const validationErrors = error.issues.map((issue) => ({
+      path: issue.path.join("."),
+      message: issue.message,
+      code: issue.code,
+    }));
+    return sendValidationError(c, validationErrors);
   }
 
   if (error instanceof SyntaxError && error.message.includes("JSON")) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Invalid JSON in request body",
-          correlationId,
-          timestamp: new Date().toISOString(),
-        },
-      },
-      400,
-    );
+    return sendError(c, "INVALID_REQUEST", "Invalid JSON in request body", 400);
   }
 
   log.error({ error }, "Unexpected error in accounts route");
-  return c.json(
-    {
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Internal server error",
-        correlationId,
-        timestamp: new Date().toISOString(),
-      },
-    },
-    500,
-  );
+  return sendInternalError(c);
 }
 
 // ============================================================================
@@ -129,7 +110,7 @@ accounts.get("/byoa-status", async (c) => {
   try {
     const workspaceId = c.req.query("workspaceId") ?? "default";
     const status = await getByoaStatus(workspaceId);
-    return c.json(status);
+    return sendResource(c, "byoa_status", status);
   } catch (error) {
     return handleError(error, c);
   }
@@ -180,7 +161,10 @@ accounts.get("/profiles", async (c) => {
 
     const result = await listProfiles(options);
 
-    return c.json(result);
+    return sendList(c, result.profiles, {
+      hasMore: result.pagination?.hasMore ?? false,
+      total: result.pagination?.total,
+    });
   } catch (error) {
     return handleError(error, c);
   }
@@ -204,7 +188,7 @@ accounts.post("/profiles", async (c) => {
     if (validated.labels) options.labels = validated.labels;
 
     const profile = await createProfile(options);
-    return c.json({ profile }, 201);
+    return sendResource(c, "profile", profile, 201);
   } catch (error) {
     return handleError(error, c);
   }
@@ -219,20 +203,10 @@ accounts.get("/profiles/:id", async (c) => {
     const profile = await getProfile(id);
 
     if (!profile) {
-      return c.json(
-        {
-          error: {
-            code: "NOT_FOUND",
-            message: `Profile ${id} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "profile", id);
     }
 
-    return c.json({ profile });
+    return sendResource(c, "profile", profile);
   } catch (error) {
     return handleError(error, c);
   }
@@ -255,20 +229,10 @@ accounts.patch("/profiles/:id", async (c) => {
     const profile = await updateProfile(id, options);
 
     if (!profile) {
-      return c.json(
-        {
-          error: {
-            code: "NOT_FOUND",
-            message: `Profile ${id} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "profile", id);
     }
 
-    return c.json({ profile });
+    return sendResource(c, "profile", profile);
   } catch (error) {
     return handleError(error, c);
   }
@@ -283,20 +247,10 @@ accounts.delete("/profiles/:id", async (c) => {
     const deleted = await deleteProfile(id);
 
     if (!deleted) {
-      return c.json(
-        {
-          error: {
-            code: "NOT_FOUND",
-            message: `Profile ${id} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "profile", id);
     }
 
-    return c.json({ deleted: true });
+    return sendResource(c, "profile_deletion", { deleted: true, id });
   } catch (error) {
     return handleError(error, c);
   }
@@ -311,20 +265,10 @@ accounts.post("/profiles/:id/activate", async (c) => {
     const profile = await activateProfile(id);
 
     if (!profile) {
-      return c.json(
-        {
-          error: {
-            code: "NOT_FOUND",
-            message: `Profile ${id} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "profile", id);
     }
 
-    return c.json({ profile, activated: true });
+    return sendResource(c, "profile_activation", { profile, activated: true });
   } catch (error) {
     return handleError(error, c);
   }
@@ -341,20 +285,10 @@ accounts.post("/profiles/:id/cooldown", async (c) => {
     const profile = await setCooldown(id, validated.minutes, validated.reason);
 
     if (!profile) {
-      return c.json(
-        {
-          error: {
-            code: "NOT_FOUND",
-            message: `Profile ${id} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "profile", id);
     }
 
-    return c.json({ profile, cooldownSet: true });
+    return sendResource(c, "profile_cooldown", { profile, cooldownSet: true });
   } catch (error) {
     return handleError(error, c);
   }
@@ -395,7 +329,7 @@ accounts.post("/providers/:provider/login/start", async (c) => {
       expiresInSeconds: 600,
     };
 
-    return c.json({ challenge, profile }, 201);
+    return sendResource(c, "login_challenge", { challenge, profile }, 201);
   } catch (error) {
     return handleError(error, c);
   }
@@ -413,30 +347,15 @@ accounts.post("/providers/:provider/login/complete", async (c) => {
     // Verify the profile exists and belongs to the correct provider
     const existingProfile = await getProfile(profileId);
     if (!existingProfile) {
-      return c.json(
-        {
-          error: {
-            code: "NOT_FOUND",
-            message: `Profile ${profileId} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "profile", profileId);
     }
 
     // Validate provider matches
     if (existingProfile.provider !== provider) {
-      return c.json(
-        {
-          error: {
-            code: "INVALID_REQUEST",
-            message: `Profile ${profileId} belongs to provider '${existingProfile.provider}', not '${provider}'`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
+      return sendError(
+        c,
+        "INVALID_REQUEST",
+        `Profile ${profileId} belongs to provider '${existingProfile.provider}', not '${provider}'`,
         400,
       );
     }
@@ -445,7 +364,7 @@ accounts.post("/providers/:provider/login/complete", async (c) => {
     // For now, mark the profile as verified
     const profile = await markVerified(profileId);
 
-    return c.json({ profile, status: "linked" });
+    return sendResource(c, "login_complete", { profile, status: "linked" });
   } catch (error) {
     return handleError(error, c);
   }
@@ -465,22 +384,12 @@ accounts.get("/pools/:provider", async (c) => {
 
     const pool = await getPool(workspaceId, provider);
     if (!pool) {
-      return c.json(
-        {
-          error: {
-            code: "NOT_FOUND",
-            message: `Pool for ${provider} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "pool", provider);
     }
 
     const nextProfile = await peekNextProfile(workspaceId, provider);
 
-    return c.json({
+    return sendResource(c, "pool", {
       pool,
       nextProfile: nextProfile
         ? { id: nextProfile.id, name: nextProfile.name }
@@ -507,20 +416,15 @@ accounts.post("/pools/:provider/rotate", async (c) => {
     );
 
     if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: "ROTATION_FAILED",
-            message: result.reason,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
+      return sendError(
+        c,
+        "ROTATION_FAILED",
+        result.reason ?? "Rotation failed",
         400,
       );
     }
 
-    return c.json({ result });
+    return sendResource(c, "rotation_result", result);
   } catch (error) {
     return handleError(error, c);
   }
@@ -539,21 +443,18 @@ accounts.post("/pools/:provider/rate-limit", async (c) => {
     const result = await handleRateLimit(workspaceId, provider, errorMessage);
 
     if (!result.success) {
-      return c.json(
-        {
-          error: {
-            code: "ROTATION_FAILED",
-            message: result.reason,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-            hint: "All accounts may be exhausted. Wait for cooldown or add more accounts.",
-          },
-        },
+      return sendError(
+        c,
+        "ROTATION_FAILED",
+        result.reason ?? "Rate limit handling failed",
         503,
+        {
+          hint: "All accounts may be exhausted. Wait for cooldown or add more accounts.",
+        },
       );
     }
 
-    return c.json({ result });
+    return sendResource(c, "rate_limit_result", result);
   } catch (error) {
     return handleError(error, c);
   }

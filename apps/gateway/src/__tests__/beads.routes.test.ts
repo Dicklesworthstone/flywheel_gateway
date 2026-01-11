@@ -45,7 +45,10 @@ describe("beads routes", () => {
     const res = await app.request("/beads/triage");
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.triage.recommendations?.[0]?.id).toBe("bead-1");
+    // Canonical envelope format
+    expect(data.object).toBe("triage");
+    expect(data.data.triage.recommendations?.[0]?.id).toBe("bead-1");
+    expect(data.requestId).toBeDefined();
   });
 
   test("GET /beads/triage supports limit and minScore", async () => {
@@ -73,8 +76,10 @@ describe("beads routes", () => {
     const res = await app.request("/beads/triage?minScore=0.5&limit=1");
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.triage.recommendations).toHaveLength(1);
-    expect(data.triage.recommendations[0].id).toBe("bead-2");
+    // Canonical envelope format
+    expect(data.object).toBe("triage");
+    expect(data.data.triage.recommendations).toHaveLength(1);
+    expect(data.data.triage.recommendations[0].id).toBe("bead-2");
   });
 
   test("GET /beads/ready returns quick wins", async () => {
@@ -98,7 +103,10 @@ describe("beads routes", () => {
     const res = await app.request("/beads/ready");
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.beads[0].id).toBe("bead-2");
+    // Canonical envelope format
+    expect(data.object).toBe("ready");
+    expect(data.data.beads[0].id).toBe("bead-2");
+    expect(data.requestId).toBeDefined();
   });
 
   test("GET /beads/ready respects limit", async () => {
@@ -125,7 +133,10 @@ describe("beads routes", () => {
     const res = await app.request("/beads/ready?limit=1");
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.beads).toHaveLength(1);
+    // Canonical envelope format
+    expect(data.object).toBe("ready");
+    expect(data.data.beads).toHaveLength(1);
+    expect(data.requestId).toBeDefined();
   });
 
   test("GET /beads/blocked returns blockers", async () => {
@@ -149,7 +160,10 @@ describe("beads routes", () => {
     const res = await app.request("/beads/blocked");
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.beads[0].id).toBe("bead-3");
+    // Canonical envelope format
+    expect(data.object).toBe("blocked");
+    expect(data.data.beads[0].id).toBe("bead-3");
+    expect(data.requestId).toBeDefined();
   });
 
   test("GET /beads/blocked respects limit", async () => {
@@ -176,7 +190,10 @@ describe("beads routes", () => {
     const res = await app.request("/beads/blocked?limit=1");
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.beads).toHaveLength(1);
+    // Canonical envelope format
+    expect(data.object).toBe("blocked");
+    expect(data.data.beads).toHaveLength(1);
+    expect(data.requestId).toBeDefined();
   });
 
   test("GET /beads/triage maps BV errors", async () => {
@@ -216,7 +233,10 @@ describe("beads routes", () => {
     const res = await app.request("/beads/insights");
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.data_hash).toBe("hash");
+    // Canonical envelope format
+    expect(data.object).toBe("insights");
+    expect(data.data.data_hash).toBe("hash");
+    expect(data.requestId).toBeDefined();
   });
 
   test("GET /beads/plan returns plan", async () => {
@@ -234,7 +254,10 @@ describe("beads routes", () => {
     const res = await app.request("/beads/plan");
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.data_hash).toBe("hash");
+    // Canonical envelope format
+    expect(data.object).toBe("plan");
+    expect(data.data.data_hash).toBe("hash");
+    expect(data.requestId).toBeDefined();
   });
 
   test("POST /beads/sync returns ok on success", async () => {
@@ -252,7 +275,10 @@ describe("beads routes", () => {
     const res = await app.request("/beads/sync", { method: "POST" });
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.status).toBe("ok");
+    // Canonical envelope format
+    expect(data.object).toBe("sync_result");
+    expect(data.data.status).toBe("ok");
+    expect(data.requestId).toBeDefined();
   });
 
   test("POST /beads/sync maps failure", async () => {

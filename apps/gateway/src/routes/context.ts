@@ -4,12 +4,18 @@
 
 import { Hono, type Context as HonoContext } from "hono";
 import { z } from "zod";
-import { getCorrelationId, getLogger } from "../middleware/correlation";
+import { getLogger } from "../middleware/correlation";
 import {
   buildContextPack,
   previewContextPack,
   renderContextPack,
 } from "../services/context.service";
+import {
+  sendCreated,
+  sendResource,
+  sendValidationError,
+  sendInternalError,
+} from "../utils/response";
 import type {
   BudgetStrategy,
   ContextPackRequest,
@@ -96,35 +102,20 @@ const ContextBuildRequestSchema = z.object({
 
 function handleContextError(error: unknown, c: HonoContext) {
   const log = getLogger();
-  const correlationId = getCorrelationId();
 
   if (error instanceof z.ZodError) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Validation failed",
-          correlationId,
-          timestamp: new Date().toISOString(),
-          details: error.issues,
-        },
-      },
-      400,
-    );
+    const validationErrors = error.issues.map((issue) => ({
+      path: issue.path.join(".") || "root",
+      message: issue.message,
+      code: issue.code,
+    }));
+    return sendValidationError(c, validationErrors);
   }
 
-  log.error({ error, correlationId }, "Unexpected error in context route");
-  return c.json(
-    {
-      error: {
-        code: "INTERNAL_ERROR",
-        message:
-          error instanceof Error ? error.message : "Internal server error",
-        correlationId,
-        timestamp: new Date().toISOString(),
-      },
-    },
-    500,
+  log.error({ error }, "Unexpected error in context route");
+  return sendInternalError(
+    c,
+    error instanceof Error ? error.message : "Internal server error",
   );
 }
 
@@ -148,42 +139,41 @@ context.post("/:sessionId/context/build", async (c) => {
 
     const pack = await buildContextPack(request);
 
-    return c.json(
+    return sendCreated(
+      c,
+      "context_pack",
       {
-        pack: {
-          id: pack.id,
-          sessionId: pack.sessionId,
-          createdAt: pack.createdAt.toISOString(),
-          budget: pack.budget,
-          sections: {
-            triage: {
-              beadCount: pack.sections.triage.beads.length,
-              totalTokens: pack.sections.triage.totalTokens,
-              truncated: pack.sections.triage.truncated,
-            },
-            memory: {
-              ruleCount: pack.sections.memory.rules.length,
-              totalTokens: pack.sections.memory.totalTokens,
-              categories: pack.sections.memory.categories,
-            },
-            search: {
-              resultCount: pack.sections.search.results.length,
-              totalTokens: pack.sections.search.totalTokens,
-              query: pack.sections.search.query,
-            },
-            history: {
-              entryCount: pack.sections.history.entries.length,
-              totalTokens: pack.sections.history.totalTokens,
-            },
-            system: {
-              totalTokens: pack.sections.system.totalTokens,
-            },
+        id: pack.id,
+        sessionId: pack.sessionId,
+        createdAt: pack.createdAt.toISOString(),
+        budget: pack.budget,
+        sections: {
+          triage: {
+            beadCount: pack.sections.triage.beads.length,
+            totalTokens: pack.sections.triage.totalTokens,
+            truncated: pack.sections.triage.truncated,
           },
-          metadata: pack.metadata,
+          memory: {
+            ruleCount: pack.sections.memory.rules.length,
+            totalTokens: pack.sections.memory.totalTokens,
+            categories: pack.sections.memory.categories,
+          },
+          search: {
+            resultCount: pack.sections.search.results.length,
+            totalTokens: pack.sections.search.totalTokens,
+            query: pack.sections.search.query,
+          },
+          history: {
+            entryCount: pack.sections.history.entries.length,
+            totalTokens: pack.sections.history.totalTokens,
+          },
+          system: {
+            totalTokens: pack.sections.system.totalTokens,
+          },
         },
-        correlationId: getCorrelationId(),
+        metadata: pack.metadata,
       },
-      201,
+      `/sessions/${sessionId}/context/${pack.id}`,
     );
   } catch (error) {
     return handleContextError(error, c);
@@ -206,10 +196,9 @@ context.post("/:sessionId/context/preview", async (c) => {
 
     const preview = await previewContextPack(request);
 
-    return c.json({
-      preview,
+    return sendResource(c, "context_preview", {
       sessionId,
-      correlationId: getCorrelationId(),
+      preview,
     });
   } catch (error) {
     return handleContextError(error, c);
@@ -233,13 +222,12 @@ context.post("/:sessionId/context/render", async (c) => {
     const pack = await buildContextPack(request);
     const rendered = renderContextPack(pack);
 
-    return c.json({
+    return sendResource(c, "context_render", {
       packId: pack.id,
       rendered,
       tokensUsed: pack.budget.used,
       tokensRemaining: pack.budget.remaining,
       buildTimeMs: pack.metadata.buildTimeMs,
-      correlationId: getCorrelationId(),
     });
   } catch (error) {
     return handleContextError(error, c);

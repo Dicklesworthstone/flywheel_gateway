@@ -11,7 +11,7 @@
 
 import { Hono } from "hono";
 import { z } from "zod";
-import { getCorrelationId, getLogger } from "../middleware/correlation";
+import { getLogger } from "../middleware/correlation";
 import {
   type ConflictSeverity,
   type ConflictType,
@@ -28,6 +28,13 @@ import {
   resolveConflict,
   updateAlertConfig,
 } from "../services/conflict.service";
+import {
+  sendError,
+  sendList,
+  sendNotFound,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
 
 const conflicts = new Hono();
 
@@ -113,22 +120,20 @@ conflicts.get("/", async (c) => {
 
   const activeList = getActiveConflicts(filter);
 
-  return c.json({
-    conflicts: activeList.map((conflict) => ({
-      id: conflict.id,
-      type: conflict.type,
-      severity: conflict.severity,
-      projectId: conflict.projectId,
-      involvedAgents: conflict.involvedAgents,
-      affectedResources: conflict.affectedResources,
-      detectedAt: conflict.detectedAt.toISOString(),
-      recommendedActions: getRecommendedActions(conflict),
-    })),
-    pagination: {
-      total: activeList.length,
-      hasMore: false,
-    },
-    correlationId: getCorrelationId(),
+  const transformedConflicts = activeList.map((conflict) => ({
+    id: conflict.id,
+    type: conflict.type,
+    severity: conflict.severity,
+    projectId: conflict.projectId,
+    involvedAgents: conflict.involvedAgents,
+    affectedResources: conflict.affectedResources,
+    detectedAt: conflict.detectedAt.toISOString(),
+    recommendedActions: getRecommendedActions(conflict),
+  }));
+
+  return sendList(c, transformedConflicts, {
+    total: activeList.length,
+    hasMore: false,
   });
 });
 
@@ -151,32 +156,28 @@ conflicts.get("/history", async (c) => {
     Number.isNaN(offset) ? 0 : offset,
   );
 
-  return c.json({
-    conflicts: historyList.map((conflict) => ({
-      id: conflict.id,
-      type: conflict.type,
-      severity: conflict.severity,
-      projectId: conflict.projectId,
-      involvedAgents: conflict.involvedAgents,
-      affectedResources: conflict.affectedResources,
-      detectedAt: conflict.detectedAt.toISOString(),
-      resolvedAt: conflict.resolvedAt?.toISOString(),
-      resolution: conflict.resolution
-        ? {
-            type: conflict.resolution.type,
-            description: conflict.resolution.description,
-            resolvedBy: conflict.resolution.resolvedBy,
-            resolvedAt: conflict.resolution.resolvedAt.toISOString(),
-          }
-        : undefined,
-    })),
-    pagination: {
-      total,
-      hasMore,
-      offset,
-      limit,
-    },
-    correlationId: getCorrelationId(),
+  const transformedConflicts = historyList.map((conflict) => ({
+    id: conflict.id,
+    type: conflict.type,
+    severity: conflict.severity,
+    projectId: conflict.projectId,
+    involvedAgents: conflict.involvedAgents,
+    affectedResources: conflict.affectedResources,
+    detectedAt: conflict.detectedAt.toISOString(),
+    resolvedAt: conflict.resolvedAt?.toISOString(),
+    resolution: conflict.resolution
+      ? {
+          type: conflict.resolution.type,
+          description: conflict.resolution.description,
+          resolvedBy: conflict.resolution.resolvedBy,
+          resolvedAt: conflict.resolution.resolvedAt.toISOString(),
+        }
+      : undefined,
+  }));
+
+  return sendList(c, transformedConflicts, {
+    total,
+    hasMore,
   });
 });
 
@@ -186,10 +187,7 @@ conflicts.get("/history", async (c) => {
 conflicts.get("/stats", async (c) => {
   const stats = getConflictStats();
 
-  return c.json({
-    stats,
-    correlationId: getCorrelationId(),
-  });
+  return sendResource(c, "conflict_stats", stats);
 });
 
 /**
@@ -199,10 +197,7 @@ conflicts.get("/stats", async (c) => {
 conflicts.get("/config", async (c) => {
   const config = getAlertConfig();
 
-  return c.json({
-    config,
-    correlationId: getCorrelationId(),
-  });
+  return sendResource(c, "alert_config", config);
 });
 
 /**
@@ -234,24 +229,15 @@ conflicts.patch("/config", async (c) => {
 
     const updated = updateAlertConfig(configUpdate);
 
-    return c.json({
-      config: updated,
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "alert_config", updated);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return c.json(
-        {
-          error: {
-            code: "INVALID_REQUEST",
-            message: "Validation failed",
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-            details: error.issues,
-          },
-        },
-        400,
-      );
+      const validationErrors = error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+        code: issue.code,
+      }));
+      return sendValidationError(c, validationErrors);
     }
     log.error({ error }, "Error updating alert configuration");
     throw error;
@@ -266,42 +252,31 @@ conflicts.get("/:conflictId", async (c) => {
   const conflict = getConflict(conflictId);
 
   if (!conflict) {
-    return c.json(
-      {
-        error: {
-          code: "CONFLICT_NOT_FOUND",
-          message: `Conflict ${conflictId} not found`,
-          correlationId: getCorrelationId(),
-          timestamp: new Date().toISOString(),
-        },
-      },
-      404,
-    );
+    return sendNotFound(c, "conflict", conflictId);
   }
 
-  return c.json({
-    conflict: {
-      id: conflict.id,
-      type: conflict.type,
-      severity: conflict.severity,
-      projectId: conflict.projectId,
-      involvedAgents: conflict.involvedAgents,
-      affectedResources: conflict.affectedResources,
-      detectedAt: conflict.detectedAt.toISOString(),
-      resolvedAt: conflict.resolvedAt?.toISOString(),
-      resolution: conflict.resolution
-        ? {
-            type: conflict.resolution.type,
-            description: conflict.resolution.description,
-            resolvedBy: conflict.resolution.resolvedBy,
-            resolvedAt: conflict.resolution.resolvedAt.toISOString(),
-          }
-        : undefined,
-      metadata: conflict.metadata,
-      recommendedActions: getRecommendedActions(conflict),
-    },
-    correlationId: getCorrelationId(),
-  });
+  const transformedConflict = {
+    id: conflict.id,
+    type: conflict.type,
+    severity: conflict.severity,
+    projectId: conflict.projectId,
+    involvedAgents: conflict.involvedAgents,
+    affectedResources: conflict.affectedResources,
+    detectedAt: conflict.detectedAt.toISOString(),
+    resolvedAt: conflict.resolvedAt?.toISOString(),
+    resolution: conflict.resolution
+      ? {
+          type: conflict.resolution.type,
+          description: conflict.resolution.description,
+          resolvedBy: conflict.resolution.resolvedBy,
+          resolvedAt: conflict.resolution.resolvedAt.toISOString(),
+        }
+      : undefined,
+    metadata: conflict.metadata,
+    recommendedActions: getRecommendedActions(conflict),
+  };
+
+  return sendResource(c, "conflict", transformedConflict);
 });
 
 /**
@@ -331,48 +306,30 @@ conflicts.post("/:conflictId/resolve", async (c) => {
     const resolved = resolveConflict(conflictId, resolution);
 
     if (!resolved) {
-      return c.json(
-        {
-          error: {
-            code: "CONFLICT_NOT_FOUND",
-            message: `Conflict ${conflictId} not found or already resolved`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "conflict", conflictId);
     }
 
-    return c.json({
-      resolved: true,
-      conflict: {
-        id: resolved.id,
-        type: resolved.type,
-        resolvedAt: resolved.resolvedAt?.toISOString(),
-        resolution: {
-          type: resolved.resolution!.type,
-          description: resolved.resolution!.description,
-          resolvedBy: resolved.resolution!.resolvedBy,
-          resolvedAt: resolved.resolution!.resolvedAt.toISOString(),
-        },
+    const transformedResolution = {
+      id: resolved.id,
+      type: resolved.type,
+      resolvedAt: resolved.resolvedAt?.toISOString(),
+      resolution: {
+        type: resolved.resolution!.type,
+        description: resolved.resolution!.description,
+        resolvedBy: resolved.resolution!.resolvedBy,
+        resolvedAt: resolved.resolution!.resolvedAt.toISOString(),
       },
-      correlationId: getCorrelationId(),
-    });
+    };
+
+    return sendResource(c, "conflict", transformedResolution, 200);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return c.json(
-        {
-          error: {
-            code: "INVALID_REQUEST",
-            message: "Validation failed",
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-            details: error.issues,
-          },
-        },
-        400,
-      );
+      const validationErrors = error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+        code: issue.code,
+      }));
+      return sendValidationError(c, validationErrors);
     }
     log.error({ error, conflictId }, "Error resolving conflict");
     throw error;
@@ -396,7 +353,7 @@ conflicts.post("/check/reservation", async (c) => {
       validated.exclusive,
     );
 
-    return c.json({
+    const checkResult = {
       hasConflicts: result.hasConflicts,
       canProceed: result.canProceed,
       conflicts: result.conflicts.map((conflict) => ({
@@ -406,22 +363,17 @@ conflicts.post("/check/reservation", async (c) => {
         affectedResources: conflict.affectedResources,
         recommendedActions: getRecommendedActions(conflict),
       })),
-      correlationId: getCorrelationId(),
-    });
+    };
+
+    return sendResource(c, "reservation_check", checkResult);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return c.json(
-        {
-          error: {
-            code: "INVALID_REQUEST",
-            message: "Validation failed",
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-            details: error.issues,
-          },
-        },
-        400,
-      );
+      const validationErrors = error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+        code: issue.code,
+      }));
+      return sendValidationError(c, validationErrors);
     }
     log.error({ error }, "Error checking reservation conflicts");
     throw error;
@@ -477,27 +429,22 @@ conflicts.post("/scan/git", async (c) => {
       }
     }
 
-    return c.json({
+    const scanResult = {
       scanned: true,
       projectId: validated.projectId,
       conflictsFound: conflicts.length,
       conflicts,
-      correlationId: getCorrelationId(),
-    });
+    };
+
+    return sendResource(c, "git_scan_result", scanResult);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return c.json(
-        {
-          error: {
-            code: "INVALID_REQUEST",
-            message: "Validation failed",
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-            details: error.issues,
-          },
-        },
-        400,
-      );
+      const validationErrors = error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+        code: issue.code,
+      }));
+      return sendValidationError(c, validationErrors);
     }
     log.error({ error }, "Error scanning for git conflicts");
     throw error;
@@ -516,22 +463,12 @@ conflicts.post("/scan/contention", async (c) => {
     const windowMs = body.windowMs ?? 5000;
 
     if (!projectId || typeof projectId !== "string") {
-      return c.json(
-        {
-          error: {
-            code: "INVALID_REQUEST",
-            message: "projectId is required",
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        400,
-      );
+      return sendError(c, "INVALID_REQUEST", "projectId is required", 400);
     }
 
     const contentionConflicts = detectResourceContention(projectId, windowMs);
 
-    return c.json({
+    const scanResult = {
       scanned: true,
       projectId,
       windowMs,
@@ -543,8 +480,9 @@ conflicts.post("/scan/contention", async (c) => {
         involvedAgents: conflict.involvedAgents,
         affectedResources: conflict.affectedResources,
       })),
-      correlationId: getCorrelationId(),
-    });
+    };
+
+    return sendResource(c, "contention_scan_result", scanResult);
   } catch (error) {
     log.error({ error }, "Error scanning for resource contention");
     throw error;

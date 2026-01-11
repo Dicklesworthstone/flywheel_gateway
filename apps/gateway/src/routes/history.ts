@@ -6,7 +6,7 @@
 
 import { type Context, Hono } from "hono";
 import { z } from "zod";
-import { getCorrelationId, getLogger } from "../middleware/correlation";
+import { getLogger } from "../middleware/correlation";
 import {
   type ExportOptions,
   type ExtractionType,
@@ -22,6 +22,14 @@ import {
   searchHistory,
   toggleStar,
 } from "../services/history.service";
+import {
+  sendError,
+  sendInternalError,
+  sendList,
+  sendNotFound,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
 
 const history = new Hono();
 
@@ -72,35 +80,18 @@ const ExtractSchema = z.object({
 
 function handleError(error: unknown, c: Context) {
   const log = getLogger();
-  const correlationId = getCorrelationId();
 
   if (error instanceof z.ZodError) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Validation failed",
-          correlationId,
-          timestamp: new Date().toISOString(),
-          details: error.issues,
-        },
-      },
-      400,
-    );
+    const errors = error.issues.map((issue) => ({
+      path: issue.path.join("."),
+      message: issue.message,
+      code: issue.code,
+    }));
+    return sendValidationError(c, errors);
   }
 
   log.error({ error }, "Unexpected error in history route");
-  return c.json(
-    {
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Internal server error",
-        correlationId,
-        timestamp: new Date().toISOString(),
-      },
-    },
-    500,
-  );
+  return sendInternalError(c);
 }
 
 // ============================================================================
@@ -142,11 +133,13 @@ history.get("/", async (c) => {
 
     const result = await queryHistory(options);
 
-    return c.json({
-      entries: result.entries,
-      pagination: result.pagination,
-      correlationId: getCorrelationId(),
-    });
+    const listOptions: Parameters<typeof sendList>[2] = {
+      hasMore: result.pagination.hasMore,
+    };
+    if (result.pagination.cursor) {
+      listOptions.nextCursor = result.pagination.cursor;
+    }
+    return sendList(c, result.entries, listOptions);
   } catch (error) {
     return handleError(error, c);
   }
@@ -162,17 +155,12 @@ history.get("/search", async (c) => {
     const limitParam = c.req.query("limit");
 
     if (!query) {
-      return c.json(
+      return sendValidationError(c, [
         {
-          error: {
-            code: "INVALID_REQUEST",
-            message: "Query parameter 'q' is required",
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
+          path: "q",
+          message: "Query parameter 'q' is required",
         },
-        400,
-      );
+      ]);
     }
 
     // Build options conditionally (for exactOptionalPropertyTypes)
@@ -185,11 +173,7 @@ history.get("/search", async (c) => {
 
     const entries = await searchHistory(query, searchOptions);
 
-    return c.json({
-      entries,
-      query,
-      correlationId: getCorrelationId(),
-    });
+    return sendList(c, entries);
   } catch (error) {
     return handleError(error, c);
   }
@@ -212,10 +196,7 @@ history.get("/stats", async (c) => {
 
     const stats = await getHistoryStats(statsOptions);
 
-    return c.json({
-      stats,
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "history_stats", stats);
   } catch (error) {
     return handleError(error, c);
   }
@@ -230,23 +211,10 @@ history.get("/:id", async (c) => {
     const entry = await getHistoryEntry(id);
 
     if (!entry) {
-      return c.json(
-        {
-          error: {
-            code: "NOT_FOUND",
-            message: `History entry ${id} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "history_entry", id);
     }
 
-    return c.json({
-      entry,
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "history_entry", entry);
   } catch (error) {
     return handleError(error, c);
   }
@@ -265,24 +233,10 @@ history.post("/:id/star", async (c) => {
     const entry = await toggleStar(id);
 
     if (!entry) {
-      return c.json(
-        {
-          error: {
-            code: "NOT_FOUND",
-            message: `History entry ${id} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "history_entry", id);
     }
 
-    return c.json({
-      entry,
-      starred: entry.starred,
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "history_entry", entry);
   } catch (error) {
     return handleError(error, c);
   }
@@ -297,17 +251,7 @@ history.post("/:id/replay", async (c) => {
     const entry = await getHistoryEntry(id);
 
     if (!entry) {
-      return c.json(
-        {
-          error: {
-            code: "NOT_FOUND",
-            message: `History entry ${id} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "history_entry", id);
     }
 
     // Increment replay count
@@ -315,12 +259,11 @@ history.post("/:id/replay", async (c) => {
 
     // Return the prompt for replay
     // The actual replay (sending to agent) would be done by the client
-    return c.json({
+    return sendResource(c, "history_replay", {
       prompt: entry.prompt,
       originalAgentId: entry.agentId,
       originalTimestamp: entry.timestamp.toISOString(),
       replayCount: entry.replayCount + 1,
-      correlationId: getCorrelationId(),
     });
   } catch (error) {
     return handleError(error, c);
@@ -375,10 +318,9 @@ history.delete("/prune", async (c) => {
 
     const deletedCount = await pruneHistory(olderThan);
 
-    return c.json({
+    return sendResource(c, "prune_result", {
       deletedCount,
       olderThan: olderThan.toISOString(),
-      correlationId: getCorrelationId(),
     });
   } catch (error) {
     return handleError(error, c);
@@ -410,10 +352,9 @@ history.post("/extract", async (c) => {
       extractOptions,
     );
 
-    return c.json({
+    return sendResource(c, "extraction_result", {
       ...result,
       type: validated.type,
-      correlationId: getCorrelationId(),
     });
   } catch (error) {
     return handleError(error, c);

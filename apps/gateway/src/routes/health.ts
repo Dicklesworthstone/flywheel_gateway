@@ -6,7 +6,7 @@ import { count } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../db";
 import { agents } from "../db/schema";
-import { getCorrelationId } from "../middleware/correlation";
+import { sendResource } from "../utils/response";
 
 const health = new Hono();
 
@@ -23,10 +23,9 @@ interface CheckResult {
  * This endpoint is used by load balancers and orchestrators.
  */
 health.get("/", (c) => {
-  return c.json({
+  return sendResource(c, "health_status", {
     status: "healthy",
     timestamp: new Date().toISOString(),
-    correlationId: getCorrelationId(),
   });
 });
 
@@ -57,12 +56,13 @@ health.get("/ready", async (c) => {
   const status = anyFail ? "unhealthy" : allPass ? "ready" : "degraded";
   const httpStatus = anyFail ? 503 : 200;
 
-  return c.json(
+  return sendResource(
+    c,
+    "readiness_status",
     {
       status,
       checks,
       timestamp: new Date().toISOString(),
-      correlationId: getCorrelationId(),
     },
     httpStatus,
   );

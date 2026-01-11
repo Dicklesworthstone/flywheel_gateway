@@ -7,7 +7,7 @@
 
 import { type Context, Hono } from "hono";
 import { z } from "zod";
-import { getCorrelationId, getLogger } from "../middleware/correlation";
+import { getLogger } from "../middleware/correlation";
 import {
   addToAllowlist,
   type DCGConfig,
@@ -25,6 +25,16 @@ import {
   removeFromAllowlist,
   updateConfig,
 } from "../services/dcg.service";
+import {
+  sendCreated,
+  sendEmptyList,
+  sendError,
+  sendInternalError,
+  sendList,
+  sendNotFound,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
 
 const dcg = new Hono();
 
@@ -58,49 +68,22 @@ const BlocksQuerySchema = z.object({
 
 function handleError(error: unknown, c: Context) {
   const log = getLogger();
-  const correlationId = getCorrelationId();
 
   if (error instanceof z.ZodError) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Validation failed",
-          correlationId,
-          timestamp: new Date().toISOString(),
-          details: error.issues,
-        },
-      },
-      400,
-    );
+    const validationErrors = error.issues.map((issue) => ({
+      path: issue.path.join("."),
+      message: issue.message,
+      code: issue.code,
+    }));
+    return sendValidationError(c, validationErrors);
   }
 
   if (error instanceof Error && error.message.includes("Unknown packs")) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_PACK",
-          message: error.message,
-          correlationId,
-          timestamp: new Date().toISOString(),
-        },
-      },
-      400,
-    );
+    return sendError(c, "INVALID_PACK", error.message, 400);
   }
 
   log.error({ error }, "Unexpected error in DCG route");
-  return c.json(
-    {
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Internal server error",
-        correlationId,
-        timestamp: new Date().toISOString(),
-      },
-    },
-    500,
-  );
+  return sendInternalError(c);
 }
 
 // ============================================================================
@@ -117,14 +100,15 @@ dcg.get("/status", async (c) => {
       getDcgVersion(),
     ]);
 
-    return c.json({
+    const status = {
       available,
       version,
       message: available
         ? `DCG ${version ?? "unknown version"} is available`
         : "DCG is not installed. Install from https://github.com/Dicklesworthstone/dcg",
-      correlationId: getCorrelationId(),
-    });
+    };
+
+    return sendResource(c, "dcg_status", status);
   } catch (error) {
     return handleError(error, c);
   }
@@ -140,10 +124,7 @@ dcg.get("/status", async (c) => {
 dcg.get("/config", async (c) => {
   try {
     const config = getConfig();
-    return c.json({
-      config,
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "dcg_config", config);
   } catch (error) {
     return handleError(error, c);
   }
@@ -166,10 +147,7 @@ dcg.put("/config", async (c) => {
 
     const config = await updateConfig(updates);
 
-    return c.json({
-      config,
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "dcg_config", config);
   } catch (error) {
     return handleError(error, c);
   }
@@ -185,10 +163,10 @@ dcg.put("/config", async (c) => {
 dcg.get("/packs", async (c) => {
   try {
     const packs = listPacks();
-    return c.json({
-      packs,
-      correlationId: getCorrelationId(),
-    });
+    if (packs.length === 0) {
+      return sendEmptyList(c);
+    }
+    return sendList(c, packs);
   } catch (error) {
     return handleError(error, c);
   }
@@ -203,24 +181,15 @@ dcg.post("/packs/:pack/enable", async (c) => {
     const success = await enablePack(pack);
 
     if (!success) {
-      return c.json(
-        {
-          error: {
-            code: "PACK_NOT_FOUND",
-            message: `Unknown pack: ${pack}`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "pack", pack);
     }
 
-    return c.json({
+    const result = {
       pack,
       enabled: true,
-      correlationId: getCorrelationId(),
-    });
+    };
+
+    return sendResource(c, "pack_status", result);
   } catch (error) {
     return handleError(error, c);
   }
@@ -235,24 +204,15 @@ dcg.post("/packs/:pack/disable", async (c) => {
     const success = await disablePack(pack);
 
     if (!success) {
-      return c.json(
-        {
-          error: {
-            code: "PACK_NOT_FOUND",
-            message: `Unknown pack: ${pack}`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "pack", pack);
     }
 
-    return c.json({
+    const result = {
       pack,
       enabled: false,
-      correlationId: getCorrelationId(),
-    });
+    };
+
+    return sendResource(c, "pack_status", result);
   } catch (error) {
     return handleError(error, c);
   }
@@ -286,11 +246,17 @@ dcg.get("/blocks", async (c) => {
 
     const result = await getBlockEvents(options);
 
-    return c.json({
-      blocks: result.events,
-      pagination: result.pagination,
-      correlationId: getCorrelationId(),
-    });
+    if (result.events.length === 0) {
+      return sendEmptyList(c);
+    }
+
+    const listOptions: Parameters<typeof sendList>[2] = {
+      hasMore: result.pagination.hasMore,
+    };
+    if (result.pagination.cursor) {
+      listOptions.nextCursor = result.pagination.cursor;
+    }
+    return sendList(c, result.events, listOptions);
   } catch (error) {
     return handleError(error, c);
   }
@@ -308,24 +274,10 @@ dcg.post("/blocks/:id/false-positive", async (c) => {
     const event = await markFalsePositive(id, markedBy);
 
     if (!event) {
-      return c.json(
-        {
-          error: {
-            code: "BLOCK_NOT_FOUND",
-            message: `Block event ${id} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "block_event", id);
     }
 
-    return c.json({
-      block: event,
-      markedFalsePositive: true,
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "block_event", event);
   } catch (error) {
     return handleError(error, c);
   }
@@ -341,10 +293,10 @@ dcg.post("/blocks/:id/false-positive", async (c) => {
 dcg.get("/allowlist", async (c) => {
   try {
     const entries = await getAllowlist();
-    return c.json({
-      allowlist: entries,
-      correlationId: getCorrelationId(),
-    });
+    if (entries.length === 0) {
+      return sendEmptyList(c);
+    }
+    return sendList(c, entries);
   } catch (error) {
     return handleError(error, c);
   }
@@ -371,13 +323,7 @@ dcg.post("/allowlist", async (c) => {
 
     const entry = await addToAllowlist(entryInput);
 
-    return c.json(
-      {
-        entry,
-        correlationId: getCorrelationId(),
-      },
-      201,
-    );
+    return sendCreated(c, "allowlist_entry", entry, `/dcg/allowlist/${entry.ruleId}`);
   } catch (error) {
     return handleError(error, c);
   }
@@ -392,24 +338,15 @@ dcg.delete("/allowlist/:ruleId", async (c) => {
     const success = await removeFromAllowlist(ruleId);
 
     if (!success) {
-      return c.json(
-        {
-          error: {
-            code: "ALLOWLIST_NOT_FOUND",
-            message: `Allowlist entry ${ruleId} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "allowlist_entry", ruleId);
     }
 
-    return c.json({
+    const result = {
       deleted: true,
       ruleId,
-      correlationId: getCorrelationId(),
-    });
+    };
+
+    return sendResource(c, "deletion_result", result);
   } catch (error) {
     return handleError(error, c);
   }
@@ -425,10 +362,7 @@ dcg.delete("/allowlist/:ruleId", async (c) => {
 dcg.get("/stats", async (c) => {
   try {
     const stats = await getStats();
-    return c.json({
-      stats,
-      correlationId: getCorrelationId(),
-    });
+    return sendResource(c, "dcg_statistics", stats);
   } catch (error) {
     return handleError(error, c);
   }

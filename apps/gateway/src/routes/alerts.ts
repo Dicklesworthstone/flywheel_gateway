@@ -4,7 +4,7 @@
 
 import { type Context, Hono } from "hono";
 import { z } from "zod";
-import { getCorrelationId, getLogger } from "../middleware/correlation";
+import { getLogger } from "../middleware/correlation";
 import type {
   AlertFilter,
   AlertRuleUpdate,
@@ -22,6 +22,14 @@ import {
   getAlertRules,
   updateAlertRule,
 } from "../services/alerts";
+import {
+  sendError,
+  sendInternalError,
+  sendList,
+  sendNotFound,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
 
 const alerts = new Hono();
 
@@ -51,35 +59,18 @@ const UpdateRuleSchema = z.object({
 
 function handleError(error: unknown, c: Context) {
   const log = getLogger();
-  const correlationId = getCorrelationId();
 
   if (error instanceof z.ZodError) {
-    return c.json(
-      {
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Validation failed",
-          correlationId,
-          timestamp: new Date().toISOString(),
-          details: error.issues,
-        },
-      },
-      400,
-    );
+    const errors = error.issues.map((issue) => ({
+      path: issue.path.join("."),
+      message: issue.message,
+      code: issue.code,
+    }));
+    return sendValidationError(c, errors);
   }
 
   log.error({ error }, "Unexpected error in alerts route");
-  return c.json(
-    {
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Internal server error",
-        correlationId,
-        timestamp: new Date().toISOString(),
-      },
-    },
-    500,
-  );
+  return sendInternalError(c);
 }
 
 function parseArrayQuery(value: string | undefined): string[] | undefined {
@@ -133,20 +124,26 @@ alerts.get("/", (c) => {
 
     const result = getActiveAlerts(filter);
 
-    return c.json({
-      alerts: result.alerts.map((alert) => ({
-        ...alert,
-        createdAt: alert.createdAt.toISOString(),
-        ...(alert.expiresAt && { expiresAt: alert.expiresAt.toISOString() }),
-        ...(alert.acknowledgedAt && {
-          acknowledgedAt: alert.acknowledgedAt.toISOString(),
-        }),
-        ...(alert.dismissedAt && {
-          dismissedAt: alert.dismissedAt.toISOString(),
-        }),
-      })),
-      pagination: result.pagination,
-    });
+    const serializedAlerts = result.alerts.map((alert) => ({
+      ...alert,
+      createdAt: alert.createdAt.toISOString(),
+      ...(alert.expiresAt && { expiresAt: alert.expiresAt.toISOString() }),
+      ...(alert.acknowledgedAt && {
+        acknowledgedAt: alert.acknowledgedAt.toISOString(),
+      }),
+      ...(alert.dismissedAt && {
+        dismissedAt: alert.dismissedAt.toISOString(),
+      }),
+    }));
+
+    const listOptions: Parameters<typeof sendList>[2] = {
+      hasMore: result.pagination.hasMore,
+      total: result.pagination.total,
+    };
+    if (result.pagination.cursor) {
+      listOptions.nextCursor = result.pagination.cursor;
+    }
+    return sendList(c, serializedAlerts, listOptions);
   } catch (error) {
     return handleError(error, c);
   }
@@ -174,20 +171,26 @@ alerts.get("/history", (c) => {
 
     const result = getAlertHistory(filter);
 
-    return c.json({
-      alerts: result.alerts.map((alert) => ({
-        ...alert,
-        createdAt: alert.createdAt.toISOString(),
-        ...(alert.expiresAt && { expiresAt: alert.expiresAt.toISOString() }),
-        ...(alert.acknowledgedAt && {
-          acknowledgedAt: alert.acknowledgedAt.toISOString(),
-        }),
-        ...(alert.dismissedAt && {
-          dismissedAt: alert.dismissedAt.toISOString(),
-        }),
-      })),
-      pagination: result.pagination,
-    });
+    const serializedAlerts = result.alerts.map((alert) => ({
+      ...alert,
+      createdAt: alert.createdAt.toISOString(),
+      ...(alert.expiresAt && { expiresAt: alert.expiresAt.toISOString() }),
+      ...(alert.acknowledgedAt && {
+        acknowledgedAt: alert.acknowledgedAt.toISOString(),
+      }),
+      ...(alert.dismissedAt && {
+        dismissedAt: alert.dismissedAt.toISOString(),
+      }),
+    }));
+
+    const listOptions: Parameters<typeof sendList>[2] = {
+      hasMore: result.pagination.hasMore,
+      total: result.pagination.total,
+    };
+    if (result.pagination.cursor) {
+      listOptions.nextCursor = result.pagination.cursor;
+    }
+    return sendList(c, serializedAlerts, listOptions);
   } catch (error) {
     return handleError(error, c);
   }
@@ -200,18 +203,18 @@ alerts.get("/rules", (c) => {
   try {
     const rules = getAlertRules();
 
-    return c.json({
-      rules: rules.map((rule) => ({
-        id: rule.id,
-        name: rule.name,
-        description: rule.description,
-        enabled: rule.enabled,
-        type: rule.type,
-        severity: rule.severity,
-        cooldown: rule.cooldown,
-        source: rule.source,
-      })),
-    });
+    const serializedRules = rules.map((rule) => ({
+      id: rule.id,
+      name: rule.name,
+      description: rule.description,
+      enabled: rule.enabled,
+      type: rule.type,
+      severity: rule.severity,
+      cooldown: rule.cooldown,
+      source: rule.source,
+    }));
+
+    return sendList(c, serializedRules);
   } catch (error) {
     return handleError(error, c);
   }
@@ -234,26 +237,18 @@ alerts.put("/rules/:ruleId", async (c) => {
 
     const updated = updateAlertRule(ruleId, update);
     if (!updated) {
-      return c.json(
-        {
-          error: {
-            code: "RULE_NOT_FOUND",
-            message: `Alert rule ${ruleId} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "alert_rule", ruleId);
     }
 
-    return c.json({
+    const serializedRule = {
       id: updated.id,
       name: updated.name,
       enabled: updated.enabled,
       severity: updated.severity,
       cooldown: updated.cooldown,
-    });
+    };
+
+    return sendResource(c, "alert_rule", serializedRule);
   } catch (error) {
     return handleError(error, c);
   }
@@ -268,20 +263,10 @@ alerts.get("/:alertId", (c) => {
     const alert = getAlert(alertId);
 
     if (!alert) {
-      return c.json(
-        {
-          error: {
-            code: "ALERT_NOT_FOUND",
-            message: `Alert ${alertId} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "alert", alertId);
     }
 
-    return c.json({
+    const serializedAlert = {
       ...alert,
       createdAt: alert.createdAt.toISOString(),
       ...(alert.expiresAt && { expiresAt: alert.expiresAt.toISOString() }),
@@ -291,7 +276,9 @@ alerts.get("/:alertId", (c) => {
       ...(alert.dismissedAt && {
         dismissedAt: alert.dismissedAt.toISOString(),
       }),
-    });
+    };
+
+    return sendResource(c, "alert", serializedAlert);
   } catch (error) {
     return handleError(error, c);
   }
@@ -315,25 +302,17 @@ alerts.post("/:alertId/acknowledge", async (c) => {
 
     const alert = acknowledgeAlert(alertId, acknowledgedBy);
     if (!alert) {
-      return c.json(
-        {
-          error: {
-            code: "ALERT_NOT_FOUND",
-            message: `Alert ${alertId} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "alert", alertId);
     }
 
-    return c.json({
+    const serializedAlert = {
       id: alert.id,
       acknowledged: alert.acknowledged,
       acknowledgedAt: alert.acknowledgedAt?.toISOString(),
       acknowledgedBy: alert.acknowledgedBy,
-    });
+    };
+
+    return sendResource(c, "alert", serializedAlert);
   } catch (error) {
     return handleError(error, c);
   }
@@ -357,25 +336,17 @@ alerts.post("/:alertId/dismiss", async (c) => {
 
     const alert = dismissAlert(alertId, dismissedBy);
     if (!alert) {
-      return c.json(
-        {
-          error: {
-            code: "ALERT_NOT_FOUND",
-            message: `Alert ${alertId} not found`,
-            correlationId: getCorrelationId(),
-            timestamp: new Date().toISOString(),
-          },
-        },
-        404,
-      );
+      return sendNotFound(c, "alert", alertId);
     }
 
-    return c.json({
+    const serializedAlert = {
       id: alert.id,
       dismissed: true,
       dismissedAt: alert.dismissedAt?.toISOString(),
       dismissedBy: alert.dismissedBy,
-    });
+    };
+
+    return sendResource(c, "alert", serializedAlert);
   } catch (error) {
     return handleError(error, c);
   }
@@ -388,16 +359,20 @@ alerts.post("/evaluate", (c) => {
   try {
     const firedAlerts = evaluateAlertRules();
 
-    return c.json({
+    const serializedAlerts = firedAlerts.map((alert) => ({
+      id: alert.id,
+      type: alert.type,
+      severity: alert.severity,
+      title: alert.title,
+    }));
+
+    const response = {
       evaluated: true,
       alertsFired: firedAlerts.length,
-      alerts: firedAlerts.map((alert) => ({
-        id: alert.id,
-        type: alert.type,
-        severity: alert.severity,
-        title: alert.title,
-      })),
-    });
+      alerts: serializedAlerts,
+    };
+
+    return sendResource(c, "alert_evaluation", response);
   } catch (error) {
     return handleError(error, c);
   }

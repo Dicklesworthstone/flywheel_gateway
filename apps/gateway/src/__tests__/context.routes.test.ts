@@ -19,10 +19,13 @@ describe("Context Routes", () => {
 
       expect(res.status).toBe(201);
       const body = await res.json();
-      expect(body.pack).toBeDefined();
-      expect(body.pack.budget).toBeDefined();
-      expect(body.pack.sections).toBeDefined();
-      expect(body.pack.metadata).toBeDefined();
+      // Canonical envelope format
+      expect(body.object).toBe("context_pack");
+      expect(body.data).toBeDefined();
+      expect(body.data.budget).toBeDefined();
+      expect(body.data.sections).toBeDefined();
+      expect(body.data.metadata).toBeDefined();
+      expect(body.requestId).toBeDefined();
     });
 
     test("accepts maxTokens parameter", async () => {
@@ -34,7 +37,9 @@ describe("Context Routes", () => {
 
       expect(res.status).toBe(201);
       const body = await res.json();
-      expect(body.pack.budget.total).toBe(50000);
+      // Canonical envelope format
+      expect(body.object).toBe("context_pack");
+      expect(body.data.budget.total).toBe(50000);
     });
 
     test("rejects invalid maxTokens (too low)", async () => {
@@ -46,7 +51,7 @@ describe("Context Routes", () => {
 
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error.code).toBe("INVALID_REQUEST");
+      expect(body.error.code).toBe("VALIDATION_FAILED");
     });
 
     test("rejects invalid maxTokens (too high)", async () => {
@@ -70,8 +75,11 @@ describe("Context Routes", () => {
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.preview).toBeDefined();
-      expect(body.sessionId).toBe("test-session");
+      // Canonical envelope format
+      expect(body.object).toBe("context_preview");
+      expect(body.data).toBeDefined();
+      expect(body.data.sessionId).toBe("test-session");
+      expect(body.requestId).toBeDefined();
     });
   });
 
@@ -85,10 +93,13 @@ describe("Context Routes", () => {
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.rendered).toBeDefined();
-      expect(typeof body.rendered).toBe("string");
-      expect(body.packId).toBeDefined();
-      expect(body.tokensUsed).toBeDefined();
+      // Canonical envelope format
+      expect(body.object).toBe("context_render");
+      expect(body.data).toBeDefined();
+      expect(typeof body.data.rendered).toBe("string");
+      expect(body.data.packId).toBeDefined();
+      expect(body.data.tokensUsed).toBeDefined();
+      expect(body.requestId).toBeDefined();
     });
   });
 });
