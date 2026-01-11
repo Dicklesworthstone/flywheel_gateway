@@ -13,7 +13,6 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import type { ServerWebSocket } from "bun";
 import {
-  type AuthContext,
   type ConnectionData,
   setHub,
   WebSocketHub,
