@@ -354,6 +354,152 @@ export async function createCheckpoint(
 }
 
 // ============================================================================
+// Error Checkpoints
+// ============================================================================
+
+/**
+ * Error context captured with an error checkpoint.
+ */
+export interface ErrorContext {
+  errorType: string;
+  errorMessage: string;
+  errorStack?: string;
+  lastCommand?: string;
+  lastToolCall?: string;
+  correlationId?: string;
+}
+
+/**
+ * Create an error checkpoint before an error propagates.
+ * This captures the agent state at the moment of failure for debugging.
+ *
+ * Error checkpoints are always compressed and tagged for easy identification.
+ * They never fail - if checkpoint creation fails, the error is logged but not thrown.
+ *
+ * @param agentId - The agent that encountered the error
+ * @param state - Current agent state
+ * @param errorContext - Information about the error
+ * @returns The checkpoint metadata, or undefined if creation failed
+ */
+export async function createErrorCheckpoint(
+  agentId: string,
+  state: {
+    conversationHistory: unknown[];
+    toolState: Record<string, unknown>;
+    tokenUsage: TokenUsage;
+    contextPack?: unknown;
+  },
+  errorContext: ErrorContext,
+): Promise<CheckpointMetadata | undefined> {
+  const log = getLogger();
+  const correlationId = getCorrelationId();
+
+  try {
+    const description = `Error checkpoint: ${errorContext.errorType} - ${errorContext.errorMessage.slice(0, 100)}`;
+
+    const metadata = await createCheckpoint(
+      agentId,
+      {
+        ...state,
+        toolState: {
+          ...state.toolState,
+          _errorContext: errorContext,
+        },
+      },
+      {
+        description,
+        tags: ["error", "auto", errorContext.errorType],
+        compress: true,
+      },
+    );
+
+    log.info(
+      {
+        type: "checkpoint:error",
+        agentId,
+        checkpointId: metadata.id,
+        errorType: errorContext.errorType,
+        correlationId,
+      },
+      `[CHECKPOINT] Created error checkpoint ${metadata.id} for agent ${agentId}`,
+    );
+
+    return metadata;
+  } catch (error) {
+    // Error checkpoints must never fail - log and continue
+    log.error(
+      {
+        type: "checkpoint:error_failed",
+        agentId,
+        originalError: errorContext,
+        checkpointError: error,
+        correlationId,
+      },
+      "[CHECKPOINT] Failed to create error checkpoint - continuing without checkpoint",
+    );
+    return undefined;
+  }
+}
+
+/**
+ * Wrapper to capture checkpoint on error.
+ * Use this to wrap async operations that might fail.
+ *
+ * @example
+ * ```typescript
+ * const result = await withErrorCheckpoint(
+ *   agentId,
+ *   () => getAgentState(agentId),
+ *   async () => riskyOperation(),
+ * );
+ * ```
+ */
+export async function withErrorCheckpoint<T>(
+  agentId: string,
+  getState: () => Promise<{
+    conversationHistory: unknown[];
+    toolState: Record<string, unknown>;
+    tokenUsage: TokenUsage;
+    contextPack?: unknown;
+  }>,
+  operation: () => Promise<T>,
+  options?: { captureOnSuccess?: boolean },
+): Promise<T> {
+  try {
+    const result = await operation();
+
+    // Optionally capture on success (milestone checkpoint)
+    if (options?.captureOnSuccess) {
+      const state = await getState();
+      await createCheckpoint(agentId, state, {
+        description: "Milestone checkpoint after successful operation",
+        tags: ["milestone", "auto"],
+        compress: true,
+      });
+    }
+
+    return result;
+  } catch (error) {
+    // Capture error checkpoint
+    try {
+      const state = await getState();
+      const errorContext: ErrorContext = {
+        errorType: error instanceof Error ? error.constructor.name : "UnknownError",
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        correlationId: getCorrelationId(),
+      };
+
+      await createErrorCheckpoint(agentId, state, errorContext);
+    } catch {
+      // Ignore checkpoint errors - the original error is more important
+    }
+
+    throw error;
+  }
+}
+
+// ============================================================================
 // Checkpoint Retrieval
 // ============================================================================
 

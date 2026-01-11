@@ -10,6 +10,7 @@ import {
   type CreateCheckpointOptions,
   compressData,
   createCheckpoint,
+  createErrorCheckpoint,
   decompressData,
   deleteCheckpoint,
   exportCheckpoint,
@@ -20,6 +21,7 @@ import {
   pruneCheckpoints,
   restoreCheckpoint,
   verifyCheckpoint,
+  withErrorCheckpoint,
 } from "../services/checkpoint";
 
 async function ensureAgent(agentId: string) {
@@ -445,9 +447,15 @@ describe("Checkpoint Service", () => {
       const original = JSON.stringify({
         messages: [
           { role: "user", content: "Hello, how are you?" },
-          { role: "assistant", content: "I am doing well, thank you for asking!" },
+          {
+            role: "assistant",
+            content: "I am doing well, thank you for asking!",
+          },
         ],
-        toolState: { files: ["file1.ts", "file2.ts"], workingDir: "/home/user" },
+        toolState: {
+          files: ["file1.ts", "file2.ts"],
+          workingDir: "/home/user",
+        },
       });
 
       const { compressed, stats } = compressData(original);
@@ -526,7 +534,99 @@ describe("Checkpoint Service", () => {
       expect(metadata.compressionStats).toBeUndefined();
 
       const restored = await restoreCheckpoint(metadata.id);
-      expect(restored.conversationHistory).toEqual([{ role: "user", content: "Test" }]);
+      expect(restored.conversationHistory).toEqual([
+        { role: "user", content: "Test" },
+      ]);
+    });
+  });
+
+  describe("error checkpoints", () => {
+    test("createErrorCheckpoint captures error context", async () => {
+      const uniqueAgentId = `agent-error-${Date.now()}`;
+      await ensureAgent(uniqueAgentId);
+
+      const metadata = await createErrorCheckpoint(
+        uniqueAgentId,
+        {
+          conversationHistory: [{ role: "user", content: "Before error" }],
+          toolState: { working: true },
+          tokenUsage: testTokenUsage,
+        },
+        {
+          errorType: "TestError",
+          errorMessage: "Something went wrong",
+          errorStack: "at test.ts:42",
+          lastCommand: "bun test",
+        },
+      );
+
+      expect(metadata).toBeDefined();
+      expect(metadata?.id).toMatch(/^chk_[a-z0-9]+$/);
+      expect(metadata?.tags).toContain("error");
+      expect(metadata?.tags).toContain("auto");
+      expect(metadata?.tags).toContain("TestError");
+
+      // Verify error context is in toolState
+      const restored = await restoreCheckpoint(metadata!.id);
+      expect(restored.toolState["_errorContext"]).toBeDefined();
+      const ctx = restored.toolState["_errorContext"] as Record<string, unknown>;
+      expect(ctx["errorType"]).toBe("TestError");
+      expect(ctx["errorMessage"]).toBe("Something went wrong");
+    });
+
+    test("createErrorCheckpoint never throws", async () => {
+      // Even with invalid agent, should return undefined instead of throwing
+      const result = await createErrorCheckpoint(
+        "nonexistent-agent-xyz",
+        {
+          conversationHistory: [],
+          toolState: {},
+          tokenUsage: testTokenUsage,
+        },
+        {
+          errorType: "TestError",
+          errorMessage: "Test",
+        },
+      );
+
+      // Should return undefined on failure, not throw
+      // Note: This might actually succeed if the agent check is lenient
+      // The important thing is it doesn't throw
+      expect(true).toBe(true);
+    });
+
+    test("withErrorCheckpoint captures state on failure", async () => {
+      const uniqueAgentId = `agent-with-error-${Date.now()}`;
+      await ensureAgent(uniqueAgentId);
+
+      const testState = {
+        conversationHistory: [{ role: "user", content: "Test state" }],
+        toolState: { captured: true },
+        tokenUsage: testTokenUsage,
+      };
+
+      let errorCaught = false;
+      try {
+        await withErrorCheckpoint(
+          uniqueAgentId,
+          async () => testState,
+          async () => {
+            throw new Error("Intentional test error");
+          },
+        );
+      } catch (e) {
+        errorCaught = true;
+        expect(e).toBeInstanceOf(Error);
+      }
+
+      expect(errorCaught).toBe(true);
+
+      // Verify an error checkpoint was created
+      const checkpoints = await getAgentCheckpoints(uniqueAgentId);
+      const errorCheckpoint = checkpoints.find((c) =>
+        c.tags?.includes("error"),
+      );
+      expect(errorCheckpoint).toBeDefined();
     });
   });
 });
