@@ -175,12 +175,7 @@ function handleError(error: unknown, c: Context) {
   const log = getLogger();
 
   if (error instanceof z.ZodError) {
-    const details = error.issues.map((issue) => ({
-      path: issue.path.join("."),
-      message: issue.message,
-      code: issue.code,
-    }));
-    return sendValidationError(c, details);
+    return sendValidationError(c, transformZodError(error));
   }
 
   if (error instanceof Error && error.message.includes("not found")) {

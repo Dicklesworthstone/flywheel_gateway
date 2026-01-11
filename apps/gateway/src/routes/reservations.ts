@@ -28,6 +28,7 @@ import {
 } from "../services/reservation.service";
 import {
   sendResource,
+  sendCreated,
   sendList,
   sendNotFound,
   sendError,
@@ -153,26 +154,26 @@ reservations.post("/", async (c) => {
       );
     }
 
-    return c.json(
+    const reservation = result.reservation!;
+    return sendCreated(
+      c,
+      "reservation",
       {
-        data: {
-          type: "reservation",
-          granted: true,
-          reservation: {
-            id: result.reservation!.id,
-            projectId: result.reservation!.projectId,
-            agentId: result.reservation!.agentId,
-            patterns: result.reservation!.patterns,
-            mode: result.reservation!.mode,
-            ttl: result.reservation!.ttl,
-            createdAt: result.reservation!.createdAt.toISOString(),
-            expiresAt: result.reservation!.expiresAt.toISOString(),
-            renewCount: result.reservation!.renewCount,
-            metadata: result.reservation!.metadata,
-          },
+        granted: true,
+        reservation: {
+          id: reservation.id,
+          projectId: reservation.projectId,
+          agentId: reservation.agentId,
+          patterns: reservation.patterns,
+          mode: reservation.mode,
+          ttl: reservation.ttl,
+          createdAt: reservation.createdAt.toISOString(),
+          expiresAt: reservation.expiresAt.toISOString(),
+          renewCount: reservation.renewCount,
+          metadata: reservation.metadata,
         },
       },
-      201,
+      `/reservations/${reservation.id}`,
     );
   } catch (error) {
     return handleError(error, c);

@@ -25,6 +25,7 @@ import {
   sendResource,
   sendValidationError,
 } from "../utils/response";
+import { transformZodError } from "../utils/validation";
 
 const utilities = new Hono();
 
@@ -53,14 +54,7 @@ function handleError(error: unknown, c: Context) {
   const log = getLogger();
 
   if (error instanceof z.ZodError) {
-    return sendValidationError(
-      c,
-      error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-        code: issue.code,
-      })),
-    );
+    return sendValidationError(c, transformZodError(error));
   }
 
   if (error instanceof SyntaxError && error.message.includes("JSON")) {

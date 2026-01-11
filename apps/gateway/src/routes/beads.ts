@@ -22,6 +22,7 @@ import {
   sendResource,
   sendValidationError,
 } from "../utils/response";
+import { transformZodError } from "../utils/validation";
 
 const beads = new Hono<{ Variables: { beadsService: BeadsService } }>();
 
@@ -44,12 +45,7 @@ function handleError(error: unknown, c: Context) {
   const log = getLogger();
 
   if (error instanceof z.ZodError) {
-    const validationErrors = error.issues.map((issue) => ({
-      path: issue.path.join("."),
-      message: issue.message,
-      code: issue.code,
-    }));
-    return sendValidationError(c, validationErrors);
+    return sendValidationError(c, transformZodError(error));
   }
 
   if (error instanceof BvClientError) {

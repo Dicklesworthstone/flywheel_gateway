@@ -62,12 +62,7 @@ function handleError(error: unknown, c: Context) {
   const log = getLogger();
 
   if (error instanceof z.ZodError) {
-    const errors = error.issues.map((issue) => ({
-      path: issue.path.join("."),
-      message: issue.message,
-      code: issue.code,
-    }));
-    return sendValidationError(c, errors);
+    return sendValidationError(c, transformZodError(error));
   }
 
   log.error({ error }, "Unexpected error in alerts route");

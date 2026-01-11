@@ -32,6 +32,7 @@ import {
   sendInternalError,
   sendCreated,
 } from "../utils/response";
+import { transformZodError } from "../utils/validation";
 
 // ============================================================================
 // Validation Schemas
@@ -105,12 +106,7 @@ function handleError(error: unknown, c: Context) {
   const service = c.get("agentMail") ?? createAgentMailServiceFromEnv();
 
   if (error instanceof z.ZodError) {
-    const validationErrors = error.issues.map((issue) => ({
-      path: issue.path.join(".") || "unknown",
-      message: issue.message,
-      code: issue.code,
-    }));
-    return sendValidationError(c, validationErrors);
+    return sendValidationError(c, transformZodError(error));
   }
 
   if (error instanceof AgentMailClientError) {
