@@ -582,7 +582,7 @@ export async function sendMessage(
     record.messagesReceived++;
 
     // Notify auto-checkpoint system of new message
-    onAgentMessage(agentId);
+    await onAgentMessage(agentId);
 
     // Note: Transition back to READY happens when agent finishes processing
     // This is typically detected through output events or polling
