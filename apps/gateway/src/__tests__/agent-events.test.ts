@@ -29,12 +29,7 @@ mock.module("../services/logger", () => ({
 }));
 
 // Import after mocking
-import {
-  AgentEventsService,
-  getAgentEventsService,
-  startAgentEvents,
-  stopAgentEvents,
-} from "../services/agent-events";
+import { AgentEventsService } from "../services/agent-events";
 
 describe("Agent Events Service", () => {
   let mockHub: WebSocketHub;

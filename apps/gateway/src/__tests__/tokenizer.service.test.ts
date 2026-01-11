@@ -76,7 +76,7 @@ describe("Tokenizer Service", () => {
   });
 
   describe("truncateToTokens", () => {
-    test("returns empty string for null/undefined", () => {
+    test("returns empty string for empty input", () => {
       expect(truncateToTokens("", 100)).toBe("");
     });
 

@@ -2,9 +2,9 @@
  * Tests for audit service.
  */
 
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { audit, auditSuccess, auditFailure } from "../services/audit";
-import type { AuditEvent, AuditEventOptions } from "../services/audit";
+import type { AuditEventOptions } from "../services/audit";
 
 // Mock the correlation middleware
 mock.module("../middleware/correlation", () => ({
