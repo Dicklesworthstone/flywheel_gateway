@@ -39,6 +39,9 @@ sqlite.exec("PRAGMA foreign_keys = ON");
 
 export const db = drizzle(sqlite, { schema, logger: drizzleLogger });
 
+// Export underlying sqlite client for raw SQL in tests
+export { sqlite };
+
 export function logSlowQuery(details: {
   sql: string;
   params?: unknown[];

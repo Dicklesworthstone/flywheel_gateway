@@ -3,9 +3,8 @@
  */
 
 import { beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { sql } from "drizzle-orm";
 import { Hono } from "hono";
-import { db } from "../db";
+import { sqlite } from "../db/connection";
 import { dcg } from "../routes/dcg";
 import {
   _clearAllPendingExceptions,
@@ -22,8 +21,8 @@ import {
 } from "../services/dcg-pending.service";
 
 // Create the table if it doesn't exist (for test isolation)
-beforeAll(async () => {
-  await db.run(sql`
+beforeAll(() => {
+  sqlite.exec(`
     CREATE TABLE IF NOT EXISTS dcg_pending_exceptions (
       id TEXT PRIMARY KEY,
       short_code TEXT NOT NULL UNIQUE,
@@ -47,11 +46,11 @@ beforeAll(async () => {
       expires_at INTEGER NOT NULL
     )
   `);
-  await db.run(sql`CREATE UNIQUE INDEX IF NOT EXISTS dcg_pending_short_code_idx ON dcg_pending_exceptions(short_code)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS dcg_pending_status_idx ON dcg_pending_exceptions(status)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS dcg_pending_agent_idx ON dcg_pending_exceptions(agent_id)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS dcg_pending_expires_idx ON dcg_pending_exceptions(expires_at)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS dcg_pending_command_hash_idx ON dcg_pending_exceptions(command_hash)`);
+  sqlite.exec(`CREATE UNIQUE INDEX IF NOT EXISTS dcg_pending_short_code_idx ON dcg_pending_exceptions(short_code)`);
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS dcg_pending_status_idx ON dcg_pending_exceptions(status)`);
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS dcg_pending_agent_idx ON dcg_pending_exceptions(agent_id)`);
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS dcg_pending_expires_idx ON dcg_pending_exceptions(expires_at)`);
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS dcg_pending_command_hash_idx ON dcg_pending_exceptions(command_hash)`);
 });
 
 // ============================================================================

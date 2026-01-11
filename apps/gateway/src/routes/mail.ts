@@ -24,6 +24,11 @@ import {
   createAgentMailServiceFromEnv,
 } from "../services/agentmail";
 import {
+  type ReservationConflictEngine,
+  type Reservation,
+  createReservationConflictEngine,
+} from "../services/reservation-conflicts";
+import {
   sendResource,
   sendList,
   sendNotFound,
@@ -31,6 +36,7 @@ import {
   sendValidationError,
   sendInternalError,
   sendCreated,
+  sendConflict,
 } from "../utils/response";
 import { transformZodError } from "../utils/validation";
 
@@ -125,15 +131,29 @@ function handleError(error: unknown, c: Context) {
 /**
  * POST /mail/projects - Ensure a project exists (idempotent)
  */
-function createMailRoutes(service?: AgentMailService) {
-  const mail = new Hono<{ Variables: { agentMail: AgentMailService } }>();
+function createMailRoutes(
+  service?: AgentMailService,
+  conflictEngine?: ReservationConflictEngine,
+) {
+  const mail = new Hono<{
+    Variables: {
+      agentMail: AgentMailService;
+      conflictEngine: ReservationConflictEngine;
+    };
+  }>();
   let cachedService: AgentMailService | undefined = service;
+  let cachedConflictEngine: ReservationConflictEngine | undefined =
+    conflictEngine;
 
   mail.use("*", async (c, next) => {
     if (!cachedService) {
       cachedService = createAgentMailServiceFromEnv();
     }
+    if (!cachedConflictEngine) {
+      cachedConflictEngine = createReservationConflictEngine();
+    }
     c.set("agentMail", cachedService);
+    c.set("conflictEngine", cachedConflictEngine);
     await next();
   });
 
@@ -295,12 +315,47 @@ function createMailRoutes(service?: AgentMailService) {
 
   /**
    * POST /mail/reservations - Create file reservations
+   *
+   * Checks for conflicts with existing reservations before creating.
+   * Returns 409 Conflict if overlapping exclusive reservations exist.
    */
   mail.post("/reservations", async (c) => {
     try {
       const body = await c.req.json();
       const validated = ReserveFilesSchema.parse(body);
       const service = c.get("agentMail");
+      const engine = c.get("conflictEngine");
+
+      // Check for conflicts before creating
+      const conflictCheck = engine.checkConflicts(
+        validated.projectId,
+        validated.requesterId,
+        validated.patterns,
+        validated.exclusive,
+      );
+
+      if (!conflictCheck.canProceed) {
+        return sendConflict(
+          c,
+          "RESERVATION_CONFLICT",
+          `Conflicts detected with ${conflictCheck.conflicts.length} existing reservation(s)`,
+          {
+            details: {
+              conflicts: conflictCheck.conflicts.map((conflict) => ({
+                conflictId: conflict.conflictId,
+                overlappingPattern: conflict.overlappingPattern,
+                existingReservation: {
+                  id: conflict.existingReservation.id,
+                  requesterId: conflict.existingReservation.requesterId,
+                  expiresAt: conflict.existingReservation.expiresAt.toISOString(),
+                },
+                resolutions: conflict.resolutions,
+              })),
+            },
+            hint: "Wait for existing reservation to expire or use non-overlapping patterns",
+          },
+        );
+      }
 
       const result = await service.client.reservationCycle({
         projectId: validated.projectId,
@@ -310,12 +365,139 @@ function createMailRoutes(service?: AgentMailService) {
         exclusive: validated.exclusive,
       });
 
+      // Register the new reservation with the conflict engine
+      if (result.reservationId) {
+        const duration = validated.duration || 300; // Default 5 min
+        engine.registerReservation({
+          id: result.reservationId,
+          projectId: validated.projectId,
+          requesterId: validated.requesterId,
+          patterns: validated.patterns,
+          exclusive: validated.exclusive,
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + duration * 1000),
+        });
+      }
+
       return sendCreated(
         c,
         "reservation",
         result,
         `/mail/reservations/${result.reservationId || "unknown"}`,
       );
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  /**
+   * GET /mail/reservations - List active reservations for a project
+   */
+  mail.get("/reservations", async (c) => {
+    try {
+      const projectId = c.req.query("projectId");
+      if (!projectId) {
+        return sendError(c, "MISSING_PARAMETERS", "projectId is required", 400);
+      }
+
+      const engine = c.get("conflictEngine");
+      const reservations = engine.getActiveReservations(projectId);
+
+      return sendList(
+        c,
+        reservations.map((r) => ({
+          id: r.id,
+          projectId: r.projectId,
+          requesterId: r.requesterId,
+          patterns: r.patterns,
+          exclusive: r.exclusive,
+          createdAt: r.createdAt.toISOString(),
+          expiresAt: r.expiresAt.toISOString(),
+        })),
+      );
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  /**
+   * GET /mail/reservations/conflicts - Check for potential conflicts
+   *
+   * Query params:
+   * - projectId: required
+   * - requesterId: required
+   * - patterns: comma-separated list of patterns
+   * - exclusive: "true" or "false" (default: "true")
+   */
+  mail.get("/reservations/conflicts", async (c) => {
+    try {
+      const projectId = c.req.query("projectId");
+      const requesterId = c.req.query("requesterId");
+      const patternsParam = c.req.query("patterns");
+      const exclusiveParam = c.req.query("exclusive");
+
+      if (!projectId || !requesterId || !patternsParam) {
+        return sendError(
+          c,
+          "MISSING_PARAMETERS",
+          "projectId, requesterId, and patterns are required",
+          400,
+        );
+      }
+
+      const patterns = patternsParam.split(",").filter((p) => p.trim());
+      const exclusive = exclusiveParam !== "false";
+
+      const engine = c.get("conflictEngine");
+      const result = engine.checkConflicts(
+        projectId,
+        requesterId,
+        patterns,
+        exclusive,
+      );
+
+      return sendResource(c, "conflict_check", {
+        hasConflicts: result.hasConflicts,
+        canProceed: result.canProceed,
+        conflicts: result.conflicts.map((conflict) => ({
+          conflictId: conflict.conflictId,
+          overlappingPattern: conflict.overlappingPattern,
+          existingReservation: {
+            id: conflict.existingReservation.id,
+            requesterId: conflict.existingReservation.requesterId,
+            expiresAt: conflict.existingReservation.expiresAt.toISOString(),
+          },
+          resolutions: conflict.resolutions,
+        })),
+      });
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  /**
+   * DELETE /mail/reservations/:reservationId - Release a reservation
+   */
+  mail.delete("/reservations/:reservationId", async (c) => {
+    try {
+      const reservationId = c.req.param("reservationId");
+      const projectId = c.req.query("projectId");
+
+      if (!projectId) {
+        return sendError(c, "MISSING_PARAMETERS", "projectId is required", 400);
+      }
+
+      const engine = c.get("conflictEngine");
+      const removed = engine.removeReservation(projectId, reservationId);
+
+      if (!removed) {
+        return sendNotFound(c, "reservation", reservationId);
+      }
+
+      return sendResource(c, "reservation", {
+        id: reservationId,
+        released: true,
+      });
     } catch (error) {
       return handleError(error, c);
     }
