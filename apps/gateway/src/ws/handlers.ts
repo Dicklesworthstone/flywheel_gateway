@@ -4,6 +4,7 @@ import { canSubscribe } from "./authorization";
 import { type Channel, parseChannel } from "./channels";
 import { type AuthContext, type ConnectionData, getHub } from "./hub";
 import {
+  createWSError,
   parseClientMessage,
   type ServerMessage,
   type SubscribedMessage,
@@ -68,12 +69,7 @@ export function handleWSMessage(
 
     if (!clientMsg) {
       logger.warn({ connectionId, text }, "Invalid WebSocket message format");
-      const errorMsg: ServerMessage = {
-        type: "error",
-        code: "INVALID_FORMAT",
-        message: "Invalid message format",
-      };
-      ws.send(serializeServerMessage(errorMsg));
+      ws.send(serializeServerMessage(createWSError("INVALID_FORMAT", "Invalid message format")));
       return;
     }
 
@@ -85,13 +81,11 @@ export function handleWSMessage(
           // Check authorization
           const authResult = canSubscribe(ws.data.auth, channel);
           if (!authResult.allowed) {
-            const errorMsg: ServerMessage = {
-              type: "error",
-              code: "FORBIDDEN",
-              message: `Subscription denied: ${authResult.reason}`,
-              channel: channelStr,
-            };
-            ws.send(serializeServerMessage(errorMsg));
+            ws.send(
+              serializeServerMessage(
+                createWSError("FORBIDDEN", `Subscription denied: ${authResult.reason}`, channelStr),
+              ),
+            );
             break;
           }
 
@@ -166,26 +160,22 @@ export function handleWSMessage(
         const channelStr = clientMsg.channel;
         const channel = parseChannel(channelStr);
         if (!channel) {
-          const errorMsg: ServerMessage = {
-            type: "error",
-            code: "INVALID_CHANNEL",
-            message: "Invalid channel format",
-            channel: channelStr,
-          };
-          ws.send(serializeServerMessage(errorMsg));
+          ws.send(
+            serializeServerMessage(
+              createWSError("INVALID_CHANNEL", "Invalid channel format", channelStr),
+            ),
+          );
           break;
         }
 
         // Check authorization
         const authResult = canSubscribe(ws.data.auth, channel);
         if (!authResult.allowed) {
-          const errorMsg: ServerMessage = {
-            type: "error",
-            code: "FORBIDDEN",
-            message: `Backfill denied: ${authResult.reason}`,
-            channel: channelStr,
-          };
-          ws.send(serializeServerMessage(errorMsg));
+          ws.send(
+            serializeServerMessage(
+              createWSError("FORBIDDEN", `Backfill denied: ${authResult.reason}`, channelStr),
+            ),
+          );
           break;
         }
 
@@ -223,12 +213,11 @@ export function handleWSMessage(
     }
   } catch (err) {
     logger.error({ err, connectionId }, "Error handling WebSocket message");
-    const errorMsg: ServerMessage = {
-      type: "error",
-      code: "INTERNAL_ERROR",
-      message: "Internal server error",
-    };
-    ws.send(serializeServerMessage(errorMsg));
+    ws.send(
+      serializeServerMessage(
+        createWSError("INTERNAL_ERROR", "Internal server error"),
+      ),
+    );
   }
 }
 

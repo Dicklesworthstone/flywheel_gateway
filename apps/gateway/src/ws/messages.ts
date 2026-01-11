@@ -278,6 +278,7 @@ export interface ReconnectAckMessage {
 
 /**
  * Error message.
+ * Includes AI hints to help agents understand and recover from errors.
  */
 export interface ErrorMessage {
   type: "error";
@@ -289,6 +290,17 @@ export interface ErrorMessage {
   channel?: string;
   /** Additional error details */
   details?: Record<string, unknown>;
+  /**
+   * Error severity for AI agents.
+   * - terminal: Cannot be retried, requires different approach
+   * - recoverable: Can be fixed by the agent (e.g., fix request params)
+   * - retry: Transient error, retry with same request may succeed
+   */
+  severity?: "terminal" | "recoverable" | "retry";
+  /** Suggested action to resolve the error */
+  hint?: string;
+  /** Alternative approach if the current request cannot succeed */
+  alternative?: string;
 }
 
 /**
@@ -420,7 +432,121 @@ export function serializeServerMessage(message: ServerMessage): string {
       type: "error",
       code: "SERIALIZATION_ERROR",
       message: "Failed to serialize message",
+      severity: "retry",
+      hint: "This is a transient serialization error. Retry the request.",
     };
     return JSON.stringify(errorMessage);
   }
+}
+
+// ============================================================================
+// WebSocket Error Hints
+// ============================================================================
+
+/**
+ * AI hints for WebSocket-specific error codes.
+ * Used by createWSError to include helpful guidance in error messages.
+ */
+const WS_ERROR_HINTS: Record<
+  string,
+  {
+    severity: "terminal" | "recoverable" | "retry";
+    hint: string;
+    alternative?: string;
+  }
+> = {
+  INVALID_FORMAT: {
+    severity: "recoverable",
+    hint: "Messages must be valid JSON with a 'type' field. Check message format.",
+    alternative: "Use the SDK client which handles message formatting automatically.",
+  },
+  FORBIDDEN: {
+    severity: "terminal",
+    hint: "You don't have permission to access this channel. Check authentication.",
+    alternative: "Verify your auth token has the required scopes for this channel.",
+  },
+  WS_SUBSCRIPTION_DENIED: {
+    severity: "terminal",
+    hint: "Subscription was denied. Verify your auth token and channel permissions.",
+    alternative: "Request elevated permissions or use a different channel.",
+  },
+  WS_CURSOR_EXPIRED: {
+    severity: "recoverable",
+    hint: "The cursor has expired. Reconnect without a cursor to get latest messages.",
+    alternative: "Subscribe to the channel again without specifying a cursor.",
+  },
+  WS_RATE_LIMITED: {
+    severity: "retry",
+    hint: "You're sending messages too fast. Implement exponential backoff.",
+    alternative: "Batch multiple operations into fewer messages.",
+  },
+  WS_AUTHENTICATION_REQUIRED: {
+    severity: "recoverable",
+    hint: "This connection requires authentication. Provide valid credentials.",
+    alternative: "Reconnect with an auth token in the connection parameters.",
+  },
+  INVALID_CHANNEL: {
+    severity: "recoverable",
+    hint: "Channel format is 'scope:type:id', e.g., 'agent:output:agent-123'.",
+    alternative: "Use parseChannel() to validate channel format before subscribing.",
+  },
+  SERIALIZATION_ERROR: {
+    severity: "retry",
+    hint: "Failed to serialize message. This is usually a transient error.",
+  },
+  INTERNAL_ERROR: {
+    severity: "retry",
+    hint: "An internal error occurred. Retry the request.",
+    alternative: "If the error persists, check the server logs or contact support.",
+  },
+};
+
+/**
+ * Create a WebSocket error message with AI hints.
+ * Automatically includes severity, hint, and alternative based on error code.
+ *
+ * @param code - Error code from taxonomy
+ * @param message - Human-readable error message
+ * @param channel - Optional channel the error relates to
+ * @param details - Optional additional error details
+ * @returns Error message with AI hints
+ *
+ * @example
+ * ```typescript
+ * const errorMsg = createWSError("INVALID_FORMAT", "Invalid message format");
+ * ws.send(serializeServerMessage(errorMsg));
+ * ```
+ */
+export function createWSError(
+  code: string,
+  message: string,
+  channel?: string,
+  details?: Record<string, unknown>,
+): ErrorMessage {
+  const hints = WS_ERROR_HINTS[code];
+
+  const errorMsg: ErrorMessage = {
+    type: "error",
+    code,
+    message,
+  };
+
+  // Add optional fields only if they have values
+  if (channel) {
+    errorMsg.channel = channel;
+  }
+  if (details) {
+    errorMsg.details = details;
+  }
+  if (hints?.severity) {
+    errorMsg.severity = hints.severity;
+  }
+  if (hints?.hint) {
+    errorMsg.hint = hints.hint;
+  }
+  if (hints?.alternative) {
+    errorMsg.alternative = hints.alternative;
+  }
+
+  return errorMsg;
 }

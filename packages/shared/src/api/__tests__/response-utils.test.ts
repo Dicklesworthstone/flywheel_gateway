@@ -321,6 +321,117 @@ describe("wrapNotFound", () => {
   });
 });
 
+describe("AI Hints Coverage", () => {
+  it("should generate hints for _NOT_FOUND pattern", () => {
+    const response = wrapError({
+      code: "CHECKPOINT_NOT_FOUND",
+      message: "Checkpoint not found",
+    });
+
+    expect(response.error.severity).toBe("terminal");
+    expect(response.error.hint).toContain("Verify");
+  });
+
+  it("should generate hints for _ALREADY_EXISTS pattern", () => {
+    const response = wrapError({
+      code: "AGENT_ALREADY_EXISTS",
+      message: "Agent already exists",
+    });
+
+    expect(response.error.severity).toBe("recoverable");
+    expect(response.error.hint).toContain("Reuse");
+  });
+
+  it("should generate hints for _TIMEOUT pattern", () => {
+    const response = wrapError({
+      code: "AGENT_TIMEOUT",
+      message: "Agent timed out",
+    });
+
+    expect(response.error.severity).toBe("retry");
+    expect(response.error.hint).toContain("timeout");
+  });
+
+  it("should generate hints for RATE_LIMIT pattern", () => {
+    const response = wrapError({
+      code: "RATE_LIMIT_EXCEEDED",
+      message: "Rate limit exceeded",
+    });
+
+    expect(response.error.severity).toBe("retry");
+    expect(response.error.hint).toBeDefined();
+  });
+
+  it("should generate hints for AUTH_ pattern", () => {
+    const response = wrapError({
+      code: "AUTH_TOKEN_EXPIRED",
+      message: "Token expired",
+    });
+
+    expect(response.error.severity).toBe("recoverable");
+    expect(response.error.hint).toContain("Re-authenticate");
+  });
+
+  it("should generate hints for _UNAVAILABLE pattern", () => {
+    const response = wrapError({
+      code: "SCANNER_UNAVAILABLE",
+      message: "Scanner unavailable",
+    });
+
+    expect(response.error.severity).toBe("retry");
+    expect(response.error.hint).toContain("available");
+  });
+
+  it("should generate hints for INTERNAL pattern", () => {
+    const response = wrapError({
+      code: "INTERNAL_ERROR",
+      message: "Internal error",
+    });
+
+    expect(response.error.severity).toBe("retry");
+    expect(response.error.hint).toContain("Retry");
+  });
+
+  it("should include alternative approach for known codes", () => {
+    const response = wrapError({
+      code: "AGENT_NOT_FOUND",
+      message: "Agent not found",
+    });
+
+    expect(response.error.alternative).toBeDefined();
+    expect(response.error.alternative).toContain("Spawn");
+  });
+
+  it("should handle unknown error codes gracefully", () => {
+    const response = wrapError({
+      code: "COMPLETELY_UNKNOWN_CODE",
+      message: "Unknown error",
+    });
+
+    // Unknown codes still create valid error envelope
+    expect(response.error.code).toBe("COMPLETELY_UNKNOWN_CODE");
+    expect(response.error.message).toBe("Unknown error");
+    // Unknown codes don't have AI hints (only known codes get hints)
+    expect(response.error.severity).toBeUndefined();
+    expect(response.error.hint).toBeUndefined();
+  });
+
+  it("should allow manual hints for unknown codes", () => {
+    const response = wrapError({
+      code: "CUSTOM_ERROR",
+      message: "Custom error occurred",
+      severity: "recoverable",
+      hint: "Custom hint for this error",
+      alternative: "Try a different approach",
+    });
+
+    expect(response.error.code).toBe("CUSTOM_ERROR");
+    expect(response.error.severity).toBe("recoverable");
+    expect(response.error.hint).toBe("Custom hint for this error");
+    expect(response.error.alternative).toBe("Try a different approach");
+  });
+});
+
 describe("Response Type Safety", () => {
   it("should preserve data type in wrapResource", () => {
     interface Agent {
