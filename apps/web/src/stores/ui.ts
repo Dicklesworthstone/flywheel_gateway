@@ -18,21 +18,47 @@ const readMockMode = (): boolean => {
   return DEFAULT_MOCK;
 };
 
+const readSidebarCollapsed = (): boolean => {
+  if (typeof window === "undefined") return false;
+  const stored = window.localStorage.getItem("fw-sidebar-collapsed");
+  return stored === "true";
+};
+
 interface UiState {
+  // Theme
   theme: ThemeName;
-  mockMode: boolean;
-  paletteOpen: boolean;
   setTheme: (theme: ThemeName) => void;
   toggleTheme: () => void;
+
+  // Mock mode
+  mockMode: boolean;
   setMockMode: (value: boolean) => void;
   toggleMockMode: () => void;
+
+  // Command palette
+  paletteOpen: boolean;
   setPaletteOpen: (open: boolean) => void;
+
+  // Sidebar (desktop)
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  toggleSidebar: () => void;
+
+  // Mobile drawer
+  drawerOpen: boolean;
+  setDrawerOpen: (open: boolean) => void;
+  toggleDrawer: () => void;
+
+  // Modal tracking (for escape key handling)
+  activeModals: string[];
+  pushModal: (id: string) => void;
+  popModal: () => void;
+  closeAllModals: () => void;
 }
 
 export const useUiStore = create<UiState>((set, get) => ({
+  // Theme
   theme: readTheme(),
-  mockMode: readMockMode(),
-  paletteOpen: false,
   setTheme: (theme) => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem("fw-theme", theme);
@@ -46,6 +72,9 @@ export const useUiStore = create<UiState>((set, get) => ({
     }
     set({ theme: next });
   },
+
+  // Mock mode
+  mockMode: readMockMode(),
   setMockMode: (value) => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem("fw-mock-mode", String(value));
@@ -59,5 +88,36 @@ export const useUiStore = create<UiState>((set, get) => ({
     }
     set({ mockMode: next });
   },
+
+  // Command palette
+  paletteOpen: false,
   setPaletteOpen: (open) => set({ paletteOpen: open }),
+
+  // Sidebar
+  sidebarCollapsed: readSidebarCollapsed(),
+  setSidebarCollapsed: (collapsed) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("fw-sidebar-collapsed", String(collapsed));
+    }
+    set({ sidebarCollapsed: collapsed });
+  },
+  toggleSidebar: () => {
+    const next = !get().sidebarCollapsed;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("fw-sidebar-collapsed", String(next));
+    }
+    set({ sidebarCollapsed: next });
+  },
+
+  // Mobile drawer
+  drawerOpen: false,
+  setDrawerOpen: (open) => set({ drawerOpen: open }),
+  toggleDrawer: () => set({ drawerOpen: !get().drawerOpen }),
+
+  // Modal tracking
+  activeModals: [],
+  pushModal: (id) => set({ activeModals: [...get().activeModals, id] }),
+  popModal: () => set({ activeModals: get().activeModals.slice(0, -1) }),
+  closeAllModals: () =>
+    set({ activeModals: [], paletteOpen: false, drawerOpen: false }),
 }));
