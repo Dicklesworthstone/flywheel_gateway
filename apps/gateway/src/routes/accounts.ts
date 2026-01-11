@@ -171,7 +171,12 @@ accounts.get("/profiles", async (c) => {
         options.status = validStatuses;
       }
     }
-    if (limitParam) options.limit = parseInt(limitParam, 10);
+    if (limitParam) {
+      const parsedLimit = parseInt(limitParam, 10);
+      if (!Number.isNaN(parsedLimit) && parsedLimit > 0) {
+        options.limit = parsedLimit;
+      }
+    }
 
     const result = await listProfiles(options);
 

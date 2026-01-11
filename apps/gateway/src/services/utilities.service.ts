@@ -109,6 +109,24 @@ const statusCache = new Map<
 >();
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
+/**
+ * Compare two semver version strings.
+ * Returns: -1 if a < b, 0 if a === b, 1 if a > b
+ */
+function compareSemver(a: string, b: string): number {
+  const partsA = a.split(".").map((n) => parseInt(n, 10) || 0);
+  const partsB = b.split(".").map((n) => parseInt(n, 10) || 0);
+  const maxLen = Math.max(partsA.length, partsB.length);
+
+  for (let i = 0; i < maxLen; i++) {
+    const numA = partsA[i] ?? 0;
+    const numB = partsB[i] ?? 0;
+    if (numA < numB) return -1;
+    if (numA > numB) return 1;
+  }
+  return 0;
+}
+
 // Allowed base directories for output (security)
 const ALLOWED_OUTPUT_BASES = [
   "/tmp",
@@ -280,7 +298,7 @@ export async function runDoctor(): Promise<DoctorResult> {
     if (!u.installed) {
       status = "missing";
       message = `Not installed. Run: ${u.installCommand}`;
-    } else if (u.installedVersion && u.installedVersion < u.version) {
+    } else if (u.installedVersion && compareSemver(u.installedVersion, u.version) < 0) {
       status = "outdated";
       message = `Version ${u.installedVersion} installed, ${u.version} available`;
     } else {
