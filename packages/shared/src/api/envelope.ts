@@ -190,6 +190,12 @@ export interface ApiListResponse<T> {
   total?: number;
 
   /**
+   * Count of unread/unacknowledged items.
+   * Used for notification-style lists where read state matters.
+   */
+  unreadCount?: number;
+
+  /**
    * URL for this list endpoint (without pagination params).
    */
   url: string;

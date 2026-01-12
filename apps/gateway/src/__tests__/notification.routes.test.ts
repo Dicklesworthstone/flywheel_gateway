@@ -186,8 +186,7 @@ describe("Notification Routes", () => {
       const body = await res.json();
       expect(body.data).toHaveLength(2);
       expect(body.total).toBe(2);
-      // unreadCount is passed through but may not be in base wrapList
-      // Check hasMore instead
+      expect(body.unreadCount).toBe(2);
       expect(body.hasMore).toBe(false);
     });
 

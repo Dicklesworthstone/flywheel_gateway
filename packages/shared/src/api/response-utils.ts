@@ -101,6 +101,8 @@ export interface WrapListOptions {
   prevCursor?: string;
   /** Total count of items across all pages */
   total?: number;
+  /** Count of unread/unacknowledged items */
+  unreadCount?: number;
   /** URL for this list endpoint (without pagination params) */
   url: string;
   /** Pre-generated request ID (generated if not provided) */
@@ -150,6 +152,10 @@ export function wrapList<T>(
 
   if (options.total !== undefined) {
     response.total = options.total;
+  }
+
+  if (options.unreadCount !== undefined) {
+    response.unreadCount = options.unreadCount;
   }
 
   return response;
