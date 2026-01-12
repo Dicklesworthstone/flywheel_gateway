@@ -205,12 +205,14 @@ function calculateRetryDelay(
  * Error wrapper that preserves retry count for error handling.
  */
 class RetryError extends Error {
-  constructor(
-    public readonly cause: unknown,
-    public readonly retryCount: number,
-  ) {
+  public readonly originalCause: unknown;
+  public readonly retryCount: number;
+
+  constructor(cause: unknown, retryCount: number) {
     super(cause instanceof Error ? cause.message : String(cause));
     this.name = "RetryError";
+    this.originalCause = cause;
+    this.retryCount = retryCount;
   }
 }
 
@@ -583,6 +585,11 @@ async function executeLoop(
     "[PIPELINE] Starting loop step",
   );
 
+  // Track loop nesting depth - allows nested loops and enables step re-execution
+  // inside loops (normally steps are skipped if already in executedStepIds)
+  const previousLoopDepth = (context["__loopDepth"] as number) ?? 0;
+  context["__loopDepth"] = previousLoopDepth + 1;
+
   // Get iterator based on mode
   const getIterator = (): IterableIterator<unknown> | undefined => {
     switch (config.mode) {
@@ -661,74 +668,81 @@ async function executeLoop(
     return result;
   };
 
-  if (config.mode === "for_each" || config.mode === "times") {
-    if (!iterator) {
-      throw new Error(`Loop mode ${config.mode} requires a valid collection`);
-    }
-
-    if (config.parallel && config.parallelLimit && config.parallelLimit > 1) {
-      // Parallel execution
-      const items = Array.from(iterator);
-      const limit = Math.min(config.parallelLimit, items.length);
-      const batches: unknown[][] = [];
-
-      for (let i = 0; i < items.length; i += limit) {
-        batches.push(items.slice(i, i + limit));
+  try {
+    if (config.mode === "for_each" || config.mode === "times") {
+      if (!iterator) {
+        throw new Error(`Loop mode ${config.mode} requires a valid collection`);
       }
 
-      for (const batch of batches) {
-        if (signal?.aborted) break;
-        if (iteration >= config.maxIterations) break;
+      if (config.parallel && config.parallelLimit && config.parallelLimit > 1) {
+        // Parallel execution
+        // WARNING: Parallel loops have race conditions with shared context.
+        // Each iteration will overwrite the loop variables. Use with caution.
+        const items = Array.from(iterator);
+        const limit = Math.min(config.parallelLimit, items.length);
+        const batches: unknown[][] = [];
 
-        // Capture the starting iteration for this batch to avoid index calculation bug
-        const batchStartIteration = iteration;
-        const batchPromises = batch.map((item, batchIndex) => {
-          const index = batchStartIteration + batchIndex;
-          if (index >= config.maxIterations) return Promise.resolve(undefined);
-          return executeIteration(item, index, true); // true = isolated mode for parallel
-        });
+        for (let i = 0; i < items.length; i += limit) {
+          batches.push(items.slice(i, i + limit));
+        }
 
-        const batchResults = await Promise.all(batchPromises);
+        for (const batch of batches) {
+          if (signal?.aborted) break;
+          if (iteration >= config.maxIterations) break;
 
-        // Count how many actually executed (not skipped due to maxIterations)
-        const executedCount = batch.filter((_, batchIndex) =>
-          batchStartIteration + batchIndex < config.maxIterations
-        ).length;
-        iteration += executedCount;
+          // Capture the starting iteration for this batch to avoid index calculation bug
+          const batchStartIteration = iteration;
+          const batchPromises = batch.map((item, batchIndex) => {
+            const index = batchStartIteration + batchIndex;
+            if (index >= config.maxIterations) return Promise.resolve(undefined);
+            return executeIteration(item, index, true); // true = isolated mode for parallel
+          });
 
-        // Collect results in order
-        for (const result of batchResults) {
+          const batchResults = await Promise.all(batchPromises);
+
+          // Count how many actually executed (not skipped due to maxIterations)
+          const executedCount = batch.filter((_, batchIndex) =>
+            batchStartIteration + batchIndex < config.maxIterations
+          ).length;
+          iteration += executedCount;
+
+          // Collect results in order
+          for (const result of batchResults) {
+            if (result !== undefined) {
+              results.push(result);
+            }
+          }
+        }
+      } else {
+        // Sequential execution
+        for (const item of iterator) {
+          if (signal?.aborted) break;
+          if (iteration >= config.maxIterations) break;
+
+          const result = await executeIteration(item, iteration);
           if (result !== undefined) {
             results.push(result);
           }
+          iteration++;
         }
       }
     } else {
-      // Sequential execution
-      for (const item of iterator) {
-        if (signal?.aborted) break;
-        if (iteration >= config.maxIterations) break;
-
-        const result = await executeIteration(item, iteration);
+      // while/until modes
+      while (shouldContinue()) {
+        const result = await executeIteration(iteration, iteration);
         if (result !== undefined) {
           results.push(result);
         }
         iteration++;
       }
     }
-  } else {
-    // while/until modes
-    while (shouldContinue()) {
-      const result = await executeIteration(iteration, iteration);
-      if (result !== undefined) {
-        results.push(result);
-      }
-      iteration++;
-    }
-  }
 
-  // Store results in output variable
-  context[config.outputVariable] = results;
+    // Store results in output variable
+    context[config.outputVariable] = results;
+  } finally {
+    // Always restore loop depth, even on error (enables proper nesting)
+    context["__loopDepth"] = previousLoopDepth;
+  }
 
   log.info(
     { iterations: iteration, resultsCount: results.length },
@@ -1038,9 +1052,14 @@ async function executeWebhook(
     }
 
     // Extract fields if configured
+    // Convert headers to plain object (Headers.entries() available in modern runtimes)
+    const headersObj: Record<string, string> = {};
+    response.headers.forEach((value, key) => {
+      headersObj[key] = value;
+    });
     const result: Record<string, unknown> = {
       status: response.status,
-      headers: Object.fromEntries(response.headers.entries()),
+      headers: headersObj,
       data: responseData,
     };
 
@@ -1361,7 +1380,7 @@ async function executeStep(
 
     // Extract retry count and original error from RetryError
     const actualRetryCount = error instanceof RetryError ? error.retryCount : 0;
-    const originalError = error instanceof RetryError ? error.cause : error;
+    const originalError = error instanceof RetryError ? error.originalCause : error;
 
     return {
       success: false,
@@ -1405,8 +1424,10 @@ async function executePipeline(
         throw new Error(`Step ${stepId} not found`);
       }
 
-      // Skip if already executed
-      if (run.executedStepIds.includes(stepId)) {
+      // Skip if already executed - BUT not when inside a loop
+      // The __loopDepth context variable tracks loop nesting depth
+      const loopDepth = (run.context["__loopDepth"] as number) ?? 0;
+      if (loopDepth === 0 && run.executedStepIds.includes(stepId)) {
         continue;
       }
 
