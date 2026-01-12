@@ -652,10 +652,11 @@ async function executeLoop(
     await executeSteps(config.steps);
 
     // Capture result (if output variable set, take last step result)
+    // Note: Step outputs are stored as `step_${stepId}_output` in context
     const lastStepId = config.steps[config.steps.length - 1];
     let result: unknown;
     if (lastStepId) {
-      const stepResultKey = `_step_${lastStepId}_result`;
+      const stepResultKey = `step_${lastStepId}_output`;
       result = context[stepResultKey];
     }
 
@@ -1031,7 +1032,7 @@ async function executeWebhook(
     const response = await fetch(url, {
       method: config.method,
       headers,
-      body,
+      body: body ?? null, // Convert undefined to null for fetch compatibility
       signal: controller.signal,
     });
 
