@@ -10,7 +10,7 @@
  * - WebSocket event publishing
  */
 
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import {
   createCursor,
   decodeCursor,
@@ -133,25 +133,30 @@ const currentConfig: DCGConfig = {
   allowlist: [],
 };
 
-// Flag to track if config has been synced from persistent storage
-let configSynced = false;
+// Promise cache for config sync to prevent race conditions
+let syncPromise: Promise<void> | null = null;
 
 /**
  * Sync in-memory config with persistent storage.
- * Called lazily on first access.
+ * Called lazily on first access. Uses promise caching to prevent race conditions.
  */
 async function syncConfigFromPersistent(): Promise<void> {
-  if (configSynced) return;
-  try {
-    const persistedConfig = await dcgConfigService.getConfig();
-    currentConfig.enabledPacks = persistedConfig.enabledPacks;
-    currentConfig.disabledPacks = persistedConfig.disabledPacks;
-    configSynced = true;
-    logger.debug("DCG config synced from persistent storage");
-  } catch (error) {
-    // In tests or if DB not available, use in-memory defaults
-    logger.debug({ error }, "Using in-memory DCG config (DB sync failed)");
-  }
+  // Return existing promise if sync is in progress
+  if (syncPromise) return syncPromise;
+
+  syncPromise = (async () => {
+    try {
+      const persistedConfig = await dcgConfigService.getConfig();
+      currentConfig.enabledPacks = persistedConfig.enabledPacks;
+      currentConfig.disabledPacks = persistedConfig.disabledPacks;
+      logger.debug("DCG config synced from persistent storage");
+    } catch (error) {
+      // In tests or if DB not available, use in-memory defaults
+      logger.debug({ error }, "Using in-memory DCG config (DB sync failed)");
+    }
+  })();
+
+  return syncPromise;
 }
 
 // In-memory block events (recent, for fast access)

@@ -240,61 +240,6 @@ async function testCommand(command: string): Promise<DCGTestResult> {
   }
 }
 
-/**
- * Scan content for DCG violations.
- */
-async function scanContent(
-  content: string,
-  context: string,
-): Promise<{ findings: DCGFinding[] }> {
-  const findings: DCGFinding[] = [];
-
-  try {
-    const proc = spawn(["dcg", "scan", "--json", "-"], {
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-
-    proc.stdin.write(content);
-    proc.stdin.end();
-
-    const stdout = await new Response(proc.stdout).text();
-    await proc.exited;
-
-    try {
-      const result = JSON.parse(stdout) as {
-        findings?: Array<{
-          ruleId?: string;
-          severity?: string;
-          reason?: string;
-          suggestion?: string;
-        }>;
-      };
-
-      if (result.findings) {
-        for (const finding of result.findings) {
-          const dcgFinding: DCGFinding = {
-            actionIndex: 0,
-            command: content,
-            ruleId: finding.ruleId || "unknown",
-            severity: (finding.severity as DCGSeverity) || "medium",
-            reason: finding.reason || "Violation detected",
-          };
-          if (finding.suggestion) dcgFinding.suggestion = finding.suggestion;
-          findings.push(dcgFinding);
-        }
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  } catch (error) {
-    logger.warn({ error, context }, "DCG scan failed");
-  }
-
-  return { findings };
-}
-
 // ============================================================================
 // Plan Validation
 // ============================================================================
@@ -316,7 +261,12 @@ export async function validateSweepPlan(
     throw new Error(`Plan not found: ${planId}`);
   }
 
-  const parsedPlan = JSON.parse(plan.planJson) as { actions?: SweepAction[] };
+  let parsedPlan: { actions?: SweepAction[] };
+  try {
+    parsedPlan = JSON.parse(plan.planJson) as { actions?: SweepAction[] };
+  } catch {
+    throw new Error(`Invalid plan JSON for plan: ${planId}`);
+  }
   const actions = parsedPlan.actions || [];
 
   const findings: DCGFinding[] = [];
@@ -459,7 +409,13 @@ export async function createExceptionsForPlan(
     return [];
   }
 
-  const findings = JSON.parse(plan.validationErrors) as DCGFinding[];
+  let findings: DCGFinding[];
+  try {
+    findings = JSON.parse(plan.validationErrors) as DCGFinding[];
+  } catch {
+    log.warn({ correlationId, planId }, "Invalid validation errors JSON, skipping exception creation");
+    return [];
+  }
   const exceptionCodes: string[] = [];
 
   for (const finding of findings) {
@@ -603,7 +559,12 @@ export async function executePlanWithDCG(
     throw new Error(`Plan not found: ${planId}`);
   }
 
-  const parsedPlan = JSON.parse(plan.planJson) as { actions?: SweepAction[] };
+  let parsedPlan: { actions?: SweepAction[] };
+  try {
+    parsedPlan = JSON.parse(plan.planJson) as { actions?: SweepAction[] };
+  } catch {
+    throw new Error(`Invalid plan JSON for plan: ${planId}`);
+  }
   const actions = parsedPlan.actions || [];
 
   const results: ActionExecutionResult[] = [];
