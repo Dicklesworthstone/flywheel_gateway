@@ -20,7 +20,6 @@ import {
   GitCommit,
   GitPullRequest,
   Loader2,
-  Pause,
   Play,
   Plus,
   RefreshCw,
@@ -451,7 +450,7 @@ function PlanApproval({ sessionId }: PlanApprovalProps) {
   const { data: plans, refetch } = useSweepPlans(sessionId);
   const { approve, isLoading: isApproving } = useApprovePlan();
   const { reject, isLoading: isRejecting } = useRejectPlan();
-  const [rejectReason, setRejectReason] = useState("");
+  const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
 
   const pendingPlans = plans?.filter((p) => p.approvalStatus === "pending") ?? [];
 
@@ -461,10 +460,19 @@ function PlanApproval({ sessionId }: PlanApprovalProps) {
   };
 
   const handleReject = async (planId: string) => {
-    if (!rejectReason) return;
-    await reject(planId, "api-user", rejectReason);
-    setRejectReason("");
+    const reason = rejectReasons[planId];
+    if (!reason) return;
+    await reject(planId, "api-user", reason);
+    setRejectReasons((prev) => {
+      const next = { ...prev };
+      delete next[planId];
+      return next;
+    });
     refetch();
+  };
+
+  const updateRejectReason = (planId: string, reason: string) => {
+    setRejectReasons((prev) => ({ ...prev, [planId]: reason }));
   };
 
   if (pendingPlans.length === 0) {
@@ -518,14 +526,14 @@ function PlanApproval({ sessionId }: PlanApprovalProps) {
               type="text"
               className="data-table__search-input"
               placeholder="Rejection reason (required for reject)"
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
+              value={rejectReasons[plan.id] ?? ""}
+              onChange={(e) => updateRejectReason(plan.id, e.target.value)}
               style={{ flex: 1 }}
             />
             <button
               className="btn btn--danger btn--sm"
               onClick={() => handleReject(plan.id)}
-              disabled={isRejecting || !rejectReason}
+              disabled={isRejecting || !rejectReasons[plan.id]}
             >
               <X size={14} />
               Reject

@@ -20,7 +20,6 @@ import {
   Clock,
   FileQuestion,
   Play,
-  Settings,
   Shield,
   ShieldAlert,
   ShieldCheck,
@@ -78,6 +77,23 @@ function formatRelativeTime(dateString: string): string {
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   return `${diffDays}d ago`;
+}
+
+function formatFutureTime(dateString: string | undefined): string {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime();
+
+  if (diffMs <= 0) return "expired";
+
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 60) return `in ${diffMins}m`;
+  if (diffHours < 24) return `in ${diffHours}h`;
+  return `in ${diffDays}d`;
 }
 
 function formatTimeRemaining(dateString: string): string {
@@ -568,7 +584,7 @@ function AllowlistTab({ entries, onRemove, onAdd, isRemoving, isAdding }: Allowl
                   </p>
                   <div className="muted" style={{ marginTop: "8px", fontSize: "0.8rem" }}>
                     Added by {entry.addedBy} {formatRelativeTime(entry.addedAt)}
-                    {entry.expiresAt && ` (expires ${formatRelativeTime(entry.expiresAt)})`}
+                    {entry.expiresAt && ` (expires ${formatFutureTime(entry.expiresAt)})`}
                   </div>
                 </div>
                 <button
