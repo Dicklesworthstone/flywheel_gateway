@@ -121,6 +121,20 @@ function handleError(error: unknown, c: Context) {
 // Validation Schemas
 // ============================================================================
 
+/**
+ * Schema for boolean query parameters.
+ * Note: z.coerce.boolean() uses Boolean() which treats any non-empty string as true,
+ * so "false" would incorrectly become true. This transform handles "true"/"false" strings.
+ */
+const booleanQueryParam = z
+  .string()
+  .optional()
+  .transform((val) => {
+    if (val === "true" || val === "1") return true;
+    if (val === "false" || val === "0") return false;
+    return undefined;
+  });
+
 const ContextQuerySchema = z.object({
   task: z.string().min(1, "Task description is required"),
   workspace: z.string().optional(),
@@ -128,7 +142,7 @@ const ContextQuerySchema = z.object({
   history: z.coerce.number().int().positive().max(20).optional(),
   days: z.coerce.number().int().positive().max(365).optional(),
   session: z.string().optional(),
-  logContext: z.coerce.boolean().optional(),
+  logContext: booleanQueryParam,
 });
 
 const PlaybookListQuerySchema = z.object({
@@ -146,7 +160,7 @@ const OutcomeBodySchema = z.object({
 });
 
 const DoctorQuerySchema = z.object({
-  fix: z.coerce.boolean().optional(),
+  fix: booleanQueryParam,
 });
 
 // ============================================================================

@@ -113,6 +113,20 @@ function handleError(error: unknown, c: Context) {
 // Validation Schemas
 // ============================================================================
 
+/**
+ * Schema for boolean query parameters.
+ * Note: z.coerce.boolean() uses Boolean() which treats any non-empty string as true,
+ * so "false" would incorrectly become true. This transform handles "true"/"false" strings.
+ */
+const booleanQueryParam = z
+  .string()
+  .optional()
+  .transform((val) => {
+    if (val === "true" || val === "1") return true;
+    if (val === "false" || val === "0") return false;
+    return undefined;
+  });
+
 const SearchQuerySchema = z.object({
   q: z.string().min(1, "Query is required"),
   limit: z.coerce.number().int().positive().max(100).optional(),
@@ -124,7 +138,7 @@ const SearchQuerySchema = z.object({
   until: z.string().optional(),
   fields: z.enum(["minimal", "summary"]).or(z.string()).optional(),
   mode: z.enum(["lexical", "semantic", "hybrid"]).optional(),
-  highlight: z.coerce.boolean().optional(),
+  highlight: booleanQueryParam,
 });
 
 const ViewQuerySchema = z.object({
