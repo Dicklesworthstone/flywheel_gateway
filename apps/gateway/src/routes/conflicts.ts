@@ -301,6 +301,93 @@ conflicts.patch("/config", async (c) => {
   }
 });
 
+// ============================================================================
+// Resolution Routes (must be before /:conflictId to avoid route conflicts)
+// ============================================================================
+
+/**
+ * GET /conflicts/resolution/audit - Get resolution audit records
+ * NOTE: Must be defined before /:conflictId to avoid route conflict
+ */
+conflicts.get("/resolution/audit", async (c) => {
+  const limitParam = c.req.query("limit");
+  const limit = limitParam ? parseInt(limitParam, 10) : 50;
+
+  const records = getAuditRecords(Math.min(limit, 100));
+
+  const transformedRecords = records.map((r) => ({
+    id: r.id,
+    correlationId: r.correlationId,
+    conflictId: r.conflictId,
+    suggestionId: r.suggestionId,
+    recommendedStrategy: r.recommendedStrategy,
+    appliedStrategy: r.appliedStrategy,
+    confidence: r.confidence,
+    autoResolved: r.autoResolved,
+    inputSources: r.inputSources,
+    processingTimeMs: r.processingTimeMs,
+    timestamp: r.timestamp.toISOString(),
+  }));
+
+  return sendList(c, transformedRecords, { hasMore: records.length >= limit });
+});
+
+/**
+ * GET /conflicts/resolution/config - Get auto-resolution criteria
+ * NOTE: Must be defined before /:conflictId to avoid route conflict
+ */
+conflicts.get("/resolution/config", async (c) => {
+  const criteria = getAutoResolutionCriteria();
+  return sendResource(c, "auto_resolution_criteria", criteria);
+});
+
+/**
+ * PATCH /conflicts/resolution/config - Update auto-resolution criteria
+ * NOTE: Must be defined before /:conflictId to avoid route conflict
+ */
+conflicts.patch("/resolution/config", async (c) => {
+  const log = getLogger();
+
+  try {
+    const body = await c.req.json();
+    const validated = AutoResolutionCriteriaSchema.parse(body);
+
+    // Build update object with only defined properties
+    const update: Partial<{
+      minConfidence: number;
+      maxWaitTimeMs: number;
+      disabledForCritical: boolean;
+      requireBothAgentsEnabled: boolean;
+      maxPriorFailedAttempts: number;
+    }> = {};
+
+    if (validated.minConfidence !== undefined) {
+      update.minConfidence = validated.minConfidence;
+    }
+    if (validated.maxWaitTimeMs !== undefined) {
+      update.maxWaitTimeMs = validated.maxWaitTimeMs;
+    }
+    if (validated.disabledForCritical !== undefined) {
+      update.disabledForCritical = validated.disabledForCritical;
+    }
+    if (validated.requireBothAgentsEnabled !== undefined) {
+      update.requireBothAgentsEnabled = validated.requireBothAgentsEnabled;
+    }
+    if (validated.maxPriorFailedAttempts !== undefined) {
+      update.maxPriorFailedAttempts = validated.maxPriorFailedAttempts;
+    }
+
+    const updated = updateAutoResolutionCriteria(update);
+    return sendResource(c, "auto_resolution_criteria", updated);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendValidationError(c, transformZodError(error));
+    }
+    log.error({ error }, "Error updating auto-resolution criteria");
+    throw error;
+  }
+});
+
 /**
  * GET /conflicts/:conflictId - Get conflict details
  */
@@ -664,86 +751,6 @@ conflicts.delete("/:conflictId/suggestion", async (c) => {
   invalidateSuggestion(conflictId);
 
   return c.json({ success: true, message: "Suggestion cache invalidated" });
-});
-
-/**
- * GET /conflicts/resolution/audit - Get resolution audit records
- */
-conflicts.get("/resolution/audit", async (c) => {
-  const limitParam = c.req.query("limit");
-  const limit = limitParam ? parseInt(limitParam, 10) : 50;
-
-  const records = getAuditRecords(Math.min(limit, 100));
-
-  const transformedRecords = records.map((r) => ({
-    id: r.id,
-    correlationId: r.correlationId,
-    conflictId: r.conflictId,
-    suggestionId: r.suggestionId,
-    recommendedStrategy: r.recommendedStrategy,
-    appliedStrategy: r.appliedStrategy,
-    confidence: r.confidence,
-    autoResolved: r.autoResolved,
-    inputSources: r.inputSources,
-    processingTimeMs: r.processingTimeMs,
-    timestamp: r.timestamp.toISOString(),
-  }));
-
-  return sendList(c, transformedRecords, { hasMore: records.length >= limit });
-});
-
-/**
- * GET /conflicts/resolution/config - Get auto-resolution criteria
- */
-conflicts.get("/resolution/config", async (c) => {
-  const criteria = getAutoResolutionCriteria();
-  return sendResource(c, "auto_resolution_criteria", criteria);
-});
-
-/**
- * PATCH /conflicts/resolution/config - Update auto-resolution criteria
- */
-conflicts.patch("/resolution/config", async (c) => {
-  const log = getLogger();
-
-  try {
-    const body = await c.req.json();
-    const validated = AutoResolutionCriteriaSchema.parse(body);
-
-    // Build update object with only defined properties
-    const update: Partial<{
-      minConfidence: number;
-      maxWaitTimeMs: number;
-      disabledForCritical: boolean;
-      requireBothAgentsEnabled: boolean;
-      maxPriorFailedAttempts: number;
-    }> = {};
-
-    if (validated.minConfidence !== undefined) {
-      update.minConfidence = validated.minConfidence;
-    }
-    if (validated.maxWaitTimeMs !== undefined) {
-      update.maxWaitTimeMs = validated.maxWaitTimeMs;
-    }
-    if (validated.disabledForCritical !== undefined) {
-      update.disabledForCritical = validated.disabledForCritical;
-    }
-    if (validated.requireBothAgentsEnabled !== undefined) {
-      update.requireBothAgentsEnabled = validated.requireBothAgentsEnabled;
-    }
-    if (validated.maxPriorFailedAttempts !== undefined) {
-      update.maxPriorFailedAttempts = validated.maxPriorFailedAttempts;
-    }
-
-    const updated = updateAutoResolutionCriteria(update);
-    return sendResource(c, "auto_resolution_criteria", updated);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return sendValidationError(c, transformZodError(error));
-    }
-    log.error({ error }, "Error updating auto-resolution criteria");
-    throw error;
-  }
 });
 
 export { conflicts };

@@ -290,7 +290,12 @@ function calculateProgressCertainty(
   // Recent checkpoint = more confidence in data freshness
   let freshnessBonus = 0;
   if (progress.lastCheckpointAt) {
-    const ageMs = Date.now() - progress.lastCheckpointAt.getTime();
+    // Handle both Date objects and ISO strings from JSON deserialization
+    const checkpointTime =
+      progress.lastCheckpointAt instanceof Date
+        ? progress.lastCheckpointAt.getTime()
+        : new Date(progress.lastCheckpointAt).getTime();
+    const ageMs = Date.now() - checkpointTime;
     if (ageMs < 60000) {
       // Less than 1 minute old
       freshnessBonus = 2;
@@ -444,7 +449,12 @@ function calculateTimePressure(
     return MAX_TIME_POINTS * 0.7;
   }
 
-  const msUntilDeadline = deadline.getTime() - Date.now();
+  // Handle both Date objects and ISO strings from JSON deserialization
+  const deadlineTime =
+    deadline instanceof Date
+      ? deadline.getTime()
+      : new Date(deadline).getTime();
+  const msUntilDeadline = deadlineTime - Date.now();
 
   // Very close deadline = clear need to act
   if (msUntilDeadline < 3600000) {

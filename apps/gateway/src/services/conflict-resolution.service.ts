@@ -927,8 +927,13 @@ function scoreEscalateStrategy(
 function estimateWaitTime(inputData: InputData): number {
   // Check reservation expiry
   if (inputData.reservationInfo?.expiresAt) {
-    const msUntilExpiry =
-      inputData.reservationInfo.expiresAt.getTime() - Date.now();
+    // Handle both Date objects and ISO strings from JSON deserialization
+    const expiresAt = inputData.reservationInfo.expiresAt;
+    const expiryTime =
+      expiresAt instanceof Date
+        ? expiresAt.getTime()
+        : new Date(expiresAt).getTime();
+    const msUntilExpiry = expiryTime - Date.now();
     if (msUntilExpiry > 0) {
       return msUntilExpiry;
     }
@@ -1010,7 +1015,12 @@ function generatePartitions(
 function hasDeadlinePressure(priority?: BvPriorityInfo): boolean {
   if (!priority) return false;
   if (priority.deadline) {
-    const msUntil = priority.deadline.getTime() - Date.now();
+    // Handle both Date objects and ISO strings from JSON deserialization
+    const deadlineTime =
+      priority.deadline instanceof Date
+        ? priority.deadline.getTime()
+        : new Date(priority.deadline).getTime();
+    const msUntil = deadlineTime - Date.now();
     return msUntil < 86400000; // Less than 24 hours
   }
   return priority.priority === "P0" || priority.priority === "P1";

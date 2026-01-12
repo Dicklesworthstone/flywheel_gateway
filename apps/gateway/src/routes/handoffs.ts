@@ -40,6 +40,67 @@ import { transformZodError } from "../utils/validation";
 export const handoffs = new Hono();
 
 // ============================================================================
+// Static Routes (must be defined before parameterized routes)
+// ============================================================================
+
+/**
+ * GET /handoffs/stats
+ * Get handoff statistics.
+ */
+handoffs.get("/stats", async (c) => {
+  const stats = getHandoffStats();
+
+  return sendResource(c, {
+    totalHandoffs: stats.totalHandoffs,
+    completedHandoffs: stats.completedHandoffs,
+    failedHandoffs: stats.failedHandoffs,
+    cancelledHandoffs: stats.cancelledHandoffs,
+    averageTransferTimeMs: Math.round(stats.averageTransferTimeMs),
+    byReason: stats.byReason,
+    byUrgency: stats.byUrgency,
+  });
+});
+
+/**
+ * POST /handoffs/validate-context
+ * Validate a context object without initiating a handoff.
+ */
+handoffs.post("/validate-context", async (c) => {
+  try {
+    const body = await c.req.json();
+    const contextData = HandoffContextSchema.parse(body);
+
+    const { context, validation } = buildContext({
+      agentId: "validation-check",
+      taskDescription: contextData.taskDescription,
+      currentPhase: contextData.currentPhase,
+      progressPercentage: contextData.progressPercentage,
+      filesModified: contextData.filesModified,
+      filesCreated: contextData.filesCreated,
+      filesDeleted: contextData.filesDeleted,
+      uncommittedChanges: contextData.uncommittedChanges,
+      todoItems: contextData.todoItems,
+      hypotheses: contextData.hypotheses,
+      keyPoints: contextData.keyPoints,
+      userRequirements: contextData.userRequirements,
+      constraints: contextData.constraints,
+    });
+
+    return sendResource(c, {
+      valid: validation.valid,
+      errors: validation.errors,
+      warnings: validation.warnings,
+      sizeBytes: validation.sizeBytes,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendValidationError(c, transformZodError(error));
+    }
+    return sendError(c, "INTERNAL_ERROR", "Failed to validate context", 500);
+  }
+});
+
+// ============================================================================
 // Validation Schemas
 // ============================================================================
 
@@ -53,6 +114,28 @@ const HandoffReasonSchema = z.enum([
 ]);
 
 const HandoffUrgencySchema = z.enum(["low", "normal", "high", "critical"]);
+
+const HandoffPhaseSchema = z.enum([
+  "initiate",
+  "pending",
+  "transfer",
+  "complete",
+  "rejected",
+  "failed",
+  "cancelled",
+]);
+
+/**
+ * Parse and validate phase query parameter.
+ * Returns undefined if not provided or invalid.
+ */
+function parsePhaseParam(
+  phase: string | undefined,
+): z.infer<typeof HandoffPhaseSchema> | undefined {
+  if (!phase) return undefined;
+  const result = HandoffPhaseSchema.safeParse(phase);
+  return result.success ? result.data : undefined;
+}
 
 const TaskPhaseSchema = z.enum([
   "not_started",
@@ -525,11 +608,11 @@ handoffs.post("/:handoffId/cancel", async (c) => {
  */
 handoffs.get("/source/:agentId", async (c) => {
   const agentId = c.req.param("agentId");
-  const phase = c.req.query("phase") as string | undefined;
+  const phaseParam = c.req.query("phase");
   const limit = parseInt(c.req.query("limit") ?? "50", 10);
 
   const handoffsList = listHandoffsForSource(agentId, {
-    phase: phase as any,
+    phase: parsePhaseParam(phaseParam),
     limit: Math.min(limit, 100),
   });
 
@@ -554,11 +637,11 @@ handoffs.get("/source/:agentId", async (c) => {
  */
 handoffs.get("/target/:agentId", async (c) => {
   const agentId = c.req.param("agentId");
-  const phase = c.req.query("phase") as string | undefined;
+  const phaseParam = c.req.query("phase");
   const limit = parseInt(c.req.query("limit") ?? "50", 10);
 
   const handoffsList = listHandoffsForTarget(agentId, {
-    phase: phase as any,
+    phase: parsePhaseParam(phaseParam),
     limit: Math.min(limit, 100),
   });
 
@@ -600,61 +683,4 @@ handoffs.get("/broadcast/:projectId", async (c) => {
       createdAt: h.createdAt.toISOString(),
     })),
   );
-});
-
-/**
- * GET /handoffs/stats
- * Get handoff statistics.
- */
-handoffs.get("/stats", async (c) => {
-  const stats = getHandoffStats();
-
-  return sendResource(c, {
-    totalHandoffs: stats.totalHandoffs,
-    completedHandoffs: stats.completedHandoffs,
-    failedHandoffs: stats.failedHandoffs,
-    cancelledHandoffs: stats.cancelledHandoffs,
-    averageTransferTimeMs: Math.round(stats.averageTransferTimeMs),
-    byReason: stats.byReason,
-    byUrgency: stats.byUrgency,
-  });
-});
-
-/**
- * POST /handoffs/validate-context
- * Validate a context object without initiating a handoff.
- */
-handoffs.post("/validate-context", async (c) => {
-  try {
-    const body = await c.req.json();
-    const contextData = HandoffContextSchema.parse(body);
-
-    const { context, validation } = buildContext({
-      agentId: "validation-check",
-      taskDescription: contextData.taskDescription,
-      currentPhase: contextData.currentPhase,
-      progressPercentage: contextData.progressPercentage,
-      filesModified: contextData.filesModified,
-      filesCreated: contextData.filesCreated,
-      filesDeleted: contextData.filesDeleted,
-      uncommittedChanges: contextData.uncommittedChanges,
-      todoItems: contextData.todoItems,
-      hypotheses: contextData.hypotheses,
-      keyPoints: contextData.keyPoints,
-      userRequirements: contextData.userRequirements,
-      constraints: contextData.constraints,
-    });
-
-    return sendResource(c, {
-      valid: validation.valid,
-      errors: validation.errors,
-      warnings: validation.warnings,
-      sizeBytes: validation.sizeBytes,
-    });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return sendValidationError(c, transformZodError(error));
-    }
-    return sendError(c, "INTERNAL_ERROR", "Failed to validate context", 500);
-  }
 });

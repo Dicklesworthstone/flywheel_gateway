@@ -265,6 +265,7 @@ export function getChannelResourceId(channel: Channel): string | undefined {
     case "workspace:reservations":
     case "workspace:conflicts":
     case "workspace:graph":
+    case "workspace:git":
     case "workspace:handoffs":
       return channel.workspaceId;
     case "user:mail":

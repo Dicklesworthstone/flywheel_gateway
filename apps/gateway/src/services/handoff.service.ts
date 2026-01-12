@@ -143,7 +143,7 @@ function addToIndex(
 /**
  * Remove from index.
  */
-function _removeFromIndex(
+function removeFromIndex(
   index: Map<string, Set<string>>,
   key: string,
   id: string,
@@ -341,6 +341,19 @@ async function transitionPhase(
     newPhase === "failed"
   ) {
     record.completedAt = new Date();
+
+    // Remove from indices to prevent memory leak
+    removeFromIndex(sourceAgentIndex, record.request.sourceAgentId, handoffId);
+    if (record.request.targetAgentId) {
+      removeFromIndex(targetAgentIndex, record.request.targetAgentId, handoffId);
+    }
+    if (record.acknowledgment?.receivingAgentId) {
+      removeFromIndex(
+        targetAgentIndex,
+        record.acknowledgment.receivingAgentId,
+        handoffId,
+      );
+    }
 
     // Update stats
     if (newPhase === "complete") {
