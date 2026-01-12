@@ -47,6 +47,17 @@ export type MessageType =
   | "checkpoint.imported"
   // Agent mail
   | "mail.received"
+  // Handoffs
+  | "handoff.initiated"
+  | "handoff.phase_changed"
+  | "handoff.accepted"
+  | "handoff.rejected"
+  | "handoff.escalated"
+  | "handoff.cancelled"
+  | "handoff.completed"
+  | "handoff.failed"
+  | "handoff.transfer_started"
+  | "handoff.transfer_completed"
   // Fleet (RU)
   | "fleet.repo_added"
   | "fleet.repo_removed"
