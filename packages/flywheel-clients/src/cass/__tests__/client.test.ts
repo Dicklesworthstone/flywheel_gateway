@@ -359,7 +359,7 @@ describe("CASS Client", () => {
 
       expect(error.kind).toBe("command_failed");
       expect(error.message).toBe("Test error");
-      expect(error.details?.exitCode).toBe(1);
+      expect(error.details?.["exitCode"]).toBe(1);
     });
 
     test("works without details", () => {
