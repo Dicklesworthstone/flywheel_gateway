@@ -196,6 +196,19 @@ function calculateRetryDelay(
 }
 
 /**
+ * Error wrapper that preserves retry count for error handling.
+ */
+class RetryError extends Error {
+  constructor(
+    public readonly cause: unknown,
+    public readonly retryCount: number,
+  ) {
+    super(cause instanceof Error ? cause.message : String(cause));
+    this.name = "RetryError";
+  }
+}
+
+/**
  * Execute a function with retry logic.
  */
 async function withRetry<T>(
@@ -209,7 +222,7 @@ async function withRetry<T>(
 
   for (let attempt = 0; attempt <= policy.maxRetries; attempt++) {
     if (signal?.aborted) {
-      throw new Error("Execution cancelled");
+      throw new RetryError(new Error("Execution cancelled"), retryCount);
     }
 
     try {
@@ -224,12 +237,13 @@ async function withRetry<T>(
         const delay = calculateRetryDelay(attempt, policy);
         await sleep(delay);
       } else {
-        throw error;
+        // Wrap error with retry count for proper reporting
+        throw new RetryError(error, retryCount);
       }
     }
   }
 
-  throw lastError;
+  throw new RetryError(lastError, retryCount);
 }
 
 // ============================================================================
@@ -463,12 +477,16 @@ async function executeApproval(
 
     runApprovals.set(stepId, handler);
 
-    // Handle cancellation
-    signal?.addEventListener("abort", () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      runApprovals.delete(stepId);
-      reject(new Error("Execution cancelled"));
-    });
+    // Handle cancellation (use once: true to avoid memory leak)
+    signal?.addEventListener(
+      "abort",
+      () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        runApprovals.delete(stepId);
+        reject(new Error("Execution cancelled"));
+      },
+      { once: true },
+    );
   });
 }
 
@@ -648,14 +666,18 @@ async function executeStep(
       "[PIPELINE] Step failed",
     );
 
+    // Extract retry count and original error from RetryError
+    const actualRetryCount = error instanceof RetryError ? error.retryCount : 0;
+    const originalError = error instanceof RetryError ? error.cause : error;
+
     return {
       success: false,
       error: {
-        code: error instanceof Error ? (error as Error & { code?: string }).code ?? "STEP_FAILED" : "STEP_FAILED",
-        message: error instanceof Error ? error.message : String(error),
+        code: originalError instanceof Error ? (originalError as Error & { code?: string }).code ?? "STEP_FAILED" : "STEP_FAILED",
+        message: originalError instanceof Error ? originalError.message : String(originalError),
       },
       durationMs: Date.now() - startTime,
-      retryCount: retryPolicy.maxRetries,
+      retryCount: actualRetryCount,
     };
   }
 }
@@ -1034,6 +1056,10 @@ export async function runPipeline(
   activeRunControllers.set(runId, abortController);
 
   // Reset step statuses
+  // WARNING: Step statuses are stored on the pipeline object, not per-run.
+  // This means concurrent runs on the same pipeline will have conflicting
+  // step statuses. For production use, step statuses should be stored on
+  // the PipelineRun object with a deep copy of the steps array.
   for (const step of pipeline.steps) {
     step.status = "pending";
     step.result = undefined;
