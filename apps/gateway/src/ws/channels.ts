@@ -21,7 +21,8 @@ export type WorkspaceChannel =
   | { type: "workspace:agents"; workspaceId: string }
   | { type: "workspace:reservations"; workspaceId: string }
   | { type: "workspace:conflicts"; workspaceId: string }
-  | { type: "workspace:graph"; workspaceId: string };
+  | { type: "workspace:graph"; workspaceId: string }
+  | { type: "workspace:git"; workspaceId: string };
 
 /**
  * User-scoped channels for per-user subscriptions.
@@ -72,6 +73,7 @@ export type ChannelTypePrefix =
   | "workspace:reservations"
   | "workspace:conflicts"
   | "workspace:graph"
+  | "workspace:git"
   | "user:mail"
   | "user:notifications"
   | "system:health"
@@ -104,6 +106,7 @@ export function channelToString(channel: Channel): string {
     case "workspace:reservations":
     case "workspace:conflicts":
     case "workspace:graph":
+    case "workspace:git":
       return `${channel.type}:${channel.workspaceId}`;
 
     case "user:mail":
@@ -206,6 +209,8 @@ export function parseChannel(str: string): Channel | undefined {
       return { type: "workspace:conflicts", workspaceId: id };
     case "workspace:graph":
       return { type: "workspace:graph", workspaceId: id };
+    case "workspace:git":
+      return { type: "workspace:git", workspaceId: id };
     case "user:mail":
       return { type: "user:mail", userId: id };
     case "user:notifications":

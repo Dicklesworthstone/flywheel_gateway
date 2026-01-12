@@ -731,3 +731,146 @@ export const jobLogs = sqliteTable(
     index("job_logs_level_idx").on(table.level),
   ],
 );
+
+// ============================================================================
+// Git Coordination Tables
+// ============================================================================
+
+/**
+ * Branch assignments - Exclusive branch ownership for multi-agent coordination.
+ */
+export const branchAssignments = sqliteTable(
+  "branch_assignments",
+  {
+    id: text("id").primaryKey(),
+
+    // References
+    agentId: text("agent_id").references(() => agents.id),
+    repositoryId: text("repository_id").notNull(),
+
+    // Branch info
+    branchName: text("branch_name").notNull(),
+    baseBranch: text("base_branch").notNull().default("main"),
+
+    // Status: active | stale | merged | expired
+    status: text("status").notNull().default("active"),
+
+    // Timing
+    assignedAt: integer("assigned_at", { mode: "timestamp" }).notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    lastActivityAt: integer("last_activity_at", { mode: "timestamp" }).notNull(),
+
+    // Metadata
+    taskId: text("task_id"),
+    taskDescription: text("task_description"),
+    reservedPatterns: text("reserved_patterns"), // JSON array of glob patterns
+
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }),
+  },
+  (table) => [
+    index("branch_assignments_agent_idx").on(table.agentId),
+    index("branch_assignments_repository_idx").on(table.repositoryId),
+    index("branch_assignments_status_idx").on(table.status),
+    uniqueIndex("branch_assignments_repo_branch_idx").on(
+      table.repositoryId,
+      table.branchName,
+    ),
+  ],
+);
+
+/**
+ * Conflict predictions - Cached predictions for branch pair conflicts.
+ */
+export const conflictPredictions = sqliteTable(
+  "conflict_predictions",
+  {
+    id: text("id").primaryKey(),
+
+    // Branch pair
+    repositoryId: text("repository_id").notNull(),
+    branchA: text("branch_a").notNull(),
+    branchB: text("branch_b").notNull(),
+
+    // Prediction result
+    hasConflicts: integer("has_conflicts", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    conflictingFiles: text("conflicting_files"), // JSON array
+    severity: text("severity").notNull().default("none"), // none | low | medium | high
+    recommendation: text("recommendation"),
+
+    // Details
+    commonAncestor: text("common_ancestor"),
+    changesInA: integer("changes_in_a").notNull().default(0),
+    changesInB: integer("changes_in_b").notNull().default(0),
+    overlappingFiles: text("overlapping_files"), // JSON array
+
+    // Timing
+    predictedAt: integer("predicted_at", { mode: "timestamp" }).notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    index("conflict_predictions_repository_idx").on(table.repositoryId),
+    index("conflict_predictions_branches_idx").on(table.branchA, table.branchB),
+    index("conflict_predictions_predicted_at_idx").on(table.predictedAt),
+  ],
+);
+
+/**
+ * Git sync operations - History of sync operations for audit.
+ */
+export const gitSyncOperations = sqliteTable(
+  "git_sync_operations",
+  {
+    id: text("id").primaryKey(),
+
+    // References
+    repositoryId: text("repository_id").notNull(),
+    agentId: text("agent_id").references(() => agents.id),
+
+    // Operation details
+    operation: text("operation").notNull(), // pull | push | fetch | rebase | merge
+    branch: text("branch").notNull(),
+    targetBranch: text("target_branch"),
+    remote: text("remote"),
+    force: integer("force", { mode: "boolean" }).default(false),
+
+    // Status: queued | running | completed | failed | cancelled | timeout
+    status: text("status").notNull(),
+
+    // Timing
+    queuedAt: integer("queued_at", { mode: "timestamp" }).notNull(),
+    startedAt: integer("started_at", { mode: "timestamp" }),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
+    durationMs: integer("duration_ms"),
+
+    // Result
+    success: integer("success", { mode: "boolean" }),
+    fromCommit: text("from_commit"),
+    toCommit: text("to_commit"),
+    filesChanged: integer("files_changed"),
+    insertions: integer("insertions"),
+    deletions: integer("deletions"),
+
+    // Conflict info
+    conflictsDetected: integer("conflicts_detected", { mode: "boolean" }),
+    conflictFiles: text("conflict_files"), // JSON array
+
+    // Error handling
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    attempt: integer("attempt").notNull().default(1),
+    maxRetries: integer("max_retries").notNull().default(3),
+
+    // Tracking
+    correlationId: text("correlation_id"),
+  },
+  (table) => [
+    index("git_sync_operations_repository_idx").on(table.repositoryId),
+    index("git_sync_operations_agent_idx").on(table.agentId),
+    index("git_sync_operations_status_idx").on(table.status),
+    index("git_sync_operations_queued_at_idx").on(table.queuedAt),
+    index("git_sync_operations_correlation_idx").on(table.correlationId),
+  ],
+);
