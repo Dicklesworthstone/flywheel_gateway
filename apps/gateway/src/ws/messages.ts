@@ -191,6 +191,21 @@ export interface ConnectedMessage {
   connectionId: string;
   /** Server timestamp */
   serverTime: string;
+  /** Server version identifier */
+  serverVersion?: string;
+  /** Server capabilities */
+  capabilities?: {
+    /** Whether backfill is supported */
+    backfill: boolean;
+    /** Whether compression is supported */
+    compression: boolean;
+    /** Whether acknowledgment is supported */
+    acknowledgment: boolean;
+  };
+  /** Heartbeat interval in milliseconds */
+  heartbeatIntervalMs?: number;
+  /** Link to WebSocket documentation */
+  docs?: string;
 }
 
 /**
@@ -301,6 +316,10 @@ export interface ErrorMessage {
   hint?: string;
   /** Alternative approach if the current request cannot succeed */
   alternative?: string;
+  /** Example of valid input/usage that would succeed */
+  example?: unknown;
+  /** Link to documentation for this error/feature */
+  docs?: string;
 }
 
 /**
@@ -437,6 +456,9 @@ export function serializeServerMessage(message: ServerMessage): string {
 // WebSocket Error Hints
 // ============================================================================
 
+/** WebSocket documentation base URL */
+const WS_DOCS_BASE = "https://docs.flywheel.dev/websocket";
+
 /**
  * AI hints for WebSocket-specific error codes.
  * Used by createWSError to include helpful guidance in error messages.
@@ -447,42 +469,54 @@ const WS_ERROR_HINTS: Record<
     severity: "terminal" | "recoverable" | "retry";
     hint: string;
     alternative?: string;
+    example?: unknown;
+    docs?: string;
   }
 > = {
   INVALID_FORMAT: {
     severity: "recoverable",
     hint: "Messages must be valid JSON with a 'type' field. Check message format.",
     alternative: "Use the SDK client which handles message formatting automatically.",
+    example: { type: "subscribe", channel: "agent:output:YOUR_AGENT_ID" },
+    docs: `${WS_DOCS_BASE}#message-format`,
   },
   WS_CONNECTION_FAILED: {
     severity: "retry",
     hint: "WebSocket connection failed. Check network connectivity and server availability.",
     alternative: "Retry connection with exponential backoff.",
+    docs: `${WS_DOCS_BASE}#connection`,
   },
   WS_SUBSCRIPTION_DENIED: {
     severity: "terminal",
     hint: "Subscription was denied. Verify your auth token and channel permissions.",
     alternative: "Request elevated permissions or use a different channel.",
+    docs: `${WS_DOCS_BASE}#authentication`,
   },
   WS_CURSOR_EXPIRED: {
     severity: "recoverable",
     hint: "The cursor has expired. Reconnect without a cursor to get latest messages.",
     alternative: "Subscribe to the channel again without specifying a cursor.",
+    example: { type: "subscribe", channel: "agent:output:agent-123" },
+    docs: `${WS_DOCS_BASE}#cursors`,
   },
   WS_RATE_LIMITED: {
     severity: "retry",
     hint: "You're sending messages too fast. Implement exponential backoff.",
     alternative: "Batch multiple operations into fewer messages.",
+    docs: `${WS_DOCS_BASE}#rate-limits`,
   },
   WS_AUTHENTICATION_REQUIRED: {
     severity: "recoverable",
     hint: "This connection requires authentication. Provide valid credentials.",
     alternative: "Reconnect with an auth token in the connection parameters.",
+    docs: `${WS_DOCS_BASE}#authentication`,
   },
   INVALID_CHANNEL: {
     severity: "recoverable",
     hint: "Channel format is 'scope:type:id', e.g., 'agent:output:agent-123'.",
     alternative: "Use parseChannel() to validate channel format before subscribing.",
+    example: "agent:output:agent-abc123",
+    docs: `${WS_DOCS_BASE}#channels`,
   },
   SERIALIZATION_ERROR: {
     severity: "retry",
@@ -497,7 +531,7 @@ const WS_ERROR_HINTS: Record<
 
 /**
  * Create a WebSocket error message with AI hints.
- * Automatically includes severity, hint, and alternative based on error code.
+ * Automatically includes severity, hint, alternative, example, and docs based on error code.
  *
  * @param code - Error code from taxonomy
  * @param message - Human-readable error message
@@ -509,6 +543,7 @@ const WS_ERROR_HINTS: Record<
  * ```typescript
  * const errorMsg = createWSError("INVALID_FORMAT", "Invalid message format");
  * ws.send(serializeServerMessage(errorMsg));
+ * // Result includes hint, example, and docs link
  * ```
  */
 export function createWSError(
@@ -540,6 +575,12 @@ export function createWSError(
   }
   if (hints?.alternative) {
     errorMsg.alternative = hints.alternative;
+  }
+  if (hints?.example !== undefined) {
+    errorMsg.example = hints.example;
+  }
+  if (hints?.docs) {
+    errorMsg.docs = hints.docs;
   }
 
   return errorMsg;

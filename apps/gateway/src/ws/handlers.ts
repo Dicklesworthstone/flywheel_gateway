@@ -43,11 +43,19 @@ export function handleWSOpen(ws: ServerWebSocket<ConnectionData>): void {
     }
   }
 
-  // Send welcome message
+  // Send welcome message with server info and capabilities
   const connectedMsg: ServerMessage = {
     type: "connected",
     connectionId: connectionId,
     serverTime: new Date().toISOString(),
+    serverVersion: process.env["GATEWAY_VERSION"] ?? "dev",
+    capabilities: {
+      backfill: true,
+      compression: false,
+      acknowledgment: true,
+    },
+    heartbeatIntervalMs: 30000,
+    docs: "https://docs.flywheel.dev/websocket",
   };
   ws.send(serializeServerMessage(connectedMsg));
 }
