@@ -75,6 +75,20 @@ export type MessageType =
   | "fleet.plan_created"
   | "fleet.plan_approved"
   | "fleet.plan_rejected"
+  // Pipeline Engine
+  | "pipeline.run_started"
+  | "pipeline.run_progress"
+  | "pipeline.run_completed"
+  | "pipeline.run_failed"
+  | "pipeline.run_paused"
+  | "pipeline.run_resumed"
+  | "pipeline.run_cancelled"
+  | "pipeline.step_started"
+  | "pipeline.step_completed"
+  | "pipeline.step_failed"
+  | "pipeline.step_skipped"
+  | "pipeline.approval_pending"
+  | "pipeline.approval_received"
   // System
   | "health.ping"
   | "error";

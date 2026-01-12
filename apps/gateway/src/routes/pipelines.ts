@@ -97,6 +97,79 @@ const StepConfigSchema = z.discriminatedUnion("type", [
       shell: z.string().optional(),
     }),
   }),
+  z.object({
+    type: z.literal("loop"),
+    config: z.object({
+      mode: z.enum(["for_each", "while", "until", "times"]),
+      collection: z.string().optional(),
+      condition: z.string().optional(),
+      count: z.number().positive().optional(),
+      maxIterations: z.number().positive(),
+      parallel: z.boolean().optional(),
+      parallelLimit: z.number().positive().optional(),
+      itemVariable: z.string().min(1),
+      indexVariable: z.string().min(1),
+      steps: z.array(z.string().min(1)).min(1),
+      outputVariable: z.string().min(1),
+    }),
+  }),
+  z.object({
+    type: z.literal("wait"),
+    config: z.object({
+      mode: z.enum(["duration", "until", "webhook"]),
+      duration: z.number().positive().optional(),
+      until: z.string().optional(),
+      webhookToken: z.string().optional(),
+      timeout: z.number().positive(),
+    }),
+  }),
+  z.object({
+    type: z.literal("transform"),
+    config: z.object({
+      operations: z.array(z.union([
+        z.object({ op: z.literal("set"), path: z.string().min(1), value: z.unknown() }),
+        z.object({ op: z.literal("delete"), path: z.string().min(1) }),
+        z.object({ op: z.literal("merge"), source: z.string().min(1), target: z.string().min(1) }),
+        z.object({ op: z.literal("map"), source: z.string().min(1), expression: z.string().min(1), target: z.string().min(1) }),
+        z.object({ op: z.literal("filter"), source: z.string().min(1), condition: z.string().min(1), target: z.string().min(1) }),
+        z.object({ op: z.literal("reduce"), source: z.string().min(1), expression: z.string().min(1), initial: z.unknown(), target: z.string().min(1) }),
+        z.object({ op: z.literal("extract"), source: z.string().min(1), query: z.string().min(1), target: z.string().min(1) }),
+      ])).min(1),
+      outputVariable: z.string().min(1),
+    }),
+  }),
+  z.object({
+    type: z.literal("webhook"),
+    config: z.object({
+      url: z.string().min(1),
+      method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
+      headers: z.record(z.string(), z.string()).optional(),
+      body: z.unknown().optional(),
+      auth: z.object({
+        type: z.enum(["none", "basic", "bearer", "api_key"]),
+        username: z.string().optional(),
+        password: z.string().optional(),
+        token: z.string().optional(),
+        headerName: z.string().optional(),
+        apiKey: z.string().optional(),
+      }).optional(),
+      validateStatus: z.array(z.number()).optional(),
+      timeout: z.number().positive().optional(),
+      outputVariable: z.string().min(1),
+      extractFields: z.record(z.string(), z.string()).optional(),
+    }),
+  }),
+  z.object({
+    type: z.literal("sub_pipeline"),
+    config: z.object({
+      pipelineId: z.string().min(1),
+      version: z.number().positive().optional(),
+      inputs: z.record(z.string(), z.unknown()),
+      waitForCompletion: z.boolean().optional(),
+      timeout: z.number().positive().optional(),
+      outputVariable: z.string().min(1),
+    }),
+  }),
 ]);
 
 const TriggerConfigSchema = z.discriminatedUnion("type", [
@@ -147,7 +220,7 @@ const StepSchema = z.object({
   id: z.string().min(1).max(100),
   name: z.string().min(1).max(200),
   description: z.string().max(1000).optional(),
-  type: z.enum(["agent_task", "conditional", "parallel", "approval", "script"]),
+  type: z.enum(["agent_task", "conditional", "parallel", "approval", "script", "loop", "wait", "transform", "webhook", "sub_pipeline"]),
   config: StepConfigSchema,
   dependsOn: z.array(z.string()).optional(),
   retryPolicy: RetryPolicySchema.optional(),

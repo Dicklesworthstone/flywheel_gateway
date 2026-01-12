@@ -43,7 +43,12 @@ export type StepType =
   | "conditional"
   | "parallel"
   | "approval"
-  | "script";
+  | "script"
+  | "loop"
+  | "wait"
+  | "transform"
+  | "webhook"
+  | "sub_pipeline";
 
 /**
  * Types of pipeline triggers.
@@ -136,6 +141,137 @@ export interface ScriptConfig {
 }
 
 /**
+ * Configuration for a loop step.
+ * Iterates over a collection or until a condition is met.
+ */
+export interface LoopConfig {
+  /** Loop mode */
+  mode: "for_each" | "while" | "until" | "times";
+  /** Variable path for for_each mode (supports ${context.variable}) */
+  collection?: string;
+  /** Condition expression for while/until modes */
+  condition?: string;
+  /** Number of iterations for 'times' mode */
+  count?: number;
+  /** Maximum iterations (safety limit) */
+  maxIterations: number;
+  /** Whether to execute iterations in parallel */
+  parallel?: boolean;
+  /** Maximum parallel executions when parallel is true */
+  parallelLimit?: number;
+  /** Variable name for current item in iteration */
+  itemVariable: string;
+  /** Variable name for current index */
+  indexVariable: string;
+  /** Steps to execute in each iteration */
+  steps: string[];
+  /** Variable to store all iteration results */
+  outputVariable: string;
+}
+
+/**
+ * Configuration for a wait step.
+ * Pauses execution for a specified duration or until a condition.
+ */
+export interface WaitConfig {
+  /** Wait mode */
+  mode: "duration" | "until" | "webhook";
+  /** Duration in milliseconds (for 'duration' mode) */
+  duration?: number;
+  /** ISO date string or variable (for 'until' mode) */
+  until?: string;
+  /** Unique token for webhook resume (for 'webhook' mode) */
+  webhookToken?: string;
+  /** Maximum wait time in milliseconds */
+  timeout: number;
+}
+
+/**
+ * Transform operation types for data manipulation.
+ */
+export type TransformOperation =
+  | { op: "set"; path: string; value: unknown }
+  | { op: "delete"; path: string }
+  | { op: "merge"; source: string; target: string }
+  | { op: "map"; source: string; expression: string; target: string }
+  | { op: "filter"; source: string; condition: string; target: string }
+  | { op: "reduce"; source: string; expression: string; initial: unknown; target: string }
+  | { op: "extract"; source: string; query: string; target: string };
+
+/**
+ * Configuration for a transform step.
+ * Performs data manipulation operations.
+ */
+export interface TransformConfig {
+  /** Transform operations to apply in sequence */
+  operations: TransformOperation[];
+  /** Variable to store final result */
+  outputVariable: string;
+}
+
+/**
+ * Configuration for webhook authentication.
+ */
+export interface WebhookAuth {
+  /** Auth type */
+  type: "none" | "basic" | "bearer" | "api_key";
+  /** Username for basic auth */
+  username?: string;
+  /** Password for basic auth (supports ${context.variable}) */
+  password?: string;
+  /** Bearer token (supports ${context.variable}) */
+  token?: string;
+  /** API key header name */
+  headerName?: string;
+  /** API key value (supports ${context.variable}) */
+  apiKey?: string;
+}
+
+/**
+ * Configuration for a webhook step.
+ * Calls an external HTTP endpoint.
+ */
+export interface WebhookConfig {
+  /** URL to call (supports ${context.variable}) */
+  url: string;
+  /** HTTP method */
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  /** Request headers (supports ${context.variable} in values) */
+  headers?: Record<string, string>;
+  /** Request body (supports ${context.variable}) */
+  body?: unknown;
+  /** Authentication configuration */
+  auth?: WebhookAuth;
+  /** Expected success status codes (default: 200-299) */
+  validateStatus?: number[];
+  /** Timeout in milliseconds */
+  timeout?: number;
+  /** Variable to store response */
+  outputVariable: string;
+  /** Fields to extract from response (JSONPath expressions) */
+  extractFields?: Record<string, string>;
+}
+
+/**
+ * Configuration for a sub-pipeline step.
+ * Invokes another pipeline as a step.
+ */
+export interface SubPipelineConfig {
+  /** Pipeline ID to invoke */
+  pipelineId: string;
+  /** Specific version to use (default: latest) */
+  version?: number;
+  /** Input parameters to pass to the sub-pipeline */
+  inputs: Record<string, unknown>;
+  /** Wait for sub-pipeline to complete (default: true) */
+  waitForCompletion?: boolean;
+  /** Timeout for sub-pipeline execution */
+  timeout?: number;
+  /** Variable to store sub-pipeline result */
+  outputVariable: string;
+}
+
+/**
  * Union type for all step configurations.
  */
 export type StepConfig =
@@ -143,7 +279,12 @@ export type StepConfig =
   | { type: "conditional"; config: ConditionalConfig }
   | { type: "parallel"; config: ParallelConfig }
   | { type: "approval"; config: ApprovalConfig }
-  | { type: "script"; config: ScriptConfig };
+  | { type: "script"; config: ScriptConfig }
+  | { type: "loop"; config: LoopConfig }
+  | { type: "wait"; config: WaitConfig }
+  | { type: "transform"; config: TransformConfig }
+  | { type: "webhook"; config: WebhookConfig }
+  | { type: "sub_pipeline"; config: SubPipelineConfig };
 
 // ============================================================================
 // Trigger Configuration Types

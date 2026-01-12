@@ -17,6 +17,7 @@ import {
   type ConditionalConfig,
   type CreatePipelineInput,
   DEFAULT_RETRY_POLICY,
+  type LoopConfig,
   type ParallelConfig,
   type Pipeline,
   type PipelineFilter,
@@ -28,7 +29,12 @@ import {
   type ScriptConfig,
   type StepResult,
   type StepStatus,
+  type SubPipelineConfig,
+  type TransformConfig,
+  type TransformOperation,
   type UpdatePipelineInput,
+  type WaitConfig,
+  type WebhookConfig,
 } from "../models/pipeline";
 import { spawnAgent, sendMessage, terminateAgent } from "./agent";
 
@@ -559,6 +565,627 @@ async function executeScript(
   }
 }
 
+/**
+ * Execute a loop step.
+ */
+async function executeLoop(
+  config: LoopConfig,
+  context: Record<string, unknown>,
+  executeSteps: (stepIds: string[]) => Promise<void>,
+  signal?: AbortSignal,
+): Promise<{ iterations: number; results: unknown[] }> {
+  const log = getLogger();
+  const results: unknown[] = [];
+  let iteration = 0;
+
+  log.info(
+    { mode: config.mode, maxIterations: config.maxIterations },
+    "[PIPELINE] Starting loop step",
+  );
+
+  // Get iterator based on mode
+  const getIterator = (): IterableIterator<unknown> | undefined => {
+    switch (config.mode) {
+      case "for_each": {
+        const collectionPath = substituteVariables(config.collection ?? "", context);
+        const collection = getValueByPath(context, collectionPath);
+        if (Array.isArray(collection)) {
+          return collection[Symbol.iterator]();
+        }
+        return undefined;
+      }
+      case "times": {
+        const count = config.count ?? 0;
+        return Array.from({ length: count }, (_, i) => i)[Symbol.iterator]();
+      }
+      case "while":
+      case "until": {
+        // These modes use condition checking, not a fixed iterator
+        return undefined;
+      }
+      default:
+        return undefined;
+    }
+  };
+
+  const shouldContinue = (): boolean => {
+    if (signal?.aborted) return false;
+    if (iteration >= config.maxIterations) return false;
+
+    switch (config.mode) {
+      case "while":
+        return evaluateCondition(config.condition ?? "false", context);
+      case "until":
+        return !evaluateCondition(config.condition ?? "true", context);
+      default:
+        return true;
+    }
+  };
+
+  // Execute iterations
+  const iterator = getIterator();
+  const executeIteration = async (item: unknown, index: number): Promise<void> => {
+    // Set loop variables in context
+    context[config.itemVariable] = item;
+    context[config.indexVariable] = index;
+
+    await executeSteps(config.steps);
+
+    // Capture result (if output variable set, take last step result)
+    const lastStepId = config.steps[config.steps.length - 1];
+    if (lastStepId) {
+      const stepResultKey = `_step_${lastStepId}_result`;
+      results.push(context[stepResultKey]);
+    }
+  };
+
+  if (config.mode === "for_each" || config.mode === "times") {
+    if (!iterator) {
+      throw new Error(`Loop mode ${config.mode} requires a valid collection`);
+    }
+
+    if (config.parallel && config.parallelLimit && config.parallelLimit > 1) {
+      // Parallel execution
+      const items = Array.from(iterator);
+      const limit = Math.min(config.parallelLimit, items.length);
+      const batches: unknown[][] = [];
+
+      for (let i = 0; i < items.length; i += limit) {
+        batches.push(items.slice(i, i + limit));
+      }
+
+      for (const batch of batches) {
+        if (signal?.aborted) break;
+        if (iteration >= config.maxIterations) break;
+
+        await Promise.all(
+          batch.map((item, batchIndex) => {
+            const index = iteration + batchIndex;
+            if (index >= config.maxIterations) return Promise.resolve();
+            iteration++;
+            return executeIteration(item, index);
+          }),
+        );
+      }
+    } else {
+      // Sequential execution
+      for (const item of iterator) {
+        if (signal?.aborted) break;
+        if (iteration >= config.maxIterations) break;
+
+        await executeIteration(item, iteration);
+        iteration++;
+      }
+    }
+  } else {
+    // while/until modes
+    while (shouldContinue()) {
+      await executeIteration(iteration, iteration);
+      iteration++;
+    }
+  }
+
+  // Store results in output variable
+  context[config.outputVariable] = results;
+
+  log.info(
+    { iterations: iteration, resultsCount: results.length },
+    "[PIPELINE] Loop step completed",
+  );
+
+  return { iterations: iteration, results };
+}
+
+/**
+ * Execute a wait step.
+ */
+async function executeWait(
+  config: WaitConfig,
+  context: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<{ waitedMs: number; reason: string }> {
+  const log = getLogger();
+  const startTime = Date.now();
+
+  log.info(
+    { mode: config.mode, timeout: config.timeout },
+    "[PIPELINE] Starting wait step",
+  );
+
+  switch (config.mode) {
+    case "duration": {
+      const duration = config.duration ?? 0;
+      const actualWait = Math.min(duration, config.timeout);
+
+      await Promise.race([
+        sleep(actualWait),
+        new Promise<never>((_, reject) => {
+          signal?.addEventListener("abort", () => reject(new Error("Cancelled")), { once: true });
+        }),
+      ]).catch((err) => {
+        if (err.message !== "Cancelled") throw err;
+      });
+
+      return { waitedMs: Date.now() - startTime, reason: "duration_elapsed" };
+    }
+
+    case "until": {
+      const untilValue = substituteVariables(config.until ?? "", context);
+      const targetTime = new Date(untilValue).getTime();
+      const now = Date.now();
+      const waitTime = Math.min(Math.max(0, targetTime - now), config.timeout);
+
+      await Promise.race([
+        sleep(waitTime),
+        new Promise<never>((_, reject) => {
+          signal?.addEventListener("abort", () => reject(new Error("Cancelled")), { once: true });
+        }),
+      ]).catch((err) => {
+        if (err.message !== "Cancelled") throw err;
+      });
+
+      return { waitedMs: Date.now() - startTime, reason: "target_time_reached" };
+    }
+
+    case "webhook": {
+      // For webhook mode, we'd normally wait for an external callback
+      // This is a placeholder - in production, you'd register a callback handler
+      log.warn("[PIPELINE] Webhook wait mode not fully implemented - timing out");
+
+      await Promise.race([
+        sleep(config.timeout),
+        new Promise<never>((_, reject) => {
+          signal?.addEventListener("abort", () => reject(new Error("Cancelled")), { once: true });
+        }),
+      ]).catch((err) => {
+        if (err.message !== "Cancelled") throw err;
+      });
+
+      return { waitedMs: Date.now() - startTime, reason: "webhook_timeout" };
+    }
+
+    default:
+      throw new Error(`Unknown wait mode: ${config.mode}`);
+  }
+}
+
+/**
+ * Execute a transform step.
+ */
+async function executeTransform(
+  config: TransformConfig,
+  context: Record<string, unknown>,
+): Promise<{ transformedValues: number }> {
+  const log = getLogger();
+  let transformedCount = 0;
+
+  log.info(
+    { operationsCount: config.operations.length },
+    "[PIPELINE] Starting transform step",
+  );
+
+  for (const operation of config.operations) {
+    switch (operation.op) {
+      case "set": {
+        setValueByPath(context, operation.path, operation.value);
+        transformedCount++;
+        break;
+      }
+
+      case "delete": {
+        deleteValueByPath(context, operation.path);
+        transformedCount++;
+        break;
+      }
+
+      case "merge": {
+        const sourceValue = getValueByPath(context, operation.source);
+        const targetValue = getValueByPath(context, operation.target);
+        if (typeof sourceValue === "object" && typeof targetValue === "object") {
+          setValueByPath(context, operation.target, {
+            ...targetValue as object,
+            ...sourceValue as object,
+          });
+        }
+        transformedCount++;
+        break;
+      }
+
+      case "map": {
+        const sourceArray = getValueByPath(context, operation.source);
+        if (Array.isArray(sourceArray)) {
+          const mapped = sourceArray.map((item, index) => {
+            // Simple expression evaluation
+            const expr = operation.expression
+              .replace(/\$item/g, JSON.stringify(item))
+              .replace(/\$index/g, String(index));
+            try {
+              // Safe evaluation for simple expressions
+              return new Function("return " + expr)();
+            } catch {
+              return item;
+            }
+          });
+          setValueByPath(context, operation.target, mapped);
+        }
+        transformedCount++;
+        break;
+      }
+
+      case "filter": {
+        const filterSource = getValueByPath(context, operation.source);
+        if (Array.isArray(filterSource)) {
+          const filtered = filterSource.filter((item, index) => {
+            const cond = operation.condition
+              .replace(/\$item/g, JSON.stringify(item))
+              .replace(/\$index/g, String(index));
+            try {
+              return new Function("return " + cond)();
+            } catch {
+              return true;
+            }
+          });
+          setValueByPath(context, operation.target, filtered);
+        }
+        transformedCount++;
+        break;
+      }
+
+      case "reduce": {
+        const reduceSource = getValueByPath(context, operation.source);
+        if (Array.isArray(reduceSource)) {
+          const reduced = reduceSource.reduce((acc, item, index) => {
+            const expr = operation.expression
+              .replace(/\$acc/g, JSON.stringify(acc))
+              .replace(/\$item/g, JSON.stringify(item))
+              .replace(/\$index/g, String(index));
+            try {
+              return new Function("return " + expr)();
+            } catch {
+              return acc;
+            }
+          }, operation.initial);
+          setValueByPath(context, operation.target, reduced);
+        }
+        transformedCount++;
+        break;
+      }
+
+      case "extract": {
+        // Simple JSONPath-like extraction
+        const extractSource = getValueByPath(context, operation.source);
+        const extracted = getValueByPath(
+          { root: extractSource } as Record<string, unknown>,
+          "root" + operation.query.replace(/^\$/, ""),
+        );
+        setValueByPath(context, operation.target, extracted);
+        transformedCount++;
+        break;
+      }
+    }
+  }
+
+  // Store final context snapshot in output variable
+  if (config.outputVariable) {
+    setValueByPath(context, config.outputVariable, { ...context });
+  }
+
+  log.info(
+    { transformedCount },
+    "[PIPELINE] Transform step completed",
+  );
+
+  return { transformedValues: transformedCount };
+}
+
+/**
+ * Execute a webhook step.
+ */
+async function executeWebhook(
+  config: WebhookConfig,
+  context: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  const log = getLogger();
+  const url = substituteVariables(config.url, context);
+  const timeout = config.timeout ?? 30000;
+
+  log.info(
+    { method: config.method, url },
+    "[PIPELINE] Starting webhook step",
+  );
+
+  // Build headers
+  const headers: Record<string, string> = {};
+  if (config.headers) {
+    for (const [key, value] of Object.entries(config.headers)) {
+      headers[key] = substituteVariables(value, context);
+    }
+  }
+
+  // Add authentication
+  if (config.auth) {
+    switch (config.auth.type) {
+      case "basic": {
+        const username = substituteVariables(config.auth.username ?? "", context);
+        const password = substituteVariables(config.auth.password ?? "", context);
+        headers["Authorization"] = `Basic ${btoa(`${username}:${password}`)}`;
+        break;
+      }
+      case "bearer": {
+        const token = substituteVariables(config.auth.token ?? "", context);
+        headers["Authorization"] = `Bearer ${token}`;
+        break;
+      }
+      case "api_key": {
+        const headerName = config.auth.headerName ?? "X-API-Key";
+        const apiKey = substituteVariables(config.auth.apiKey ?? "", context);
+        headers[headerName] = apiKey;
+        break;
+      }
+    }
+  }
+
+  // Build request body
+  let body: string | undefined;
+  if (config.body && config.method !== "GET") {
+    if (typeof config.body === "string") {
+      body = substituteVariables(config.body, context);
+    } else {
+      body = JSON.stringify(config.body);
+      if (!headers["Content-Type"]) {
+        headers["Content-Type"] = "application/json";
+      }
+    }
+  }
+
+  // Make the request
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  // Combine signals
+  const abortHandler = () => controller.abort();
+  signal?.addEventListener("abort", abortHandler, { once: true });
+
+  try {
+    const response = await fetch(url, {
+      method: config.method,
+      headers,
+      body,
+      signal: controller.signal,
+    });
+
+    // Validate status
+    const validStatuses = config.validateStatus ?? [200, 201, 202, 203, 204];
+    if (!validStatuses.includes(response.status)) {
+      throw new Error(`Webhook returned status ${response.status}`);
+    }
+
+    // Parse response
+    const contentType = response.headers.get("content-type") ?? "";
+    let responseData: unknown;
+
+    if (contentType.includes("application/json")) {
+      responseData = await response.json();
+    } else {
+      responseData = await response.text();
+    }
+
+    // Extract fields if configured
+    const result: Record<string, unknown> = {
+      status: response.status,
+      headers: Object.fromEntries(response.headers.entries()),
+      data: responseData,
+    };
+
+    if (config.extractFields) {
+      for (const [targetKey, jsonPath] of Object.entries(config.extractFields)) {
+        result[targetKey] = getValueByPath(
+          { data: responseData } as Record<string, unknown>,
+          jsonPath.replace(/^\$\.?data\.?/, "data."),
+        );
+      }
+    }
+
+    // Store in output variable
+    context[config.outputVariable] = result;
+
+    log.info(
+      { status: response.status },
+      "[PIPELINE] Webhook step completed",
+    );
+
+    return result;
+  } finally {
+    clearTimeout(timeoutId);
+    signal?.removeEventListener("abort", abortHandler);
+  }
+}
+
+/**
+ * Execute a sub-pipeline step.
+ */
+async function executeSubPipeline(
+  config: SubPipelineConfig,
+  context: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  const log = getLogger();
+
+  log.info(
+    { pipelineId: config.pipelineId, version: config.version },
+    "[PIPELINE] Starting sub-pipeline step",
+  );
+
+  // Get the sub-pipeline
+  const subPipeline = getPipeline(config.pipelineId);
+  if (!subPipeline) {
+    throw new Error(`Sub-pipeline not found: ${config.pipelineId}`);
+  }
+
+  // Check version if specified
+  if (config.version && subPipeline.version !== config.version) {
+    throw new Error(
+      `Sub-pipeline version mismatch: expected ${config.version}, got ${subPipeline.version}`,
+    );
+  }
+
+  // Substitute variables in inputs
+  const inputs: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(config.inputs)) {
+    if (typeof value === "string") {
+      inputs[key] = substituteVariables(value, context);
+    } else {
+      inputs[key] = value;
+    }
+  }
+
+  // Run the sub-pipeline
+  const run = await runPipeline(config.pipelineId, {
+    params: inputs,
+    triggeredBy: { type: "api" },
+  });
+
+  if (config.waitForCompletion === false) {
+    // Return immediately without waiting
+    const result = {
+      runId: run.id,
+      pipelineId: config.pipelineId,
+      status: run.status,
+    };
+    context[config.outputVariable] = result;
+    return result;
+  }
+
+  // Wait for completion with timeout
+  const timeout = config.timeout ?? 300000; // 5 minute default
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < timeout) {
+    if (signal?.aborted) {
+      throw new Error("Sub-pipeline execution cancelled");
+    }
+
+    const currentRun = getRun(run.id);
+    if (!currentRun) {
+      throw new Error(`Sub-pipeline run not found: ${run.id}`);
+    }
+
+    if (
+      currentRun.status === "completed" ||
+      currentRun.status === "failed" ||
+      currentRun.status === "cancelled"
+    ) {
+      const result = {
+        runId: currentRun.id,
+        pipelineId: config.pipelineId,
+        status: currentRun.status,
+        context: currentRun.context,
+      };
+      context[config.outputVariable] = result;
+
+      if (currentRun.status === "failed") {
+        throw new Error(`Sub-pipeline failed: ${currentRun.error?.message}`);
+      }
+
+      log.info(
+        { runId: currentRun.id, status: currentRun.status },
+        "[PIPELINE] Sub-pipeline step completed",
+      );
+
+      return result;
+    }
+
+    await sleep(1000); // Poll every second
+  }
+
+  throw new Error(`Sub-pipeline timeout after ${timeout}ms`);
+}
+
+// ============================================================================
+// Helper functions for path-based context manipulation
+// ============================================================================
+
+/**
+ * Get a value from context by dot-notation path.
+ */
+function getValueByPath(obj: Record<string, unknown>, path: string): unknown {
+  const parts = path.split(".");
+  let current: unknown = obj;
+
+  for (const part of parts) {
+    if (current === null || current === undefined) return undefined;
+    if (typeof current !== "object") return undefined;
+    current = (current as Record<string, unknown>)[part];
+  }
+
+  return current;
+}
+
+/**
+ * Set a value in context by dot-notation path.
+ */
+function setValueByPath(obj: Record<string, unknown>, path: string, value: unknown): void {
+  const parts = path.split(".");
+  let current: Record<string, unknown> = obj;
+
+  for (let i = 0; i < parts.length - 1; i++) {
+    const part = parts[i];
+    if (!part) continue;
+    if (!(part in current) || typeof current[part] !== "object") {
+      current[part] = {};
+    }
+    current = current[part] as Record<string, unknown>;
+  }
+
+  const lastPart = parts[parts.length - 1];
+  if (lastPart) {
+    current[lastPart] = value;
+  }
+}
+
+/**
+ * Delete a value from context by dot-notation path.
+ */
+function deleteValueByPath(obj: Record<string, unknown>, path: string): void {
+  const parts = path.split(".");
+  let current: Record<string, unknown> = obj;
+
+  for (let i = 0; i < parts.length - 1; i++) {
+    const part = parts[i];
+    if (!part) continue;
+    if (!(part in current) || typeof current[part] !== "object") {
+      return; // Path doesn't exist
+    }
+    current = current[part] as Record<string, unknown>;
+  }
+
+  const lastPart = parts[parts.length - 1];
+  if (lastPart && lastPart in current) {
+    delete current[lastPart];
+  }
+}
+
 // ============================================================================
 // Pipeline Execution Engine
 // ============================================================================
@@ -639,6 +1266,26 @@ async function executeStep(
               throw new Error(`Script failed with exit code ${result.exitCode}: ${result.stderr}`);
             }
             return result;
+          }
+          case "loop": {
+            const config = step.config as { type: "loop"; config: LoopConfig };
+            return executeLoop(config.config, run.context, executeStepsById, signal);
+          }
+          case "wait": {
+            const config = step.config as { type: "wait"; config: WaitConfig };
+            return executeWait(config.config, run.context, signal);
+          }
+          case "transform": {
+            const config = step.config as { type: "transform"; config: TransformConfig };
+            return executeTransform(config.config, run.context);
+          }
+          case "webhook": {
+            const config = step.config as { type: "webhook"; config: WebhookConfig };
+            return executeWebhook(config.config, run.context, signal);
+          }
+          case "sub_pipeline": {
+            const config = step.config as { type: "sub_pipeline"; config: SubPipelineConfig };
+            return executeSubPipeline(config.config, run.context, signal);
           }
           default:
             throw new Error(`Unknown step type: ${step.type}`);

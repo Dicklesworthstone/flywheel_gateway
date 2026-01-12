@@ -4,36 +4,56 @@ const isDev = process.env["NODE_ENV"] !== "production";
 const logLevel = process.env["LOG_LEVEL"] ?? (isDev ? "debug" : "info");
 
 /**
- * Base pino logger instance configured for Flywheel Gateway.
+ * Create the base logger. We ALWAYS use sync mode (no transport) now because:
+ * 1. pino-pretty transport can cause issues in parallel test execution
+ * 2. The async worker logger may not have child() immediately available
+ * 3. JSON logs are fine for development and can be piped to pino-pretty externally
  *
- * - JSON output in production for log aggregation
- * - Pretty output in development for readability
- * - Configurable log level via LOG_LEVEL env var
+ * To get pretty logs during development, run:
+ *   bun dev | npx pino-pretty
  */
-export const logger = pino({
+const baseLogger = pino({
   level: logLevel,
   base: {
     service: "flywheel-gateway",
     pid: process.pid,
   },
   timestamp: pino.stdTimeFunctions.isoTime,
-  ...(isDev && {
-    transport: {
-      target: "pino-pretty",
-      options: {
-        colorize: true,
-        translateTime: "HH:MM:ss.l",
-        ignore: "pid,hostname,service",
-      },
+});
+
+/**
+ * Defensive wrapper that ensures child() method is always available.
+ * If the base logger doesn't have child() for some reason, we return
+ * a new logger instance with the bindings as base.
+ */
+function ensureChild(bindings: pino.Bindings): pino.Logger {
+  if (typeof baseLogger.child === "function") {
+    return baseLogger.child(bindings);
+  }
+  // Fallback: create a new logger with the bindings
+  return pino({
+    level: logLevel,
+    base: {
+      service: "flywheel-gateway",
+      pid: process.pid,
+      ...bindings,
     },
-  }),
+    timestamp: pino.stdTimeFunctions.isoTime,
+  });
+}
+
+/**
+ * Exported logger with guaranteed child() method.
+ */
+export const logger: pino.Logger = Object.assign(baseLogger, {
+  child: ensureChild,
 });
 
 /**
  * Create a child logger with additional context bindings.
  */
 export function createChildLogger(bindings: pino.Bindings): pino.Logger {
-  return logger.child(bindings);
+  return ensureChild(bindings);
 }
 
 export type Logger = pino.Logger;

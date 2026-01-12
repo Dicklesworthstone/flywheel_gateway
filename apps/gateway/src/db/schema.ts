@@ -1092,3 +1092,277 @@ export const budgetUsage = sqliteTable(
     ),
   ],
 );
+
+// ============================================================================
+// Pipeline Engine Tables
+// ============================================================================
+
+/**
+ * Pipelines - Workflow definitions for orchestrating multi-step agent operations.
+ *
+ * Features:
+ * - Step-by-step workflow definition
+ * - Conditional branching and parallel execution
+ * - Human-in-the-loop approval gates
+ * - Multiple trigger types (manual, schedule, webhook, bead_event)
+ * - Retry with exponential backoff
+ */
+export const pipelines = sqliteTable(
+  "pipelines",
+  {
+    id: text("id").primaryKey(),
+
+    // Basic info
+    name: text("name").notNull(),
+    description: text("description"),
+    version: integer("version").notNull().default(1),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+
+    // Trigger configuration (JSON blob)
+    triggerType: text("trigger_type").notNull(), // manual | schedule | webhook | bead_event
+    triggerConfig: blob("trigger_config", { mode: "json" }).notNull(),
+    triggerEnabled: integer("trigger_enabled", { mode: "boolean" })
+      .notNull()
+      .default(true),
+    nextTriggerAt: integer("next_trigger_at", { mode: "timestamp" }),
+    lastTriggeredAt: integer("last_triggered_at", { mode: "timestamp" }),
+
+    // Steps configuration (JSON blob - array of PipelineStep)
+    steps: blob("steps", { mode: "json" }).notNull(),
+
+    // Global configuration
+    contextDefaults: blob("context_defaults", { mode: "json" }),
+    retryPolicy: blob("retry_policy", { mode: "json" }),
+
+    // Metadata
+    tags: blob("tags", { mode: "json" }).$type<string[]>(),
+    ownerId: text("owner_id"),
+
+    // Statistics
+    totalRuns: integer("total_runs").notNull().default(0),
+    successfulRuns: integer("successful_runs").notNull().default(0),
+    failedRuns: integer("failed_runs").notNull().default(0),
+    averageDurationMs: integer("average_duration_ms").notNull().default(0),
+
+    // Timestamps
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+    lastRunAt: integer("last_run_at", { mode: "timestamp" }),
+  },
+  (table) => [
+    index("pipelines_name_idx").on(table.name),
+    index("pipelines_enabled_idx").on(table.enabled),
+    index("pipelines_owner_idx").on(table.ownerId),
+    index("pipelines_trigger_type_idx").on(table.triggerType),
+    index("pipelines_next_trigger_idx").on(table.nextTriggerAt),
+    index("pipelines_created_at_idx").on(table.createdAt),
+  ],
+);
+
+/**
+ * Pipeline runs - Execution history for pipelines.
+ *
+ * Tracks each invocation with:
+ * - Status progression (running, paused, completed, failed, cancelled)
+ * - Context variables passed between steps
+ * - Execution timestamps and duration
+ * - Error information if failed
+ */
+export const pipelineRuns = sqliteTable(
+  "pipeline_runs",
+  {
+    id: text("id").primaryKey(),
+
+    // Pipeline reference
+    pipelineId: text("pipeline_id")
+      .notNull()
+      .references(() => pipelines.id, { onDelete: "cascade" }),
+    pipelineVersion: integer("pipeline_version").notNull(),
+
+    // Status: pending | running | paused | completed | failed | cancelled | timeout
+    status: text("status").notNull().default("pending"),
+
+    // Execution state
+    currentStepIndex: integer("current_step_index").notNull().default(0),
+    executedStepIds: blob("executed_step_ids", { mode: "json" })
+      .notNull()
+      .$type<string[]>(),
+
+    // Context (shared variables between steps)
+    context: blob("context", { mode: "json" }).notNull(),
+    triggerParams: blob("trigger_params", { mode: "json" }),
+
+    // Trigger info
+    triggeredByType: text("triggered_by_type").notNull(), // user | schedule | webhook | bead_event | api
+    triggeredById: text("triggered_by_id"),
+
+    // Timing
+    startedAt: integer("started_at", { mode: "timestamp" }).notNull(),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
+    durationMs: integer("duration_ms"),
+
+    // Error info
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    errorStepId: text("error_step_id"),
+
+    // Metadata
+    correlationId: text("correlation_id"),
+  },
+  (table) => [
+    index("pipeline_runs_pipeline_idx").on(table.pipelineId),
+    index("pipeline_runs_status_idx").on(table.status),
+    index("pipeline_runs_started_at_idx").on(table.startedAt),
+    index("pipeline_runs_correlation_idx").on(table.correlationId),
+  ],
+);
+
+/**
+ * Pipeline step results - Execution results for individual steps within a run.
+ *
+ * Tracks per-step:
+ * - Status and timing
+ * - Output data
+ * - Retry count
+ * - Error details if failed
+ */
+export const pipelineStepResults = sqliteTable(
+  "pipeline_step_results",
+  {
+    id: text("id").primaryKey(),
+
+    // References
+    runId: text("run_id")
+      .notNull()
+      .references(() => pipelineRuns.id, { onDelete: "cascade" }),
+    stepId: text("step_id").notNull(),
+    stepName: text("step_name").notNull(),
+    stepType: text("step_type").notNull(),
+
+    // Status: pending | running | completed | failed | skipped | cancelled
+    status: text("status").notNull().default("pending"),
+
+    // Result
+    success: integer("success", { mode: "boolean" }),
+    output: blob("output", { mode: "json" }),
+
+    // Error info
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    errorDetails: blob("error_details", { mode: "json" }),
+
+    // Retry tracking
+    retryCount: integer("retry_count").notNull().default(0),
+
+    // Timing
+    startedAt: integer("started_at", { mode: "timestamp" }),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
+    durationMs: integer("duration_ms"),
+  },
+  (table) => [
+    index("pipeline_step_results_run_idx").on(table.runId),
+    index("pipeline_step_results_step_idx").on(table.stepId),
+    index("pipeline_step_results_status_idx").on(table.status),
+    uniqueIndex("pipeline_step_results_run_step_idx").on(
+      table.runId,
+      table.stepId,
+    ),
+  ],
+);
+
+/**
+ * Pipeline approvals - Pending approval requests for pipeline steps.
+ *
+ * Tracks approval workflow:
+ * - Pending approvals with timeout
+ * - Approver decisions with comments
+ * - Auto-approve/reject on timeout
+ */
+export const pipelineApprovals = sqliteTable(
+  "pipeline_approvals",
+  {
+    id: text("id").primaryKey(),
+
+    // References
+    runId: text("run_id")
+      .notNull()
+      .references(() => pipelineRuns.id, { onDelete: "cascade" }),
+    stepId: text("step_id").notNull(),
+
+    // Approval config
+    approvers: blob("approvers", { mode: "json" }).notNull().$type<string[]>(),
+    message: text("message").notNull(),
+    minApprovals: integer("min_approvals").notNull().default(1),
+
+    // Status: pending | approved | rejected | expired
+    status: text("status").notNull().default("pending"),
+
+    // Decisions (JSON array of ApprovalRecord)
+    decisions: blob("decisions", { mode: "json" }).$type<
+      Array<{
+        userId: string;
+        decision: "approved" | "rejected";
+        comment?: string;
+        timestamp: string;
+      }>
+    >(),
+
+    // Timeout config
+    timeoutAt: integer("timeout_at", { mode: "timestamp" }),
+    onTimeout: text("on_timeout").notNull().default("fail"), // approve | reject | fail
+
+    // Timing
+    requestedAt: integer("requested_at", { mode: "timestamp" }).notNull(),
+    resolvedAt: integer("resolved_at", { mode: "timestamp" }),
+  },
+  (table) => [
+    index("pipeline_approvals_run_idx").on(table.runId),
+    index("pipeline_approvals_status_idx").on(table.status),
+    index("pipeline_approvals_timeout_idx").on(table.timeoutAt),
+    uniqueIndex("pipeline_approvals_run_step_idx").on(table.runId, table.stepId),
+  ],
+);
+
+/**
+ * Pipeline scheduled triggers - Active schedule entries for pipelines.
+ *
+ * Manages cron-based triggers:
+ * - Next execution time calculation
+ * - Timezone handling
+ * - Start/end date constraints
+ */
+export const pipelineSchedules = sqliteTable(
+  "pipeline_schedules",
+  {
+    id: text("id").primaryKey(),
+
+    // Pipeline reference
+    pipelineId: text("pipeline_id")
+      .notNull()
+      .references(() => pipelines.id, { onDelete: "cascade" }),
+
+    // Schedule config
+    cron: text("cron").notNull(),
+    timezone: text("timezone").notNull().default("UTC"),
+    startDate: integer("start_date", { mode: "timestamp" }),
+    endDate: integer("end_date", { mode: "timestamp" }),
+
+    // State
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    nextRunAt: integer("next_run_at", { mode: "timestamp" }),
+    lastRunAt: integer("last_run_at", { mode: "timestamp" }),
+    lastRunId: text("last_run_id"),
+
+    // Statistics
+    runCount: integer("run_count").notNull().default(0),
+    failureCount: integer("failure_count").notNull().default(0),
+
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    index("pipeline_schedules_pipeline_idx").on(table.pipelineId),
+    index("pipeline_schedules_enabled_idx").on(table.enabled),
+    index("pipeline_schedules_next_run_idx").on(table.nextRunAt),
+  ],
+);

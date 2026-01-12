@@ -53,6 +53,13 @@ export type FleetChannel =
   | { type: "fleet:sweep:session"; sessionId: string };
 
 /**
+ * Pipeline-scoped channels for pipeline engine operations.
+ */
+export type PipelineChannel =
+  | { type: "pipeline:all" }
+  | { type: "pipeline:run"; pipelineId: string; runId: string };
+
+/**
  * All channel types.
  */
 export type Channel =
@@ -60,7 +67,8 @@ export type Channel =
   | WorkspaceChannel
   | UserChannel
   | SystemChannel
-  | FleetChannel;
+  | FleetChannel
+  | PipelineChannel;
 
 /**
  * Channel type prefixes for categorization.
@@ -87,7 +95,9 @@ export type ChannelTypePrefix =
   | "fleet:sync"
   | "fleet:sync:session"
   | "fleet:sweep"
-  | "fleet:sweep:session";
+  | "fleet:sweep:session"
+  | "pipeline:all"
+  | "pipeline:run";
 
 /**
  * Convert a channel to its string representation.
@@ -133,6 +143,12 @@ export function channelToString(channel: Channel): string {
 
     case "fleet:sweep:session":
       return `fleet:sweep:session:${channel.sessionId}`;
+
+    case "pipeline:all":
+      return channel.type;
+
+    case "pipeline:run":
+      return `pipeline:run:${channel.pipelineId}:${channel.runId}`;
   }
 }
 
@@ -182,6 +198,18 @@ export function parseChannel(str: string): Channel | undefined {
     const sessionId = str.substring("fleet:sweep:session:".length);
     if (sessionId) {
       return { type: "fleet:sweep:session", sessionId };
+    }
+  }
+
+  // Pipeline channels
+  if (str === "pipeline:all") {
+    return { type: "pipeline:all" };
+  }
+  if (str.startsWith("pipeline:run:")) {
+    const rest = str.substring("pipeline:run:".length);
+    const [pipelineId, runId] = rest.split(":");
+    if (pipelineId && runId) {
+      return { type: "pipeline:run", pipelineId, runId };
     }
   }
 
@@ -240,11 +268,12 @@ export function getChannelTypePrefix(channel: Channel): ChannelTypePrefix {
  */
 export function getChannelScope(
   channel: Channel,
-): "agent" | "workspace" | "user" | "system" | "fleet" {
+): "agent" | "workspace" | "user" | "system" | "fleet" | "pipeline" {
   if (channel.type.startsWith("agent:")) return "agent";
   if (channel.type.startsWith("workspace:")) return "workspace";
   if (channel.type.startsWith("user:")) return "user";
   if (channel.type.startsWith("fleet:")) return "fleet";
+  if (channel.type.startsWith("pipeline:")) return "pipeline";
   return "system";
 }
 
@@ -284,6 +313,10 @@ export function getChannelResourceId(channel: Channel): string | undefined {
     case "fleet:sync:session":
     case "fleet:sweep:session":
       return channel.sessionId;
+    case "pipeline:all":
+      return undefined;
+    case "pipeline:run":
+      return `${channel.pipelineId}:${channel.runId}`;
   }
 }
 
