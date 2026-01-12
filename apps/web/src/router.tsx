@@ -7,6 +7,7 @@ import {
 import { Shell } from "./components/layout/Shell";
 import { AgentsPage } from "./pages/Agents";
 import { BeadsPage } from "./pages/Beads";
+import { CollaborationGraphPage } from "./pages/CollaborationGraph";
 import { DashboardPage } from "./pages/Dashboard";
 import { DCGPage } from "./pages/DCG";
 import { FleetPage } from "./pages/Fleet";
@@ -60,6 +61,12 @@ const velocityRoute = createRoute({
   component: VelocityPage,
 });
 
+const collaborationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/collaboration",
+  component: CollaborationGraphPage,
+});
+
 const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "*",
@@ -73,6 +80,7 @@ const routeTree = rootRoute.addChildren([
   dcgRoute,
   fleetRoute,
   velocityRoute,
+  collaborationRoute,
   settingsRoute,
   notFoundRoute,
 ]);

@@ -8,6 +8,7 @@ import {
   Command,
   Gauge,
   GitBranch,
+  Network,
   Settings,
   Shield,
   Sparkles,
@@ -24,6 +25,7 @@ const navItems = [
   { label: "DCG", icon: Shield, to: "/dcg" },
   { label: "Fleet", icon: GitBranch, to: "/fleet" },
   { label: "Velocity", icon: Activity, to: "/velocity" },
+  { label: "Collab", icon: Network, to: "/collaboration" },
   { label: "Settings", icon: Settings, to: "/settings" },
 ];
 
