@@ -863,8 +863,8 @@ async function executeTransform(
             ...targetValue as object,
             ...sourceValue as object,
           });
+          transformedCount++;
         }
-        transformedCount++;
         break;
       }
 
@@ -886,8 +886,8 @@ async function executeTransform(
             }
           });
           setValueByPath(context, operation.target, mapped);
+          transformedCount++;
         }
-        transformedCount++;
         break;
       }
 
@@ -906,8 +906,8 @@ async function executeTransform(
             }
           });
           setValueByPath(context, operation.target, filtered);
+          transformedCount++;
         }
-        transformedCount++;
         break;
       }
 
@@ -927,8 +927,8 @@ async function executeTransform(
             }
           }, operation.initial);
           setValueByPath(context, operation.target, reduced);
+          transformedCount++;
         }
-        transformedCount++;
         break;
       }
 
@@ -1461,8 +1461,10 @@ async function executePipeline(
         run.context[`step_${stepId}_output`] = result.output;
       }
 
-      // Mark step as executed
-      run.executedStepIds.push(stepId);
+      // Mark step as executed (avoid duplicates from loop iterations)
+      if (!run.executedStepIds.includes(stepId)) {
+        run.executedStepIds.push(stepId);
+      }
 
       // Handle failure
       if (!result.success && !step.continueOnFailure) {
