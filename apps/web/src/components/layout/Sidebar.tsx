@@ -6,6 +6,7 @@ import {
   CircleDot,
   Command,
   Gauge,
+  GitBranch,
   Settings,
   Shield,
   Sparkles,
@@ -20,6 +21,7 @@ const navItems = [
   { label: "Agents", icon: Bot, to: "/agents", badge: mockAgents.length },
   { label: "Beads", icon: CircleDot, to: "/beads", badge: mockBeads.length },
   { label: "DCG", icon: Shield, to: "/dcg" },
+  { label: "Fleet", icon: GitBranch, to: "/fleet" },
   { label: "Settings", icon: Settings, to: "/settings" },
 ];
 
