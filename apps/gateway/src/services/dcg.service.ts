@@ -135,12 +135,17 @@ const currentConfig: DCGConfig = {
 
 // Promise cache for config sync to prevent race conditions
 let syncPromise: Promise<void> | null = null;
+let syncSucceeded = false;
 
 /**
  * Sync in-memory config with persistent storage.
  * Called lazily on first access. Uses promise caching to prevent race conditions.
+ * Allows retry if previous sync failed.
  */
 async function syncConfigFromPersistent(): Promise<void> {
+  // If sync already succeeded, don't retry
+  if (syncSucceeded) return;
+
   // Return existing promise if sync is in progress
   if (syncPromise) return syncPromise;
 
@@ -149,8 +154,11 @@ async function syncConfigFromPersistent(): Promise<void> {
       const persistedConfig = await dcgConfigService.getConfig();
       currentConfig.enabledPacks = persistedConfig.enabledPacks;
       currentConfig.disabledPacks = persistedConfig.disabledPacks;
+      syncSucceeded = true;
       logger.debug("DCG config synced from persistent storage");
     } catch (error) {
+      // Reset promise to allow retry on next call
+      syncPromise = null;
       // In tests or if DB not available, use in-memory defaults
       logger.debug({ error }, "Using in-memory DCG config (DB sync failed)");
     }

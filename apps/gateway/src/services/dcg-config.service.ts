@@ -108,12 +108,24 @@ function generateHistoryId(): string {
 }
 
 /**
+ * Safely parse JSON with fallback.
+ */
+function safeJsonParse<T>(json: string, fallback: T): T {
+  try {
+    return JSON.parse(json) as T;
+  } catch {
+    logger.warn({ json: json.slice(0, 100) }, "Failed to parse JSON, using fallback");
+    return fallback;
+  }
+}
+
+/**
  * Convert database row to config data.
  */
 function rowToConfig(row: typeof dcgConfig.$inferSelect): DCGConfigData {
   const result: DCGConfigData = {
-    enabledPacks: JSON.parse(row.enabledPacks) as string[],
-    disabledPacks: JSON.parse(row.disabledPacks) as string[],
+    enabledPacks: safeJsonParse<string[]>(row.enabledPacks, DEFAULT_ENABLED_PACKS),
+    disabledPacks: safeJsonParse<string[]>(row.disabledPacks, []),
     criticalMode: row.criticalMode as SeverityMode,
     highMode: row.highMode as SeverityMode,
     mediumMode: row.mediumMode as SeverityMode,
@@ -129,15 +141,30 @@ function rowToConfig(row: typeof dcgConfig.$inferSelect): DCGConfigData {
  */
 function rowToHistoryEntry(
   row: typeof dcgConfigHistory.$inferSelect,
-): ConfigHistoryEntry {
+): ConfigHistoryEntry | null {
+  // Parse config snapshot - if this fails, the entry is corrupt
+  let configSnapshot: DCGConfigData;
+  try {
+    configSnapshot = JSON.parse(row.configSnapshot) as DCGConfigData;
+  } catch {
+    logger.warn({ historyId: row.id }, "Corrupt config snapshot in history, skipping entry");
+    return null;
+  }
+
   const entry: ConfigHistoryEntry = {
     id: row.id,
-    configSnapshot: JSON.parse(row.configSnapshot) as DCGConfigData,
+    configSnapshot,
     changedAt: row.changedAt,
     changeType: row.changeType as ChangeType,
   };
+
   if (row.previousSnapshot) {
-    entry.previousSnapshot = JSON.parse(row.previousSnapshot) as DCGConfigData;
+    try {
+      entry.previousSnapshot = JSON.parse(row.previousSnapshot) as DCGConfigData;
+    } catch {
+      // Previous snapshot is optional, just skip it if corrupt
+      logger.debug({ historyId: row.id }, "Corrupt previous snapshot in history, skipping");
+    }
   }
   if (row.changedBy) entry.changedBy = row.changedBy;
   if (row.changeReason) entry.changeReason = row.changeReason;
@@ -402,7 +429,8 @@ export async function getConfigHistory(options?: {
     .orderBy(desc(dcgConfigHistory.changedAt))
     .limit(limit);
 
-  return rows.map(rowToHistoryEntry);
+  // Filter out corrupt entries (null) from the result
+  return rows.map(rowToHistoryEntry).filter((entry): entry is ConfigHistoryEntry => entry !== null);
 }
 
 /**
@@ -418,6 +446,7 @@ export async function getConfigHistoryEntry(
     .get();
 
   if (!row) return null;
+  // rowToHistoryEntry returns null if the entry is corrupt
   return rowToHistoryEntry(row);
 }
 

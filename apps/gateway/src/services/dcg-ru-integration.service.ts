@@ -110,6 +110,15 @@ function hashCommand(command: string): string {
 }
 
 /**
+ * Escape a string for use in shell commands.
+ * Wraps in single quotes and escapes any single quotes within.
+ */
+function shellEscape(arg: string): string {
+  // Replace single quotes with '\'' (end quote, escaped quote, start quote)
+  return `'${arg.replace(/'/g, "'\\''")}'`;
+}
+
+/**
  * Extract commands from a sweep action.
  */
 function extractCommandsFromAction(action: SweepAction): string[] {
@@ -118,10 +127,13 @@ function extractCommandsFromAction(action: SweepAction): string[] {
   switch (action.type) {
     case "commit":
       if (action.files && action.files.length > 0) {
-        commands.push(`git add ${action.files.join(" ")}`);
+        // Escape each filename for shell safety
+        const escapedFiles = action.files.map(shellEscape).join(" ");
+        commands.push(`git add ${escapedFiles}`);
       }
       if (action.message) {
-        commands.push(`git commit -m "${action.message}"`);
+        // Escape the commit message for shell safety
+        commands.push(`git commit -m ${shellEscape(action.message)}`);
       }
       if (action.push) {
         commands.push("git push");
@@ -130,7 +142,8 @@ function extractCommandsFromAction(action: SweepAction): string[] {
 
     case "release":
       if (action.version) {
-        commands.push(`git tag ${action.version}`);
+        // Escape version in case it contains special chars
+        commands.push(`git tag ${shellEscape(action.version)}`);
       }
       if (action.push) {
         commands.push("git push --tags");
