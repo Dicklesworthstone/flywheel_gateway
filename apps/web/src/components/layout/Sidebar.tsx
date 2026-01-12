@@ -1,5 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
+  Activity,
   Bot,
   ChevronLeft,
   ChevronRight,
@@ -22,6 +23,7 @@ const navItems = [
   { label: "Beads", icon: CircleDot, to: "/beads", badge: mockBeads.length },
   { label: "DCG", icon: Shield, to: "/dcg" },
   { label: "Fleet", icon: GitBranch, to: "/fleet" },
+  { label: "Velocity", icon: Activity, to: "/velocity" },
   { label: "Settings", icon: Settings, to: "/settings" },
 ];
 

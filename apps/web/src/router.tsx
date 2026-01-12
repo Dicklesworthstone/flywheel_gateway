@@ -12,6 +12,7 @@ import { DCGPage } from "./pages/DCG";
 import { FleetPage } from "./pages/Fleet";
 import { NotFoundPage } from "./pages/NotFound";
 import { SettingsPage } from "./pages/Settings";
+import { VelocityPage } from "./pages/Velocity";
 
 const rootRoute = createRootRoute({
   component: Shell,
@@ -53,6 +54,12 @@ const fleetRoute = createRoute({
   component: FleetPage,
 });
 
+const velocityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/velocity",
+  component: VelocityPage,
+});
+
 const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "*",
@@ -65,6 +72,7 @@ const routeTree = rootRoute.addChildren([
   beadsRoute,
   dcgRoute,
   fleetRoute,
+  velocityRoute,
   settingsRoute,
   notFoundRoute,
 ]);
