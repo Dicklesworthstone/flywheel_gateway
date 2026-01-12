@@ -290,15 +290,16 @@ async function buildSearchSection(
           tokenBudget - section.totalTokens,
         );
         if (truncatedContent.length > 20) {
+          const truncatedTokens = countTokens(truncatedContent);
           section.results.push({
             id: `${hit.source_path}:${hit.line_number}`,
             source: hit.source_path,
             content: truncatedContent,
             score: hit.score ?? 0,
-            tokens: countTokens(truncatedContent),
+            tokens: truncatedTokens,
             context: formatHitContext(hit),
           });
-          section.totalTokens += countTokens(truncatedContent);
+          section.totalTokens += truncatedTokens;
           section.metadata.includedMatches++;
         }
         break;

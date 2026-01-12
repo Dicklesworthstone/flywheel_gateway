@@ -446,10 +446,12 @@ export function createBunCommandRunner(): CassCommandRunner {
 
       const proc = Bun.spawn([command, ...args], spawnOptions);
 
-      // Handle timeout
+      // Handle timeout with proper cleanup
       const timeout = options?.timeout ?? 30000;
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
+        timeoutId = setTimeout(() => {
           proc.kill();
           reject(new CassClientError("timeout", "Command timed out", { timeout }));
         }, timeout);
@@ -457,11 +459,19 @@ export function createBunCommandRunner(): CassCommandRunner {
 
       try {
         const exitCode = await Promise.race([proc.exited, timeoutPromise]);
+        // Clear timeout on successful completion
+        if (timeoutId !== undefined) {
+          clearTimeout(timeoutId);
+        }
         const stdout = await new Response(proc.stdout).text();
         const stderr = await new Response(proc.stderr).text();
 
         return { stdout, stderr, exitCode };
       } catch (error) {
+        // Clear timeout on error (e.g., timeout itself)
+        if (timeoutId !== undefined) {
+          clearTimeout(timeoutId);
+        }
         proc.kill();
         throw error;
       }

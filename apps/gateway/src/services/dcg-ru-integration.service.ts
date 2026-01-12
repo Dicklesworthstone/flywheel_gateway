@@ -357,11 +357,14 @@ export async function validateSweepPlan(
   const valid = blockedCommands === 0;
 
   // Update plan with validation results
+  // Logic: blocked commands = invalid, only warnings = warning, neither = valid
+  const validationResult = blockedCommands > 0 ? "invalid" : warnings > 0 ? "warning" : "valid";
+
   await db
     .update(agentSweepPlans)
     .set({
       validatedAt: new Date(),
-      validationResult: valid ? "valid" : warnings > 0 ? "warning" : "invalid",
+      validationResult,
       validationErrors: findings.length > 0 ? JSON.stringify(findings) : null,
       riskLevel,
       updatedAt: new Date(),

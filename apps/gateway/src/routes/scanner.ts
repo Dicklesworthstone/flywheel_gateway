@@ -175,11 +175,22 @@ scanner.get("/findings", async (c) => {
     if (query.limit !== undefined) filter.limit = query.limit;
     if (query.offset !== undefined) filter.offset = query.offset;
 
-    const findings = service.getFindings(Object.keys(filter).length > 0 ? filter : undefined);
+    // Request one extra item to determine if there are more results
+    const requestedLimit = query.limit ?? 100;
+    const filterWithExtra: FindingFilter = {
+      ...filter,
+      limit: requestedLimit + 1,
+    };
+
+    const findings = service.getFindings(Object.keys(filter).length > 0 ? filterWithExtra : { limit: requestedLimit + 1 });
+
+    // Check if we got more than requested (indicates more results exist)
+    const hasMore = findings.length > requestedLimit;
+    const resultFindings = hasMore ? findings.slice(0, requestedLimit) : findings;
 
     return sendList(
       c,
-      findings.map((f) => ({
+      resultFindings.map((f) => ({
         id: f.id,
         type: f.type,
         severity: f.severity,
@@ -197,7 +208,7 @@ scanner.get("/findings", async (c) => {
         dismissReason: f.dismissReason,
       })),
       {
-        hasMore: findings.length === (query.limit ?? 100),
+        hasMore,
       }
     );
   } catch (error) {
@@ -257,12 +268,17 @@ scanner.post("/findings/:id/dismiss", async (c) => {
     }
 
     const finding = service.getFinding(id);
+    if (!finding) {
+      // Should not happen since dismissFinding succeeded, but handle gracefully
+      return sendNotFound(c, "finding", id);
+    }
+
     return sendResource(c, "finding", {
-      id: finding!.id,
-      status: finding!.status,
-      dismissedBy: finding!.dismissedBy,
-      dismissedAt: finding!.dismissedAt?.toISOString(),
-      dismissReason: finding!.dismissReason,
+      id: finding.id,
+      status: finding.status,
+      dismissedBy: finding.dismissedBy,
+      dismissedAt: finding.dismissedAt?.toISOString(),
+      dismissReason: finding.dismissReason,
     });
   } catch (error) {
     return handleError(error, c);

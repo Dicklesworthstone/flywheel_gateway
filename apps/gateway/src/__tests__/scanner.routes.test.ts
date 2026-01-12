@@ -58,6 +58,7 @@ function createMockScanResult(overrides: Partial<ScanResult> = {}): ScanResult {
       low: findings.filter((f) => f.severity === "low").length,
       byCategory: {},
     },
+    paths: ["."],
     ...overrides,
   };
 }
@@ -217,8 +218,9 @@ describe("Scanner Routes", () => {
       const res = await app.request("/scanner/findings?limit=10&offset=5");
 
       expect(res.status).toBe(200);
+      // Note: Service is called with limit+1 to check for more results
       expect(mockService.getFindings).toHaveBeenCalledWith(
-        expect.objectContaining({ limit: 10, offset: 5 })
+        expect.objectContaining({ limit: 11, offset: 5 })
       );
     });
   });

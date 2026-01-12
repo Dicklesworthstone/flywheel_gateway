@@ -250,8 +250,8 @@ cass.get("/search", async (c) => {
  */
 cass.get("/view/*", async (c) => {
   try {
-    // Extract path from URL (everything after /view/)
-    const path = c.req.path.replace(/^\/view\//, "");
+    // Extract wildcard path parameter
+    const path = c.req.param("*");
     if (!path) {
       return sendError(c, "INVALID_REQUEST", "Path is required", 400);
     }
@@ -299,8 +299,8 @@ cass.get("/view/*", async (c) => {
  */
 cass.get("/expand/*", async (c) => {
   try {
-    // Extract path from URL (everything after /expand/)
-    const path = c.req.path.replace(/^\/expand\//, "");
+    // Extract wildcard path parameter
+    const path = c.req.param("*");
     if (!path) {
       return sendError(c, "INVALID_REQUEST", "Path is required", 400);
     }

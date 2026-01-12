@@ -77,6 +77,8 @@ export interface ScanResult {
     low: number;
     byCategory: Record<string, number>;
   };
+  /** Paths that were scanned */
+  paths: string[];
   error?: string;
 }
 
@@ -224,15 +226,22 @@ export function createUBSService(projectRoot?: string): UBSService {
       // Build command arguments
       const args = ["ubs"];
 
+      // Track what paths were scanned
+      let scanPaths: string[];
+
       // Add paths or default to current directory
       if (options?.paths && options.paths.length > 0) {
         args.push(...options.paths);
+        scanPaths = options.paths;
       } else if (options?.staged) {
         args.push("--staged");
+        scanPaths = ["--staged"];
       } else if (options?.diff) {
         args.push("--diff");
+        scanPaths = ["--diff"];
       } else {
         args.push(".");
+        scanPaths = ["."];
       }
 
       // Always use JSON output for parsing
@@ -293,6 +302,7 @@ export function createUBSService(projectRoot?: string): UBSService {
             filesScanned: 0,
             findings: [],
             summary: { total: 0, critical: 0, high: 0, medium: 0, low: 0, byCategory: {} },
+            paths: scanPaths,
             error: stderr || "Failed to parse UBS output",
           };
           store.scans.set(scanId, errorResult);
@@ -347,6 +357,7 @@ export function createUBSService(projectRoot?: string): UBSService {
             low: ubsOutput.summary.low,
             byCategory: ubsOutput.summary.by_category ?? {},
           },
+          paths: scanPaths,
         };
 
         store.scans.set(scanId, result);
@@ -376,6 +387,7 @@ export function createUBSService(projectRoot?: string): UBSService {
           filesScanned: 0,
           findings: [],
           summary: { total: 0, critical: 0, high: 0, medium: 0, low: 0, byCategory: {} },
+          paths: scanPaths,
           error: error instanceof Error ? error.message : String(error),
         };
         store.scans.set(scanId, errorResult);
@@ -458,7 +470,7 @@ export function createUBSService(projectRoot?: string): UBSService {
         filesScanned: scan.filesScanned,
         totalFindings: scan.summary.total,
         criticalFindings: scan.summary.critical,
-        paths: [], // Would need to store this in the scan
+        paths: scan.paths,
       }));
     },
 
