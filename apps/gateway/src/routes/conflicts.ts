@@ -31,6 +31,13 @@ import {
   updateAlertConfig,
 } from "../services/conflict.service";
 import {
+  getAuditRecords,
+  getAutoResolutionCriteria,
+  invalidateSuggestion,
+  requestResolution,
+  updateAutoResolutionCriteria,
+} from "../services/conflict-resolution.service";
+import {
   sendError,
   sendList,
   sendNotFound,
@@ -45,7 +52,7 @@ const conflicts = new Hono();
 // Validation Schemas
 // ============================================================================
 
-const ConflictFilterSchema = z.object({
+const _ConflictFilterSchema = z.object({
   type: z
     .array(
       z.enum([
@@ -88,6 +95,37 @@ const AlertConfigSchema = z.object({
   minSeverity: z.enum(["info", "warning", "error", "critical"]).optional(),
   cooldownMs: z.number().min(0).max(3600000).optional(),
   escalationTimeoutMs: z.number().min(0).max(86400000).optional(),
+});
+
+const ResolutionRequestSchema = z.object({
+  requestingAgentId: z.string().min(1),
+  requestingBvId: z.string().optional(),
+  contestedResources: z
+    .array(
+      z.object({
+        type: z.enum(["file", "directory", "pattern", "service", "lock"]),
+        path: z.string(),
+        critical: z.boolean().optional(),
+        protected: z.boolean().optional(),
+      }),
+    )
+    .min(1),
+  urgencyOverride: z.enum(["normal", "high", "critical"]).optional(),
+  preferredStrategies: z
+    .array(z.enum(["wait", "split", "transfer", "coordinate", "escalate"]))
+    .optional(),
+  context: z.string().max(2000).optional(),
+  projectId: z.string().min(1),
+  holdingAgentId: z.string().optional(),
+  holdingBvId: z.string().optional(),
+});
+
+const AutoResolutionCriteriaSchema = z.object({
+  minConfidence: z.number().min(0).max(100).optional(),
+  maxWaitTimeMs: z.number().min(0).max(86400000).optional(),
+  disabledForCritical: z.boolean().optional(),
+  requireBothAgentsEnabled: z.boolean().optional(),
+  maxPriorFailedAttempts: z.number().min(0).max(10).optional(),
 });
 
 // ============================================================================
@@ -190,7 +228,12 @@ conflicts.get("/history", async (c) => {
   }));
 
   // Build pagination meta conditionally (for exactOptionalPropertyTypes)
-  const meta: { total: number; hasMore: boolean; nextCursor?: string; prevCursor?: string } = {
+  const meta: {
+    total: number;
+    hasMore: boolean;
+    nextCursor?: string;
+    prevCursor?: string;
+  } = {
     total: result.total,
     hasMore: result.hasMore,
   };
@@ -353,10 +396,10 @@ conflicts.post("/:conflictId/resolve", async (c) => {
       type: resolved.type,
       resolvedAt: resolved.resolvedAt?.toISOString(),
       resolution: {
-        type: resolved.resolution!.type,
-        description: resolved.resolution!.description,
-        resolvedBy: resolved.resolution!.resolvedBy,
-        resolvedAt: resolved.resolution!.resolvedAt.toISOString(),
+        type: resolved.resolution?.type,
+        description: resolved.resolution?.description,
+        resolvedBy: resolved.resolution?.resolvedBy,
+        resolvedAt: resolved.resolution?.resolvedAt.toISOString(),
       },
     };
 
@@ -509,6 +552,196 @@ conflicts.post("/scan/contention", async (c) => {
     return sendResource(c, "contention_scan_result", scanResult);
   } catch (error) {
     log.error({ error }, "Error scanning for resource contention");
+    throw error;
+  }
+});
+
+// ============================================================================
+// Resolution Routes
+// ============================================================================
+
+/**
+ * POST /conflicts/:conflictId/suggest - Request resolution suggestion
+ */
+conflicts.post("/:conflictId/suggest", async (c) => {
+  const log = getLogger();
+  const conflictId = c.req.param("conflictId");
+
+  try {
+    // Check if conflict exists
+    const existingConflict = getConflict(conflictId);
+    if (!existingConflict) {
+      return sendNotFound(c, "conflict", conflictId);
+    }
+
+    // Check if already resolved
+    if (existingConflict.resolvedAt) {
+      return sendError(
+        c,
+        "CONFLICT_ALREADY_RESOLVED",
+        `Conflict ${conflictId} has already been resolved`,
+        400,
+        {
+          hint: "Cannot suggest resolution for an already resolved conflict.",
+        },
+      );
+    }
+
+    const body = await c.req.json();
+    const validated = ResolutionRequestSchema.parse(body);
+
+    const result = await requestResolution({
+      conflictId,
+      requestingAgentId: validated.requestingAgentId,
+      requestingBvId: validated.requestingBvId,
+      contestedResources: validated.contestedResources,
+      urgencyOverride: validated.urgencyOverride,
+      preferredStrategies: validated.preferredStrategies,
+      context: validated.context,
+      projectId: validated.projectId,
+      holdingAgentId: validated.holdingAgentId,
+      holdingBvId: validated.holdingBvId,
+    });
+
+    if (!result.success) {
+      return sendError(
+        c,
+        "RESOLUTION_FAILED",
+        result.error ?? "Failed to generate resolution suggestion",
+        500,
+      );
+    }
+
+    // biome-ignore lint/style/noNonNullAssertion: success check guarantees suggestion exists
+    const suggestion = result.suggestion!;
+
+    // Transform dates to ISO strings
+    const transformedSuggestion = {
+      suggestionId: suggestion.suggestionId,
+      conflictId: suggestion.conflictId,
+      recommendedStrategy: {
+        type: suggestion.recommendedStrategy.type,
+        score: suggestion.recommendedStrategy.score,
+        params: suggestion.recommendedStrategy.params,
+        expectedOutcome: suggestion.recommendedStrategy.expectedOutcome,
+      },
+      alternativeStrategies: suggestion.alternativeStrategies.map((s) => ({
+        type: s.type,
+        score: s.score,
+      })),
+      confidence: suggestion.confidence,
+      confidenceBreakdown: suggestion.confidenceBreakdown,
+      rationale: suggestion.rationale,
+      autoResolutionEligible: suggestion.autoResolutionEligible,
+      estimatedResolutionTime: suggestion.estimatedResolutionTime,
+      risks: suggestion.risks,
+      createdAt: suggestion.createdAt.toISOString(),
+      expiresAt: suggestion.expiresAt.toISOString(),
+    };
+
+    return sendResource(c, "resolution_suggestion", transformedSuggestion, 201);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendValidationError(c, transformZodError(error));
+    }
+    log.error({ error, conflictId }, "Error requesting resolution suggestion");
+    throw error;
+  }
+});
+
+/**
+ * DELETE /conflicts/:conflictId/suggestion - Invalidate cached suggestion
+ */
+conflicts.delete("/:conflictId/suggestion", async (c) => {
+  const conflictId = c.req.param("conflictId");
+
+  // Check if conflict exists
+  const existingConflict = getConflict(conflictId);
+  if (!existingConflict) {
+    return sendNotFound(c, "conflict", conflictId);
+  }
+
+  invalidateSuggestion(conflictId);
+
+  return c.json({ success: true, message: "Suggestion cache invalidated" });
+});
+
+/**
+ * GET /conflicts/resolution/audit - Get resolution audit records
+ */
+conflicts.get("/resolution/audit", async (c) => {
+  const limitParam = c.req.query("limit");
+  const limit = limitParam ? parseInt(limitParam, 10) : 50;
+
+  const records = getAuditRecords(Math.min(limit, 100));
+
+  const transformedRecords = records.map((r) => ({
+    id: r.id,
+    correlationId: r.correlationId,
+    conflictId: r.conflictId,
+    suggestionId: r.suggestionId,
+    recommendedStrategy: r.recommendedStrategy,
+    appliedStrategy: r.appliedStrategy,
+    confidence: r.confidence,
+    autoResolved: r.autoResolved,
+    inputSources: r.inputSources,
+    processingTimeMs: r.processingTimeMs,
+    timestamp: r.timestamp.toISOString(),
+  }));
+
+  return sendList(c, transformedRecords, { hasMore: records.length >= limit });
+});
+
+/**
+ * GET /conflicts/resolution/config - Get auto-resolution criteria
+ */
+conflicts.get("/resolution/config", async (c) => {
+  const criteria = getAutoResolutionCriteria();
+  return sendResource(c, "auto_resolution_criteria", criteria);
+});
+
+/**
+ * PATCH /conflicts/resolution/config - Update auto-resolution criteria
+ */
+conflicts.patch("/resolution/config", async (c) => {
+  const log = getLogger();
+
+  try {
+    const body = await c.req.json();
+    const validated = AutoResolutionCriteriaSchema.parse(body);
+
+    // Build update object with only defined properties
+    const update: Partial<{
+      minConfidence: number;
+      maxWaitTimeMs: number;
+      disabledForCritical: boolean;
+      requireBothAgentsEnabled: boolean;
+      maxPriorFailedAttempts: number;
+    }> = {};
+
+    if (validated.minConfidence !== undefined) {
+      update.minConfidence = validated.minConfidence;
+    }
+    if (validated.maxWaitTimeMs !== undefined) {
+      update.maxWaitTimeMs = validated.maxWaitTimeMs;
+    }
+    if (validated.disabledForCritical !== undefined) {
+      update.disabledForCritical = validated.disabledForCritical;
+    }
+    if (validated.requireBothAgentsEnabled !== undefined) {
+      update.requireBothAgentsEnabled = validated.requireBothAgentsEnabled;
+    }
+    if (validated.maxPriorFailedAttempts !== undefined) {
+      update.maxPriorFailedAttempts = validated.maxPriorFailedAttempts;
+    }
+
+    const updated = updateAutoResolutionCriteria(update);
+    return sendResource(c, "auto_resolution_criteria", updated);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendValidationError(c, transformZodError(error));
+    }
+    log.error({ error }, "Error updating auto-resolution criteria");
     throw error;
   }
 });
