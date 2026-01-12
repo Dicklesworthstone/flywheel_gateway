@@ -3,6 +3,7 @@ import { registerDrivers } from "./config/drivers";
 import { correlationMiddleware } from "./middleware/correlation";
 import { idempotencyMiddleware } from "./middleware/idempotency";
 import { loggingMiddleware } from "./middleware/logging";
+import { apiSecurityHeaders } from "./middleware/security-headers";
 import { routes } from "./routes";
 import { startAgentEvents } from "./services/agent-events";
 import { logger } from "./services/logger";
@@ -23,6 +24,7 @@ const app = new Hono();
 // Apply global middlewares
 app.use("*", correlationMiddleware());
 app.use("*", loggingMiddleware());
+app.use("*", apiSecurityHeaders());
 app.use(
   "*",
   idempotencyMiddleware({
