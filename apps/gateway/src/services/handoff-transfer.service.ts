@@ -531,8 +531,8 @@ export async function rollbackTransfer(
     return;
   }
 
-  // Rollback in reverse order
-  for (const transfer of completedTransfers.reverse()) {
+  // Rollback in reverse order (use spread to avoid mutating caller's array)
+  for (const transfer of [...completedTransfers].reverse()) {
     if (!transfer.success) continue;
 
     try {

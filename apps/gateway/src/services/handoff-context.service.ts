@@ -269,6 +269,13 @@ function sanitizeWorkingMemory(
 
     if (isSensitive) {
       sanitized[key] = "[REDACTED]";
+    } else if (Array.isArray(value)) {
+      // Handle arrays: recursively sanitize each element that's an object
+      sanitized[key] = value.map((item) =>
+        typeof item === "object" && item !== null
+          ? sanitizeWorkingMemory(item as Record<string, unknown>)
+          : item,
+      );
     } else if (typeof value === "object" && value !== null) {
       sanitized[key] = sanitizeWorkingMemory(value as Record<string, unknown>);
     } else {
