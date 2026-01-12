@@ -614,3 +614,120 @@ export const accountPoolMembers = sqliteTable(
     ),
   ],
 );
+
+// ============================================================================
+// Job Orchestration Tables
+// ============================================================================
+
+/**
+ * Jobs - Long-running operations with progress tracking, cancellation, and retry.
+ *
+ * Job types include:
+ * - Context operations: context_build, context_compact
+ * - Scan operations: codebase_scan, dependency_scan
+ * - Export operations: session_export, bead_export
+ * - Import operations: codebase_import, memory_import
+ * - Analysis operations: semantic_index, embedding_generate
+ * - Maintenance operations: checkpoint_compact, cache_warm
+ */
+export const jobs = sqliteTable(
+  "jobs",
+  {
+    id: text("id").primaryKey(),
+
+    // Job identification
+    type: text("type").notNull(),
+    name: text("name"),
+
+    // Status: pending | running | paused | completed | failed | cancelled | timeout
+    status: text("status").notNull().default("pending"),
+
+    // Priority: 0=low, 1=normal, 2=high, 3=critical
+    priority: integer("priority").notNull().default(1),
+
+    // Ownership
+    sessionId: text("session_id"),
+    agentId: text("agent_id").references(() => agents.id),
+    userId: text("user_id"),
+
+    // Input/Output (JSON blobs)
+    input: blob("input", { mode: "json" }),
+    output: blob("output", { mode: "json" }),
+
+    // Progress tracking
+    progressCurrent: integer("progress_current").notNull().default(0),
+    progressTotal: integer("progress_total").notNull().default(100),
+    progressMessage: text("progress_message"),
+    progressStage: text("progress_stage"),
+
+    // Timing
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    startedAt: integer("started_at", { mode: "timestamp" }),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
+    estimatedDurationMs: integer("estimated_duration_ms"),
+    actualDurationMs: integer("actual_duration_ms"),
+
+    // Error handling
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    errorStack: text("error_stack"),
+    errorRetryable: integer("error_retryable", { mode: "boolean" }),
+
+    // Retry configuration
+    retryAttempts: integer("retry_attempts").notNull().default(0),
+    retryMaxAttempts: integer("retry_max_attempts").notNull().default(3),
+    retryBackoffMs: integer("retry_backoff_ms").notNull().default(1000),
+    retryNextAt: integer("retry_next_at", { mode: "timestamp" }),
+
+    // Cancellation
+    cancelRequestedAt: integer("cancel_requested_at", { mode: "timestamp" }),
+    cancelRequestedBy: text("cancel_requested_by"),
+    cancelReason: text("cancel_reason"),
+
+    // Checkpointing (for resume)
+    checkpointState: blob("checkpoint_state", { mode: "json" }),
+    checkpointAt: integer("checkpoint_at", { mode: "timestamp" }),
+
+    // Metadata
+    metadata: blob("metadata", { mode: "json" }),
+    correlationId: text("correlation_id"),
+  },
+  (table) => [
+    index("jobs_type_idx").on(table.type),
+    index("jobs_status_idx").on(table.status),
+    index("jobs_priority_idx").on(table.priority),
+    index("jobs_session_idx").on(table.sessionId),
+    index("jobs_agent_idx").on(table.agentId),
+    index("jobs_created_at_idx").on(table.createdAt),
+    index("jobs_correlation_idx").on(table.correlationId),
+  ],
+);
+
+/**
+ * Job logs - Detailed execution logs for jobs.
+ */
+export const jobLogs = sqliteTable(
+  "job_logs",
+  {
+    id: text("id").primaryKey(),
+
+    // Reference
+    jobId: text("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+
+    // Log entry
+    level: text("level").notNull(), // debug | info | warn | error
+    message: text("message").notNull(),
+    data: blob("data", { mode: "json" }),
+
+    // Timing
+    timestamp: integer("timestamp", { mode: "timestamp" }).notNull(),
+    durationMs: integer("duration_ms"),
+  },
+  (table) => [
+    index("job_logs_job_idx").on(table.jobId),
+    index("job_logs_timestamp_idx").on(table.timestamp),
+    index("job_logs_level_idx").on(table.level),
+  ],
+);

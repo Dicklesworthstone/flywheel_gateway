@@ -43,6 +43,13 @@
       "when": 1768159597657,
       "tag": "0005_purple_vision",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1768198964396,
+      "tag": "0006_greedy_ma_gnuci",
+      "breakpoints": true
     }
   ]
 }
