@@ -323,8 +323,8 @@ describe("DCG Pending Exceptions Service", () => {
 
   describe("cleanupExpiredExceptions", () => {
     test("marks expired exceptions", async () => {
-      await createPendingException({
-        command: "test-command",
+      const exception = await createPendingException({
+        command: "test-command-expired",
         pack: "test",
         ruleId: "test:rule",
         reason: "Test",
@@ -332,10 +332,15 @@ describe("DCG Pending Exceptions Service", () => {
         ttlSeconds: 0, // Expires immediately
       });
 
-      await new Promise((r) => setTimeout(r, 100));
+      // Wait for expiration (must be > 1 second since timestamps are in seconds)
+      await new Promise((r) => setTimeout(r, 1100));
 
       const expiredCount = await cleanupExpiredExceptions();
       expect(expiredCount).toBeGreaterThanOrEqual(1);
+
+      // Verify the specific exception was marked as expired
+      const updated = await getPendingException(exception.shortCode);
+      expect(updated?.status).toBe("expired");
     });
   });
 });

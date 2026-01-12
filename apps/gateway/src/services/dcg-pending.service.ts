@@ -6,7 +6,7 @@
  */
 
 import { createHash } from "crypto";
-import { and, desc, eq, gt, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gt, lt } from "drizzle-orm";
 import {
   createCursor,
   decodeCursor,
