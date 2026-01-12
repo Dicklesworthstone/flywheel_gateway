@@ -4,10 +4,12 @@
 
 import { describe, expect, test } from "bun:test";
 import {
+  createThrottleMessage,
   createWSError,
   parseClientMessage,
   serializeServerMessage,
   type ErrorMessage,
+  type ThrottledMessage,
 } from "../messages";
 
 describe("WebSocket messages", () => {
@@ -155,6 +157,49 @@ describe("WebSocket messages", () => {
     });
   });
 
+  describe("createThrottleMessage", () => {
+    test("creates basic throttle message", () => {
+      const msg = createThrottleMessage(1000);
+      expect(msg.type).toBe("throttled");
+      expect(msg.message).toBe("Slow down message rate");
+      expect(msg.resumeAfterMs).toBe(1000);
+    });
+
+    test("includes count and limit when provided", () => {
+      const msg = createThrottleMessage(2000, {
+        currentCount: 105,
+        limit: 100,
+      });
+      expect(msg.type).toBe("throttled");
+      expect(msg.resumeAfterMs).toBe(2000);
+      expect(msg.currentCount).toBe(105);
+      expect(msg.limit).toBe(100);
+    });
+
+    test("includes resetsAt when provided", () => {
+      const resetTime = new Date("2026-01-12T10:00:00Z");
+      const msg = createThrottleMessage(5000, {
+        resetsAt: resetTime,
+      });
+      expect(msg.resetsAt).toBe("2026-01-12T10:00:00.000Z");
+    });
+
+    test("includes all optional fields", () => {
+      const resetTime = new Date("2026-01-12T12:00:00Z");
+      const msg = createThrottleMessage(3000, {
+        currentCount: 150,
+        limit: 100,
+        resetsAt: resetTime,
+      });
+      expect(msg.type).toBe("throttled");
+      expect(msg.message).toBe("Slow down message rate");
+      expect(msg.resumeAfterMs).toBe(3000);
+      expect(msg.currentCount).toBe(150);
+      expect(msg.limit).toBe(100);
+      expect(msg.resetsAt).toBe("2026-01-12T12:00:00.000Z");
+    });
+  });
+
   describe("serializeServerMessage", () => {
     test("serializes error message with all fields", () => {
       const error = createWSError("INVALID_FORMAT", "Invalid message format");
@@ -192,6 +237,22 @@ describe("WebSocket messages", () => {
       expect(parsed.capabilities.backfill).toBe(true);
       expect(parsed.heartbeatIntervalMs).toBe(30000);
       expect(parsed.docs).toContain("flywheel.dev");
+    });
+
+    test("serializes throttle message", () => {
+      const msg = createThrottleMessage(1500, {
+        currentCount: 120,
+        limit: 100,
+      });
+
+      const serialized = serializeServerMessage(msg);
+      const parsed = JSON.parse(serialized) as ThrottledMessage;
+
+      expect(parsed.type).toBe("throttled");
+      expect(parsed.message).toBe("Slow down message rate");
+      expect(parsed.resumeAfterMs).toBe(1500);
+      expect(parsed.currentCount).toBe(120);
+      expect(parsed.limit).toBe(100);
     });
   });
 });

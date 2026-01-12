@@ -334,6 +334,24 @@ export interface AckResponseMessage {
 }
 
 /**
+ * Throttle/backpressure indication.
+ * Sent when the client is sending messages too fast.
+ */
+export interface ThrottledMessage {
+  type: "throttled";
+  /** Human-readable message */
+  message: string;
+  /** Time in milliseconds before the client should resume sending */
+  resumeAfterMs: number;
+  /** Current message count in the throttle window */
+  currentCount?: number;
+  /** Maximum messages allowed per window */
+  limit?: number;
+  /** When the throttle window resets (ISO timestamp) */
+  resetsAt?: string;
+}
+
+/**
  * All server -> client message types.
  */
 export type ServerMessage =
@@ -346,7 +364,8 @@ export type ServerMessage =
   | HeartbeatMessage
   | ReconnectAckMessage
   | ErrorMessage
-  | AckResponseMessage;
+  | AckResponseMessage
+  | ThrottledMessage;
 
 // ============================================================================
 // Message Helpers
@@ -584,4 +603,48 @@ export function createWSError(
   }
 
   return errorMsg;
+}
+
+/**
+ * Create a throttle message for backpressure.
+ * Sent when the client is sending messages too fast.
+ *
+ * @param resumeAfterMs - Time in milliseconds before the client should resume
+ * @param options - Additional throttle information
+ * @returns Throttle message
+ *
+ * @example
+ * ```typescript
+ * const throttleMsg = createThrottleMessage(1000, {
+ *   currentCount: 105,
+ *   limit: 100,
+ * });
+ * ws.send(serializeServerMessage(throttleMsg));
+ * ```
+ */
+export function createThrottleMessage(
+  resumeAfterMs: number,
+  options?: {
+    currentCount?: number;
+    limit?: number;
+    resetsAt?: Date;
+  },
+): ThrottledMessage {
+  const msg: ThrottledMessage = {
+    type: "throttled",
+    message: "Slow down message rate",
+    resumeAfterMs,
+  };
+
+  if (options?.currentCount !== undefined) {
+    msg.currentCount = options.currentCount;
+  }
+  if (options?.limit !== undefined) {
+    msg.limit = options.limit;
+  }
+  if (options?.resetsAt !== undefined) {
+    msg.resetsAt = options.resetsAt.toISOString();
+  }
+
+  return msg;
 }
