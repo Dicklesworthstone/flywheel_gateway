@@ -268,10 +268,10 @@ describe("AuditRedactionService", () => {
         ],
       };
       const result = service.redact(data);
-      expect(result.users[0].password).toBe("[REMOVED]");
-      expect(result.users[1].password).toBe("[REMOVED]");
-      expect(result.users[0].name).toBe("Alice");
-      expect(result.users[1].name).toBe("Bob");
+      expect(result.users[0]!.password).toBe("[REMOVED]");
+      expect(result.users[1]!.password).toBe("[REMOVED]");
+      expect(result.users[0]!.name).toBe("Alice");
+      expect(result.users[1]!.name).toBe("Bob");
     });
   });
 
@@ -286,8 +286,8 @@ describe("AuditRedactionService", () => {
     test("processes arrays of objects", () => {
       const data = [{ password: "secret1" }, { password: "secret2" }];
       const result = service.redact(data);
-      expect(result[0].password).toBe("[REMOVED]");
-      expect(result[1].password).toBe("[REMOVED]");
+      expect(result[0]!.password).toBe("[REMOVED]");
+      expect(result[1]!.password).toBe("[REMOVED]");
     });
   });
 

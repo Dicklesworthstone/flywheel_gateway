@@ -485,7 +485,7 @@ export function useDenyPending() {
             ...mock,
             status: "denied",
             deniedBy: "api-user",
-            denyReason: reason,
+            ...(reason && { denyReason: reason }),
           };
         }
         throw new Error("Not found");
@@ -496,7 +496,7 @@ export function useDenyPending() {
           `/pending/${shortCode}/deny`,
           {
             method: "POST",
-            body: reason ? JSON.stringify({ reason }) : undefined,
+            ...(reason && { body: JSON.stringify({ reason }) }),
           },
         );
         return result;
@@ -538,9 +538,11 @@ export function useTestCommand() {
           command.includes("--force");
         return {
           blocked: isDangerous,
-          severity: isDangerous ? "high" : undefined,
-          pack: isDangerous ? "mock-dangerous" : undefined,
-          rule: isDangerous ? "mock-rule" : undefined,
+          ...(isDangerous && {
+            severity: "high",
+            pack: "mock-dangerous",
+            rule: "mock-rule",
+          }),
           explanation: isDangerous
             ? "This command appears to be destructive"
             : "Command is safe to execute",

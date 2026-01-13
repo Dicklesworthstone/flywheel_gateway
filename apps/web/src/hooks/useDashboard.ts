@@ -131,7 +131,7 @@ export function useDashboard(
           {
             id: dashboard.id,
             name: dashboard.name,
-            description: dashboard.description,
+            description: dashboard.description ?? "",
             ownerId: dashboard.ownerId,
             visibility: dashboard.sharing.visibility,
             widgetCount: dashboard.widgets.length,

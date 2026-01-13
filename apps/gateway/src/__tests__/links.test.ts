@@ -47,18 +47,18 @@ describe("links utilities", () => {
       const links = agentLinks({ agentId: "agent_123" }, ctx);
 
       expect(links.self).toBe("https://api.example.com/agents/agent_123");
-      expect(links.output).toBe(
+      expect(links["output"]).toBe(
         "https://api.example.com/agents/agent_123/output",
       );
-      expect(links.status).toBe(
+      expect(links["status"]).toBe(
         "https://api.example.com/agents/agent_123/status",
       );
-      expect(links.terminate).toBe("https://api.example.com/agents/agent_123");
-      expect(links.send).toBe("https://api.example.com/agents/agent_123/send");
-      expect(links.interrupt).toBe(
+      expect(links["terminate"]).toBe("https://api.example.com/agents/agent_123");
+      expect(links["send"]).toBe("https://api.example.com/agents/agent_123/send");
+      expect(links["interrupt"]).toBe(
         "https://api.example.com/agents/agent_123/interrupt",
       );
-      expect(links.ws).toBe("wss://api.example.com/ws");
+      expect(links["ws"]).toBe("wss://api.example.com/ws");
     });
 
     test("agentListLinks generates minimal self link", () => {
@@ -74,10 +74,10 @@ describe("links utilities", () => {
       const links = reservationLinks({ id: "rsv_123" }, ctx);
 
       expect(links.self).toBe("https://api.example.com/reservations/rsv_123");
-      expect(links.release).toBe(
+      expect(links["release"]).toBe(
         "https://api.example.com/reservations/rsv_123",
       );
-      expect(links.renew).toBe(
+      expect(links["renew"]).toBe(
         "https://api.example.com/reservations/rsv_123/renew",
       );
     });
@@ -93,13 +93,13 @@ describe("links utilities", () => {
       expect(links.self).toBe(
         "https://api.example.com/sessions/sess_456/checkpoints/chk_123",
       );
-      expect(links.restore).toBe(
+      expect(links["restore"]).toBe(
         "https://api.example.com/sessions/sess_456/checkpoints/chk_123/restore",
       );
-      expect(links.export).toBe(
+      expect(links["export"]).toBe(
         "https://api.example.com/sessions/sess_456/checkpoints/chk_123/export",
       );
-      expect(links.delete).toBe(
+      expect(links["delete"]).toBe(
         "https://api.example.com/sessions/sess_456/checkpoints/chk_123",
       );
     });
@@ -122,7 +122,7 @@ describe("links utilities", () => {
       const links = conflictLinks({ id: "conf_123" }, ctx);
 
       expect(links.self).toBe("https://api.example.com/conflicts/conf_123");
-      expect(links.resolve).toBe(
+      expect(links["resolve"]).toBe(
         "https://api.example.com/conflicts/conf_123/resolve",
       );
     });
@@ -133,8 +133,8 @@ describe("links utilities", () => {
       const links = beadLinks({ id: "bead_123" }, ctx);
 
       expect(links.self).toBe("https://api.example.com/beads/bead_123");
-      expect(links.update).toBe("https://api.example.com/beads/bead_123");
-      expect(links.close).toBe("https://api.example.com/beads/bead_123/close");
+      expect(links["update"]).toBe("https://api.example.com/beads/bead_123");
+      expect(links["close"]).toBe("https://api.example.com/beads/bead_123/close");
     });
   });
 
@@ -143,7 +143,7 @@ describe("links utilities", () => {
       const links = messageLinks({ id: "msg_123" }, ctx);
 
       expect(links.self).toBe("https://api.example.com/mail/messages/msg_123");
-      expect(links.reply).toBe(
+      expect(links["reply"]).toBe(
         "https://api.example.com/mail/messages/msg_123/reply",
       );
     });
@@ -156,7 +156,7 @@ describe("links utilities", () => {
       expect(links.self).toBe(
         "https://api.example.com/mail/threads/thread_123",
       );
-      expect(links.messages).toBe(
+      expect(links["messages"]).toBe(
         "https://api.example.com/mail/threads/thread_123/messages",
       );
     });
@@ -167,7 +167,7 @@ describe("links utilities", () => {
       const links = allowlistLinks({ ruleId: "rule_123" }, ctx);
 
       expect(links.self).toBe("https://api.example.com/dcg/allowlist/rule_123");
-      expect(links.delete).toBe(
+      expect(links["delete"]).toBe(
         "https://api.example.com/dcg/allowlist/rule_123",
       );
     });
@@ -178,10 +178,10 @@ describe("links utilities", () => {
       const links = pendingExceptionLinks({ shortCode: "ABC123" }, ctx);
 
       expect(links.self).toBe("https://api.example.com/dcg/pending/ABC123");
-      expect(links.approve).toBe(
+      expect(links["approve"]).toBe(
         "https://api.example.com/dcg/pending/ABC123/approve",
       );
-      expect(links.deny).toBe(
+      expect(links["deny"]).toBe(
         "https://api.example.com/dcg/pending/ABC123/deny",
       );
     });
@@ -194,16 +194,16 @@ describe("links utilities", () => {
       expect(links.self).toBe(
         "https://api.example.com/supervisor/ru-sync/status",
       );
-      expect(links.start).toBe(
+      expect(links["start"]).toBe(
         "https://api.example.com/supervisor/ru-sync/start",
       );
-      expect(links.stop).toBe(
+      expect(links["stop"]).toBe(
         "https://api.example.com/supervisor/ru-sync/stop",
       );
-      expect(links.restart).toBe(
+      expect(links["restart"]).toBe(
         "https://api.example.com/supervisor/ru-sync/restart",
       );
-      expect(links.logs).toBe(
+      expect(links["logs"]).toBe(
         "https://api.example.com/supervisor/ru-sync/logs",
       );
     });

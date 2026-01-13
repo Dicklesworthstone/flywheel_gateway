@@ -183,9 +183,9 @@ describe("ContextHealthService", () => {
 
       const history = service.getHistory("test-session");
       expect(history.length).toBe(2);
-      expect(history[0].tokens).toBe(1000);
-      expect(history[1].tokens).toBe(2000);
-      expect(history[1].delta).toBe(1000);
+      expect(history[0]!.tokens).toBe(1000);
+      expect(history[1]!.tokens).toBe(2000);
+      expect(history[1]!.delta).toBe(1000);
     });
 
     test("adds messages and updates tokens", () => {
@@ -214,8 +214,8 @@ describe("ContextHealthService", () => {
       const health = await service.checkHealth("test-session");
 
       expect(health.recommendations).toHaveLength(1);
-      expect(health.recommendations[0].action).toBe("none");
-      expect(health.recommendations[0].urgency).toBe("low");
+      expect(health.recommendations[0]!.action).toBe("none");
+      expect(health.recommendations[0]!.urgency).toBe("low");
     });
 
     test("recommends summarization for warning level", async () => {
@@ -224,8 +224,8 @@ describe("ContextHealthService", () => {
 
       const health = await service.checkHealth("test-session");
 
-      expect(health.recommendations[0].action).toBe("summarize");
-      expect(health.recommendations[0].urgency).toBe("medium");
+      expect(health.recommendations[0]!.action).toBe("summarize");
+      expect(health.recommendations[0]!.urgency).toBe("medium");
     });
 
     test("recommends compaction for critical level", async () => {
@@ -234,8 +234,8 @@ describe("ContextHealthService", () => {
 
       const health = await service.checkHealth("test-session");
 
-      expect(health.recommendations[0].action).toBe("compact");
-      expect(health.recommendations[0].urgency).toBe("high");
+      expect(health.recommendations[0]!.action).toBe("compact");
+      expect(health.recommendations[0]!.urgency).toBe("high");
     });
 
     test("recommends rotation for emergency level", async () => {
@@ -244,8 +244,8 @@ describe("ContextHealthService", () => {
 
       const health = await service.checkHealth("test-session");
 
-      expect(health.recommendations[0].action).toBe("rotate");
-      expect(health.recommendations[0].urgency).toBe("critical");
+      expect(health.recommendations[0]!.action).toBe("rotate");
+      expect(health.recommendations[0]!.urgency).toBe("critical");
     });
   });
 
@@ -449,7 +449,7 @@ describe("ContextHealthService", () => {
 
       const history = service.getHistory("test-session", { since: midpoint });
       expect(history.length).toBe(1);
-      expect(history[0].tokens).toBe(2000);
+      expect(history[0]!.tokens).toBe(2000);
     });
 
     test("limits history results", () => {
@@ -461,7 +461,7 @@ describe("ContextHealthService", () => {
       const history = service.getHistory("test-session", { limit: 5 });
       expect(history.length).toBe(5);
       // Should return the last 5 entries
-      expect(history[history.length - 1].tokens).toBe(1000);
+      expect(history[history.length - 1]!.tokens).toBe(1000);
     });
   });
 

@@ -109,13 +109,13 @@ describe("Handoff Context Service", () => {
         },
       });
 
-      expect(context.environmentSnapshot.envVars.NODE_ENV).toBe("development");
-      expect(context.environmentSnapshot.envVars.API_KEY).toBe("[REDACTED]");
-      expect(context.environmentSnapshot.envVars.DATABASE_PASSWORD).toBe(
+      expect(context.environmentSnapshot.envVars["NODE_ENV"]).toBe("development");
+      expect(context.environmentSnapshot.envVars["API_KEY"]).toBe("[REDACTED]");
+      expect(context.environmentSnapshot.envVars["DATABASE_PASSWORD"]).toBe(
         "[REDACTED]",
       );
-      expect(context.environmentSnapshot.envVars.AUTH_TOKEN).toBe("[REDACTED]");
-      expect(context.environmentSnapshot.envVars.NORMAL_VAR).toBe(
+      expect(context.environmentSnapshot.envVars["AUTH_TOKEN"]).toBe("[REDACTED]");
+      expect(context.environmentSnapshot.envVars["NORMAL_VAR"]).toBe(
         "normal-value",
       );
     });
@@ -166,7 +166,9 @@ describe("Handoff Context Service", () => {
       const { context } = buildContext({
         agentId: "agent-1",
         taskDescription: "Test task",
-        conversationSummary: "Summary",
+        conversationHistory: [
+          { role: "user", content: "Summary conversation" },
+        ],
         decisionsMade: [
           {
             timestamp: new Date(),

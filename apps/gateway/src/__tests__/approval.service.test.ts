@@ -436,10 +436,10 @@ describe("Approval Service", () => {
 
       expect(stats.pending).toBe(1);
       expect(stats.approved).toBe(1);
-      expect(stats.byPriority.high).toBe(1);
-      expect(stats.byPriority.low).toBe(1);
-      expect(stats.byCategory.git).toBe(1);
-      expect(stats.byCategory.filesystem).toBe(1);
+      expect(stats.byPriority["high"]).toBe(1);
+      expect(stats.byPriority["low"]).toBe(1);
+      expect(stats.byCategory["git"]).toBe(1);
+      expect(stats.byCategory["filesystem"]).toBe(1);
     });
 
     test("calculates average decision time", async () => {

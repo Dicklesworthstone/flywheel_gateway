@@ -644,7 +644,7 @@ export function useGraphSubscription(
         "message.sent",
         "reservation.acquired",
       ];
-      const type = eventTypes[Math.floor(Math.random() * eventTypes.length)];
+      const type = eventTypes[Math.floor(Math.random() * eventTypes.length)]!;
 
       let payload: unknown;
       switch (type) {
@@ -652,7 +652,7 @@ export function useGraphSubscription(
           payload = {
             ...mockAgentNodes[
               Math.floor(Math.random() * mockAgentNodes.length)
-            ],
+            ]!,
             lastActiveAt: new Date().toISOString(),
           };
           break;
@@ -660,10 +660,10 @@ export function useGraphSubscription(
           payload = {
             id: `mock-msg-${Date.now()}`,
             fromAgentId:
-              mockAgentNodes[Math.floor(Math.random() * mockAgentNodes.length)]
+              mockAgentNodes[Math.floor(Math.random() * mockAgentNodes.length)]!
                 .agentId,
             toAgentId:
-              mockAgentNodes[Math.floor(Math.random() * mockAgentNodes.length)]
+              mockAgentNodes[Math.floor(Math.random() * mockAgentNodes.length)]!
                 .agentId,
             subject: "Mock message",
             timestamp: new Date().toISOString(),
@@ -673,7 +673,7 @@ export function useGraphSubscription(
           payload = {
             ...mockReservationNodes[
               Math.floor(Math.random() * mockReservationNodes.length)
-            ],
+            ]!,
             acquiredAt: new Date().toISOString(),
           };
           break;

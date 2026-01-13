@@ -799,7 +799,7 @@ export function useAddRepo() {
           description: repo.description ?? "",
           isPrivate: false,
           isArchived: false,
-          ruGroup: repo.group,
+          ruGroup: repo.group ?? "",
           addedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };

@@ -484,7 +484,7 @@ export class ContextHealthService {
     const preserveCount = preserveConfig.lastNMessages;
 
     for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i];
+      const msg = messages[i]!;
       const isRecent =
         i >= messages.length - preserveCount || msg.timestamp >= recentCutoff;
 
@@ -844,7 +844,7 @@ export class ContextHealthService {
 
     const avgDelta =
       messageDeltas.reduce((a, b) => a + b, 0) / messageDeltas.length;
-    const currentTokens = history[history.length - 1].tokens;
+    const currentTokens = history[history.length - 1]!.tokens;
     const remaining = maxTokens - currentTokens;
 
     if (avgDelta <= 0) return null;
@@ -872,10 +872,10 @@ export class ContextHealthService {
     if (recentHistory.length < 2) return null;
 
     const timeSpan =
-      recentHistory[recentHistory.length - 1].timestamp.getTime() -
-      recentHistory[0].timestamp.getTime();
+      recentHistory[recentHistory.length - 1]!.timestamp.getTime() -
+      recentHistory[0]!.timestamp.getTime();
     const tokenIncrease =
-      recentHistory[recentHistory.length - 1].tokens - recentHistory[0].tokens;
+      recentHistory[recentHistory.length - 1]!.tokens - recentHistory[0]!.tokens;
 
     if (timeSpan <= 0 || tokenIncrease <= 0) return null;
 
@@ -906,14 +906,14 @@ export class ContextHealthService {
       return recommendations;
     }
 
+    const lastTokens = history[history.length - 1]?.tokens ?? 0;
+
     if (status === ContextHealthStatus.WARNING) {
       recommendations.push({
         action: "summarize",
         urgency: "medium",
         reason: "Context approaching critical level, summarization recommended",
-        estimatedTokenSavings: Math.floor(
-          history[history.length - 1]?.tokens * 0.2 ?? 0,
-        ),
+        estimatedTokenSavings: Math.floor(lastTokens * 0.2),
       });
     }
 
@@ -922,9 +922,7 @@ export class ContextHealthService {
         action: "compact",
         urgency: "high",
         reason: "Context at critical level, immediate compaction needed",
-        estimatedTokenSavings: Math.floor(
-          history[history.length - 1]?.tokens * 0.3 ?? 0,
-        ),
+        estimatedTokenSavings: Math.floor(lastTokens * 0.3),
       });
     }
 
@@ -933,9 +931,7 @@ export class ContextHealthService {
         action: "rotate",
         urgency: "critical",
         reason: "Context overflow imminent, rotation required",
-        estimatedTokenSavings: Math.floor(
-          history[history.length - 1]?.tokens * 0.8 ?? 0,
-        ),
+        estimatedTokenSavings: Math.floor(lastTokens * 0.8),
       });
     }
 
@@ -958,7 +954,7 @@ export class ContextHealthService {
       });
 
       // Also publish to session-specific channel
-      const sessionId = data.sessionId ?? data.sourceSessionId;
+      const sessionId = data["sessionId"] ?? data["sourceSessionId"];
       if (sessionId) {
         const sessionChannel: Channel = {
           type: "session:health",
