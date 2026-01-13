@@ -34,7 +34,7 @@ import { countTokens, truncateToTokens } from "./tokenizer.service";
 // ============================================================================
 
 export class ContextHealthError extends Error {
-  public name = "ContextHealthError";
+  public override name = "ContextHealthError";
   public sessionId: string;
 
   constructor(sessionId: string, message: string) {
@@ -44,11 +44,11 @@ export class ContextHealthError extends Error {
 }
 
 export class SummarizationError extends ContextHealthError {
-  public name = "SummarizationError";
+  public override name = "SummarizationError";
 }
 
 export class RotationError extends ContextHealthError {
-  public name = "RotationError";
+  public override name = "RotationError";
 }
 
 // ============================================================================

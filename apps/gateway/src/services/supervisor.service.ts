@@ -692,7 +692,7 @@ export class SupervisorService {
 // ============================================================================
 
 export class DaemonNotFoundError extends Error {
-  public name = "DaemonNotFoundError";
+  public override name = "DaemonNotFoundError";
   public daemonName: string;
 
   constructor(daemonName: string) {
