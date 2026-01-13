@@ -2,7 +2,7 @@
  * WidgetConfigPanel - Panel for editing widget configuration.
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type {
   Widget,
   WidgetType,
@@ -86,10 +86,30 @@ export function WidgetConfigPanel({
   const [thresholds, setThresholds] = useState<ThresholdConfig>(
     widget.config.thresholds || {},
   );
+  const [textContent, setTextContent] = useState<string>(
+    (widget.config.customOptions?.content as string) || "",
+  );
+  const [iframeUrl, setIframeUrl] = useState<string>(
+    (widget.config.customOptions?.url as string) || "",
+  );
 
   const presets = DATA_SOURCE_PRESETS[widget.type] || [];
 
   const handleSave = () => {
+    const customOptions: Record<string, unknown> = {
+      ...widget.config.customOptions,
+    };
+
+    // Include text content for text widgets
+    if (widget.type === "text" && textContent) {
+      customOptions.content = textContent;
+    }
+
+    // Include iframe URL for iframe widgets
+    if (widget.type === "iframe" && iframeUrl) {
+      customOptions.url = iframeUrl;
+    }
+
     onSave({
       title,
       description: description || undefined,
@@ -98,7 +118,7 @@ export function WidgetConfigPanel({
         dataSource,
         display,
         thresholds,
-        customOptions: widget.config.customOptions,
+        customOptions: Object.keys(customOptions).length > 0 ? customOptions : undefined,
       },
     });
   };
@@ -297,18 +317,8 @@ export function WidgetConfigPanel({
               <label htmlFor="text-content">Markdown Content</label>
               <textarea
                 id="text-content"
-                value={(widget.config.customOptions?.content as string) || ""}
-                onChange={(e) =>
-                  onSave({
-                    config: {
-                      ...widget.config,
-                      customOptions: {
-                        ...widget.config.customOptions,
-                        content: e.target.value,
-                      },
-                    },
-                  })
-                }
+                value={textContent}
+                onChange={(e) => setTextContent(e.target.value)}
                 placeholder="# Heading\n\nYour markdown content..."
                 rows={8}
               />
@@ -325,18 +335,8 @@ export function WidgetConfigPanel({
               <input
                 id="iframe-url"
                 type="url"
-                value={(widget.config.customOptions?.url as string) || ""}
-                onChange={(e) =>
-                  onSave({
-                    config: {
-                      ...widget.config,
-                      customOptions: {
-                        ...widget.config.customOptions,
-                        url: e.target.value,
-                      },
-                    },
-                  })
-                }
+                value={iframeUrl}
+                onChange={(e) => setIframeUrl(e.target.value)}
                 placeholder="https://..."
               />
             </div>

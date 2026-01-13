@@ -299,7 +299,8 @@ export function useDashboard(
       setState((s) => ({ ...s, saving: true, error: null }));
 
       try {
-        const newWidget = await fetchJSON<Widget>(
+        // API returns the updated Dashboard, not just the widget
+        const updatedDashboard = await fetchJSON<Dashboard>(
           `${API_BASE}/${state.currentDashboard.id}/widgets`,
           {
             method: "POST",
@@ -307,14 +308,12 @@ export function useDashboard(
           },
         );
 
+        // Find the newly added widget (it will be the last one)
+        const newWidget = updatedDashboard.widgets[updatedDashboard.widgets.length - 1];
+
         setState((s) => ({
           ...s,
-          currentDashboard: s.currentDashboard
-            ? {
-                ...s.currentDashboard,
-                widgets: [...s.currentDashboard.widgets, newWidget],
-              }
-            : null,
+          currentDashboard: updatedDashboard,
           saving: false,
         }));
 
@@ -339,7 +338,7 @@ export function useDashboard(
       setState((s) => ({ ...s, saving: true, error: null }));
 
       // Optimistic update
-      const previousWidgets = state.currentDashboard.widgets;
+      const previousDashboard = state.currentDashboard;
       setState((s) => ({
         ...s,
         currentDashboard: s.currentDashboard
@@ -353,7 +352,8 @@ export function useDashboard(
       }));
 
       try {
-        const updatedWidget = await fetchJSON<Widget>(
+        // API returns the updated Dashboard, not just the widget
+        const updatedDashboard = await fetchJSON<Dashboard>(
           `${API_BASE}/${state.currentDashboard.id}/widgets/${widgetId}`,
           {
             method: "PUT",
@@ -361,27 +361,21 @@ export function useDashboard(
           },
         );
 
+        // Find the updated widget
+        const updatedWidget = updatedDashboard.widgets.find((w) => w.id === widgetId);
+
         setState((s) => ({
           ...s,
-          currentDashboard: s.currentDashboard
-            ? {
-                ...s.currentDashboard,
-                widgets: s.currentDashboard.widgets.map((w) =>
-                  w.id === widgetId ? updatedWidget : w,
-                ),
-              }
-            : null,
+          currentDashboard: updatedDashboard,
           saving: false,
         }));
 
-        return updatedWidget;
+        return updatedWidget ?? null;
       } catch (err) {
         // Revert optimistic update
         setState((s) => ({
           ...s,
-          currentDashboard: s.currentDashboard
-            ? { ...s.currentDashboard, widgets: previousWidgets }
-            : null,
+          currentDashboard: previousDashboard,
           saving: false,
           error: err instanceof Error ? err.message : "Failed to update widget",
         }));
@@ -552,9 +546,9 @@ export function useDashboard(
             ),
           ),
         );
-      } catch (err) {
-        console.error("Failed to save layout:", err);
-        // Could revert here, but layout changes are typically non-critical
+      } catch {
+        // Layout changes are typically non-critical - silently fail
+        // The optimistic update is already applied, so the UI remains consistent
       }
     },
     [state.currentDashboard],

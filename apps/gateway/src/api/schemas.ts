@@ -598,3 +598,900 @@ export const PipelineResponseSchema = createApiResponseSchema(
   PipelineSchema,
   "pipeline",
 );
+
+// ============================================================================
+// Dashboard Schemas
+// ============================================================================
+
+export const DashboardLayoutSchema = z
+  .object({
+    columns: z.number().int().min(1).max(24).optional().openapi({
+      description: "Number of columns in the grid",
+      default: 12,
+    }),
+    rowHeight: z.number().int().min(20).max(200).optional().openapi({
+      description: "Height of each grid row in pixels",
+      default: 80,
+    }),
+    margin: z
+      .tuple([z.number().int().min(0), z.number().int().min(0)])
+      .optional()
+      .openapi({
+        description: "Grid margin [x, y] in pixels",
+      }),
+    containerPadding: z
+      .tuple([z.number().int().min(0), z.number().int().min(0)])
+      .optional()
+      .openapi({
+        description: "Container padding [x, y] in pixels",
+      }),
+  })
+  .openapi("DashboardLayout");
+
+registry.register("DashboardLayout", DashboardLayoutSchema);
+
+export const WidgetPositionSchema = z
+  .object({
+    x: z.number().int().min(0).openapi({ description: "X position in grid" }),
+    y: z.number().int().min(0).openapi({ description: "Y position in grid" }),
+    w: z.number().int().min(1).openapi({ description: "Width in grid units" }),
+    h: z.number().int().min(1).openapi({ description: "Height in grid units" }),
+    minW: z.number().int().min(1).optional().openapi({ description: "Minimum width" }),
+    minH: z.number().int().min(1).optional().openapi({ description: "Minimum height" }),
+    maxW: z.number().int().min(1).optional().openapi({ description: "Maximum width" }),
+    maxH: z.number().int().min(1).optional().openapi({ description: "Maximum height" }),
+  })
+  .openapi("WidgetPosition");
+
+registry.register("WidgetPosition", WidgetPositionSchema);
+
+export const WidgetTypeSchema = z
+  .enum([
+    "metric-card",
+    "line-chart",
+    "bar-chart",
+    "pie-chart",
+    "table",
+    "agent-list",
+    "activity-feed",
+    "cost-breakdown",
+    "heatmap",
+    "gauge",
+    "text",
+    "iframe",
+  ])
+  .openapi({
+    description: "Type of dashboard widget",
+  });
+
+registry.register("WidgetType", WidgetTypeSchema);
+
+export const DataSourceConfigSchema = z
+  .object({
+    type: z.enum(["api", "query", "static"]).openapi({
+      description: "Data source type",
+    }),
+    endpoint: z.string().optional().openapi({
+      description: "API endpoint to fetch data from",
+      example: "/api/analytics/summary",
+    }),
+    query: z.string().optional().openapi({
+      description: "Query string for query-based data sources",
+    }),
+    filters: z.record(z.string(), z.unknown()).optional().openapi({
+      description: "Filters to apply to data",
+    }),
+    timeRange: z
+      .object({
+        preset: z.enum(["15m", "1h", "6h", "24h", "7d", "30d", "custom"]),
+        start: z.string().optional(),
+        end: z.string().optional(),
+      })
+      .optional()
+      .openapi({
+        description: "Time range for data",
+      }),
+  })
+  .openapi("DataSourceConfig");
+
+registry.register("DataSourceConfig", DataSourceConfigSchema);
+
+export const DisplayConfigSchema = z
+  .object({
+    colorScheme: z.string().optional().openapi({
+      description: "Color scheme name",
+    }),
+    showLegend: z.boolean().optional().openapi({
+      description: "Whether to show legend",
+    }),
+    showGrid: z.boolean().optional().openapi({
+      description: "Whether to show grid lines",
+    }),
+    showLabels: z.boolean().optional().openapi({
+      description: "Whether to show data labels",
+    }),
+    labelPosition: z.enum(["top", "bottom", "left", "right"]).optional().openapi({
+      description: "Position of labels",
+    }),
+    animationEnabled: z.boolean().optional().openapi({
+      description: "Whether animations are enabled",
+    }),
+  })
+  .openapi("DisplayConfig");
+
+registry.register("DisplayConfig", DisplayConfigSchema);
+
+export const ThresholdConfigSchema = z
+  .object({
+    warning: z.number().optional().openapi({
+      description: "Warning threshold value",
+    }),
+    critical: z.number().optional().openapi({
+      description: "Critical threshold value",
+    }),
+    warningColor: z.string().optional().openapi({
+      description: "Color for warning state",
+    }),
+    criticalColor: z.string().optional().openapi({
+      description: "Color for critical state",
+    }),
+  })
+  .openapi("ThresholdConfig");
+
+registry.register("ThresholdConfig", ThresholdConfigSchema);
+
+export const WidgetConfigSchema = z
+  .object({
+    dataSource: DataSourceConfigSchema,
+    display: DisplayConfigSchema.optional(),
+    thresholds: ThresholdConfigSchema.optional(),
+    customOptions: z.record(z.string(), z.unknown()).optional().openapi({
+      description: "Widget-specific custom options",
+    }),
+  })
+  .openapi("WidgetConfig");
+
+registry.register("WidgetConfig", WidgetConfigSchema);
+
+export const WidgetSchema = z
+  .object({
+    id: z.string().openapi({
+      description: "Unique widget identifier",
+    }),
+    type: WidgetTypeSchema,
+    title: z.string().min(1).max(100).openapi({
+      description: "Widget title",
+    }),
+    description: z.string().max(500).optional().openapi({
+      description: "Widget description",
+    }),
+    position: WidgetPositionSchema,
+    config: WidgetConfigSchema,
+    refreshInterval: z.number().int().min(0).optional().openapi({
+      description: "Auto-refresh interval in seconds (0 = manual)",
+    }),
+  })
+  .openapi("Widget");
+
+registry.register("Widget", WidgetSchema);
+
+export const CreateWidgetRequestSchema = WidgetSchema.omit({ id: true })
+  .extend({
+    id: z.string().optional().openapi({
+      description: "Optional widget ID (auto-generated if not provided)",
+    }),
+  })
+  .openapi("CreateWidgetRequest");
+
+registry.register("CreateWidgetRequest", CreateWidgetRequestSchema);
+
+export const DashboardVisibilitySchema = z
+  .enum(["private", "team", "public"])
+  .openapi({
+    description: "Dashboard visibility level",
+  });
+
+registry.register("DashboardVisibility", DashboardVisibilitySchema);
+
+export const DashboardSharingSchema = z
+  .object({
+    visibility: DashboardVisibilitySchema.optional(),
+    teamId: z.string().optional().openapi({
+      description: "Team ID for team-visible dashboards",
+    }),
+    viewers: z.array(z.string()).optional().openapi({
+      description: "User IDs with view access",
+    }),
+    editors: z.array(z.string()).optional().openapi({
+      description: "User IDs with edit access",
+    }),
+    publicSlug: z.string().optional().openapi({
+      description: "URL slug for public dashboards",
+    }),
+    requireAuth: z.boolean().optional().openapi({
+      description: "Require authentication for public dashboards",
+    }),
+    embedEnabled: z.boolean().optional().openapi({
+      description: "Allow embedding in iframes",
+    }),
+  })
+  .openapi("DashboardSharing");
+
+registry.register("DashboardSharing", DashboardSharingSchema);
+
+export const CreateDashboardRequestSchema = z
+  .object({
+    name: z.string().min(1).max(100).openapi({
+      description: "Dashboard name",
+      example: "My Dashboard",
+    }),
+    description: z.string().max(500).optional().openapi({
+      description: "Dashboard description",
+    }),
+    workspaceId: z.string().optional().openapi({
+      description: "Workspace ID",
+    }),
+    layout: DashboardLayoutSchema.optional(),
+    widgets: z.array(CreateWidgetRequestSchema).optional().openapi({
+      description: "Initial widgets",
+    }),
+    sharing: DashboardSharingSchema.optional(),
+    refreshInterval: z.number().int().min(0).optional().openapi({
+      description: "Global auto-refresh interval in seconds",
+    }),
+  })
+  .openapi("CreateDashboardRequest");
+
+registry.register("CreateDashboardRequest", CreateDashboardRequestSchema);
+
+export const UpdateDashboardRequestSchema = z
+  .object({
+    name: z.string().min(1).max(100).optional(),
+    description: z.string().max(500).optional(),
+    layout: DashboardLayoutSchema.optional(),
+    widgets: z.array(WidgetSchema).optional(),
+    sharing: DashboardSharingSchema.optional(),
+    refreshInterval: z.number().int().min(0).optional(),
+  })
+  .openapi("UpdateDashboardRequest");
+
+registry.register("UpdateDashboardRequest", UpdateDashboardRequestSchema);
+
+export const DashboardSchema = z
+  .object({
+    id: z.string().openapi({
+      description: "Unique dashboard identifier",
+    }),
+    name: z.string().openapi({
+      description: "Dashboard name",
+    }),
+    description: z.string().optional().openapi({
+      description: "Dashboard description",
+    }),
+    ownerId: z.string().openapi({
+      description: "User ID of the dashboard owner",
+    }),
+    workspaceId: z.string().optional().openapi({
+      description: "Workspace ID",
+    }),
+    layout: DashboardLayoutSchema,
+    widgets: z.array(WidgetSchema),
+    sharing: DashboardSharingSchema,
+    refreshInterval: z.number().optional(),
+    createdAt: TimestampSchema,
+    updatedAt: TimestampSchema,
+  })
+  .openapi("Dashboard");
+
+registry.register("Dashboard", DashboardSchema);
+
+export const DashboardSummarySchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    description: z.string().optional(),
+    ownerId: z.string(),
+    visibility: DashboardVisibilitySchema,
+    widgetCount: z.number().int(),
+    createdAt: TimestampSchema,
+    updatedAt: TimestampSchema,
+    isFavorite: z.boolean().optional(),
+  })
+  .openapi("DashboardSummary");
+
+registry.register("DashboardSummary", DashboardSummarySchema);
+
+export const DashboardPermissionTypeSchema = z
+  .enum(["view", "edit"])
+  .openapi({
+    description: "Permission level",
+  });
+
+registry.register("DashboardPermissionType", DashboardPermissionTypeSchema);
+
+export const DashboardPermissionEntrySchema = z
+  .object({
+    userId: z.string(),
+    permission: DashboardPermissionTypeSchema,
+    grantedBy: z.string(),
+    grantedAt: TimestampSchema,
+  })
+  .openapi("DashboardPermissionEntry");
+
+registry.register("DashboardPermissionEntry", DashboardPermissionEntrySchema);
+
+export const GrantPermissionRequestSchema = z
+  .object({
+    targetUserId: z.string().openapi({
+      description: "User ID to grant permission to",
+    }),
+    permission: DashboardPermissionTypeSchema,
+  })
+  .openapi("GrantPermissionRequest");
+
+registry.register("GrantPermissionRequest", GrantPermissionRequestSchema);
+
+export const WidgetDataSchema = z
+  .object({
+    widgetId: z.string(),
+    data: z.unknown(),
+    fetchedAt: TimestampSchema,
+    error: z.string().optional(),
+  })
+  .openapi("WidgetData");
+
+registry.register("WidgetData", WidgetDataSchema);
+
+export const DashboardStatsSchema = z
+  .object({
+    totalDashboards: z.number().int(),
+    publicDashboards: z.number().int(),
+    teamDashboards: z.number().int(),
+    privateDashboards: z.number().int(),
+    totalWidgets: z.number().int(),
+    avgWidgetsPerDashboard: z.number(),
+  })
+  .openapi("DashboardStats");
+
+registry.register("DashboardStats", DashboardStatsSchema);
+
+// Dashboard response wrappers
+export const DashboardResponseSchema = createApiResponseSchema(
+  "DashboardResponse",
+  DashboardSchema,
+  "dashboard",
+);
+
+export const DashboardListResponseSchema = createApiListResponseSchema(
+  "DashboardListResponse",
+  DashboardSummarySchema,
+);
+
+export const DashboardStatsResponseSchema = createApiResponseSchema(
+  "DashboardStatsResponse",
+  DashboardStatsSchema,
+  "stats",
+);
+
+export const WidgetDataResponseSchema = createApiResponseSchema(
+  "WidgetDataResponse",
+  WidgetDataSchema,
+  "widgetData",
+);
+
+export const PermissionListResponseSchema = createApiListResponseSchema(
+  "PermissionListResponse",
+  DashboardPermissionEntrySchema,
+);
+
+export const PermissionResponseSchema = createApiResponseSchema(
+  "PermissionResponse",
+  DashboardPermissionEntrySchema,
+  "permission",
+);
+
+// ============================================================================
+// Cost Analytics Schemas
+// ============================================================================
+
+export const ProviderIdSchema = z
+  .enum(["anthropic", "openai", "google", "local"])
+  .openapi({
+    description: "LLM provider identifier",
+  });
+
+registry.register("ProviderId", ProviderIdSchema);
+
+export const CostRecordInputSchema = z
+  .object({
+    organizationId: z.string().optional().openapi({
+      description: "Organization ID for cost allocation",
+    }),
+    projectId: z.string().optional().openapi({
+      description: "Project ID for cost allocation",
+    }),
+    agentId: z.string().optional().openapi({
+      description: "Agent that incurred the cost",
+    }),
+    taskId: z.string().optional().openapi({
+      description: "Task that incurred the cost",
+    }),
+    sessionId: z.string().optional().openapi({
+      description: "Session that incurred the cost",
+    }),
+    model: z.string().openapi({
+      description: "Model used for the request",
+      example: "claude-3-opus-20240229",
+    }),
+    provider: ProviderIdSchema,
+    promptTokens: z.number().int().min(0).openapi({
+      description: "Number of prompt tokens",
+    }),
+    completionTokens: z.number().int().min(0).openapi({
+      description: "Number of completion tokens",
+    }),
+    cachedTokens: z.number().int().min(0).optional().openapi({
+      description: "Number of cached prompt tokens",
+    }),
+    taskType: z.string().optional().openapi({
+      description: "Type of task performed",
+    }),
+    complexityTier: z.enum(["simple", "moderate", "complex"]).optional().openapi({
+      description: "Complexity tier for tiered pricing",
+    }),
+    success: z.boolean().openapi({
+      description: "Whether the request succeeded",
+    }),
+    requestDurationMs: z.number().int().min(0).optional().openapi({
+      description: "Request duration in milliseconds",
+    }),
+    correlationId: z.string().optional().openapi({
+      description: "Correlation ID for request tracing",
+    }),
+  })
+  .openapi("CostRecordInput");
+
+registry.register("CostRecordInput", CostRecordInputSchema);
+
+export const CostRecordSchema = z
+  .object({
+    id: z.string().openapi({
+      description: "Unique cost record identifier",
+    }),
+    timestamp: z.string().datetime().openapi({
+      description: "When the cost was incurred",
+    }),
+    model: z.string(),
+    provider: ProviderIdSchema,
+    promptTokens: z.number().int(),
+    completionTokens: z.number().int(),
+    totalCostUnits: z.number().int().openapi({
+      description: "Total cost in micro-units (1/1,000,000 of a dollar)",
+    }),
+    formattedCost: z.string().openapi({
+      description: "Human-readable cost string",
+      example: "$0.0123",
+    }),
+    success: z.boolean(),
+    agentId: z.string().optional(),
+    taskType: z.string().optional(),
+  })
+  .openapi("CostRecord");
+
+registry.register("CostRecord", CostRecordSchema);
+
+export const CostSummarySchema = z
+  .object({
+    totalCostUnits: z.number().int(),
+    formattedTotalCost: z.string(),
+    totalRequests: z.number().int(),
+    totalPromptTokens: z.number().int(),
+    totalCompletionTokens: z.number().int(),
+    avgCostPerRequest: z.number().int(),
+    formattedAvgCost: z.string(),
+    successRate: z.number(),
+    period: z.object({
+      start: z.string().datetime(),
+      end: z.string().datetime(),
+    }),
+  })
+  .openapi("CostSummary");
+
+registry.register("CostSummary", CostSummarySchema);
+
+export const CostBreakdownItemSchema = z
+  .object({
+    key: z.string().openapi({
+      description: "Breakdown dimension key (model name, agent ID, etc.)",
+    }),
+    totalCostUnits: z.number().int(),
+    formattedCost: z.string(),
+    requestCount: z.number().int(),
+    percentage: z.number(),
+  })
+  .openapi("CostBreakdownItem");
+
+registry.register("CostBreakdownItem", CostBreakdownItemSchema);
+
+export const CostBreakdownSchema = z
+  .object({
+    dimension: z.enum(["model", "agent", "project", "provider"]),
+    totalCostUnits: z.number().int(),
+    formattedTotalCost: z.string(),
+    period: z.object({
+      start: z.string().datetime(),
+      end: z.string().datetime(),
+    }),
+    items: z.array(CostBreakdownItemSchema),
+  })
+  .openapi("CostBreakdown");
+
+registry.register("CostBreakdown", CostBreakdownSchema);
+
+export const CostTrendPointSchema = z
+  .object({
+    date: z.string().datetime().optional(),
+    hour: z.string().datetime().optional(),
+    costUnits: z.number().int(),
+    formattedCost: z.string(),
+    requestCount: z.number().int(),
+  })
+  .openapi("CostTrendPoint");
+
+registry.register("CostTrendPoint", CostTrendPointSchema);
+
+export const BudgetPeriodSchema = z
+  .enum(["daily", "weekly", "monthly", "yearly"])
+  .openapi({
+    description: "Budget period type",
+  });
+
+registry.register("BudgetPeriod", BudgetPeriodSchema);
+
+export const BudgetActionSchema = z
+  .enum(["alert", "throttle", "block"])
+  .openapi({
+    description: "Action to take when budget is exceeded",
+  });
+
+registry.register("BudgetAction", BudgetActionSchema);
+
+export const CreateBudgetRequestSchema = z
+  .object({
+    name: z.string().min(1).max(100).openapi({
+      description: "Budget name",
+      example: "Monthly API Budget",
+    }),
+    organizationId: z.string().optional(),
+    projectId: z.string().optional(),
+    period: BudgetPeriodSchema,
+    amountUnits: z.number().int().min(1).openapi({
+      description: "Budget amount in micro-units",
+    }),
+    alertThresholds: z.array(z.number().min(0).max(100)).optional().openapi({
+      description: "Percentage thresholds for alerts (e.g., [50, 80, 90])",
+    }),
+    actionOnExceed: BudgetActionSchema.optional(),
+    rollover: z.boolean().optional().openapi({
+      description: "Whether unused budget rolls over to next period",
+    }),
+    effectiveDate: z.string().datetime().optional(),
+    expiresAt: z.string().datetime().optional(),
+    enabled: z.boolean().optional(),
+  })
+  .openapi("CreateBudgetRequest");
+
+registry.register("CreateBudgetRequest", CreateBudgetRequestSchema);
+
+export const BudgetSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    organizationId: z.string().optional(),
+    projectId: z.string().optional(),
+    period: BudgetPeriodSchema,
+    amountUnits: z.number().int(),
+    formattedAmount: z.string(),
+    alertThresholds: z.array(z.number()),
+    actionOnExceed: BudgetActionSchema,
+    rollover: z.boolean(),
+    enabled: z.boolean(),
+    effectiveDate: z.string().datetime(),
+    expiresAt: z.string().datetime().optional(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .openapi("Budget");
+
+registry.register("Budget", BudgetSchema);
+
+export const BudgetStatusSchema = z
+  .object({
+    budgetId: z.string(),
+    budgetName: z.string(),
+    periodStart: z.string().datetime(),
+    periodEnd: z.string().datetime(),
+    usedUnits: z.number().int(),
+    usedPercent: z.number(),
+    remainingUnits: z.number().int(),
+    formattedUsed: z.string(),
+    formattedRemaining: z.string(),
+    burnRateUnitsPerDay: z.number(),
+    projectedEndOfPeriodUnits: z.number().int(),
+    projectedExceed: z.boolean(),
+    daysUntilExhausted: z.number().optional(),
+    status: z.enum(["ok", "warning", "critical", "exceeded"]),
+    currentThreshold: z.number().optional(),
+    alertsTriggered: z.number().int(),
+    lastUpdatedAt: z.string().datetime(),
+  })
+  .openapi("BudgetStatus");
+
+registry.register("BudgetStatus", BudgetStatusSchema);
+
+export const BudgetAlertSchema = z
+  .object({
+    id: z.string(),
+    budgetId: z.string(),
+    budgetName: z.string(),
+    thresholdPercent: z.number(),
+    usedPercent: z.number(),
+    usedUnits: z.number().int(),
+    periodStart: z.string().datetime(),
+    periodEnd: z.string().datetime(),
+    acknowledged: z.boolean(),
+    acknowledgedAt: z.string().datetime().optional(),
+    acknowledgedBy: z.string().optional(),
+    createdAt: z.string().datetime(),
+  })
+  .openapi("BudgetAlert");
+
+registry.register("BudgetAlert", BudgetAlertSchema);
+
+export const ForecastMethodologySchema = z
+  .enum(["linear", "exponential", "ensemble"])
+  .openapi({
+    description: "Forecasting methodology",
+  });
+
+registry.register("ForecastMethodology", ForecastMethodologySchema);
+
+export const ForecastOptionsSchema = z
+  .object({
+    organizationId: z.string().optional(),
+    projectId: z.string().optional(),
+    horizonDays: z.number().int().min(1).max(90).optional().openapi({
+      description: "Number of days to forecast",
+      default: 30,
+    }),
+    historicalDays: z.number().int().min(7).max(365).optional().openapi({
+      description: "Number of historical days to use",
+      default: 30,
+    }),
+    methodology: ForecastMethodologySchema.optional(),
+  })
+  .openapi("ForecastOptions");
+
+registry.register("ForecastOptions", ForecastOptionsSchema);
+
+export const DailyForecastSchema = z
+  .object({
+    date: z.string().datetime(),
+    predictedCostUnits: z.number().int(),
+    formattedPredicted: z.string(),
+    lowerBoundUnits: z.number().int(),
+    upperBoundUnits: z.number().int(),
+    confidence: z.number(),
+  })
+  .openapi("DailyForecast");
+
+registry.register("DailyForecast", DailyForecastSchema);
+
+export const ForecastSchema = z
+  .object({
+    id: z.string(),
+    forecastDate: z.string().datetime(),
+    horizonDays: z.number().int(),
+    totalForecastUnits: z.number().int(),
+    formattedForecast: z.string(),
+    confidence95: z.object({
+      lower: z.number().int(),
+      upper: z.number().int(),
+    }),
+    methodology: ForecastMethodologySchema,
+    accuracyMetrics: z.object({
+      mape: z.number().optional(),
+      rmse: z.number().optional(),
+    }).optional(),
+    trendDirection: z.enum(["increasing", "stable", "decreasing"]),
+    trendStrength: z.number().optional(),
+    seasonalityDetected: z.boolean().optional(),
+    historicalDaysUsed: z.number().int(),
+    dailyForecasts: z.array(DailyForecastSchema),
+    createdAt: z.string().datetime(),
+  })
+  .openapi("Forecast");
+
+registry.register("Forecast", ForecastSchema);
+
+export const ForecastScenarioSchema = z
+  .object({
+    name: z.string(),
+    description: z.string(),
+    adjustmentPercent: z.number(),
+    totalForecastUnits: z.number().int(),
+    formattedForecast: z.string(),
+  })
+  .openapi("ForecastScenario");
+
+registry.register("ForecastScenario", ForecastScenarioSchema);
+
+export const RecommendationCategorySchema = z
+  .enum([
+    "model_optimization",
+    "caching",
+    "batching",
+    "context_optimization",
+    "consolidation",
+    "scheduling",
+    "rate_limiting",
+  ])
+  .openapi({
+    description: "Cost optimization recommendation category",
+  });
+
+registry.register("RecommendationCategory", RecommendationCategorySchema);
+
+export const RecommendationStatusSchema = z
+  .enum(["pending", "in_progress", "implemented", "rejected", "failed"])
+  .openapi({
+    description: "Recommendation implementation status",
+  });
+
+registry.register("RecommendationStatus", RecommendationStatusSchema);
+
+export const RecommendationSchema = z
+  .object({
+    id: z.string(),
+    category: RecommendationCategorySchema,
+    title: z.string(),
+    description: z.string(),
+    estimatedSavingsUnits: z.number().int(),
+    formattedSavings: z.string(),
+    savingsPercent: z.number(),
+    confidence: z.enum(["low", "medium", "high"]),
+    risk: z.enum(["low", "medium", "high"]),
+    status: RecommendationStatusSchema,
+    priority: z.number().int(),
+    implementation: z.object({
+      steps: z.array(z.string()),
+      effort: z.enum(["low", "medium", "high"]),
+      automatable: z.boolean(),
+    }),
+    createdAt: z.string().datetime(),
+    implementedAt: z.string().datetime().optional(),
+    actualSavingsUnits: z.number().int().optional(),
+  })
+  .openapi("Recommendation");
+
+registry.register("Recommendation", RecommendationSchema);
+
+export const OptimizationSummarySchema = z
+  .object({
+    totalRecommendations: z.number().int(),
+    byCategory: z.record(z.number().int()),
+    totalPotentialSavingsUnits: z.number().int(),
+    formattedPotentialSavings: z.string(),
+    implementedSavingsUnits: z.number().int(),
+    formattedImplementedSavings: z.string(),
+    topRecommendations: z.array(
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        estimatedSavingsUnits: z.number().int(),
+        formattedSavings: z.string(),
+      })
+    ),
+  })
+  .openapi("OptimizationSummary");
+
+registry.register("OptimizationSummary", OptimizationSummarySchema);
+
+export const RateCardSchema = z
+  .object({
+    model: z.string(),
+    provider: ProviderIdSchema,
+    promptCostPer1kTokens: z.number().int().openapi({
+      description: "Cost per 1000 prompt tokens in micro-units",
+    }),
+    completionCostPer1kTokens: z.number().int().openapi({
+      description: "Cost per 1000 completion tokens in micro-units",
+    }),
+    cachedPromptCostPer1kTokens: z.number().int().optional(),
+    effectiveDate: z.string().datetime(),
+    expiresAt: z.string().datetime().optional(),
+  })
+  .openapi("RateCard");
+
+registry.register("RateCard", RateCardSchema);
+
+export const TopSpendingAgentSchema = z
+  .object({
+    agentId: z.string(),
+    totalCostUnits: z.number().int(),
+    formattedCost: z.string(),
+    requestCount: z.number().int(),
+    avgCostPerRequest: z.number().int(),
+    formattedAvgCost: z.string(),
+  })
+  .openapi("TopSpendingAgent");
+
+registry.register("TopSpendingAgent", TopSpendingAgentSchema);
+
+// Cost Analytics response wrappers
+export const CostRecordResponseSchema = createApiResponseSchema(
+  "CostRecordResponse",
+  CostRecordSchema,
+  "costRecord",
+);
+
+export const CostRecordListResponseSchema = createApiListResponseSchema(
+  "CostRecordListResponse",
+  CostRecordSchema,
+);
+
+export const CostSummaryResponseSchema = createApiResponseSchema(
+  "CostSummaryResponse",
+  CostSummarySchema,
+  "costSummary",
+);
+
+export const CostBreakdownResponseSchema = createApiResponseSchema(
+  "CostBreakdownResponse",
+  CostBreakdownSchema,
+  "costBreakdown",
+);
+
+export const BudgetResponseSchema = createApiResponseSchema(
+  "BudgetResponse",
+  BudgetSchema,
+  "budget",
+);
+
+export const BudgetListResponseSchema = createApiListResponseSchema(
+  "BudgetListResponse",
+  BudgetSchema,
+);
+
+export const BudgetStatusResponseSchema = createApiResponseSchema(
+  "BudgetStatusResponse",
+  BudgetStatusSchema,
+  "budgetStatus",
+);
+
+export const BudgetAlertListResponseSchema = createApiListResponseSchema(
+  "BudgetAlertListResponse",
+  BudgetAlertSchema,
+);
+
+export const ForecastResponseSchema = createApiResponseSchema(
+  "ForecastResponse",
+  ForecastSchema,
+  "forecast",
+);
+
+export const RecommendationListResponseSchema = createApiListResponseSchema(
+  "RecommendationListResponse",
+  RecommendationSchema,
+);
+
+export const OptimizationSummaryResponseSchema = createApiResponseSchema(
+  "OptimizationSummaryResponse",
+  OptimizationSummarySchema,
+  "optimizationSummary",
+);
+
+export const RateCardListResponseSchema = createApiListResponseSchema(
+  "RateCardListResponse",
+  RateCardSchema,
+);

@@ -15,19 +15,55 @@ import {
   CheckpointResponseSchema,
   ConflictListResponseSchema,
   CreateCheckpointRequestSchema,
+  CreateDashboardRequestSchema,
   CreateNotificationRequestSchema,
   CreatePipelineRequestSchema,
   CreateReservationRequestSchema,
+  CreateWidgetRequestSchema,
+  DashboardListResponseSchema,
+  DashboardResponseSchema,
+  DashboardSharingSchema,
+  DashboardStatsResponseSchema,
+  DashboardVisibilitySchema,
+  GrantPermissionRequestSchema,
   HealthCheckResponseSchema,
   InterruptAgentRequestSchema,
   NotificationListResponseSchema,
   PaginationQuerySchema,
+  PermissionListResponseSchema,
+  PermissionResponseSchema,
   PipelineResponseSchema,
   ReservationResponseSchema,
   RestoreCheckpointRequestSchema,
   registry,
   SendMessageRequestSchema,
   SpawnAgentRequestSchema,
+  UpdateDashboardRequestSchema,
+  WidgetDataResponseSchema,
+  WidgetSchema,
+  // Cost Analytics
+  BudgetAlertListResponseSchema,
+  BudgetListResponseSchema,
+  BudgetResponseSchema,
+  BudgetStatusResponseSchema,
+  CostBreakdownResponseSchema,
+  CostRecordInputSchema,
+  CostRecordListResponseSchema,
+  CostRecordResponseSchema,
+  CostSummaryResponseSchema,
+  CostTrendPointSchema,
+  CreateBudgetRequestSchema,
+  ForecastOptionsSchema,
+  ForecastResponseSchema,
+  ForecastScenarioSchema,
+  OptimizationSummaryResponseSchema,
+  ProviderIdSchema,
+  RateCardListResponseSchema,
+  RateCardSchema,
+  RecommendationCategorySchema,
+  RecommendationListResponseSchema,
+  RecommendationStatusSchema,
+  TopSpendingAgentSchema,
 } from "./schemas";
 
 // ============================================================================
@@ -588,6 +624,1342 @@ registry.registerPath({
 });
 
 // ============================================================================
+// Dashboard Routes
+// ============================================================================
+
+registry.registerPath({
+  method: "get",
+  path: "/dashboards",
+  summary: "List dashboards",
+  description: "Returns a paginated list of dashboards accessible to the user.",
+  tags: ["Dashboards"],
+  request: {
+    query: PaginationQuerySchema.extend({
+      userId: z.string().optional().openapi({
+        description: "Filter by owner user ID",
+      }),
+      workspaceId: z.string().optional().openapi({
+        description: "Filter by workspace ID",
+      }),
+      visibility: DashboardVisibilitySchema.optional().openapi({
+        description: "Filter by visibility level",
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "List of dashboards",
+      content: {
+        "application/json": {
+          schema: DashboardListResponseSchema,
+        },
+      },
+    },
+    401: {
+      description: "Unauthorized",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/dashboards",
+  summary: "Create dashboard",
+  description: "Creates a new custom dashboard with optional initial widgets.",
+  tags: ["Dashboards"],
+  request: {
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: CreateDashboardRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Dashboard created",
+      content: {
+        "application/json": {
+          schema: DashboardResponseSchema,
+        },
+      },
+    },
+    400: {
+      description: "Invalid request body",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/dashboards/favorites",
+  summary: "List favorite dashboards",
+  description: "Returns the user's favorite dashboards.",
+  tags: ["Dashboards"],
+  request: {
+    query: z.object({
+      userId: z.string().optional().openapi({
+        description: "User ID",
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "List of favorite dashboards",
+      content: {
+        "application/json": {
+          schema: DashboardListResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/dashboards/stats",
+  summary: "Get dashboard statistics",
+  description: "Returns aggregate statistics about all dashboards.",
+  tags: ["Dashboards"],
+  responses: {
+    200: {
+      description: "Dashboard statistics",
+      content: {
+        "application/json": {
+          schema: DashboardStatsResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/dashboards/public/{slug}",
+  summary: "Get public dashboard",
+  description: "Returns a public dashboard by its URL slug.",
+  tags: ["Dashboards"],
+  request: {
+    params: z.object({
+      slug: z.string().openapi({
+        description: "Public dashboard URL slug",
+        example: "team-metrics",
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Public dashboard",
+      content: {
+        "application/json": {
+          schema: DashboardResponseSchema,
+        },
+      },
+    },
+    403: {
+      description: "Dashboard is not public",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Dashboard not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/dashboards/{dashboardId}",
+  summary: "Get dashboard",
+  description: "Returns a specific dashboard by ID.",
+  tags: ["Dashboards"],
+  request: {
+    params: z.object({
+      dashboardId: z.string().openapi({
+        description: "Dashboard identifier",
+        example: "dash_abc123",
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Dashboard details",
+      content: {
+        "application/json": {
+          schema: DashboardResponseSchema,
+        },
+      },
+    },
+    403: {
+      description: "Access denied",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Dashboard not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "put",
+  path: "/dashboards/{dashboardId}",
+  summary: "Update dashboard",
+  description: "Updates an existing dashboard's properties.",
+  tags: ["Dashboards"],
+  request: {
+    params: z.object({
+      dashboardId: z.string().openapi({
+        description: "Dashboard identifier",
+      }),
+    }),
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: UpdateDashboardRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Dashboard updated",
+      content: {
+        "application/json": {
+          schema: DashboardResponseSchema,
+        },
+      },
+    },
+    403: {
+      description: "No edit access",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Dashboard not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/dashboards/{dashboardId}",
+  summary: "Delete dashboard",
+  description: "Permanently deletes a dashboard. Only the owner can delete.",
+  tags: ["Dashboards"],
+  request: {
+    params: z.object({
+      dashboardId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Dashboard deleted",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+          }),
+        },
+      },
+    },
+    403: {
+      description: "Only owner can delete",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Dashboard not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/dashboards/{dashboardId}/duplicate",
+  summary: "Duplicate dashboard",
+  description: "Creates a copy of an existing dashboard.",
+  tags: ["Dashboards"],
+  request: {
+    params: z.object({
+      dashboardId: z.string(),
+    }),
+    body: {
+      required: false,
+      content: {
+        "application/json": {
+          schema: z.object({
+            name: z.string().optional().openapi({
+              description: "Custom name for the copy",
+            }),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Dashboard duplicated",
+      content: {
+        "application/json": {
+          schema: DashboardResponseSchema,
+        },
+      },
+    },
+    403: {
+      description: "No access to original",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Dashboard not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// Widget Operations
+
+registry.registerPath({
+  method: "post",
+  path: "/dashboards/{dashboardId}/widgets",
+  summary: "Add widget",
+  description: "Adds a new widget to a dashboard.",
+  tags: ["Dashboards"],
+  request: {
+    params: z.object({
+      dashboardId: z.string(),
+    }),
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: CreateWidgetRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Widget added",
+      content: {
+        "application/json": {
+          schema: DashboardResponseSchema,
+        },
+      },
+    },
+    400: {
+      description: "Invalid widget data",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+    403: {
+      description: "No edit access",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Dashboard not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "put",
+  path: "/dashboards/{dashboardId}/widgets/{widgetId}",
+  summary: "Update widget",
+  description: "Updates an existing widget's properties.",
+  tags: ["Dashboards"],
+  request: {
+    params: z.object({
+      dashboardId: z.string(),
+      widgetId: z.string(),
+    }),
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: WidgetSchema.partial(),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Widget updated",
+      content: {
+        "application/json": {
+          schema: DashboardResponseSchema,
+        },
+      },
+    },
+    403: {
+      description: "No edit access",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Widget not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/dashboards/{dashboardId}/widgets/{widgetId}",
+  summary: "Remove widget",
+  description: "Removes a widget from a dashboard.",
+  tags: ["Dashboards"],
+  request: {
+    params: z.object({
+      dashboardId: z.string(),
+      widgetId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Widget removed",
+      content: {
+        "application/json": {
+          schema: DashboardResponseSchema,
+        },
+      },
+    },
+    403: {
+      description: "No edit access",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Widget not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/dashboards/{dashboardId}/widgets/{widgetId}/data",
+  summary: "Get widget data",
+  description: "Fetches the current data for a widget.",
+  tags: ["Dashboards"],
+  request: {
+    params: z.object({
+      dashboardId: z.string(),
+      widgetId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Widget data",
+      content: {
+        "application/json": {
+          schema: WidgetDataResponseSchema,
+        },
+      },
+    },
+    403: {
+      description: "No access",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Widget not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// Sharing and Permissions
+
+registry.registerPath({
+  method: "put",
+  path: "/dashboards/{dashboardId}/sharing",
+  summary: "Update sharing settings",
+  description: "Updates the sharing configuration for a dashboard.",
+  tags: ["Dashboards"],
+  request: {
+    params: z.object({
+      dashboardId: z.string(),
+    }),
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: DashboardSharingSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Sharing updated",
+      content: {
+        "application/json": {
+          schema: DashboardResponseSchema,
+        },
+      },
+    },
+    403: {
+      description: "Only owner can update sharing",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Dashboard not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/dashboards/{dashboardId}/permissions",
+  summary: "List permissions",
+  description: "Lists all user permissions for a dashboard.",
+  tags: ["Dashboards"],
+  request: {
+    params: z.object({
+      dashboardId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "List of permissions",
+      content: {
+        "application/json": {
+          schema: PermissionListResponseSchema,
+        },
+      },
+    },
+    403: {
+      description: "Only owner can view permissions",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Dashboard not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/dashboards/{dashboardId}/permissions",
+  summary: "Grant permission",
+  description: "Grants view or edit permission to a user.",
+  tags: ["Dashboards"],
+  request: {
+    params: z.object({
+      dashboardId: z.string(),
+    }),
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: GrantPermissionRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Permission granted",
+      content: {
+        "application/json": {
+          schema: PermissionResponseSchema,
+        },
+      },
+    },
+    403: {
+      description: "Only owner can grant permissions",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Dashboard not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/dashboards/{dashboardId}/permissions/{targetUserId}",
+  summary: "Revoke permission",
+  description: "Revokes a user's permission from a dashboard.",
+  tags: ["Dashboards"],
+  request: {
+    params: z.object({
+      dashboardId: z.string(),
+      targetUserId: z.string().openapi({
+        description: "User ID to revoke permission from",
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Permission revoked",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+          }),
+        },
+      },
+    },
+    403: {
+      description: "Only owner can revoke permissions",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Permission not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// Favorites
+
+registry.registerPath({
+  method: "post",
+  path: "/dashboards/{dashboardId}/favorite",
+  summary: "Add to favorites",
+  description: "Adds a dashboard to the user's favorites.",
+  tags: ["Dashboards"],
+  request: {
+    params: z.object({
+      dashboardId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Added to favorites",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+          }),
+        },
+      },
+    },
+    403: {
+      description: "No access to dashboard",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Dashboard not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/dashboards/{dashboardId}/favorite",
+  summary: "Remove from favorites",
+  description: "Removes a dashboard from the user's favorites.",
+  tags: ["Dashboards"],
+  request: {
+    params: z.object({
+      dashboardId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Removed from favorites",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+          }),
+        },
+      },
+    },
+    404: {
+      description: "Favorite not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// ============================================================================
+// Cost Analytics Routes
+// ============================================================================
+
+// Cost Records
+
+registry.registerPath({
+  method: "post",
+  path: "/cost-analytics/records",
+  summary: "Record cost",
+  description: "Records a cost event from an LLM API call.",
+  tags: ["Cost Analytics"],
+  request: {
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: CostRecordInputSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Cost recorded",
+      content: {
+        "application/json": {
+          schema: CostRecordResponseSchema,
+        },
+      },
+    },
+    400: {
+      description: "Invalid input",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/cost-analytics/records",
+  summary: "List cost records",
+  description: "Returns cost records with optional filtering.",
+  tags: ["Cost Analytics"],
+  request: {
+    query: PaginationQuerySchema.extend({
+      organizationId: z.string().optional(),
+      projectId: z.string().optional(),
+      agentId: z.string().optional(),
+      model: z.string().optional(),
+      provider: ProviderIdSchema.optional(),
+      since: z.string().datetime().optional(),
+      until: z.string().datetime().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "List of cost records",
+      content: {
+        "application/json": {
+          schema: CostRecordListResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/cost-analytics/summary",
+  summary: "Get cost summary",
+  description: "Returns aggregated cost summary for a period.",
+  tags: ["Cost Analytics"],
+  request: {
+    query: z.object({
+      organizationId: z.string().optional(),
+      projectId: z.string().optional(),
+      agentId: z.string().optional(),
+      since: z.string().datetime().optional(),
+      until: z.string().datetime().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Cost summary",
+      content: {
+        "application/json": {
+          schema: CostSummaryResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/cost-analytics/breakdown/{dimension}",
+  summary: "Get cost breakdown",
+  description: "Returns cost breakdown by model, agent, project, or provider.",
+  tags: ["Cost Analytics"],
+  request: {
+    params: z.object({
+      dimension: z.enum(["model", "agent", "project", "provider"]),
+    }),
+    query: z.object({
+      organizationId: z.string().optional(),
+      projectId: z.string().optional(),
+      since: z.string().datetime().optional(),
+      until: z.string().datetime().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Cost breakdown",
+      content: {
+        "application/json": {
+          schema: CostBreakdownResponseSchema,
+        },
+      },
+    },
+    400: {
+      description: "Invalid dimension",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/cost-analytics/trends/daily",
+  summary: "Get daily cost trends",
+  description: "Returns daily cost trend data.",
+  tags: ["Cost Analytics"],
+  request: {
+    query: z.object({
+      organizationId: z.string().optional(),
+      projectId: z.string().optional(),
+      since: z.string().datetime().optional(),
+      until: z.string().datetime().optional(),
+      days: z.coerce.number().int().min(1).max(365).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Daily cost trend",
+      content: {
+        "application/json": {
+          schema: z.object({
+            object: z.literal("list"),
+            data: z.array(CostTrendPointSchema),
+            total: z.number(),
+          }),
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/cost-analytics/top-agents",
+  summary: "Get top spending agents",
+  description: "Returns the top agents by cost.",
+  tags: ["Cost Analytics"],
+  request: {
+    query: z.object({
+      organizationId: z.string().optional(),
+      projectId: z.string().optional(),
+      since: z.string().datetime().optional(),
+      until: z.string().datetime().optional(),
+      limit: z.coerce.number().int().min(1).max(100).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Top spending agents",
+      content: {
+        "application/json": {
+          schema: z.object({
+            object: z.literal("list"),
+            data: z.array(TopSpendingAgentSchema),
+            total: z.number(),
+          }),
+        },
+      },
+    },
+  },
+});
+
+// Budgets
+
+registry.registerPath({
+  method: "post",
+  path: "/cost-analytics/budgets",
+  summary: "Create budget",
+  description: "Creates a new cost budget with alert thresholds.",
+  tags: ["Cost Analytics"],
+  request: {
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: CreateBudgetRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Budget created",
+      content: {
+        "application/json": {
+          schema: BudgetResponseSchema,
+        },
+      },
+    },
+    400: {
+      description: "Invalid input",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/cost-analytics/budgets",
+  summary: "List budgets",
+  description: "Returns all configured budgets.",
+  tags: ["Cost Analytics"],
+  request: {
+    query: z.object({
+      organizationId: z.string().optional(),
+      projectId: z.string().optional(),
+      enabled: z.coerce.boolean().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "List of budgets",
+      content: {
+        "application/json": {
+          schema: BudgetListResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/cost-analytics/budgets/{budgetId}",
+  summary: "Get budget",
+  description: "Returns a specific budget by ID.",
+  tags: ["Cost Analytics"],
+  request: {
+    params: z.object({
+      budgetId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Budget details",
+      content: {
+        "application/json": {
+          schema: BudgetResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Budget not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/cost-analytics/budgets/{budgetId}/status",
+  summary: "Get budget status",
+  description: "Returns current usage status for a budget.",
+  tags: ["Cost Analytics"],
+  request: {
+    params: z.object({
+      budgetId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Budget status",
+      content: {
+        "application/json": {
+          schema: BudgetStatusResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Budget not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/cost-analytics/budget-alerts",
+  summary: "List budget alerts",
+  description: "Returns budget threshold alerts.",
+  tags: ["Cost Analytics"],
+  request: {
+    query: z.object({
+      budgetId: z.string().optional(),
+      acknowledged: z.coerce.boolean().optional(),
+      since: z.string().datetime().optional(),
+      limit: z.coerce.number().int().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "List of alerts",
+      content: {
+        "application/json": {
+          schema: BudgetAlertListResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// Forecasts
+
+registry.registerPath({
+  method: "post",
+  path: "/cost-analytics/forecasts",
+  summary: "Generate forecast",
+  description: "Generates a new cost forecast based on historical data.",
+  tags: ["Cost Analytics"],
+  request: {
+    body: {
+      required: false,
+      content: {
+        "application/json": {
+          schema: ForecastOptionsSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Forecast generated",
+      content: {
+        "application/json": {
+          schema: ForecastResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/cost-analytics/forecasts/latest",
+  summary: "Get latest forecast",
+  description: "Returns the most recent cost forecast.",
+  tags: ["Cost Analytics"],
+  request: {
+    query: z.object({
+      organizationId: z.string().optional(),
+      projectId: z.string().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Latest forecast",
+      content: {
+        "application/json": {
+          schema: ForecastResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/cost-analytics/forecasts/{forecastId}/scenarios",
+  summary: "Get forecast scenarios",
+  description: "Returns what-if scenarios for a forecast.",
+  tags: ["Cost Analytics"],
+  request: {
+    params: z.object({
+      forecastId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Forecast scenarios",
+      content: {
+        "application/json": {
+          schema: z.object({
+            object: z.literal("list"),
+            data: z.array(ForecastScenarioSchema),
+            total: z.number(),
+          }),
+        },
+      },
+    },
+    404: {
+      description: "Forecast not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// Recommendations
+
+registry.registerPath({
+  method: "get",
+  path: "/cost-analytics/recommendations",
+  summary: "List recommendations",
+  description: "Returns cost optimization recommendations.",
+  tags: ["Cost Analytics"],
+  request: {
+    query: z.object({
+      organizationId: z.string().optional(),
+      projectId: z.string().optional(),
+      category: RecommendationCategorySchema.optional(),
+      status: RecommendationStatusSchema.optional(),
+      limit: z.coerce.number().int().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "List of recommendations",
+      content: {
+        "application/json": {
+          schema: RecommendationListResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/cost-analytics/recommendations/summary",
+  summary: "Get optimization summary",
+  description: "Returns aggregate optimization summary.",
+  tags: ["Cost Analytics"],
+  request: {
+    query: z.object({
+      organizationId: z.string().optional(),
+      projectId: z.string().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Optimization summary",
+      content: {
+        "application/json": {
+          schema: OptimizationSummaryResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// Rate Cards
+
+registry.registerPath({
+  method: "get",
+  path: "/cost-analytics/rate-cards",
+  summary: "List rate cards",
+  description: "Returns all configured model rate cards.",
+  tags: ["Cost Analytics"],
+  responses: {
+    200: {
+      description: "List of rate cards",
+      content: {
+        "application/json": {
+          schema: RateCardListResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/cost-analytics/rate-cards",
+  summary: "Create/update rate card",
+  description: "Creates or updates a model rate card.",
+  tags: ["Cost Analytics"],
+  request: {
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: RateCardSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Rate card created/updated",
+      content: {
+        "application/json": {
+          schema: z.object({
+            object: z.literal("rateCard"),
+            data: RateCardSchema,
+          }),
+        },
+      },
+    },
+    400: {
+      description: "Invalid input",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// ============================================================================
 // OpenAPI Document Generator
 // ============================================================================
 
@@ -694,6 +2066,14 @@ See the WebSocket documentation for event types and subscription.
       {
         name: "Pipelines",
         description: "Multi-step agent orchestration pipelines",
+      },
+      {
+        name: "Dashboards",
+        description: "Custom dashboard builder with drag-and-drop widgets",
+      },
+      {
+        name: "Cost Analytics",
+        description: "Cost tracking, budgets, forecasting, and optimization recommendations",
       },
     ],
     security: [

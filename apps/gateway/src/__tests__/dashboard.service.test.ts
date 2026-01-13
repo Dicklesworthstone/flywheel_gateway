@@ -162,9 +162,10 @@ describe("Dashboard Service", () => {
       createDashboard({ name: "Dashboard 2" }, "user-1");
       createDashboard({ name: "Dashboard 3" }, "user-2");
 
-      const list = listDashboards({});
+      const { items, total } = listDashboards({});
 
-      expect(list).toHaveLength(3);
+      expect(items).toHaveLength(3);
+      expect(total).toBe(3);
     });
 
     it("should filter by owner", () => {
@@ -172,9 +173,10 @@ describe("Dashboard Service", () => {
       createDashboard({ name: "Dashboard 2" }, "user-1");
       createDashboard({ name: "Dashboard 3" }, "user-2");
 
-      const list = listDashboards({ ownerId: "user-1" });
+      const { items, total } = listDashboards({ ownerId: "user-1" });
 
-      expect(list).toHaveLength(2);
+      expect(items).toHaveLength(2);
+      expect(total).toBe(2);
     });
 
     it("should filter by visibility", () => {
@@ -184,9 +186,10 @@ describe("Dashboard Service", () => {
         "user-2",
       );
 
-      const publicList = listDashboards({ visibility: "public" });
-      expect(publicList).toHaveLength(1);
-      expect(publicList[0].name).toBe("Public");
+      const { items, total } = listDashboards({ visibility: "public" });
+      expect(items).toHaveLength(1);
+      expect(items[0].name).toBe("Public");
+      expect(total).toBe(1);
     });
   });
 

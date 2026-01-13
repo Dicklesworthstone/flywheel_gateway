@@ -78,7 +78,7 @@ const DataSourceSchema = z.object({
   type: z.enum(["api", "query", "static"]),
   endpoint: z.string().optional(),
   query: z.string().optional(),
-  filters: z.record(z.unknown()).optional(),
+  filters: z.record(z.string(), z.unknown()).optional(),
   timeRange: z.object({
     preset: z.enum(["15m", "1h", "6h", "24h", "7d", "30d", "custom"]),
     start: z.string().optional(),
@@ -106,7 +106,7 @@ const WidgetConfigSchema = z.object({
   dataSource: DataSourceSchema,
   display: DisplaySchema,
   thresholds: ThresholdSchema,
-  customOptions: z.record(z.unknown()).optional(),
+  customOptions: z.record(z.string(), z.unknown()).optional(),
 });
 
 const WidgetSchema = z.object({
@@ -178,7 +178,7 @@ dashboards.get("/", async (c) => {
   const offset = Number.parseInt(c.req.query("offset") ?? "0", 10);
 
   try {
-    const dashboardList = listDashboards({
+    const { items, total } = listDashboards({
       userId,
       workspaceId,
       visibility,
@@ -186,14 +186,78 @@ dashboards.get("/", async (c) => {
       offset,
     });
 
-    return sendList(c, "dashboards", dashboardList, {
-      limit,
-      offset,
-      total: dashboardList.length,
+    return sendList(c, items, {
+      total,
+      hasMore: offset + items.length < total,
     });
   } catch (error) {
     log.error({ error }, "Failed to list dashboards");
     return sendError(c, "INTERNAL_ERROR", "Failed to list dashboards", 500);
+  }
+});
+
+/**
+ * List user's favorite dashboards
+ * GET /dashboards/favorites
+ * NOTE: Must be defined before /:id to avoid being caught by the param route
+ */
+dashboards.get("/favorites", async (c) => {
+  const log = getLogger();
+  const userId = c.req.query("userId") ?? "default";
+
+  try {
+    const favorites = listFavorites(userId);
+
+    return sendList(c, favorites, {
+      total: favorites.length,
+    });
+  } catch (error) {
+    log.error({ error }, "Failed to list favorites");
+    return sendError(c, "INTERNAL_ERROR", "Failed to list favorites", 500);
+  }
+});
+
+/**
+ * Get dashboard statistics
+ * GET /dashboards/stats
+ * NOTE: Must be defined before /:id to avoid being caught by the param route
+ */
+dashboards.get("/stats", async (c) => {
+  const log = getLogger();
+
+  try {
+    const stats = getDashboardStats();
+    return sendResource(c, "stats", stats);
+  } catch (error) {
+    log.error({ error }, "Failed to get dashboard stats");
+    return sendError(c, "INTERNAL_ERROR", "Failed to get dashboard stats", 500);
+  }
+});
+
+/**
+ * Get a public dashboard by slug
+ * GET /dashboards/public/:slug
+ * NOTE: Must be defined before /:id to avoid being caught by the param route
+ */
+dashboards.get("/public/:slug", async (c) => {
+  const log = getLogger();
+  const slug = c.req.param("slug");
+
+  try {
+    const dashboard = getDashboardBySlug(slug);
+
+    if (!dashboard) {
+      return sendNotFound(c, "Dashboard", slug);
+    }
+
+    if (dashboard.sharing.visibility !== "public") {
+      return sendError(c, "FORBIDDEN", "This dashboard is not public", 403);
+    }
+
+    return sendResource(c, "dashboard", dashboard);
+  } catch (error) {
+    log.error({ error, slug }, "Failed to get public dashboard");
+    return sendError(c, "INTERNAL_ERROR", "Failed to get public dashboard", 500);
   }
 });
 
@@ -576,9 +640,7 @@ dashboards.get("/:id/permissions", async (c) => {
 
     const permissions = listPermissions(id);
 
-    return sendList(c, "permissions", permissions, {
-      limit: permissions.length,
-      offset: 0,
+    return sendList(c, permissions, {
       total: permissions.length,
     });
   } catch (error) {
@@ -614,11 +676,15 @@ dashboards.post("/:id/permissions", async (c) => {
     };
 
     if (!targetUserId || !permission) {
-      return sendValidationError(c, "targetUserId and permission are required");
+      return sendValidationError(c, [
+        { path: "body", message: "targetUserId and permission are required" },
+      ]);
     }
 
     if (permission !== "view" && permission !== "edit") {
-      return sendValidationError(c, "permission must be 'view' or 'edit'");
+      return sendValidationError(c, [
+        { path: "permission", message: "permission must be 'view' or 'edit'" },
+      ]);
     }
 
     const entry = grantPermission(id, targetUserId, permission, userId);
@@ -673,28 +739,6 @@ dashboards.delete("/:id/permissions/:targetUserId", async (c) => {
 // ============================================================================
 // Favorites Endpoints
 // ============================================================================
-
-/**
- * List user's favorite dashboards
- * GET /dashboards/favorites
- */
-dashboards.get("/favorites", async (c) => {
-  const log = getLogger();
-  const userId = c.req.query("userId") ?? "default";
-
-  try {
-    const favorites = listFavorites(userId);
-
-    return sendList(c, "dashboards", favorites, {
-      limit: favorites.length,
-      offset: 0,
-      total: favorites.length,
-    });
-  } catch (error) {
-    log.error({ error }, "Failed to list favorites");
-    return sendError(c, "INTERNAL_ERROR", "Failed to list favorites", 500);
-  }
-});
 
 /**
  * Add dashboard to favorites
@@ -754,54 +798,4 @@ dashboards.delete("/:id/favorite", async (c) => {
   }
 });
 
-// ============================================================================
-// Public/Embed Access Endpoints
-// ============================================================================
-
-/**
- * Get a public dashboard by slug
- * GET /public/dashboards/:slug
- */
-dashboards.get("/public/:slug", async (c) => {
-  const log = getLogger();
-  const slug = c.req.param("slug");
-
-  try {
-    const dashboard = getDashboardBySlug(slug);
-
-    if (!dashboard) {
-      return sendNotFound(c, "Dashboard", slug);
-    }
-
-    if (dashboard.sharing.visibility !== "public") {
-      return sendError(c, "FORBIDDEN", "This dashboard is not public", 403);
-    }
-
-    return sendResource(c, "dashboard", dashboard);
-  } catch (error) {
-    log.error({ error, slug }, "Failed to get public dashboard");
-    return sendError(c, "INTERNAL_ERROR", "Failed to get public dashboard", 500);
-  }
-});
-
-// ============================================================================
-// Stats Endpoint
-// ============================================================================
-
-/**
- * Get dashboard statistics
- * GET /dashboards/stats
- */
-dashboards.get("/stats", async (c) => {
-  const log = getLogger();
-
-  try {
-    const stats = getDashboardStats();
-    return sendResource(c, "stats", stats);
-  } catch (error) {
-    log.error({ error }, "Failed to get dashboard stats");
-    return sendError(c, "INTERNAL_ERROR", "Failed to get dashboard stats", 500);
-  }
-});
-
-export default dashboards;
+export { dashboards };
