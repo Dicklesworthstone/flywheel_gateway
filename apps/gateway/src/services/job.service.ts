@@ -40,7 +40,7 @@ import { logger as baseLogger, createChildLogger } from "./logger";
 // ============================================================================
 
 export class JobNotFoundError extends Error {
-  public name = "JobNotFoundError";
+  public override name = "JobNotFoundError";
   public jobId: string;
 
   constructor(jobId: string) {
@@ -50,7 +50,7 @@ export class JobNotFoundError extends Error {
 }
 
 export class JobCancelledException extends Error {
-  public name = "JobCancelledException";
+  public override name = "JobCancelledException";
   public jobId: string;
 
   constructor(jobId: string) {
@@ -60,7 +60,7 @@ export class JobCancelledException extends Error {
 }
 
 export class NoHandlerError extends Error {
-  public name = "NoHandlerError";
+  public override name = "NoHandlerError";
   public jobType: string;
 
   constructor(jobType: string) {
@@ -70,7 +70,7 @@ export class NoHandlerError extends Error {
 }
 
 export class JobValidationError extends Error {
-  public name = "JobValidationError";
+  public override name = "JobValidationError";
   public errors: string[];
 
   constructor(errors: string[]) {
@@ -102,7 +102,7 @@ class JobExecutionContext implements JobContext {
       total,
       percentage: Math.round((current / total) * 100),
       message: message ?? this.job.progress.message,
-      stage: this.job.progress.stage,
+      ...(this.job.progress.stage != null && { stage: this.job.progress.stage }),
     };
 
     await this.service.updateJobProgress(this.job.id, this.job.progress);
@@ -183,7 +183,7 @@ class JobExecution {
     this.job.cancellation = {
       requestedAt: new Date(),
       requestedBy: "user",
-      reason,
+      ...(reason != null && { reason }),
     };
 
     if (this.handler.onCancel) {
@@ -477,7 +477,7 @@ export class JobService {
     job.cancellation = {
       requestedAt: now,
       requestedBy: "user",
-      reason,
+      ...(reason != null && { reason }),
     };
     job.completedAt = now;
 
