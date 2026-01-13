@@ -13,7 +13,6 @@ const mockPerformanceObserver = {
   disconnect: mock(() => {}),
 };
 
-// @ts-expect-error - mocking global
 globalThis.PerformanceObserver = class {
   constructor(callback: PerformanceObserverCallback) {
     // Store callback if needed

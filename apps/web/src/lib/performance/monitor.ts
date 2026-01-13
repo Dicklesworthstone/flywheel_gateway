@@ -168,7 +168,8 @@ class PerformanceMonitor {
       const interactions: number[] = [];
       const observer = new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
-          const eventEntry = entry as PerformanceEventTiming;
+          // interactionId is experimental and not in all TS lib definitions
+          const eventEntry = entry as PerformanceEventTiming & { interactionId?: number };
           if (eventEntry.interactionId) {
             const duration = eventEntry.duration;
             interactions.push(duration);
