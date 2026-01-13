@@ -268,3 +268,28 @@ export function isZodError(error: unknown): error is ZodError {
     Array.isArray((error as ZodError).issues)
   );
 }
+
+/**
+ * Strip undefined properties from an object.
+ *
+ * This is useful when working with `exactOptionalPropertyTypes: true`
+ * which doesn't allow `{ foo: undefined }` when the type is `{ foo?: string }`.
+ *
+ * @example
+ * ```typescript
+ * const filter = stripUndefined({
+ *   organizationId: req.query("org") || undefined,
+ *   projectId: req.query("project") || undefined,
+ * });
+ * // If organizationId is undefined, it won't be included in the result
+ * ```
+ */
+export function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
+  const result: Record<string, unknown> = {};
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key) && obj[key] !== undefined) {
+      result[key] = obj[key];
+    }
+  }
+  return result as T;
+}
