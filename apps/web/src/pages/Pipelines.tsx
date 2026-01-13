@@ -72,15 +72,25 @@ function formatDuration(ms: number): string {
   return `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`;
 }
 
-function formatRelativeTime(dateString: string): string {
+function formatRelativeTime(dateString: string, isFuture = false): string {
   const date = new Date(dateString);
   const now = new Date();
-  const diff = now.getTime() - date.getTime();
+  const diff = isFuture
+    ? date.getTime() - now.getTime()
+    : now.getTime() - date.getTime();
 
-  if (diff < 60000) return "just now";
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return `${Math.floor(diff / 86400000)}d ago`;
+  // Handle edge case where diff is negative
+  if (diff < 0) {
+    return isFuture ? "now" : "just now";
+  }
+
+  const suffix = isFuture ? "" : " ago";
+  const prefix = isFuture ? "in " : "";
+
+  if (diff < 60000) return isFuture ? "in <1m" : "just now";
+  if (diff < 3600000) return `${prefix}${Math.floor(diff / 60000)}m${suffix}`;
+  if (diff < 86400000) return `${prefix}${Math.floor(diff / 3600000)}h${suffix}`;
+  return `${prefix}${Math.floor(diff / 86400000)}d${suffix}`;
 }
 
 function getSuccessRate(stats: Pipeline["stats"]): number {
@@ -219,7 +229,7 @@ function PipelineCard({
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div className="muted" style={{ fontSize: "0.75rem" }}>
               {pipeline.lastRunAt && `Last run ${formatRelativeTime(pipeline.lastRunAt)}`}
-              {pipeline.trigger.nextTriggerAt && ` · Next: ${formatRelativeTime(pipeline.trigger.nextTriggerAt)}`}
+              {pipeline.trigger.nextTriggerAt && ` · Next: ${formatRelativeTime(pipeline.trigger.nextTriggerAt, true)}`}
             </div>
             <div style={{ display: "flex", gap: "0.5rem" }}>
               <button

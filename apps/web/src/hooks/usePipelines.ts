@@ -374,13 +374,17 @@ function useQuery<T>(
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  // Store mockData in a ref to avoid dependency issues while keeping current value
+  const mockDataRef = { current: mockData };
+  mockDataRef.current = mockData;
+
   const fetch = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     if (mockMode) {
       await new Promise((r) => setTimeout(r, 300));
-      setData(mockData);
+      setData(mockDataRef.current);
       setIsLoading(false);
       return;
     }
@@ -390,14 +394,17 @@ function useQuery<T>(
       setData(result);
     } catch (e) {
       setError(e instanceof Error ? e : new Error("Unknown error"));
-      setData(mockData);
+      // Fall back to mock data on error
+      setData(mockDataRef.current);
     } finally {
       setIsLoading(false);
     }
-  }, [endpoint, mockData, mockMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endpoint, mockMode]);
 
   useEffect(() => {
     fetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetch, ...deps]);
 
   return { data, isLoading, error, refetch: fetch };
@@ -715,8 +722,8 @@ export function usePausePipeline(): MutationResult<
       if (mockMode) {
         await new Promise((r) => setTimeout(r, 300));
         setIsLoading(false);
-        const run = mockRuns.find((r) => r.id === runId);
-        return { ...run!, status: "paused" };
+        const run = mockRuns.find((r) => r.id === runId) ?? mockRuns[0];
+        return { ...run, status: "paused" };
       }
 
       try {
@@ -758,8 +765,8 @@ export function useResumePipeline(): MutationResult<
       if (mockMode) {
         await new Promise((r) => setTimeout(r, 300));
         setIsLoading(false);
-        const run = mockRuns.find((r) => r.id === runId);
-        return { ...run!, status: "running" };
+        const run = mockRuns.find((r) => r.id === runId) ?? mockRuns[0];
+        return { ...run, status: "running" };
       }
 
       try {
@@ -801,8 +808,8 @@ export function useCancelPipeline(): MutationResult<
       if (mockMode) {
         await new Promise((r) => setTimeout(r, 300));
         setIsLoading(false);
-        const run = mockRuns.find((r) => r.id === runId);
-        return { ...run!, status: "cancelled" };
+        const run = mockRuns.find((r) => r.id === runId) ?? mockRuns[0];
+        return { ...run, status: "cancelled" };
       }
 
       try {
