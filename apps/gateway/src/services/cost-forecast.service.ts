@@ -16,7 +16,6 @@ import type {
   ForecastMethodology,
   ForecastScenario,
 } from "../models/cost";
-import { logger } from "./logger";
 
 // ============================================================================
 // Constants
@@ -26,13 +25,13 @@ import { logger } from "./logger";
 const DEFAULT_HORIZON_DAYS = 30;
 
 /** Minimum historical days required for forecasting */
-const MIN_HISTORICAL_DAYS = 7;
+const _MIN_HISTORICAL_DAYS = 7;
 
 /** Default historical days to use for training */
 const DEFAULT_HISTORICAL_DAYS = 90;
 
 /** Confidence level for prediction intervals */
-const CONFIDENCE_LEVEL = 0.95;
+const _CONFIDENCE_LEVEL = 0.95;
 
 // ============================================================================
 // Statistical Helpers
@@ -141,7 +140,7 @@ function detectSeasonality(dailyValues: number[]): boolean {
 
   // Check if day-of-week variation is significant
   const dayMeans = dayAverages.map(mean);
-  const overallMean = mean(dailyValues);
+  const _overallMean = mean(dailyValues);
   const dayVariation = stdDev(dayMeans);
   const overallVariation = stdDev(dailyValues);
 
@@ -341,7 +340,6 @@ export async function generateForecast(options: {
     case "exponential":
       dailyForecasts = forecastExponential(historicalData, horizonDays);
       break;
-    case "ensemble":
     default:
       dailyForecasts = forecastEnsemble(historicalData, horizonDays);
       break;

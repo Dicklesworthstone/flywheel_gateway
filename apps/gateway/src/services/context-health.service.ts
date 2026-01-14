@@ -8,7 +8,7 @@
  * - Emergency (95%): Checkpoint, rotate, transfer, emit event
  */
 
-import { getCorrelationId, getLogger } from "../middleware/correlation";
+import { getLogger } from "../middleware/correlation";
 import {
   type ContextHealth,
   type ContextHealthConfig,
@@ -18,7 +18,6 @@ import {
   type HealthRecommendation,
   type RotationConfig,
   type RotationResult,
-  type SummarizationConfig,
   type SummarizationResult,
   type SummaryContent,
   type TokenHistoryEntry,
@@ -27,7 +26,7 @@ import {
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
 import { logger as baseLogger, createChildLogger } from "./logger";
-import { countTokens, truncateToTokens } from "./tokenizer.service";
+import { countTokens } from "./tokenizer.service";
 
 // ============================================================================
 // Error Classes
@@ -245,7 +244,7 @@ export class ContextHealthService {
    * Check and return the health of a session.
    */
   async checkHealth(sessionId: string): Promise<ContextHealth> {
-    const log = getLogger();
+    const _log = getLogger();
 
     const state = this.sessionStates.get(sessionId);
     if (!state) {
@@ -346,7 +345,7 @@ export class ContextHealthService {
    */
   private async handleWarning(
     health: ContextHealth,
-    state: SessionState,
+    _state: SessionState,
     log: ReturnType<typeof getLogger>,
   ): Promise<void> {
     log.warn("Context at warning level");
@@ -892,7 +891,7 @@ export class ContextHealthService {
    */
   private generateRecommendations(
     status: ContextHealthStatus,
-    percentUsed: number,
+    _percentUsed: number,
     history: TokenHistoryEntry[],
   ): HealthRecommendation[] {
     const recommendations: HealthRecommendation[] = [];

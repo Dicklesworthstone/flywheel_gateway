@@ -10,10 +10,8 @@ import {
   type HistogramBucket,
   LATENCY_BUCKETS,
   type Labels,
-  type MetricAggregate,
   type MetricComparison,
   type MetricSnapshot,
-  type MetricValue,
   type NamedSnapshot,
 } from "../models/metrics";
 import { getConnectionCount } from "./agent-ws";

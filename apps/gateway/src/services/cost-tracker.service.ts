@@ -15,9 +15,7 @@ import { db } from "../db/connection";
 import { costAggregates, costRecords, modelRateCards } from "../db/schema";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import type {
-  AggregationPeriod,
   ComplexityTier,
-  CostAggregate,
   CostBreakdown,
   CostFilter,
   CostRecord,
@@ -131,7 +129,7 @@ export async function getRateCard(
   }
 
   // Try prefix match (e.g., "claude-3-opus-20240229" matches "claude-3-opus")
-  for (const [cacheKey, card] of rateCardCache) {
+  for (const [_cacheKey, card] of rateCardCache) {
     if (model.startsWith(card.model) && card.provider === provider) {
       return card;
     }
