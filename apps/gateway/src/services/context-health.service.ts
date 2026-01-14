@@ -129,10 +129,13 @@ export class ContextHealthService {
       maxTokens?: number;
     } = {},
   ): void {
-    const maxTokens =
+    // Compute maxTokens with fallback chain, then ensure it's > 0 to prevent division by zero
+    const computedMaxTokens =
       options.maxTokens ??
       this.config.modelLimits[options.model ?? ""] ??
       this.config.defaultMaxTokens;
+    const maxTokens =
+      computedMaxTokens > 0 ? computedMaxTokens : this.config.defaultMaxTokens;
 
     const state: SessionState = {
       id: sessionId,

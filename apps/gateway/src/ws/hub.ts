@@ -709,6 +709,64 @@ export class WebSocketHub {
   }
 
   /**
+   * Remove buffers for channels that have no subscribers and are empty.
+   * This prevents unbounded memory growth from accumulated channel buffers.
+   *
+   * @returns Number of buffers removed
+   */
+  pruneUnusedBuffers(): number {
+    let removed = 0;
+
+    for (const [channelStr, buffer] of this.buffers) {
+      // Check if channel has any subscribers
+      const subs = this.subscribers.get(channelStr);
+      if (subs && subs.size > 0) {
+        continue; // Channel still has subscribers, keep buffer
+      }
+
+      // Prune expired entries first
+      buffer.prune();
+
+      // If buffer is now empty (or was already empty), remove it
+      if (buffer.validSize() === 0) {
+        this.buffers.delete(channelStr);
+        removed++;
+      }
+    }
+
+    if (removed > 0) {
+      logger.debug(
+        { buffersRemoved: removed, buffersRemaining: this.buffers.size },
+        "Pruned unused channel buffers",
+      );
+    }
+
+    return removed;
+  }
+
+  /**
+   * Get memory usage statistics for monitoring.
+   */
+  getMemoryStats(): {
+    connections: number;
+    buffers: number;
+    subscriberSets: number;
+    totalBufferItems: number;
+  } {
+    let totalBufferItems = 0;
+    for (const buffer of this.buffers.values()) {
+      totalBufferItems += buffer.size();
+    }
+
+    return {
+      connections: this.connections.size,
+      buffers: this.buffers.size,
+      subscriberSets: this.subscribers.size,
+      totalBufferItems,
+    };
+  }
+
+  /**
    * Send a message to a specific connection.
    */
   sendToConnection(connectionId: string, message: ServerMessage): boolean {
@@ -764,6 +822,12 @@ export class WebSocketHub {
 // Singleton hub instance
 let hubInstance: WebSocketHub | undefined;
 
+/** Cleanup interval handle */
+let cleanupIntervalHandle: ReturnType<typeof setInterval> | null = null;
+
+/** Cleanup interval in milliseconds (default: 5 minutes) */
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+
 /**
  * Get the singleton WebSocket hub instance.
  */
@@ -779,4 +843,64 @@ export function getHub(): WebSocketHub {
  */
 export function setHub(hub: WebSocketHub): void {
   hubInstance = hub;
+}
+
+/**
+ * Start the periodic hub cleanup job.
+ * This prunes expired buffer entries and removes unused channel buffers.
+ * Safe to call multiple times - will not create duplicate intervals.
+ */
+export function startHubCleanupJob(): void {
+  if (cleanupIntervalHandle !== null) {
+    return; // Already running
+  }
+
+  cleanupIntervalHandle = setInterval(() => {
+    const hub = hubInstance;
+    if (!hub) return;
+
+    // First prune expired entries from all buffers
+    const entriesPruned = hub.pruneBuffers();
+
+    // Then remove empty/unused buffers
+    const buffersPruned = hub.pruneUnusedBuffers();
+
+    if (entriesPruned > 0 || buffersPruned > 0) {
+      const stats = hub.getMemoryStats();
+      logger.debug(
+        {
+          entriesPruned,
+          buffersPruned,
+          ...stats,
+        },
+        "Hub cleanup completed",
+      );
+    }
+  }, CLEANUP_INTERVAL_MS);
+
+  // Ensure the interval doesn't prevent process exit
+  if (cleanupIntervalHandle.unref) {
+    cleanupIntervalHandle.unref();
+  }
+
+  logger.info("WebSocket hub cleanup job started");
+}
+
+/**
+ * Stop the periodic hub cleanup job.
+ */
+export function stopHubCleanupJob(): void {
+  if (cleanupIntervalHandle !== null) {
+    clearInterval(cleanupIntervalHandle);
+    cleanupIntervalHandle = null;
+    logger.info("WebSocket hub cleanup job stopped");
+  }
+}
+
+/**
+ * Reset the hub instance and cleanup job (for testing).
+ */
+export function resetHub(): void {
+  stopHubCleanupJob();
+  hubInstance = undefined;
 }

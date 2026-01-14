@@ -9,7 +9,6 @@
  */
 
 import type { Context, Next } from "hono";
-import type { StatusCode } from "hono/utils/http-status";
 import { getCorrelationId, getLogger } from "./correlation";
 
 // ============================================================================
@@ -310,16 +309,20 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
 
       // Return cached response
       log.debug({ idempotencyKey }, "Returning cached idempotent response");
-      c.header("X-Idempotent-Replayed", "true");
 
-      // Set cached headers
+      // Build headers for the cached response
+      const responseHeaders = new Headers();
+      responseHeaders.set("X-Idempotent-Replayed", "true");
       for (const [key, value] of Object.entries(existingRecord.headers)) {
         if (!key.toLowerCase().startsWith("x-idempotent")) {
-          c.header(key, value);
+          responseHeaders.set(key, value);
         }
       }
 
-      return c.body(existingRecord.body, existingRecord.status as StatusCode);
+      return new Response(existingRecord.body, {
+        status: existingRecord.status,
+        headers: responseHeaders,
+      });
     }
 
     // Check for pending request with same key
@@ -331,13 +334,20 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
       );
       try {
         const record = await pending.promise;
-        c.header("X-Idempotent-Replayed", "true");
+
+        // Build headers for the pending response
+        const pendingHeaders = new Headers();
+        pendingHeaders.set("X-Idempotent-Replayed", "true");
         for (const [key, value] of Object.entries(record.headers)) {
           if (!key.toLowerCase().startsWith("x-idempotent")) {
-            c.header(key, value);
+            pendingHeaders.set(key, value);
           }
         }
-        return c.body(record.body, record.status as StatusCode);
+
+        return new Response(record.body, {
+          status: record.status,
+          headers: pendingHeaders,
+        });
       } catch (_error) {
         // Original request failed, let this one try
         log.debug(
