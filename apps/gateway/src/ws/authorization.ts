@@ -254,6 +254,13 @@ export function canPublish(
       };
     }
   }
+
+  // Exhaustive check: should never reach here
+  const _exhaustive: never = channel;
+  return {
+    allowed: false,
+    reason: `Unknown channel type: ${(_exhaustive as Channel).type}`,
+  };
 }
 
 /**

@@ -682,7 +682,11 @@ function checkBudget(
   }
 
   const percentage = (usage.dollars / config.budget.limits.totalDollars) * 100;
-  const maxThreshold = Math.max(...config.budget.alertThresholds) * 100;
+  // Handle empty alertThresholds array - default to 100% (never exceeded)
+  const maxThreshold =
+    config.budget.alertThresholds.length > 0
+      ? Math.max(...config.budget.alertThresholds) * 100
+      : 100;
 
   return {
     exceeded: percentage >= maxThreshold,

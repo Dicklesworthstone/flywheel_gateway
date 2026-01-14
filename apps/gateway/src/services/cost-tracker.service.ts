@@ -478,8 +478,9 @@ export async function getCostSummary(filter?: CostFilter): Promise<{
     failureCount: 0,
   };
 
-  const totalTokens =
-    row.promptTokens + row.completionTokens + row.cachedTokens;
+  // Note: cachedTokens is a SUBSET of promptTokens (see calculateCost comment),
+  // so we don't add it again to avoid double-counting
+  const totalTokens = row.promptTokens + row.completionTokens;
   const avgCostPerRequest =
     row.requestCount > 0 ? row.totalCostUnits / row.requestCount : 0;
 
@@ -533,7 +534,8 @@ export async function getCostBreakdown(
       key: dimensionColumn,
       totalCostUnits: sql<number>`sum(${costRecords.totalCostUnits})`,
       requestCount: sql<number>`count(*)`,
-      totalTokens: sql<number>`sum(${costRecords.promptTokens} + ${costRecords.completionTokens} + ${costRecords.cachedTokens})`,
+      // Note: cachedTokens is a SUBSET of promptTokens, so we don't add it to avoid double-counting
+      totalTokens: sql<number>`sum(${costRecords.promptTokens} + ${costRecords.completionTokens})`,
     })
     .from(costRecords)
     .where(whereClause)

@@ -143,6 +143,32 @@ const WidgetSchema = z.object({
   refreshInterval: z.number().int().min(0).optional(),
 });
 
+// Partial schema for widget updates - all fields optional
+const WidgetUpdateSchema = z.object({
+  id: z.string().optional(),
+  type: z
+    .enum([
+      "metric-card",
+      "line-chart",
+      "bar-chart",
+      "pie-chart",
+      "table",
+      "agent-list",
+      "activity-feed",
+      "cost-breakdown",
+      "heatmap",
+      "gauge",
+      "text",
+      "iframe",
+    ])
+    .optional(),
+  title: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional(),
+  position: PositionSchema.partial().optional(),
+  config: WidgetConfigSchema.partial().optional(),
+  refreshInterval: z.number().int().min(0).optional(),
+});
+
 const SharingSchema = z.object({
   visibility: z.enum(["private", "team", "public"]).optional(),
   teamId: z.string().optional(),
@@ -542,8 +568,13 @@ dashboards.put("/:id/widgets/:widgetId", async (c) => {
     }
 
     const body = await c.req.json();
+    const parsed = WidgetUpdateSchema.safeParse(body);
 
-    const updated = updateWidget(id, widgetId, body);
+    if (!parsed.success) {
+      return sendValidationError(c, transformZodError(parsed.error));
+    }
+
+    const updated = updateWidget(id, widgetId, parsed.data as Partial<Widget>);
 
     if (!updated) {
       return sendNotFound(c, "Widget", widgetId);

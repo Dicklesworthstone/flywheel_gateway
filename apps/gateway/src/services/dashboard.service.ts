@@ -514,7 +514,7 @@ export function addWidget(
 
   const widgetWithId: Widget = {
     ...widget,
-    id: widget.id || `widget_${ulid()}`,
+    id: widget.id ?? `widget_${ulid()}`,
   };
 
   const updated: Dashboard = {
@@ -556,16 +556,20 @@ export function updateWidget(
     position: widgetUpdate.position ?? existingWidget.position,
     config: widgetUpdate.config ?? existingWidget.config,
   };
+  // Handle description: allow explicit empty string to clear, undefined preserves existing
   if (widgetUpdate.description !== undefined) {
-    if (widgetUpdate.description)
+    if (widgetUpdate.description) {
       updatedWidget.description = widgetUpdate.description;
+    }
+    // If explicitly set to empty string, description is cleared (not set)
   } else if (existingWidget.description) {
     updatedWidget.description = existingWidget.description;
   }
+  // Handle refreshInterval: allow 0 (disable refresh), undefined preserves existing
   if (widgetUpdate.refreshInterval !== undefined) {
-    if (widgetUpdate.refreshInterval)
-      updatedWidget.refreshInterval = widgetUpdate.refreshInterval;
-  } else if (existingWidget.refreshInterval) {
+    // Use explicit check to allow 0 as a valid value (disable auto-refresh)
+    updatedWidget.refreshInterval = widgetUpdate.refreshInterval;
+  } else if (existingWidget.refreshInterval !== undefined) {
     updatedWidget.refreshInterval = existingWidget.refreshInterval;
   }
   widgets[widgetIndex] = updatedWidget;

@@ -56,13 +56,6 @@ interface SingleTransferResult {
 }
 
 // ============================================================================
-// Constants
-// ============================================================================
-
-/** Default transfer timeout in ms */
-const _DEFAULT_TRANSFER_TIMEOUT_MS = 30_000;
-
-// ============================================================================
 // Helper Functions
 // ============================================================================
 
@@ -420,7 +413,7 @@ async function transferReservation(
       "Failed to create transferred reservation",
     );
     // Try to restore original reservation
-    await reservationService.createReservation({
+    const restoreResult = await reservationService.createReservation({
       projectId,
       agentId: sourceAgentId,
       patterns: reservation.patterns,
@@ -431,6 +424,18 @@ async function transferReservation(
         taskId: reservation.metadata.taskId,
       }),
     });
+
+    if (!restoreResult.granted) {
+      log.error(
+        {
+          reservationId,
+          sourceAgentId,
+          targetAgentId,
+          restoreConflicts: restoreResult.conflicts,
+        },
+        "CRITICAL: Failed to restore reservation after failed transfer - reservation lost",
+      );
+    }
 
     return {
       success: false,
