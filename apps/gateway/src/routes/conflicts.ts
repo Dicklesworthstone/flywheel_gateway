@@ -708,7 +708,6 @@ conflicts.post("/:conflictId/suggest", async (c) => {
       );
     }
 
-    // biome-ignore lint/style/noNonNullAssertion: success check guarantees suggestion exists
     const suggestion = result.suggestion!;
 
     // Transform dates to ISO strings

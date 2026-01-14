@@ -274,7 +274,6 @@ function getPriorityValue(priority: string): number {
  * Get progress detail.
  */
 function getProgressDetail(input: RationaleInput): string {
-  // biome-ignore lint/style/noNonNullAssertion: caller guarantees holdingProgress exists
   const progress = input.holdingProgress!;
   const percentage = progress.progressPercentage;
   const remaining = progress.estimatedRemainingMs;
@@ -294,9 +293,7 @@ function getProgressDetail(input: RationaleInput): string {
  * Get historical success detail.
  */
 function getHistoricalDetail(input: RationaleInput): string {
-  // biome-ignore lint/style/noNonNullAssertion: caller guarantees these exist
   const rate = input.historicalSuccessRate!;
-  // biome-ignore lint/style/noNonNullAssertion: caller guarantees these exist
   const sample = input.historicalSampleSize!;
 
   const successCount = Math.round(rate * sample);
@@ -400,18 +397,15 @@ function generateRiskSummary(risks: RiskAssessment[]): string {
   const mediumRisks = risks.filter((r) => r.severity === "medium");
 
   if (highRisks.length > 0) {
-    // biome-ignore lint/style/noNonNullAssertion: length check guarantees element exists
     const firstHigh = highRisks[0]!;
     return `Risk: High - ${firstHigh.description}`;
   }
 
   if (mediumRisks.length > 0) {
-    // biome-ignore lint/style/noNonNullAssertion: length check guarantees element exists
     const firstMedium = mediumRisks[0]!;
     return `Risk: Medium - ${firstMedium.description}`;
   }
 
-  // biome-ignore lint/style/noNonNullAssertion: risks.length > 0 check at function start
   const lowRisk = risks[0]!;
   return `Risk: Low - ${lowRisk.description}`;
 }

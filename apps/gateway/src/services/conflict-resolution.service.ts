@@ -170,7 +170,6 @@ export async function requestResolution(
     }
 
     // Select best strategy
-    // biome-ignore lint/style/noNonNullAssertion: length check above guarantees element exists
     const recommendedStrategy = strategies[0]!;
     const alternativeStrategies = strategies.slice(1, 4); // Top 3 alternatives
 
@@ -559,7 +558,6 @@ async function fetchReservationInfo(
 
     // Return first active reservation if no match
     if (reservations.reservations.length > 0) {
-      // biome-ignore lint/style/noNonNullAssertion: length check guarantees element exists
       const first = reservations.reservations[0]!;
       return {
         expiresAt: first.expiresAt,
