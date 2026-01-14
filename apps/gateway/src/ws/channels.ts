@@ -329,7 +329,12 @@ export function getChannelResourceId(channel: Channel): string | undefined {
     case "system:dcg":
     case "system:fleet":
     case "system:supervisor":
+    case "system:jobs":
+    case "system:context":
       return undefined;
+    case "session:job":
+    case "session:health":
+      return channel.id;
     case "fleet:repos":
     case "fleet:sync":
     case "fleet:sweep":
@@ -342,6 +347,10 @@ export function getChannelResourceId(channel: Channel): string | undefined {
     case "pipeline:run":
       return `${channel.pipelineId}:${channel.runId}`;
   }
+
+  // Exhaustive check: should never reach here
+  const _exhaustive: never = channel;
+  return undefined as never;
 }
 
 /**
