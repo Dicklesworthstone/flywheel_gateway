@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { auditLogs } from "../db/schema";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
+import { redactSensitiveData } from "./audit-redaction.service";
 
 /**
  * Auditable actions in the system.
@@ -114,7 +115,7 @@ export function audit(options: AuditEventOptions): AuditEvent {
   log.info(
     {
       type: "audit",
-      audit: event,
+      audit: redactSensitiveData(event),
     },
     `[AUDIT] ${options.action} ${options.resourceType}:${options.resource} → ${options.outcome}`,
   );

@@ -186,9 +186,12 @@ export class AuditRedactionService {
 
       // Check if field should be masked
       const maskConfig = this.getMaskConfig(lowerKey);
-      if (maskConfig && typeof value === "string") {
+      if (
+        maskConfig &&
+        (typeof value === "string" || typeof value === "number")
+      ) {
         result[key] = this.applyMask(
-          value,
+          String(value),
           maskConfig.pattern,
           maskConfig.customMask,
         );
@@ -196,8 +199,11 @@ export class AuditRedactionService {
       }
 
       // Check if field should be hashed
-      if (this.shouldHashField(lowerKey) && typeof value === "string") {
-        result[key] = this.hashValue(value);
+      if (
+        this.shouldHashField(lowerKey) &&
+        (typeof value === "string" || typeof value === "number")
+      ) {
+        result[key] = this.hashValue(String(value));
         continue;
       }
 
@@ -215,6 +221,24 @@ export class AuditRedactionService {
       if (typeof value === "string") {
         result[key] = this.redactString(value);
         continue;
+      }
+
+      // For number values, apply pattern redaction (e.g. credit cards as numbers)
+      if (typeof value === "number") {
+        // Only convert if it matches a pattern, otherwise leave as number
+        const stringVal = String(value);
+        let hasMatch = false;
+        for (const pattern of this.config.redactPatterns) {
+          pattern.lastIndex = 0;
+          if (pattern.test(stringVal)) {
+            hasMatch = true;
+            break;
+          }
+        }
+        if (hasMatch) {
+          result[key] = this.redactString(stringVal);
+          continue;
+        }
       }
 
       result[key] = value;

@@ -1,5 +1,5 @@
 import type { Context, Next } from "hono";
-import { redactSensitive } from "../utils/redaction";
+import { redactSensitiveData } from "../services/audit-redaction.service";
 import { getLogger, getRequestContext } from "./correlation";
 
 /**
@@ -20,7 +20,7 @@ export function loggingMiddleware() {
     log.info(
       {
         type: "request",
-        query: redactSensitive(c.req.query()),
+        query: redactSensitiveData(c.req.query()),
         userAgent: c.req.header("user-agent"),
         ip: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip"),
       },

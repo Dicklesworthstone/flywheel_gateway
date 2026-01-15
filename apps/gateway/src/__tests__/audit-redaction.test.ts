@@ -108,6 +108,14 @@ describe("AuditRedactionService", () => {
       expect(result.phone).toBe("***-***-4567");
     });
 
+    test("masks numeric phone numbers", () => {
+      const data = { phone: 5551234567 };
+      const result = service.redact(data);
+      // Depending on implementation, might strip non-digits or just convert to string
+      // "5551234567" -> digits="5551234567" -> last 4 "4567" -> "***-***-4567"
+      expect(result.phone).toBe("***-***-4567");
+    });
+
     test("masks phoneNumber field", () => {
       const data = { phoneNumber: "5551234567" };
       const result = service.redact(data);
