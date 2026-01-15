@@ -572,14 +572,34 @@ export async function getAgentPerformanceSummary(
 
 /**
  * Get model comparison report.
+ *
+ * Uses a single batch query with JOIN instead of per-agent queries
+ * to avoid N+1 query pattern.
  */
 export async function getModelComparisonReport(
   period: AnalyticsPeriod = "7d",
 ): Promise<ModelComparisonReport> {
   const { start, end } = getPeriodDates(period);
 
-  // Get all agents with their models
+  // Get all agents with their models in one query
   const agents = await db.select().from(agentsTable);
+
+  // Build agent ID to model lookup
+  const agentModelMap = new Map<string, string>();
+  for (const agent of agents) {
+    agentModelMap.set(agent.id, (agent.model as string | undefined) ?? "unknown");
+  }
+
+  // Single batch query for all history in the period
+  const allHistory = await db
+    .select()
+    .from(historyTable)
+    .where(
+      and(
+        gte(historyTable.createdAt, start),
+        lte(historyTable.createdAt, end),
+      ),
+    );
 
   const modelStats = new Map<
     string,
@@ -591,8 +611,9 @@ export async function getModelComparisonReport(
     }
   >();
 
-  for (const agent of agents) {
-    const model = (agent.model as string | undefined) ?? "unknown";
+  // Process all history rows, grouping by model
+  for (const row of allHistory) {
+    const model = agentModelMap.get(row.agentId) ?? "unknown";
     if (!modelStats.has(model)) {
       modelStats.set(model, {
         tasks: 0,
@@ -602,31 +623,18 @@ export async function getModelComparisonReport(
       });
     }
 
-    const rows = await db
-      .select()
-      .from(historyTable)
-      .where(
-        and(
-          eq(historyTable.agentId, agent.id),
-          gte(historyTable.createdAt, start),
-          lte(historyTable.createdAt, end),
-        ),
-      );
+    const output = row.output as Record<string, unknown> | null;
+    const input = row.input as Record<string, unknown> | null;
+    const outcome = output?.["outcome"] as string | undefined;
 
-    const stats = modelStats.get(model)!;
-    for (const row of rows) {
-      const output = row.output as Record<string, unknown> | null;
-      const input = row.input as Record<string, unknown> | null;
-      const outcome = output?.["outcome"] as string | undefined;
-
-      if (outcome === "success" || outcome === "failure") {
-        stats.tasks++;
-        if (outcome === "success") stats.successful++;
-        stats.totalDuration += row.durationMs;
-        stats.totalTokens +=
-          ((input?.["promptTokens"] as number) ?? 0) +
-          ((output?.["responseTokens"] as number) ?? 0);
-      }
+    if (outcome === "success" || outcome === "failure") {
+      const stats = modelStats.get(model)!;
+      stats.tasks++;
+      if (outcome === "success") stats.successful++;
+      stats.totalDuration += row.durationMs;
+      stats.totalTokens +=
+        ((input?.["promptTokens"] as number) ?? 0) +
+        ((output?.["responseTokens"] as number) ?? 0);
     }
   }
 
@@ -808,6 +816,9 @@ function generateRecommendations(
 
 /**
  * Get analytics for all agents (fleet overview).
+ *
+ * Uses a single batch query instead of per-agent queries
+ * to avoid N+1 query pattern (was 2N queries, now 2 queries total).
  */
 export async function getFleetAnalytics(
   period: AnalyticsPeriod = "24h",
@@ -819,7 +830,55 @@ export async function getFleetAnalytics(
   topPerformers: Array<{ agentId: string; successRate: number }>;
   needsAttention: Array<{ agentId: string; issue: string }>;
 }> {
+  const { start, end } = getPeriodDates(period);
+
+  // Two queries total: agents + all relevant history
   const agents = await db.select().from(agentsTable);
+
+  const allHistory = await db
+    .select()
+    .from(historyTable)
+    .where(
+      and(
+        gte(historyTable.createdAt, start),
+        lte(historyTable.createdAt, end),
+      ),
+    );
+
+  // Aggregate metrics per agent in-memory
+  const agentMetrics = new Map<
+    string,
+    {
+      successfulTasks: number;
+      failedTasks: number;
+      totalTasks: number;
+      errorCount: number;
+    }
+  >();
+
+  for (const row of allHistory) {
+    if (!agentMetrics.has(row.agentId)) {
+      agentMetrics.set(row.agentId, {
+        successfulTasks: 0,
+        failedTasks: 0,
+        totalTasks: 0,
+        errorCount: 0,
+      });
+    }
+
+    const metrics = agentMetrics.get(row.agentId)!;
+    const output = row.output as Record<string, unknown> | null;
+    const outcome = output?.["outcome"] as string | undefined;
+
+    if (outcome === "success") {
+      metrics.successfulTasks++;
+      metrics.totalTasks++;
+    } else if (outcome === "failure" || outcome === "timeout") {
+      metrics.failedTasks++;
+      metrics.totalTasks++;
+      metrics.errorCount++;
+    }
+  }
 
   let activeCount = 0;
   let totalSuccessRate = 0;
@@ -832,21 +891,20 @@ export async function getFleetAnalytics(
   }> = [];
 
   for (const agent of agents) {
-    const productivity = await getProductivityMetrics(agent.id, period);
-    const quality = await getQualityMetrics(agent.id, period);
-
-    if (productivity.tasksCompleted > 0) {
+    const metrics = agentMetrics.get(agent.id);
+    if (metrics && metrics.totalTasks > 0) {
       activeCount++;
       const successRate =
-        (productivity.successfulTasks / productivity.tasksCompleted) * 100;
+        (metrics.successfulTasks / metrics.totalTasks) * 100;
+      const errorRate = (metrics.errorCount / metrics.totalTasks) * 100;
       totalSuccessRate += successRate;
-      totalTasks += productivity.tasksCompleted;
+      totalTasks += metrics.totalTasks;
 
       performanceData.push({
         agentId: agent.id,
         successRate,
-        errorRate: quality.errorRate,
-        tasksCompleted: productivity.tasksCompleted,
+        errorRate,
+        tasksCompleted: metrics.totalTasks,
       });
     }
   }

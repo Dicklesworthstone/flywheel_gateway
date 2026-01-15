@@ -604,15 +604,28 @@ export function useDashboard(
   }, [state.currentDashboard, fetchWidgetData]);
 
   // Load dashboard on mount if ID provided
+  // Note: We only depend on dashboardId to avoid re-fetching when callbacks change
   useEffect(() => {
     if (dashboardId) {
-      getDashboard(dashboardId).then((dashboard) => {
-        if (dashboard) {
-          refreshAllWidgets();
-        }
+      getDashboard(dashboardId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dashboardId]);
+
+  // Fetch initial widget data when dashboard is loaded
+  const prevDashboardIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      state.currentDashboard &&
+      state.currentDashboard.id !== prevDashboardIdRef.current
+    ) {
+      prevDashboardIdRef.current = state.currentDashboard.id;
+      // Fetch initial widget data
+      state.currentDashboard.widgets.forEach((widget) => {
+        fetchWidgetData(widget.id);
       });
     }
-  }, [dashboardId, getDashboard, refreshAllWidgets]);
+  }, [state.currentDashboard, fetchWidgetData]);
 
   // Clear error
   const clearError = useCallback(() => {

@@ -120,6 +120,7 @@ export class SupervisorService {
     ReturnType<typeof setInterval>
   >();
   private startingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+  private restartTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
   private started = false;
 
   private static readonly MAX_LOG_ENTRIES = 1000;
@@ -295,8 +296,9 @@ export class SupervisorService {
       "Stopping daemon",
     );
 
-    // Stop health checks
+    // Stop health checks and pending restarts
     this.stopHealthCheck(name);
+    this.clearRestartTimeout(name);
 
     // Update state
     state.status = "stopping";
@@ -481,8 +483,10 @@ export class SupervisorService {
 
       this.emitEvent("daemon.restarting", state);
 
-      // Schedule restart
-      setTimeout(async () => {
+      // Schedule restart (track timeout so stopDaemon can cancel it)
+      this.clearRestartTimeout(name);
+      const restartTimeout = setTimeout(async () => {
+        this.restartTimeouts.delete(name);
         try {
           await this.startDaemon(name);
         } catch (error) {
@@ -492,6 +496,7 @@ export class SupervisorService {
           );
         }
       }, spec.restartDelayMs);
+      this.restartTimeouts.set(name, restartTimeout);
     } else if (shouldRestart) {
       state.status = "failed";
       state.lastError = `Max restarts (${spec.maxRestarts}) exceeded`;
@@ -537,6 +542,14 @@ export class SupervisorService {
     if (timeout) {
       clearTimeout(timeout);
       this.startingTimeouts.delete(name);
+    }
+  }
+
+  private clearRestartTimeout(name: string): void {
+    const timeout = this.restartTimeouts.get(name);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.restartTimeouts.delete(name);
     }
   }
 

@@ -252,7 +252,10 @@ export function startCleanupJob(): void {
   if (cleanupIntervalHandle !== null) {
     return; // Already running
   }
-  cleanupIntervalHandle = setInterval(cleanupExpiredEntries, CLEANUP_INTERVAL_MS);
+  cleanupIntervalHandle = setInterval(
+    cleanupExpiredEntries,
+    CLEANUP_INTERVAL_MS,
+  );
   // Ensure the interval doesn't prevent process exit
   if (cleanupIntervalHandle.unref) {
     cleanupIntervalHandle.unref();
