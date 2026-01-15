@@ -118,6 +118,7 @@ export const dcgBlocks = sqliteTable(
   {
     id: text("id").primaryKey(),
     pattern: text("pattern").notNull(),
+    command: text("command"), // Redacted command content
     reason: text("reason").notNull(),
     createdBy: text("created_by"),
     falsePositive: integer("false_positive", { mode: "boolean" })

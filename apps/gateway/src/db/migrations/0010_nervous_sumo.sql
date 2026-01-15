@@ -1,0 +1,1 @@
+ALTER TABLE `dcg_blocks` ADD `command` text;

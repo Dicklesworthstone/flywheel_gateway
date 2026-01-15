@@ -15,10 +15,11 @@ import {
   DEFAULT_PAGINATION,
   decodeCursor,
 } from "@flywheel/shared/api/pagination";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, or } from "drizzle-orm";
 import { db } from "../db";
 import { dcgAllowlist, dcgBlocks } from "../db/schema";
 import { getCorrelationId } from "../middleware/correlation";
+import { redactCommand } from "../utils/redaction";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
 import type { MessageType } from "../ws/messages";
@@ -176,20 +177,6 @@ const MAX_RECENT_BLOCKS = 100;
 // ============================================================================
 
 /**
- * Redact potentially sensitive information from a command string.
- */
-function redactCommand(command: string): string {
-  // Redact common secret patterns
-  return command
-    .replace(/(?<=password[=:])\S+/gi, "[REDACTED]")
-    .replace(/(?<=api[_-]?key[=:])\S+/gi, "[REDACTED]")
-    .replace(/(?<=token[=:])\S+/gi, "[REDACTED]")
-    .replace(/(?<=secret[=:])\S+/gi, "[REDACTED]")
-    .replace(/(?<=bearer\s)\S+/gi, "[REDACTED]")
-    .replace(/(?<=authorization[=:]\s*)\S+/gi, "[REDACTED]");
-}
-
-/**
  * Ingest a DCG block event from the agent driver.
  */
 export async function ingestBlockEvent(
@@ -216,6 +203,7 @@ export async function ingestBlockEvent(
     await db.insert(dcgBlocks).values({
       id,
       pattern: event.pattern,
+      command: blockEvent.command,
       reason: event.reason,
       createdBy: event.agentId,
       falsePositive: event.falsePositive ?? false,
@@ -272,43 +260,78 @@ export async function getBlockEvents(options: {
 }> {
   const limit = options.limit ?? DEFAULT_PAGINATION.limit;
 
-  // For now, use in-memory blocks
-  let events = [...recentBlocks];
+  // Resolve cursor if present
+  let cursorCreatedAt: Date | undefined;
+  let cursorId: string | undefined;
 
-  if (options.agentId) {
-    events = events.filter((e) => e.agentId === options.agentId);
-  }
-  if (options.severity?.length) {
-    events = events.filter((e) => options.severity?.includes(e.severity));
-  }
-  if (options.pack) {
-    events = events.filter((e) => e.pack === options.pack);
-  }
-
-  // Apply cursor-based pagination
-  let startIndex = 0;
   if (options.startingAfter) {
     const decoded = decodeCursor(options.startingAfter);
     if (decoded) {
-      const cursorIndex = events.findIndex((e) => e.id === decoded.id);
-      if (cursorIndex >= 0) {
-        startIndex = cursorIndex + 1;
-      }
-    }
-  } else if (options.endingBefore) {
-    const decoded = decodeCursor(options.endingBefore);
-    if (decoded) {
-      const cursorIndex = events.findIndex((e) => e.id === decoded.id);
-      if (cursorIndex >= 0) {
-        startIndex = Math.max(0, cursorIndex - limit);
+      const cursorBlock = await db
+        .select({ id: dcgBlocks.id, createdAt: dcgBlocks.createdAt })
+        .from(dcgBlocks)
+        .where(eq(dcgBlocks.id, decoded.id))
+        .get();
+      
+      if (cursorBlock) {
+        cursorCreatedAt = cursorBlock.createdAt;
+        cursorId = cursorBlock.id;
       }
     }
   }
 
-  // Get page items (fetch limit + 1 to determine hasMore)
-  const pageItems = events.slice(startIndex, startIndex + limit + 1);
-  const hasMore = pageItems.length > limit;
-  const resultItems = hasMore ? pageItems.slice(0, limit) : pageItems;
+  // Build query
+  const filters = [];
+  if (options.agentId) {
+    filters.push(eq(dcgBlocks.createdBy, options.agentId));
+  }
+  if (options.severity?.length) {
+    filters.push(inArray(dcgBlocks.severity, options.severity));
+  }
+  if (options.pack) {
+    filters.push(eq(dcgBlocks.pack, options.pack));
+  }
+
+  // Apply cursor pagination (keyset: createdAt DESC, id DESC)
+  if (cursorCreatedAt && cursorId) {
+    filters.push(
+      or(
+        lt(dcgBlocks.createdAt, cursorCreatedAt),
+        and(
+          eq(dcgBlocks.createdAt, cursorCreatedAt),
+          lt(dcgBlocks.id, cursorId)
+        )
+      )
+    );
+  }
+
+  const query = db
+    .select()
+    .from(dcgBlocks)
+    .orderBy(desc(dcgBlocks.createdAt), desc(dcgBlocks.id))
+    .limit(limit + 1);
+
+  if (filters.length > 0) {
+    query.where(and(...filters));
+  }
+
+  const rows = await query.all();
+  const hasMore = rows.length > limit;
+  const resultRows = hasMore ? rows.slice(0, limit) : rows;
+
+  const events: DCGBlockEvent[] = resultRows.map((row) => ({
+    id: row.id,
+    timestamp: row.createdAt,
+    agentId: row.createdBy ?? "unknown",
+    command: row.command ?? "",
+    pack: row.pack ?? "unknown",
+    pattern: row.pattern,
+    ruleId: row.ruleId ?? "unknown",
+    severity: (row.severity as DCGSeverity) ?? "medium",
+    reason: row.reason,
+    contextClassification: (row.contextClassification as DCGContextClassification) ?? "executed",
+    falsePositive: row.falsePositive,
+  }));
 
   const result: {
     events: DCGBlockEvent[];
@@ -316,21 +339,20 @@ export async function getBlockEvents(options: {
     nextCursor?: string;
     prevCursor?: string;
   } = {
-    events: resultItems,
+    events,
     hasMore,
   };
 
-  // Add cursors if there are results
-  if (resultItems.length > 0) {
-    const lastItem = resultItems[resultItems.length - 1]!;
-    const firstItem = resultItems[0]!;
+  // Add cursors
+  if (events.length > 0) {
+    const lastItem = events[events.length - 1]!;
+    // const firstItem = events[0]!;
 
     if (hasMore) {
       result.nextCursor = createCursor(lastItem.id);
     }
-    if (startIndex > 0) {
-      result.prevCursor = createCursor(firstItem.id);
-    }
+    // Note: prevCursor implementation for keyset pagination is complex and usually requires reversing direction.
+    // We omit it for now as standard infinite scroll usually relies on nextCursor.
   }
 
   return result;
@@ -442,21 +464,14 @@ export async function updateConfig(
   }
 
   // Persist to database
-  try {
-    const persistParams: dcgConfigService.UpdateConfigParams = {
-      changeType: "bulk_update",
-    };
-    if (updates.enabledPacks) persistParams.enabledPacks = updates.enabledPacks;
-    if (updates.disabledPacks)
-      persistParams.disabledPacks = updates.disabledPacks;
+  const persistParams: dcgConfigService.UpdateConfigParams = {
+    changeType: "bulk_update",
+  };
+  if (updates.enabledPacks) persistParams.enabledPacks = updates.enabledPacks;
+  if (updates.disabledPacks)
+    persistParams.disabledPacks = updates.disabledPacks;
 
-    await dcgConfigService.updateConfig(persistParams);
-  } catch (error) {
-    log.debug(
-      { error },
-      "Failed to persist config update (DB may not be available)",
-    );
-  }
+  await dcgConfigService.updateConfig(persistParams);
 
   log.info(
     { enabledPacks: currentConfig.enabledPacks.length },
@@ -501,14 +516,7 @@ export async function enablePack(packName: string): Promise<boolean> {
   );
 
   // Persist to database
-  try {
-    await dcgConfigService.enablePack(packName);
-  } catch (error) {
-    logger.debug(
-      { error, pack: packName },
-      "Failed to persist pack enable (DB may not be available)",
-    );
-  }
+  await dcgConfigService.enablePack(packName);
 
   logger.info({ pack: packName }, "DCG pack enabled");
   return true;
@@ -535,14 +543,7 @@ export async function disablePack(packName: string): Promise<boolean> {
   }
 
   // Persist to database
-  try {
-    await dcgConfigService.disablePack(packName);
-  } catch (error) {
-    logger.debug(
-      { error, pack: packName },
-      "Failed to persist pack disable (DB may not be available)",
-    );
-  }
+  await dcgConfigService.disablePack(packName);
 
   logger.info({ pack: packName }, "DCG pack disabled");
   return true;

@@ -15,6 +15,7 @@ import { and, desc, eq, gt, lt } from "drizzle-orm";
 import { db } from "../db";
 import { dcgPendingExceptions } from "../db/schema";
 import { getCorrelationId } from "../middleware/correlation";
+import { redactCommand } from "../utils/redaction";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
 import { logger } from "./logger";
@@ -123,16 +124,6 @@ function hashCommand(command: string): string {
 }
 
 /**
- * Redact potentially sensitive information from a command string for display.
- */
-function redactSensitive(command: string): string {
-  return command
-    .replace(/(password|secret|token|key|api_key|apikey)=[^\s]+/gi, "$1=***")
-    .replace(/(?<=bearer\s)[^\s]+/gi, "***")
-    .replace(/(?<=authorization[=:]\s*)[^\s]+/gi, "***");
-}
-
-/**
  * Convert database row to PendingException interface.
  */
 function rowToException(
@@ -231,7 +222,7 @@ export async function createPendingException(
     "dcg.pending_created",
     {
       shortCode,
-      command: redactSensitive(params.command),
+      command: redactCommand(params.command),
       pack: params.pack,
       severity: params.severity,
       expiresAt: expiresAt.toISOString(),
