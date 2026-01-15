@@ -520,6 +520,8 @@ export interface PipelineRun {
     | undefined;
   /** Duration in milliseconds */
   durationMs?: number | undefined;
+  /** Steps execution state for this run */
+  steps: PipelineStep[];
 }
 
 // ============================================================================
@@ -718,5 +720,6 @@ export function serializeRun(run: PipelineRun): Record<string, unknown> {
     ...run,
     startedAt: run.startedAt.toISOString(),
     ...(run.completedAt && { completedAt: run.completedAt.toISOString() }),
+    steps: run.steps.map(serializeStep),
   };
 }

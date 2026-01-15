@@ -1509,8 +1509,8 @@ async function executePipeline(
     "[PIPELINE] Starting pipeline execution",
   );
 
-  // Build step lookup
-  const stepMap = new Map(pipeline.steps.map((s) => [s.id, s]));
+  // Build step lookup from the run's copy of steps
+  const stepMap = new Map(run.steps.map((s) => [s.id, s]));
 
   // Helper to execute steps by ID
   const executeStepsById = async (stepIds: string[]): Promise<void> => {
@@ -1580,7 +1580,7 @@ async function executePipeline(
 
   try {
     // Execute all steps in order (respecting dependencies)
-    const stepIds = pipeline.steps.map((s) => s.id);
+    const stepIds = run.steps.map((s) => s.id);
     await executeStepsById(stepIds);
 
     // Mark run as completed
@@ -1863,7 +1863,7 @@ export async function runPipeline(
   const runId = generateRunId();
   const abortController = new AbortController();
 
-  // Create run record
+  // Create run record with a deep copy of steps to isolate state
   const run: PipelineRun = {
     id: runId,
     pipelineId: id,
@@ -1877,22 +1877,18 @@ export async function runPipeline(
     triggerParams: options.params,
     triggeredBy: options.triggeredBy ?? { type: "api" },
     startedAt: new Date(),
+    steps: pipeline.steps.map((s) => ({
+      ...s,
+      status: "pending", // Reset status for the run
+      result: undefined,
+      startedAt: undefined,
+      completedAt: undefined,
+      // Deep copy nested objects if necessary (retryPolicy, etc. are usually immutable config)
+    })),
   };
 
   runs.set(runId, run);
   activeRunControllers.set(runId, abortController);
-
-  // Reset step statuses
-  // WARNING: Step statuses are stored on the pipeline object, not per-run.
-  // This means concurrent runs on the same pipeline will have conflicting
-  // step statuses. For production use, step statuses should be stored on
-  // the PipelineRun object with a deep copy of the steps array.
-  for (const step of pipeline.steps) {
-    step.status = "pending";
-    step.result = undefined;
-    step.startedAt = undefined;
-    step.completedAt = undefined;
-  }
 
   log.info(
     { pipelineId: id, runId, triggeredBy: run.triggeredBy },
