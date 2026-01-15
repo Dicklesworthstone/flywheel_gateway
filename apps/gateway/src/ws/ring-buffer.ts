@@ -346,6 +346,42 @@ export const BUFFER_CONFIGS: Record<string, RingBufferConfig> = {
     capacity: 200, // Fleet repo updates
     ttlMs: 600000, // 10 minutes
   },
+  "session:job": {
+    capacity: 1000,
+    ttlMs: 3600000, // 1 hour
+  },
+  "session:health": {
+    capacity: 60,
+    ttlMs: 60000, // 1 minute
+  },
+  "fleet:repos": {
+    capacity: 200,
+    ttlMs: 600000, // 10 minutes
+  },
+  "fleet:sync": {
+    capacity: 100,
+    ttlMs: 600000, // 10 minutes
+  },
+  "fleet:sweep": {
+    capacity: 100,
+    ttlMs: 600000, // 10 minutes
+  },
+  "fleet:sync:session": {
+    capacity: 2000, // Logs
+    ttlMs: 3600000, // 1 hour
+  },
+  "fleet:sweep:session": {
+    capacity: 2000, // Logs
+    ttlMs: 3600000, // 1 hour
+  },
+  "pipeline:all": {
+    capacity: 100,
+    ttlMs: 300000, // 5 minutes
+  },
+  "pipeline:run": {
+    capacity: 5000, // High volume logs
+    ttlMs: 3600000, // 1 hour
+  },
 };
 
 /**

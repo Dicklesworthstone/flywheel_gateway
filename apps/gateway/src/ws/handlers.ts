@@ -107,6 +107,9 @@ export function handleWSMessage(
       return;
     }
 
+    // Any valid client message indicates the connection is alive
+    hub.updateHeartbeat(connectionId);
+
     switch (clientMsg.type) {
       case "subscribe": {
         const channelStr = clientMsg.channel;
@@ -202,8 +205,42 @@ export function handleWSMessage(
       }
 
       case "reconnect": {
-        // Handle reconnection logic
-        const result = hub.handleReconnect(connectionId, clientMsg.cursors);
+        const allowedCursors: Record<string, string> = {};
+
+        for (const [channelStr, cursor] of Object.entries(clientMsg.cursors)) {
+          const channel = parseChannel(channelStr);
+          if (!channel) {
+            ws.send(
+              serializeServerMessage(
+                createWSError(
+                  "INVALID_CHANNEL",
+                  "Invalid channel format",
+                  channelStr,
+                ),
+              ),
+            );
+            continue;
+          }
+
+          const authResult = canSubscribe(ws.data.auth, channel);
+          if (!authResult.allowed) {
+            ws.send(
+              serializeServerMessage(
+                createWSError(
+                  "WS_SUBSCRIPTION_DENIED",
+                  `Reconnect denied: ${authResult.reason}`,
+                  channelStr,
+                ),
+              ),
+            );
+            continue;
+          }
+
+          allowedCursors[channelStr] = cursor;
+        }
+
+        // Handle reconnection logic for authorized channels only
+        const result = hub.handleReconnect(connectionId, allowedCursors);
         ws.send(serializeServerMessage(result));
         break;
       }
