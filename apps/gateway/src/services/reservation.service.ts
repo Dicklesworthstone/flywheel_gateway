@@ -766,7 +766,7 @@ export async function listReservations(
     result.nextCursor = createCursor(lastItem.id, lastItem.createdAt.getTime());
   }
 
-  if (pageItems.length > 0) {
+  if (pageItems.length > 0 && startIndex > 0) {
     const firstItem = pageItems[0]!;
     result.prevCursor = createCursor(
       firstItem.id,
@@ -840,7 +840,7 @@ export async function listConflicts(
     );
   }
 
-  if (pageItems.length > 0) {
+  if (pageItems.length > 0 && startIndex > 0) {
     const firstItem = pageItems[0]!;
     result.prevCursor = createCursor(
       firstItem.conflictId,

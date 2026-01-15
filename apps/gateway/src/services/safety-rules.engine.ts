@@ -388,7 +388,7 @@ export function getDefaultRules(): SafetyRule[] {
       category: "filesystem",
       conditions: [
         { field: "operation", patternType: "exact", pattern: "delete" },
-        { field: "path", patternType: "glob", pattern: "/**" },
+        { field: "path", patternType: "exact", pattern: "/" },
         { field: "recursive", patternType: "exact", pattern: "true" },
       ],
       conditionLogic: "and",
