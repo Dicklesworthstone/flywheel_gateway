@@ -268,9 +268,21 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
       bodyText = await c.req.text();
       // Re-create the request with the body so downstream handlers can read it
       const originalRequest = c.req.raw;
+
+      // Prepare headers for the new request:
+      // 1. Clone original headers
+      // 2. Remove Content-Encoding (body is already decoded text)
+      // 3. Remove Transfer-Encoding (body is fixed string, not chunked)
+      // 4. Update Content-Length to match the text byte length
+      const newHeaders = new Headers(originalRequest.headers);
+      newHeaders.delete("content-encoding");
+      newHeaders.delete("transfer-encoding");
+      const bodyByteLength = new TextEncoder().encode(bodyText).byteLength;
+      newHeaders.set("content-length", String(bodyByteLength));
+
       const newRequest = new Request(originalRequest.url, {
         method: originalRequest.method,
-        headers: originalRequest.headers,
+        headers: newHeaders,
         body: bodyText,
       });
       // Note: Mutating c.req.raw to allow body re-reading downstream
