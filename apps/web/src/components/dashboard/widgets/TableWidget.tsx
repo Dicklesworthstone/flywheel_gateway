@@ -113,7 +113,7 @@ export function TableWidget({ widget: _widget, data }: TableWidgetProps) {
           ) : (
             sortedRows.map((row, i) => (
               <tr
-                key={row.id != null ? String(row.id) : `row-${i}`}
+                key={row["id"] != null ? String(row["id"]) : `row-${i}`}
                 className="table-widget__tr"
               >
                 {columns.map((col) => (
