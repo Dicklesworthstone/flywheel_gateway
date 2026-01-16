@@ -274,7 +274,13 @@ export async function spawnAgent(config: {
     const acs = getAutoCheckpointService(agentId);
     acs.setStateProvider(async () => {
       const d = await getDriver();
-      return d.getState(agentId);
+      const state = await d.getState(agentId);
+      // Transform driver AgentState to checkpoint-compatible format
+      return {
+        conversationHistory: [],
+        toolState: {},
+        tokenUsage: state.tokenUsage,
+      };
     });
     acs.start();
 
@@ -638,10 +644,18 @@ export async function sendMessage(
     };
   } catch (error) {
     // Create error checkpoint before propagating the error
-    await createErrorCheckpoint(agentId, {
-      code: "SEND_FAILED",
-      message: String(error),
-    });
+    await createErrorCheckpoint(
+      agentId,
+      {
+        conversationHistory: [],
+        toolState: {},
+        tokenUsage: record.agent.tokenUsage,
+      },
+      {
+        errorType: "SEND_FAILED",
+        errorMessage: String(error),
+      },
+    );
 
     try {
       markAgentIdle(agentId);

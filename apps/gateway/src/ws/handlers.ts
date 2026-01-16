@@ -59,7 +59,7 @@ export function handleWSOpen(ws: ServerWebSocket<ConnectionData>): void {
 
         // Send missed messages immediately
         if (result.missedMessages && result.missedMessages.length > 0) {
-          sendMissedMessages(channel, result.missedMessages);
+          sendMissedMessages(ws, channel, result.missedMessages);
         }
       }
     }
@@ -149,7 +149,7 @@ export function handleWSMessage(
 
         // Replay missed messages FIRST (so client state is consistent)
         if (result.missedMessages && result.missedMessages.length > 0) {
-          sendMissedMessages(channel, result.missedMessages);
+          sendMissedMessages(ws, channel, result.missedMessages);
         }
 
         // THEN send acknowledgement with the latest cursor

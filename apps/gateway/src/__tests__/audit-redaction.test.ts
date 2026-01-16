@@ -113,7 +113,8 @@ describe("AuditRedactionService", () => {
       const result = service.redact(data);
       // Depending on implementation, might strip non-digits or just convert to string
       // "5551234567" -> digits="5551234567" -> last 4 "4567" -> "***-***-4567"
-      expect(result.phone).toBe("***-***-4567");
+      // Note: masking converts numbers to strings, cast is needed for type checking
+      expect(result.phone as unknown as string).toBe("***-***-4567");
     });
 
     test("masks phoneNumber field", () => {
