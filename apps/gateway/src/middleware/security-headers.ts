@@ -235,7 +235,7 @@ function buildPermissionsPolicy(policy: PermissionsPolicy): string {
  */
 export function securityHeaders(
   config: SecurityHeadersConfig = {},
-): (c: Context, next: Next) => Promise<void | Response> {
+): (c: Context, next: Next) => Promise<Response | undefined> {
   const mergedConfig = {
     ...defaultConfig,
     ...config,
@@ -247,7 +247,7 @@ export function securityHeaders(
       : defaultConfig.permissionsPolicy,
   };
 
-  return async (c: Context, next: Next): Promise<void | Response> => {
+  return async (c: Context, next: Next): Promise<Response | undefined> => {
     await next();
 
     // X-Content-Type-Options
@@ -314,6 +314,7 @@ export function securityHeaders(
     c.header("X-DNS-Prefetch-Control", "off");
     c.header("X-Download-Options", "noopen");
     c.header("X-Permitted-Cross-Domain-Policies", "none");
+    return undefined;
   };
 }
 
@@ -324,7 +325,7 @@ export function securityHeaders(
 export function apiSecurityHeaders(): (
   c: Context,
   next: Next,
-) => Promise<void | Response> {
+) => Promise<Response | undefined> {
   return securityHeaders({
     csp: {
       defaultSrc: ["'none'"],

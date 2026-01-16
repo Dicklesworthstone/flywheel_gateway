@@ -71,7 +71,9 @@ function createMockService(): UBSService {
     runScan: mock(async () => {
       const result = createMockScanResult();
       scans.set(result.scanId, result);
-      result.findings.forEach((f) => findings.set(f.id, f));
+      result.findings.forEach((f) => {
+        findings.set(f.id, f);
+      });
       return result;
     }),
     getFindings: mock(() => Array.from(findings.values())),
