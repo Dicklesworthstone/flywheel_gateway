@@ -58,6 +58,7 @@ export const VALID_TRANSITIONS: Readonly<
     LifecycleState.EXECUTING,
     LifecycleState.PAUSED,
     LifecycleState.TERMINATING,
+    LifecycleState.FAILED,
   ],
   [LifecycleState.EXECUTING]: [
     LifecycleState.READY,
@@ -65,7 +66,11 @@ export const VALID_TRANSITIONS: Readonly<
     LifecycleState.TERMINATING,
     LifecycleState.FAILED,
   ],
-  [LifecycleState.PAUSED]: [LifecycleState.READY, LifecycleState.TERMINATING],
+  [LifecycleState.PAUSED]: [
+    LifecycleState.READY,
+    LifecycleState.TERMINATING,
+    LifecycleState.FAILED,
+  ],
   [LifecycleState.TERMINATING]: [
     LifecycleState.TERMINATED,
     LifecycleState.FAILED,
