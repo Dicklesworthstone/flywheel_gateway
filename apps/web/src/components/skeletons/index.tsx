@@ -441,6 +441,70 @@ export function CostAnalyticsSkeleton() {
 }
 
 // ============================================================================
+// Setup Page Skeleton
+// ============================================================================
+
+export function SetupSkeleton() {
+  return (
+    <div
+      className="page"
+      role="region"
+      aria-busy="true"
+      aria-label="Loading setup"
+    >
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 24 }}>
+        <div>
+          <Skeleton variant="text" style={{ width: 200, height: 32, marginBottom: 8 }} />
+          <Skeleton variant="text-sm" style={{ width: 300 }} />
+        </div>
+        <Skeleton variant="button" style={{ width: 100 }} />
+      </div>
+
+      {/* Steps */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+        <Skeleton variant="button" style={{ flex: 1, height: 40 }} />
+        <Skeleton variant="button" style={{ flex: 1, height: 40 }} />
+        <Skeleton variant="button" style={{ flex: 1, height: 40 }} />
+      </div>
+
+      {/* Status cards */}
+      <section className="grid grid--2">
+        <div className="card">
+          <Skeleton variant="text" style={{ width: 120, marginBottom: 16 }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+            <Skeleton style={{ width: 100, height: 100, borderRadius: "50%" }} />
+            <div>
+              <Skeleton variant="text-sm" style={{ width: 150, marginBottom: 8 }} />
+              <Skeleton variant="text-sm" style={{ width: 120 }} />
+            </div>
+          </div>
+        </div>
+        <SkeletonCard />
+      </section>
+
+      {/* Tools grid */}
+      <section style={{ marginTop: 24 }}>
+        <Skeleton variant="text" style={{ width: 150, marginBottom: 12 }} />
+        <div className="grid grid--2">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="card card--compact">
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <Skeleton style={{ width: 36, height: 36, borderRadius: 8 }} />
+                <div>
+                  <Skeleton variant="text" style={{ width: 100, marginBottom: 4 }} />
+                  <Skeleton variant="text-sm" style={{ width: 60 }} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ============================================================================
 // Generic Page Skeleton (fallback)
 // ============================================================================
 

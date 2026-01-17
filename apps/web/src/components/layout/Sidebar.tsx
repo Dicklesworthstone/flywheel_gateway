@@ -14,6 +14,7 @@ import {
   Settings,
   Shield,
   Sparkles,
+  Wand2,
   Workflow,
 } from "lucide-react";
 
@@ -23,6 +24,7 @@ import { Tooltip } from "../ui/Tooltip";
 
 const navItems = [
   { label: "Dashboard", icon: Gauge, to: "/" },
+  { label: "Setup", icon: Wand2, to: "/setup" },
   { label: "Agents", icon: Bot, to: "/agents", badge: mockAgents.length },
   { label: "Beads", icon: CircleDot, to: "/beads", badge: mockBeads.length },
   { label: "Accounts", icon: Key, to: "/accounts" },
