@@ -6,7 +6,7 @@
  * Persists state to SQLite database.
  */
 
-import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, lt, sql } from "drizzle-orm";
 import { db } from "../db";
 import { approvalRequests } from "../db/schema";
 import { logger } from "./logger";
@@ -474,8 +474,13 @@ export async function listApprovals(
     conditions.push(gte(approvalRequests.requestedAt, options.since));
   }
   if (!options?.includeExpired) {
+    // Use proper Drizzle comparisons - note: SQLite stores timestamps as integers
+    const now = new Date();
     conditions.push(
-      sql`(${approvalRequests.status} != 'expired' AND ${approvalRequests.expiresAt} > ${new Date()})`,
+      and(
+        sql`${approvalRequests.status} != 'expired'`,
+        gt(approvalRequests.expiresAt, now),
+      ),
     );
   }
 
@@ -483,7 +488,16 @@ export async function listApprovals(
     .select()
     .from(approvalRequests)
     .where(and(...conditions))
-    .orderBy(desc(approvalRequests.requestedAt));
+    .orderBy(
+      // Priority order: urgent > high > normal > low
+      sql`CASE ${approvalRequests.priority}
+        WHEN 'urgent' THEN 0
+        WHEN 'high' THEN 1
+        WHEN 'normal' THEN 2
+        WHEN 'low' THEN 3
+        ELSE 4 END`,
+      desc(approvalRequests.requestedAt),
+    );
 
   if (options?.limit) {
     query.limit(options.limit);

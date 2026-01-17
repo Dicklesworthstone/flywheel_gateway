@@ -1,4 +1,13 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "bun:test";
+import { sqlite } from "../db/connection";
 import {
   _clearAllApprovalData,
   _setApprovalExpiration,
@@ -14,6 +23,32 @@ import {
   processExpiredApprovals,
 } from "../services/approval.service";
 import type { SafetyRule } from "../services/safety-rules.engine";
+
+// SQL to create the approval_requests table for tests
+const CREATE_TABLE_SQL = `
+CREATE TABLE IF NOT EXISTS approval_requests (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  agent_id TEXT,
+  session_id TEXT,
+  rule_id TEXT,
+  rule_name TEXT NOT NULL,
+  operation_type TEXT NOT NULL,
+  operation_command TEXT,
+  operation_path TEXT,
+  operation_description TEXT NOT NULL,
+  operation_details BLOB,
+  task_description TEXT,
+  recent_actions TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  priority TEXT NOT NULL DEFAULT 'normal',
+  requested_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  decided_by TEXT,
+  decided_at INTEGER,
+  decision_reason TEXT,
+  correlation_id TEXT
+)`;
 
 describe("Approval Service", () => {
   const mockRule: SafetyRule = {
@@ -31,12 +66,22 @@ describe("Approval Service", () => {
     enabled: true,
   };
 
-  beforeEach(() => {
-    _clearAllApprovalData();
+  // Set up test database before all tests
+  beforeAll(() => {
+    sqlite.exec(CREATE_TABLE_SQL);
   });
 
-  afterEach(() => {
-    _clearAllApprovalData();
+  // Clean up after all tests
+  afterAll(async () => {
+    await _clearAllApprovalData();
+  });
+
+  beforeEach(async () => {
+    await _clearAllApprovalData();
+  });
+
+  afterEach(async () => {
+    await _clearAllApprovalData();
   });
 
   describe("Creating Approvals", () => {
@@ -373,7 +418,7 @@ describe("Approval Service", () => {
       });
 
       // Manually set to expired
-      _setApprovalExpiration(approval.id, new Date(Date.now() - 1000));
+      await _setApprovalExpiration(approval.id, new Date(Date.now() - 1000));
 
       const expiredCount = await processExpiredApprovals();
 
@@ -393,7 +438,7 @@ describe("Approval Service", () => {
       });
 
       // Manually set to expired
-      _setApprovalExpiration(approval.id, new Date(Date.now() - 1000));
+      await _setApprovalExpiration(approval.id, new Date(Date.now() - 1000));
 
       const result = await decideApproval({
         requestId: approval.id,
@@ -451,8 +496,8 @@ describe("Approval Service", () => {
         rule: mockRule,
       });
 
-      // Wait a bit
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      // Wait at least 1 second since SQLite stores timestamps in seconds
+      await new Promise((resolve) => setTimeout(resolve, 1100));
 
       await decideApproval({
         requestId: approval.id,
