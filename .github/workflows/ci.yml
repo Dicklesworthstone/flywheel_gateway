@@ -33,6 +33,25 @@ jobs:
       - name: Unit tests
         run: bun test
 
+  compiler_disabled:
+    name: Quality Gates (Compiler Disabled)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Unit tests (compiler disabled)
+        run: bun test
+        env:
+          VITE_DISABLE_COMPILER: "true"
+
   e2e:
     name: E2E Smoke Tests
     runs-on: ubuntu-latest
