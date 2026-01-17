@@ -5,11 +5,17 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   quality:
     name: Quality Gates
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -17,6 +23,16 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -25,17 +41,21 @@ jobs:
         run: bun run typecheck
 
       - name: Lint
-        run: bun lint
+        run: bun run lint
 
       - name: Parity check
-        run: bun parity-check
+        run: bun run parity-check
 
-      - name: Unit tests
-        run: bun test
-
-  compiler_disabled:
-    name: Quality Gates (Compiler Disabled)
+  unit-tests:
+    name: Unit Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler:
+          - enabled
+          - disabled
     steps:
       - uses: actions/checkout@v4
 
@@ -44,18 +64,28 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Unit tests (compiler disabled)
+      - name: Run unit tests
         run: bun test
         env:
-          VITE_DISABLE_COMPILER: "true"
+          VITE_DISABLE_COMPILER: ${{ matrix.compiler == 'disabled' && 'true' || '' }}
 
-  e2e:
-    name: E2E Smoke Tests
+  contract-tests:
+    name: Contract Tests
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -64,11 +94,63 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Install Playwright browsers
-        run: bunx playwright install --with-deps chromium
+      - name: Run contract tests
+        run: bun run test:contract
+
+  e2e:
+    name: E2E Tests (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium]
+        # Uncomment below to test all browsers on main branch
+        # browser: ${{ github.ref == 'refs/heads/main' && fromJSON('["chromium", "firefox", "webkit"]') || fromJSON('["chromium"]') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ matrix.browser }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-${{ matrix.browser }}-
+
+      - name: Install Playwright browser
+        run: bunx playwright install --with-deps ${{ matrix.browser }}
 
       - name: Start gateway
         run: bun run dev:gateway &
@@ -88,6 +170,34 @@ jobs:
           exit 1
 
       - name: Run E2E tests
-        run: bun test:e2e
+        run: bun run test:e2e --project=${{ matrix.browser }}
         env:
           CI: true
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-artifacts-${{ matrix.browser }}
+          path: |
+            tests/e2e/report/
+            tests/e2e/test-results/
+          retention-days: 7
+
+  # Summary job for branch protection rules
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs: [quality, unit-tests, contract-tests, e2e]
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [[ "${{ needs.quality.result }}" != "success" ]] || \
+             [[ "${{ needs.unit-tests.result }}" != "success" ]] || \
+             [[ "${{ needs.contract-tests.result }}" != "success" ]] || \
+             [[ "${{ needs.e2e.result }}" != "success" ]]; then
+            echo "One or more jobs failed"
+            exit 1
+          fi
+          echo "All CI checks passed"

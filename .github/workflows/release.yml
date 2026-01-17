@@ -7,11 +7,23 @@ on:
 
 permissions:
   contents: write
+  issues: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  # Run CI checks before releasing
+  ci:
+    name: CI Checks
+    uses: ./.github/workflows/ci.yml
+
   build-and-release:
     name: Build and Release
     runs-on: ubuntu-latest
+    needs: [ci]
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -20,14 +32,18 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
-
-      - name: Type check
-        run: bun run typecheck
-
-      - name: Run tests
-        run: bun test
 
       - name: Build all packages
         run: bun run build
@@ -58,6 +74,13 @@ jobs:
           bun scripts/generate-checksums.ts release-artifacts
         env:
           VERSION: ${{ steps.version.outputs.VERSION }}
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts-${{ steps.version.outputs.VERSION }}
+          path: release-artifacts/
+          retention-days: 90
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -116,17 +139,40 @@ jobs:
   notify-failure:
     name: Notify on Failure
     runs-on: ubuntu-latest
-    needs: build-and-release
+    needs: [ci, build-and-release]
     if: failure()
     steps:
       - name: Create failure issue
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.issues.create({
+            const existingIssues = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `Release ${context.ref} failed`,
-              body: `The release workflow for ${context.ref} failed.\n\nSee: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              labels: ['bug', 'release']
-            })
+              labels: 'release-failure',
+              state: 'open'
+            });
+
+            // Check if an issue for this tag already exists
+            const tagName = context.ref.replace('refs/tags/', '');
+            const existingIssue = existingIssues.data.find(
+              issue => issue.title.includes(tagName)
+            );
+
+            if (!existingIssue) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Release ${tagName} failed`,
+                body: `The release workflow for \`${tagName}\` failed.
+
+            **Workflow run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}
+
+            Please investigate and either:
+            1. Fix the issue and re-trigger the release
+            2. Delete the tag and create a new release
+
+            This issue will be closed automatically when a successful release is made.`,
+                labels: ['bug', 'release-failure']
+              });
+            }
