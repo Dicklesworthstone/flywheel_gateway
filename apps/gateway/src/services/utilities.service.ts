@@ -116,6 +116,13 @@ const KNOWN_UTILITIES: Array<
       "curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/automated_plan_reviser/main/install.sh | bash",
     checkCommand: "apr --version",
   },
+  {
+    name: "slb",
+    description: "Two-person authorization rule for dangerous commands",
+    version: "0.1.0",
+    installCommand: "go install github.com/Dicklesworthstone/slb@latest",
+    checkCommand: "slb --version",
+  },
 ];
 
 // Cache for utility status (invalidated after 5 minutes)
