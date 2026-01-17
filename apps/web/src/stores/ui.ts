@@ -1,13 +1,32 @@
 import { create } from "zustand";
 
 export type ThemeName = "dawn" | "dusk";
+export type ThemePreference = "dawn" | "dusk" | "auto";
 
 const DEFAULT_MOCK = import.meta.env["VITE_MOCK_DATA"] === "true";
 
-const readTheme = (): ThemeName => {
+export const getSystemTheme = (): ThemeName => {
   if (typeof window === "undefined") return "dawn";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dusk"
+    : "dawn";
+};
+
+const readThemePreference = (): ThemePreference => {
+  if (typeof window === "undefined") return "auto";
   const stored = window.localStorage.getItem("fw-theme");
-  return stored === "dusk" || stored === "dawn" ? stored : "dawn";
+  if (stored === "dusk" || stored === "dawn" || stored === "auto") {
+    return stored;
+  }
+  return "auto";
+};
+
+const readTheme = (): ThemeName => {
+  const preference = readThemePreference();
+  if (preference === "auto") {
+    return getSystemTheme();
+  }
+  return preference;
 };
 
 const readMockMode = (): boolean => {
@@ -27,8 +46,11 @@ const readSidebarCollapsed = (): boolean => {
 interface UiState {
   // Theme
   theme: ThemeName;
+  themePreference: ThemePreference;
+  setThemePreference: (preference: ThemePreference) => void;
   setTheme: (theme: ThemeName) => void;
   toggleTheme: () => void;
+  syncWithSystem: () => void;
 
   // Mock mode
   mockMode: boolean;
@@ -59,18 +81,35 @@ interface UiState {
 export const useUiStore = create<UiState>((set, get) => ({
   // Theme
   theme: readTheme(),
+  themePreference: readThemePreference(),
+  setThemePreference: (preference) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("fw-theme", preference);
+    }
+    const theme = preference === "auto" ? getSystemTheme() : preference;
+    set({ themePreference: preference, theme });
+  },
   setTheme: (theme) => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem("fw-theme", theme);
     }
-    set({ theme });
+    set({ theme, themePreference: theme });
   },
   toggleTheme: () => {
-    const next = get().theme === "dusk" ? "dawn" : "dusk";
+    const current = get().themePreference;
+    // Cycle: auto -> dawn -> dusk -> auto
+    const next: ThemePreference =
+      current === "auto" ? "dawn" : current === "dawn" ? "dusk" : "auto";
+    const nextTheme = next === "auto" ? getSystemTheme() : next;
     if (typeof window !== "undefined") {
       window.localStorage.setItem("fw-theme", next);
     }
-    set({ theme: next });
+    set({ theme: nextTheme, themePreference: next });
+  },
+  syncWithSystem: () => {
+    if (get().themePreference === "auto") {
+      set({ theme: getSystemTheme() });
+    }
   },
 
   // Mock mode
