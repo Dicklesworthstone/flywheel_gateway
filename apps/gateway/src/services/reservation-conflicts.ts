@@ -98,8 +98,9 @@ export function globToRegex(pattern: string): RegExp {
  * Check if two glob patterns can overlap.
  *
  * Two patterns overlap if there exists any file path that would match both.
- * This is a conservative check - it may report false positives but never
- * false negatives.
+ * This implementation uses a recursive segment matching approach to handle
+ * wildcards (*, ?) and recursive globs (**) more robustly than simple
+ * test path generation.
  *
  * @param pattern1 - First glob pattern
  * @param pattern2 - Second glob pattern
@@ -109,75 +110,83 @@ export function patternsOverlap(pattern1: string, pattern2: string): boolean {
   // Identical patterns always overlap
   if (pattern1 === pattern2) return true;
 
-  // Normalize patterns
-  const norm1 = pattern1.replace(/\/+/g, "/").replace(/\/$/, "");
-  const norm2 = pattern2.replace(/\/+/g, "/").replace(/\/$/, "");
+  // Normalize patterns: remove duplicate slashes and trailing slashes
+  const p1 = pattern1.replace(/\/+/g, "/").replace(/\/$/, "");
+  const p2 = pattern2.replace(/\/+/g, "/").replace(/\/$/, "");
 
-  // Check if one is a prefix of the other (directory containment)
-  const prefix1 = norm1.replace(/\*.*$/, "").replace(/\/[^/]*$/, "");
-  const prefix2 = norm2.replace(/\*.*$/, "").replace(/\/[^/]*$/, "");
+  const segs1 = p1.split("/");
+  const segs2 = p2.split("/");
 
-  if (prefix1 && prefix2) {
-    // If neither is a prefix of the other, they can't overlap
-    if (!prefix1.startsWith(prefix2) && !prefix2.startsWith(prefix1)) {
-      return false;
-    }
+  return checkOverlap(segs1, segs2);
+}
+
+function checkOverlap(segs1: string[], segs2: string[]): boolean {
+  // Base case: both empty -> match
+  if (segs1.length === 0 && segs2.length === 0) return true;
+
+  // Base case: one empty
+  if (segs1.length === 0) {
+    // If the remaining segments in segs2 are all "**", they can match empty
+    return segs2.every((s) => s === "**");
+  }
+  if (segs2.length === 0) {
+    return segs1.every((s) => s === "**");
   }
 
-  // Try to match test paths from one pattern against the other
-  const regex1 = globToRegex(norm1);
-  const regex2 = globToRegex(norm2);
+  const s1 = segs1[0];
+  const s2 = segs2[0];
 
-  // Generate test paths for each pattern
-  const testPaths1 = generateTestPaths(norm1);
-  const testPaths2 = generateTestPaths(norm2);
-
-  // Check if any test path from pattern1 matches pattern2
-  for (const path of testPaths1) {
-    if (regex2.test(path)) return true;
+  // Handle recursive glob **
+  if (s1 === "**") {
+    // Option 1: ** consumes nothing (match remaining segs1 against current segs2)
+    if (checkOverlap(segs1.slice(1), segs2)) return true;
+    // Option 2: ** consumes current s2 (match current segs1 against remaining segs2)
+    // We keep "**" in segs1 to allow it to consume more
+    if (checkOverlap(segs1, segs2.slice(1))) return true;
+    return false;
   }
 
-  // Check if any test path from pattern2 matches pattern1
-  for (const path of testPaths2) {
-    if (regex1.test(path)) return true;
+  if (s2 === "**") {
+    // Symmetric to above
+    if (checkOverlap(segs1, segs2.slice(1))) return true;
+    if (checkOverlap(segs1.slice(1), segs2)) return true;
+    return false;
   }
 
-  // Check if patterns match each other (for ** patterns)
-  if (regex1.test(norm2) || regex2.test(norm1)) return true;
+  // Both are standard segments (literals or single-segment wildcards)
+  if (segmentsOverlap(s1, s2)) {
+    return checkOverlap(segs1.slice(1), segs2.slice(1));
+  }
 
   return false;
 }
 
-/**
- * Generate test file paths from a glob pattern.
- * These are used to check overlap with other patterns.
- */
-function generateTestPaths(pattern: string): string[] {
-  const paths: string[] = [];
+function segmentsOverlap(s1: string, s2: string): boolean {
+  if (s1 === s2) return true;
+  if (s1 === "*" || s2 === "*") return true;
 
-  // Replace ** with a directory structure
-  // Replace * with a filename component
-  const base = pattern.replace(/\*\*/g, "a/b/c").replace(/\*/g, "file");
+  const s1HasWildcard = s1.includes("*") || s1.includes("?");
+  const s2HasWildcard = s2.includes("*") || s2.includes("?");
 
-  paths.push(base);
-
-  // Also try with different extensions if pattern has extension
-  if (pattern.includes(".")) {
-    paths.push(base.replace(/\.\w+$/, ".test"));
+  if (!s1HasWildcard && !s2HasWildcard) {
+    return s1 === s2;
   }
 
-  // Try with the pattern itself as a literal path (if no wildcards)
-  if (!pattern.includes("*") && !pattern.includes("?")) {
-    paths.push(pattern);
+  if (!s1HasWildcard) {
+    // s1 is literal, s2 is glob
+    return globToRegex(s2).test(s1);
   }
 
-  // Try with just the prefix
-  const prefix = pattern.split("*")[0];
-  if (prefix && prefix !== pattern) {
-    paths.push(`${prefix}file.ts`);
+  if (!s2HasWildcard) {
+    // s2 is literal, s1 is glob
+    return globToRegex(s1).test(s2);
   }
 
-  return paths;
+  // Both have wildcards. Conservative approach: assume overlap.
+  // e.g. a*.txt and *b.txt -> overlap (ab.txt)
+  // Refinement: check suffixes/prefixes?
+  // For now, returning true avoids false negatives (safety over precision).
+  return true;
 }
 
 /**
