@@ -13,6 +13,7 @@ import { and, eq, gte, lte } from "drizzle-orm";
 import { db } from "../db";
 import { agents as agentsTable, history as historyTable } from "../db/schema";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
+import { analyticsCache, generateCacheKey } from "./query-cache";
 
 // ============================================================================
 // Types
@@ -178,57 +179,62 @@ function generateRecommendationId(): string {
 
 /**
  * Get productivity metrics for an agent.
+ * Results are cached for 30 seconds to reduce database load.
  */
 export async function getProductivityMetrics(
   agentId: string,
   period: AnalyticsPeriod = "24h",
 ): Promise<ProductivityMetric> {
-  const { start, end } = getPeriodDates(period);
+  const cacheKey = generateCacheKey("productivity", { agentId, period });
 
-  const rows = await db
-    .select()
-    .from(historyTable)
-    .where(
-      and(
-        eq(historyTable.agentId, agentId),
-        gte(historyTable.createdAt, start),
-        lte(historyTable.createdAt, end),
-      ),
-    );
+  return analyticsCache.getOrCompute(cacheKey, async () => {
+    const { start, end } = getPeriodDates(period);
 
-  let successfulTasks = 0;
-  let failedTasks = 0;
-  let totalDuration = 0;
-  let totalTokens = 0;
+    const rows = await db
+      .select()
+      .from(historyTable)
+      .where(
+        and(
+          eq(historyTable.agentId, agentId),
+          gte(historyTable.createdAt, start),
+          lte(historyTable.createdAt, end),
+        ),
+      );
 
-  for (const row of rows) {
-    const output = row.output as Record<string, unknown> | null;
-    const input = row.input as Record<string, unknown> | null;
-    const outcome = output?.["outcome"] as string | undefined;
+    let successfulTasks = 0;
+    let failedTasks = 0;
+    let totalDuration = 0;
+    let totalTokens = 0;
 
-    if (outcome === "success") {
-      successfulTasks++;
-    } else if (outcome === "failure" || outcome === "timeout") {
-      failedTasks++;
+    for (const row of rows) {
+      const output = row.output as Record<string, unknown> | null;
+      const input = row.input as Record<string, unknown> | null;
+      const outcome = output?.["outcome"] as string | undefined;
+
+      if (outcome === "success") {
+        successfulTasks++;
+      } else if (outcome === "failure" || outcome === "timeout") {
+        failedTasks++;
+      }
+
+      totalDuration += row.durationMs;
+      totalTokens +=
+        ((input?.["promptTokens"] as number) ?? 0) +
+        ((output?.["responseTokens"] as number) ?? 0);
     }
 
-    totalDuration += row.durationMs;
-    totalTokens +=
-      ((input?.["promptTokens"] as number) ?? 0) +
-      ((output?.["responseTokens"] as number) ?? 0);
-  }
+    const tasksCompleted = successfulTasks + failedTasks;
 
-  const tasksCompleted = successfulTasks + failedTasks;
-
-  return {
-    agentId,
-    period,
-    tasksCompleted,
-    successfulTasks,
-    failedTasks,
-    avgDurationMs: tasksCompleted > 0 ? totalDuration / tasksCompleted : 0,
-    totalTokens,
-  };
+    return {
+      agentId,
+      period,
+      tasksCompleted,
+      successfulTasks,
+      failedTasks,
+      avgDurationMs: tasksCompleted > 0 ? totalDuration / tasksCompleted : 0,
+      totalTokens,
+    };
+  }) as Promise<ProductivityMetric>;
 }
 
 /**
@@ -295,210 +301,227 @@ export async function getSuccessRateMetrics(
 
 /**
  * Get task duration metrics for an agent.
+ * Results are cached for 30 seconds to reduce database load.
  */
 export async function getTaskDurationMetrics(
   agentId: string,
   period: AnalyticsPeriod = "24h",
 ): Promise<TaskDurationMetric> {
-  const { start, end } = getPeriodDates(period);
+  const cacheKey = generateCacheKey("duration", { agentId, period });
 
-  const rows = await db
-    .select()
-    .from(historyTable)
-    .where(
-      and(
-        eq(historyTable.agentId, agentId),
-        gte(historyTable.createdAt, start),
-        lte(historyTable.createdAt, end),
-      ),
-    );
+  return analyticsCache.getOrCompute(cacheKey, async () => {
+    const { start, end } = getPeriodDates(period);
 
-  const durations: number[] = [];
-  const byComplexity: Record<string, number[]> = {
-    simple: [],
-    medium: [],
-    complex: [],
-  };
+    const rows = await db
+      .select()
+      .from(historyTable)
+      .where(
+        and(
+          eq(historyTable.agentId, agentId),
+          gte(historyTable.createdAt, start),
+          lte(historyTable.createdAt, end),
+        ),
+      );
 
-  for (const row of rows) {
-    if (row.durationMs > 0) {
-      durations.push(row.durationMs);
+    const durations: number[] = [];
+    const byComplexity: Record<string, number[]> = {
+      simple: [],
+      medium: [],
+      complex: [],
+    };
 
-      // Categorize by duration as proxy for complexity
-      if (row.durationMs < 5000) {
-        byComplexity["simple"]?.push(row.durationMs);
-      } else if (row.durationMs < 30000) {
-        byComplexity["medium"]?.push(row.durationMs);
-      } else {
-        byComplexity["complex"]?.push(row.durationMs);
+    for (const row of rows) {
+      if (row.durationMs > 0) {
+        durations.push(row.durationMs);
+
+        // Categorize by duration as proxy for complexity
+        if (row.durationMs < 5000) {
+          byComplexity["simple"]?.push(row.durationMs);
+        } else if (row.durationMs < 30000) {
+          byComplexity["medium"]?.push(row.durationMs);
+        } else {
+          byComplexity["complex"]?.push(row.durationMs);
+        }
       }
     }
-  }
 
-  const avgByComplexity: Record<string, number> = {};
-  for (const [complexity, values] of Object.entries(byComplexity)) {
-    avgByComplexity[complexity] =
-      values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
-  }
+    const avgByComplexity: Record<string, number> = {};
+    for (const [complexity, values] of Object.entries(byComplexity)) {
+      avgByComplexity[complexity] =
+        values.length > 0
+          ? values.reduce((a, b) => a + b, 0) / values.length
+          : 0;
+    }
 
-  return {
-    agentId,
-    period,
-    median: calculatePercentile(durations, 50),
-    p95: calculatePercentile(durations, 95),
-    p99: calculatePercentile(durations, 99),
-    avgDuration:
-      durations.length > 0
-        ? durations.reduce((a, b) => a + b, 0) / durations.length
-        : 0,
-    byComplexity: avgByComplexity,
-  };
+    return {
+      agentId,
+      period,
+      median: calculatePercentile(durations, 50),
+      p95: calculatePercentile(durations, 95),
+      p99: calculatePercentile(durations, 99),
+      avgDuration:
+        durations.length > 0
+          ? durations.reduce((a, b) => a + b, 0) / durations.length
+          : 0,
+      byComplexity: avgByComplexity,
+    };
+  }) as Promise<TaskDurationMetric>;
 }
 
 /**
  * Get quality metrics for an agent.
+ * Results are cached for 30 seconds to reduce database load.
  */
 export async function getQualityMetrics(
   agentId: string,
   period: AnalyticsPeriod = "24h",
 ): Promise<QualityMetric> {
-  const { start, end } = getPeriodDates(period);
+  const cacheKey = generateCacheKey("quality", { agentId, period });
 
-  const rows = await db
-    .select()
-    .from(historyTable)
-    .where(
-      and(
-        eq(historyTable.agentId, agentId),
-        gte(historyTable.createdAt, start),
-        lte(historyTable.createdAt, end),
-      ),
-    );
+  return analyticsCache.getOrCompute(cacheKey, async () => {
+    const { start, end } = getPeriodDates(period);
 
-  let totalTasks = 0;
-  let errorCount = 0;
-  const errorsByCategory: Record<string, number> = {};
-  const errorTimestamps: number[] = [];
+    const rows = await db
+      .select()
+      .from(historyTable)
+      .where(
+        and(
+          eq(historyTable.agentId, agentId),
+          gte(historyTable.createdAt, start),
+          lte(historyTable.createdAt, end),
+        ),
+      );
 
-  for (const row of rows) {
-    const output = row.output as Record<string, unknown> | null;
-    const outcome = output?.["outcome"] as string | undefined;
-    const error = output?.["error"] as string | undefined;
+    let totalTasks = 0;
+    let errorCount = 0;
+    const errorsByCategory: Record<string, number> = {};
+    const errorTimestamps: number[] = [];
 
-    if (
-      outcome === "success" ||
-      outcome === "failure" ||
-      outcome === "timeout"
-    ) {
-      totalTasks++;
-    }
+    for (const row of rows) {
+      const output = row.output as Record<string, unknown> | null;
+      const outcome = output?.["outcome"] as string | undefined;
+      const error = output?.["error"] as string | undefined;
 
-    if (outcome === "failure" || outcome === "timeout") {
-      errorCount++;
-      errorTimestamps.push(row.createdAt.getTime());
-
-      // Categorize error
-      let category = "unknown";
-      if (error) {
-        if (error.includes("timeout")) category = "timeout";
-        else if (error.includes("tool")) category = "tool_failure";
-        else if (error.includes("model") || error.includes("API"))
-          category = "model_error";
-        else if (error.includes("cancel")) category = "user_cancel";
-        else category = "other";
+      if (
+        outcome === "success" ||
+        outcome === "failure" ||
+        outcome === "timeout"
+      ) {
+        totalTasks++;
       }
-      errorsByCategory[category] = (errorsByCategory[category] ?? 0) + 1;
-    }
-  }
 
-  // Calculate mean time between errors
-  let mtbe = 0;
-  if (errorTimestamps.length > 1) {
-    errorTimestamps.sort((a, b) => a - b);
-    let totalGap = 0;
-    for (let i = 1; i < errorTimestamps.length; i++) {
-      totalGap += errorTimestamps[i]! - errorTimestamps[i - 1]!;
-    }
-    mtbe = totalGap / (errorTimestamps.length - 1);
-  }
+      if (outcome === "failure" || outcome === "timeout") {
+        errorCount++;
+        errorTimestamps.push(row.createdAt.getTime());
 
-  return {
-    agentId,
-    period,
-    errorRate: totalTasks > 0 ? (errorCount / totalTasks) * 100 : 0,
-    errorsByCategory,
-    meanTimeBetweenErrors: mtbe,
-    conflictRate: 0, // TODO: Get from reservation/conflict service
-    conflictsResolved: 0,
-  };
+        // Categorize error
+        let category = "unknown";
+        if (error) {
+          if (error.includes("timeout")) category = "timeout";
+          else if (error.includes("tool")) category = "tool_failure";
+          else if (error.includes("model") || error.includes("API"))
+            category = "model_error";
+          else if (error.includes("cancel")) category = "user_cancel";
+          else category = "other";
+        }
+        errorsByCategory[category] = (errorsByCategory[category] ?? 0) + 1;
+      }
+    }
+
+    // Calculate mean time between errors
+    let mtbe = 0;
+    if (errorTimestamps.length > 1) {
+      errorTimestamps.sort((a, b) => a - b);
+      let totalGap = 0;
+      for (let i = 1; i < errorTimestamps.length; i++) {
+        totalGap += errorTimestamps[i]! - errorTimestamps[i - 1]!;
+      }
+      mtbe = totalGap / (errorTimestamps.length - 1);
+    }
+
+    return {
+      agentId,
+      period,
+      errorRate: totalTasks > 0 ? (errorCount / totalTasks) * 100 : 0,
+      errorsByCategory,
+      meanTimeBetweenErrors: mtbe,
+      conflictRate: 0, // TODO: Get from reservation/conflict service
+      conflictsResolved: 0,
+    };
+  }) as Promise<QualityMetric>;
 }
 
 /**
  * Get token efficiency metrics for an agent.
+ * Results are cached for 30 seconds to reduce database load.
  */
 export async function getTokenEfficiencyMetrics(
   agentId: string,
   model?: string,
 ): Promise<TokenEfficiencyMetric> {
-  // Get agent info to determine model
-  const agentRows = await db
-    .select()
-    .from(agentsTable)
-    .where(eq(agentsTable.id, agentId))
-    .limit(1);
+  const cacheKey = generateCacheKey("efficiency", { agentId, model });
 
-  const agentModel = model ?? agentRows[0]?.model ?? "unknown";
+  return analyticsCache.getOrCompute(cacheKey, async () => {
+    // Get agent info to determine model
+    const agentRows = await db
+      .select()
+      .from(agentsTable)
+      .where(eq(agentsTable.id, agentId))
+      .limit(1);
 
-  // Get recent history
-  const { start, end } = getPeriodDates("7d");
-  const rows = await db
-    .select()
-    .from(historyTable)
-    .where(
-      and(
-        eq(historyTable.agentId, agentId),
-        gte(historyTable.createdAt, start),
-        lte(historyTable.createdAt, end),
-      ),
+    const agentModel = model ?? agentRows[0]?.model ?? "unknown";
+
+    // Get recent history
+    const { start, end } = getPeriodDates("7d");
+    const rows = await db
+      .select()
+      .from(historyTable)
+      .where(
+        and(
+          eq(historyTable.agentId, agentId),
+          gte(historyTable.createdAt, start),
+          lte(historyTable.createdAt, end),
+        ),
+      );
+
+    let totalPromptTokens = 0;
+    let totalCompletionTokens = 0;
+    let taskCount = 0;
+
+    for (const row of rows) {
+      const input = row.input as Record<string, unknown> | null;
+      const output = row.output as Record<string, unknown> | null;
+      const outcome = output?.["outcome"] as string | undefined;
+
+      if (outcome === "success" || outcome === "failure") {
+        taskCount++;
+        totalPromptTokens += (input?.["promptTokens"] as number) ?? 0;
+        totalCompletionTokens += (output?.["responseTokens"] as number) ?? 0;
+      }
+    }
+
+    const avgPromptTokens = taskCount > 0 ? totalPromptTokens / taskCount : 0;
+    const avgCompletionTokens =
+      taskCount > 0 ? totalCompletionTokens / taskCount : 0;
+    const avgTokensPerTask = avgPromptTokens + avgCompletionTokens;
+
+    // Calculate efficiency score (0-100 based on tokens per successful task)
+    // Lower tokens = higher efficiency
+    const efficiencyScore = Math.max(
+      0,
+      Math.min(100, 100 - avgTokensPerTask / 100),
     );
 
-  let totalPromptTokens = 0;
-  let totalCompletionTokens = 0;
-  let taskCount = 0;
-
-  for (const row of rows) {
-    const input = row.input as Record<string, unknown> | null;
-    const output = row.output as Record<string, unknown> | null;
-    const outcome = output?.["outcome"] as string | undefined;
-
-    if (outcome === "success" || outcome === "failure") {
-      taskCount++;
-      totalPromptTokens += (input?.["promptTokens"] as number) ?? 0;
-      totalCompletionTokens += (output?.["responseTokens"] as number) ?? 0;
-    }
-  }
-
-  const avgPromptTokens = taskCount > 0 ? totalPromptTokens / taskCount : 0;
-  const avgCompletionTokens =
-    taskCount > 0 ? totalCompletionTokens / taskCount : 0;
-  const avgTokensPerTask = avgPromptTokens + avgCompletionTokens;
-
-  // Calculate efficiency score (0-100 based on tokens per successful task)
-  // Lower tokens = higher efficiency
-  const efficiencyScore = Math.max(
-    0,
-    Math.min(100, 100 - avgTokensPerTask / 100),
-  );
-
-  return {
-    agentId,
-    model: agentModel,
-    avgTokensPerTask,
-    avgPromptTokens,
-    avgCompletionTokens,
-    efficiencyScore,
-    vsFleetAverage: 0, // TODO: Calculate vs fleet
-  };
+    return {
+      agentId,
+      model: agentModel,
+      avgTokensPerTask,
+      avgPromptTokens,
+      avgCompletionTokens,
+      efficiencyScore,
+      vsFleetAverage: 0, // TODO: Calculate vs fleet
+    };
+  }) as Promise<TokenEfficiencyMetric>;
 }
 
 /**
@@ -575,14 +598,18 @@ export async function getAgentPerformanceSummary(
  *
  * Uses a single batch query with JOIN instead of per-agent queries
  * to avoid N+1 query pattern.
+ * Results are cached for 2 minutes to reduce database load.
  */
 export async function getModelComparisonReport(
   period: AnalyticsPeriod = "7d",
 ): Promise<ModelComparisonReport> {
-  const { start, end } = getPeriodDates(period);
+  const cacheKey = generateCacheKey("models", { period });
 
-  // Get all agents with their models in one query
-  const agents = await db.select().from(agentsTable);
+  return analyticsCache.getOrCompute(cacheKey, async () => {
+    const { start, end } = getPeriodDates(period);
+
+    // Get all agents with their models in one query
+    const agents = await db.select().from(agentsTable);
 
   // Build agent ID to model lookup
   const agentModelMap = new Map<string, string>();
@@ -673,12 +700,13 @@ export async function getModelComparisonReport(
     }
   }
 
-  return {
-    period: { start, end },
-    models,
-    taskTypeBreakdown: [], // TODO: Implement task type tracking
-    recommendations,
-  };
+    return {
+      period: { start, end },
+      models,
+      taskTypeBreakdown: [], // TODO: Implement task type tracking
+      recommendations,
+    };
+  }) as Promise<ModelComparisonReport>;
 }
 
 /**
@@ -819,6 +847,7 @@ function generateRecommendations(
  *
  * Uses a single batch query instead of per-agent queries
  * to avoid N+1 query pattern (was 2N queries, now 2 queries total).
+ * Results are cached for 30 seconds to reduce database load.
  */
 export async function getFleetAnalytics(
   period: AnalyticsPeriod = "24h",
@@ -830,10 +859,22 @@ export async function getFleetAnalytics(
   topPerformers: Array<{ agentId: string; successRate: number }>;
   needsAttention: Array<{ agentId: string; issue: string }>;
 }> {
-  const { start, end } = getPeriodDates(period);
+  type FleetAnalyticsResult = {
+    totalAgents: number;
+    activeAgents: number;
+    avgSuccessRate: number;
+    totalTasksCompleted: number;
+    topPerformers: Array<{ agentId: string; successRate: number }>;
+    needsAttention: Array<{ agentId: string; issue: string }>;
+  };
 
-  // Two queries total: agents + all relevant history
-  const agents = await db.select().from(agentsTable);
+  const cacheKey = generateCacheKey("fleet", { period });
+
+  return analyticsCache.getOrCompute(cacheKey, async () => {
+    const { start, end } = getPeriodDates(period);
+
+    // Two queries total: agents + all relevant history
+    const agents = await db.select().from(agentsTable);
 
   const allHistory = await db
     .select()
@@ -929,12 +970,13 @@ export async function getFleetAnalytics(
     }
   }
 
-  return {
-    totalAgents: agents.length,
-    activeAgents: activeCount,
-    avgSuccessRate: activeCount > 0 ? totalSuccessRate / activeCount : 0,
-    totalTasksCompleted: totalTasks,
-    topPerformers,
-    needsAttention: needsAttention.slice(0, 5),
-  };
+    return {
+      totalAgents: agents.length,
+      activeAgents: activeCount,
+      avgSuccessRate: activeCount > 0 ? totalSuccessRate / activeCount : 0,
+      totalTasksCompleted: totalTasks,
+      topPerformers,
+      needsAttention: needsAttention.slice(0, 5),
+    };
+  }) as Promise<FleetAnalyticsResult>;
 }

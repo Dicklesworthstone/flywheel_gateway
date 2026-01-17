@@ -555,12 +555,8 @@ export async function waitForApproval(
     await new Promise((resolve) => setTimeout(resolve, pollInterval));
   }
 
-  // Timeout - mark as expired
-  const approval = await getApproval(requestId);
-  if (approval && approval.status === "pending") {
-    approval.status = "expired";
-  }
-  return approval;
+  // Timeout - return current state (likely pending)
+  return await getApproval(requestId);
 }
 
 // ============================================================================

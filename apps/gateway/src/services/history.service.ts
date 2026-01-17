@@ -14,6 +14,7 @@ import { db } from "../db";
 import { history as historyTable } from "../db/schema";
 import { getCorrelationId } from "../middleware/correlation";
 import { logger } from "./logger";
+import { invalidateAgentAnalytics } from "./query-cache";
 
 // ============================================================================
 // Types
@@ -147,6 +148,9 @@ export async function createHistoryEntry(
     createdAt: now,
   });
 
+  // Invalidate analytics cache for this agent
+  invalidateAgentAnalytics(agentId);
+
   log.info(
     { entryId: id, promptTokens: entry.promptTokens },
     "History entry created",
@@ -193,6 +197,9 @@ export async function completeHistoryEntry(
       durationMs,
     })
     .where(eq(historyTable.id, entryId));
+
+  // Invalidate analytics cache for this agent
+  invalidateAgentAnalytics(row.agentId);
 
   // Build entry conditionally (for exactOptionalPropertyTypes)
   // Use bracket notation for index signature access
