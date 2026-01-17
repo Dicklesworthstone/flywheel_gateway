@@ -2,8 +2,36 @@ import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
+// Feature flag to disable React Compiler if issues arise
+const DISABLE_COMPILER = process.env.VITE_DISABLE_COMPILER === "true";
+
+// Log compiler status in development
+if (process.env.NODE_ENV !== "production") {
+  console.debug(
+    `[Compiler] React Compiler ${DISABLE_COMPILER ? "disabled" : "enabled"}`
+  );
+}
+
+// Reusable React Compiler babel config
+const reactCompilerBabelConfig = DISABLE_COMPILER
+  ? {}
+  : {
+      babel: {
+        plugins: [
+          [
+            "babel-plugin-react-compiler",
+            {
+              target: "19",
+              // Enable source map support for debugging
+              sources: (filename: string) => filename.includes("src/"),
+            },
+          ],
+        ],
+      },
+    };
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(reactCompilerBabelConfig)],
 
   server: {
     port: 5173,
@@ -106,7 +134,7 @@ export default defineConfig({
   // Worker configuration for web workers
   worker: {
     format: "es",
-    plugins: () => [react()],
+    plugins: () => [react(reactCompilerBabelConfig)],
   },
 
   // Enable experimental features
