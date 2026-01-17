@@ -345,6 +345,378 @@ function SetupSteps({ currentStep, onStepClick, completedSteps }: SetupStepsProp
 }
 
 // ============================================================================
+// Step Content Components
+// ============================================================================
+
+interface DetectStepContentProps {
+  agents: DetectedCLI[];
+  tools: DetectedCLI[];
+  summary: {
+    agentsAvailable: number;
+    agentsTotal: number;
+    toolsAvailable: number;
+    toolsTotal: number;
+  };
+  isReady: boolean;
+  recommendations: string[];
+  missingRequired: string[];
+  onNext: () => void;
+}
+
+function DetectStepContent({
+  agents,
+  tools,
+  summary,
+  isReady,
+  recommendations,
+  missingRequired,
+  onNext,
+}: DetectStepContentProps) {
+  return (
+    <motion.div
+      key="detect"
+      variants={pageSlideVariants}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+    >
+      {/* Readiness Score */}
+      <section className="grid grid--2" style={{ marginBottom: "24px" }}>
+        <ReadinessScore
+          ready={isReady}
+          agentsAvailable={summary.agentsAvailable}
+          agentsTotal={summary.agentsTotal}
+          toolsAvailable={summary.toolsAvailable}
+          toolsTotal={summary.toolsTotal}
+        />
+        <RecommendationsPanel
+          recommendations={recommendations}
+          missingRequired={missingRequired}
+        />
+      </section>
+
+      {/* Agents Section */}
+      <section style={{ marginBottom: "24px" }}>
+        <div className="card__header" style={{ marginBottom: "12px" }}>
+          <h3 style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Zap size={20} />
+            AI Coding Agents
+          </h3>
+          <StatusPill tone={summary.agentsAvailable > 0 ? "positive" : "warning"}>
+            {summary.agentsAvailable} / {summary.agentsTotal} available
+          </StatusPill>
+        </div>
+        <motion.div
+          className="grid grid--2"
+          variants={listContainerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          {agents.map((agent, i) => (
+            <ToolCard key={agent.name} cli={agent} index={i} />
+          ))}
+        </motion.div>
+      </section>
+
+      {/* Tools Section */}
+      <section style={{ marginBottom: "24px" }}>
+        <div className="card__header" style={{ marginBottom: "12px" }}>
+          <h3 style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Terminal size={20} />
+            Developer Tools
+          </h3>
+          <StatusPill tone={summary.toolsAvailable >= 2 ? "positive" : "warning"}>
+            {summary.toolsAvailable} / {summary.toolsTotal} installed
+          </StatusPill>
+        </div>
+        <motion.div
+          className="grid grid--2"
+          variants={listContainerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          {tools.map((tool, i) => (
+            <ToolCard key={tool.name} cli={tool} index={i} />
+          ))}
+        </motion.div>
+      </section>
+
+      {/* Next button */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "24px" }}>
+        <button className="btn btn--primary" onClick={onNext}>
+          Continue to Install
+          <ArrowRight size={16} />
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+interface InstallStepContentProps {
+  tools: DetectedCLI[];
+  onInstall: (tool: string) => void;
+  installingTool: string | null;
+  onNext: () => void;
+  onBack: () => void;
+}
+
+function InstallStepContent({
+  tools,
+  onInstall,
+  installingTool,
+  onNext,
+  onBack,
+}: InstallStepContentProps) {
+  const missingTools = tools.filter((t) => !t.available);
+  const installedTools = tools.filter((t) => t.available);
+
+  return (
+    <motion.div
+      key="install"
+      variants={pageSlideVariants}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+    >
+      <div className="card" style={{ marginBottom: "24px" }}>
+        <div className="card__header">
+          <h3 style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Download size={20} />
+            Install Missing Tools
+          </h3>
+          <StatusPill tone={missingTools.length === 0 ? "positive" : "warning"}>
+            {missingTools.length} missing
+          </StatusPill>
+        </div>
+
+        {missingTools.length === 0 ? (
+          <motion.div
+            variants={fadeVariants}
+            initial="hidden"
+            animate="visible"
+            style={{
+              textAlign: "center",
+              padding: "32px",
+              color: "var(--color-green-600)",
+            }}
+          >
+            <CheckCircle size={48} style={{ marginBottom: "12px" }} />
+            <div style={{ fontWeight: 500 }}>All tools are installed!</div>
+            <div className="muted" style={{ marginTop: "4px" }}>
+              Your environment is ready to use.
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            variants={listContainerVariants}
+            initial="hidden"
+            animate="visible"
+            style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+          >
+            {missingTools.map((tool, i) => (
+              <ToolCard
+                key={tool.name}
+                cli={tool}
+                onInstall={() => onInstall(tool.name)}
+                installing={installingTool === tool.name}
+                index={i}
+              />
+            ))}
+          </motion.div>
+        )}
+      </div>
+
+      {installedTools.length > 0 && (
+        <div className="card" style={{ marginBottom: "24px" }}>
+          <div className="card__header">
+            <h3>Already Installed</h3>
+            <StatusPill tone="positive">{installedTools.length} tools</StatusPill>
+          </div>
+          <motion.div
+            variants={listContainerVariants}
+            initial="hidden"
+            animate="visible"
+            className="grid grid--2"
+          >
+            {installedTools.map((tool, i) => (
+              <ToolCard key={tool.name} cli={tool} index={i} />
+            ))}
+          </motion.div>
+        </div>
+      )}
+
+      {/* Navigation */}
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: "24px" }}>
+        <button className="btn btn--ghost" onClick={onBack}>
+          Back
+        </button>
+        <button className="btn btn--primary" onClick={onNext}>
+          Continue to Verify
+          <ArrowRight size={16} />
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+interface VerifyStepContentProps {
+  status: {
+    ready: boolean;
+    agents: DetectedCLI[];
+    tools: DetectedCLI[];
+    summary: {
+      agentsAvailable: number;
+      agentsTotal: number;
+      toolsAvailable: number;
+      toolsTotal: number;
+    };
+  };
+  onRefresh: () => void;
+  loading: boolean;
+  onBack: () => void;
+}
+
+function VerifyStepContent({ status, onRefresh, loading, onBack }: VerifyStepContentProps) {
+  const allCLIs = [...status.agents, ...status.tools];
+  const availableCLIs = allCLIs.filter((cli) => cli.available);
+  const totalAvailable = availableCLIs.length;
+  const total = allCLIs.length;
+
+  return (
+    <motion.div
+      key="verify"
+      variants={pageSlideVariants}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+    >
+      <div className="card" style={{ marginBottom: "24px" }}>
+        <div className="card__header">
+          <h3 style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Shield size={20} />
+            Verification Results
+          </h3>
+          <button
+            className="btn btn--sm btn--secondary"
+            onClick={onRefresh}
+            disabled={loading}
+          >
+            {loading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+            Re-verify
+          </button>
+        </div>
+
+        {status.ready ? (
+          <motion.div
+            variants={fadeVariants}
+            initial="hidden"
+            animate="visible"
+            style={{
+              textAlign: "center",
+              padding: "48px 24px",
+              backgroundColor: "var(--color-green-50)",
+              borderRadius: "8px",
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            >
+              <PartyPopper size={64} style={{ color: "var(--color-green-500)", marginBottom: "16px" }} />
+            </motion.div>
+            <div style={{ fontSize: "24px", fontWeight: 600, color: "var(--color-green-700)" }}>
+              Setup Complete!
+            </div>
+            <div className="muted" style={{ marginTop: "8px" }}>
+              Your Flywheel Gateway environment is fully configured and ready to use.
+            </div>
+            <div style={{ marginTop: "16px", fontSize: "14px", color: "var(--color-green-600)" }}>
+              {totalAvailable} / {total} components available
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            variants={fadeVariants}
+            initial="hidden"
+            animate="visible"
+            style={{
+              textAlign: "center",
+              padding: "32px",
+              backgroundColor: "var(--color-amber-50)",
+              borderRadius: "8px",
+            }}
+          >
+            <AlertCircle size={48} style={{ color: "var(--color-amber-500)", marginBottom: "12px" }} />
+            <div style={{ fontWeight: 500, color: "var(--color-amber-700)" }}>
+              Some components are missing
+            </div>
+            <div className="muted" style={{ marginTop: "4px" }}>
+              {totalAvailable} / {total} components available. Go back to install missing tools.
+            </div>
+          </motion.div>
+        )}
+      </div>
+
+      {/* Component Summary */}
+      <div className="card" style={{ marginBottom: "24px" }}>
+        <div className="card__header">
+          <h3>Component Summary</h3>
+        </div>
+        <motion.div
+          variants={listContainerVariants}
+          initial="hidden"
+          animate="visible"
+          className="grid grid--2"
+        >
+          {allCLIs.map((cli, i) => (
+            <ToolCard key={cli.name} cli={cli} index={i} />
+          ))}
+        </motion.div>
+      </div>
+
+      {/* Quick Links */}
+      <div className="card">
+        <div className="card__header">
+          <h3>Next Steps</h3>
+        </div>
+        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+          <a href="/" className="btn btn--primary">
+            Go to Dashboard
+            <ArrowRight size={16} />
+          </a>
+          <a
+            href="https://docs.flywheel.dev/getting-started"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn--ghost"
+          >
+            <ExternalLink size={16} />
+            Getting Started Guide
+          </a>
+          <a
+            href="https://docs.flywheel.dev/agents"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn--ghost"
+          >
+            <ExternalLink size={16} />
+            Agent Documentation
+          </a>
+        </div>
+      </div>
+
+      {/* Back button */}
+      <div style={{ display: "flex", justifyContent: "flex-start", marginTop: "24px" }}>
+        <button className="btn btn--ghost" onClick={onBack}>
+          Back
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ============================================================================
 // Main Page Component
 // ============================================================================
 
@@ -355,8 +727,25 @@ export function SetupPage() {
   const [completedSteps, setCompletedSteps] = useState<SetupStep[]>([]);
   const [installingTool, setInstallingTool] = useState<string | null>(null);
 
-  const handleInstall = async (tool: string) => {
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean;
+    tool: string | null;
+  }>({ open: false, tool: null });
+
+  // Open confirmation dialog before install
+  const handleInstallRequest = useCallback((tool: string) => {
+    setConfirmModal({ open: true, tool });
+  }, []);
+
+  // Perform the actual install after confirmation
+  const handleConfirmInstall = useCallback(async () => {
+    const tool = confirmModal.tool;
+    if (!tool) return;
+
+    setConfirmModal({ open: false, tool: null });
     setInstallingTool(tool);
+
     try {
       await install(tool, "easy", true);
       // Refresh detection after install
@@ -366,14 +755,32 @@ export function SetupPage() {
     } finally {
       setInstallingTool(null);
     }
-  };
+  }, [confirmModal.tool, install, refresh]);
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     await refresh(true);
     if (!completedSteps.includes("detect")) {
-      setCompletedSteps([...completedSteps, "detect"]);
+      setCompletedSteps((prev) => [...prev, "detect"]);
     }
-  };
+  }, [refresh, completedSteps]);
+
+  const handleNextStep = useCallback(() => {
+    if (currentStep === "detect") {
+      setCompletedSteps((prev) => (prev.includes("detect") ? prev : [...prev, "detect"]));
+      setCurrentStep("install");
+    } else if (currentStep === "install") {
+      setCompletedSteps((prev) => (prev.includes("install") ? prev : [...prev, "install"]));
+      setCurrentStep("verify");
+    }
+  }, [currentStep]);
+
+  const handleBackStep = useCallback(() => {
+    if (currentStep === "verify") {
+      setCurrentStep("install");
+    } else if (currentStep === "install") {
+      setCurrentStep("detect");
+    }
+  }, [currentStep]);
 
   // Auto-complete detect step when status loads
   if (status && !completedSteps.includes("detect")) {
@@ -388,7 +795,13 @@ export function SetupPage() {
   if (error) {
     return (
       <div className="page">
-        <div className="card" style={{ backgroundColor: "var(--color-red-50)" }}>
+        <motion.div
+          className="card"
+          style={{ backgroundColor: "var(--color-red-50)" }}
+          variants={fadeVariants}
+          initial="hidden"
+          animate="visible"
+        >
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <AlertCircle size={24} style={{ color: "var(--color-red-500)" }} />
             <div>
@@ -396,11 +809,15 @@ export function SetupPage() {
               <div className="muted">{error}</div>
             </div>
           </div>
-          <button className="btn btn--secondary" onClick={() => refresh()} style={{ marginTop: "16px" }}>
+          <button
+            className="btn btn--secondary"
+            onClick={() => refresh()}
+            style={{ marginTop: "16px" }}
+          >
             <RefreshCw size={16} />
             Retry
           </button>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -408,10 +825,16 @@ export function SetupPage() {
   if (loading && !status) {
     return (
       <div className="page">
-        <div className="card" style={{ textAlign: "center", padding: "48px" }}>
+        <motion.div
+          className="card"
+          style={{ textAlign: "center", padding: "48px" }}
+          variants={fadeVariants}
+          initial="hidden"
+          animate="visible"
+        >
           <Loader2 size={32} className="spin" style={{ marginBottom: "16px" }} />
           <div>Detecting installed tools...</div>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -422,11 +845,22 @@ export function SetupPage() {
 
   const agents = status.agents;
   const tools = status.tools;
+  const toolDisplayInfo = confirmModal.tool ? getToolDisplayInfo(confirmModal.tool) : null;
 
   return (
     <div className="page">
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+      <motion.div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "24px",
+        }}
+        variants={fadeVariants}
+        initial="hidden"
+        animate="visible"
+      >
         <div>
           <h1 style={{ margin: 0, marginBottom: "4px" }}>Setup Wizard</h1>
           <p className="muted" style={{ margin: 0 }}>
@@ -441,7 +875,7 @@ export function SetupPage() {
           {loading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
           Refresh
         </button>
-      </div>
+      </motion.div>
 
       {/* Steps */}
       <SetupSteps
@@ -450,99 +884,51 @@ export function SetupPage() {
         completedSteps={completedSteps}
       />
 
-      {/* Readiness Score */}
-      <section className="grid grid--2" style={{ marginBottom: "24px" }}>
-        <ReadinessScore
-          ready={isReady}
-          agentsAvailable={status.summary.agentsAvailable}
-          agentsTotal={status.summary.agentsTotal}
-          toolsAvailable={status.summary.toolsAvailable}
-          toolsTotal={status.summary.toolsTotal}
-        />
-        <RecommendationsPanel
-          recommendations={status.recommendations}
-          missingRequired={status.summary.missingRequired}
-        />
-      </section>
+      {/* Step Content with Animations */}
+      <AnimatePresence mode="wait">
+        {currentStep === "detect" && (
+          <DetectStepContent
+            agents={agents}
+            tools={tools}
+            summary={status.summary}
+            isReady={isReady}
+            recommendations={status.recommendations}
+            missingRequired={status.summary.missingRequired}
+            onNext={handleNextStep}
+          />
+        )}
 
-      {/* Agents Section */}
-      <section style={{ marginBottom: "24px" }}>
-        <div className="card__header" style={{ marginBottom: "12px" }}>
-          <h3 style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Zap size={20} />
-            AI Coding Agents
-          </h3>
-          <StatusPill tone={status.summary.agentsAvailable > 0 ? "positive" : "warning"}>
-            {status.summary.agentsAvailable} / {status.summary.agentsTotal} available
-          </StatusPill>
-        </div>
-        <div className="grid grid--2">
-          {agents.map((agent) => (
-            <ToolCard key={agent.name} cli={agent} />
-          ))}
-        </div>
-      </section>
+        {currentStep === "install" && (
+          <InstallStepContent
+            tools={tools}
+            onInstall={handleInstallRequest}
+            installingTool={installingTool}
+            onNext={handleNextStep}
+            onBack={handleBackStep}
+          />
+        )}
 
-      {/* Tools Section */}
-      <section>
-        <div className="card__header" style={{ marginBottom: "12px" }}>
-          <h3 style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Terminal size={20} />
-            Developer Tools
-          </h3>
-          <StatusPill tone={status.summary.toolsAvailable >= 2 ? "positive" : "warning"}>
-            {status.summary.toolsAvailable} / {status.summary.toolsTotal} installed
-          </StatusPill>
-        </div>
-        <div className="grid grid--2">
-          {tools.map((tool) => (
-            <ToolCard
-              key={tool.name}
-              cli={tool}
-              onInstall={() => handleInstall(tool.name)}
-              installing={installingTool === tool.name}
-            />
-          ))}
-        </div>
-      </section>
+        {currentStep === "verify" && (
+          <VerifyStepContent
+            status={status}
+            onRefresh={handleRefresh}
+            loading={loading}
+            onBack={handleBackStep}
+          />
+        )}
+      </AnimatePresence>
 
-      {/* Quick Links */}
-      <section style={{ marginTop: "24px" }}>
-        <div className="card">
-          <div className="card__header">
-            <h3>Documentation</h3>
-          </div>
-          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-            <a
-              href="https://docs.flywheel.dev/getting-started"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn--ghost"
-            >
-              <ExternalLink size={16} />
-              Getting Started
-            </a>
-            <a
-              href="https://docs.flywheel.dev/agents"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn--ghost"
-            >
-              <ExternalLink size={16} />
-              Agent Setup
-            </a>
-            <a
-              href="https://docs.flywheel.dev/tools"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn--ghost"
-            >
-              <ExternalLink size={16} />
-              Tool Reference
-            </a>
-          </div>
-        </div>
-      </section>
+      {/* Install Confirmation Modal */}
+      <ConfirmModal
+        open={confirmModal.open}
+        onClose={() => setConfirmModal({ open: false, tool: null })}
+        onConfirm={handleConfirmInstall}
+        title={`Install ${toolDisplayInfo?.displayName || confirmModal.tool}?`}
+        message={`This will install ${toolDisplayInfo?.displayName || confirmModal.tool} using easy mode. The installation will be verified after completion. Do you want to proceed?`}
+        confirmLabel="Install"
+        cancelLabel="Cancel"
+        loading={installing}
+      />
     </div>
   );
 }
