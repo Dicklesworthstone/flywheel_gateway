@@ -41,11 +41,23 @@ const createCompilerLogger = (stats: CompilerStats) => ({
     }
 
     if (kind === "CompileDiagnostic") {
-      console.warn("[Compiler] Diagnostic", { filename, event: normalized });
+      const detail = normalized.detail;
+      console.warn("[Compiler] Diagnostic", {
+        filename,
+        event: normalized,
+        detail,
+        detailText: detail ? String(detail) : undefined,
+      });
     }
 
     if (kind === "CompileError" || kind === "PipelineError") {
-      console.error("[Compiler] Error", { filename, event: normalized });
+      const detail = normalized.detail;
+      console.error("[Compiler] Error", {
+        filename,
+        event: normalized,
+        detail,
+        detailText: detail ? String(detail) : undefined,
+      });
     }
   },
 });
