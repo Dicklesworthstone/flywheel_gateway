@@ -28,11 +28,21 @@ import {
  */
 function generateId(prefix: string, length = 12): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  const randomBytes = new Uint8Array(length);
-  crypto.getRandomValues(randomBytes);
+  const charLen = chars.length;
+  const maxByte = 256 - (256 % charLen);
   let result = "";
-  for (let i = 0; i < length; i++) {
-    result += chars[randomBytes[i]! % chars.length];
+  
+  while (result.length < length) {
+    const bufSize = Math.ceil((length - result.length) * 1.2);
+    const randomBytes = new Uint8Array(bufSize);
+    crypto.getRandomValues(randomBytes);
+    
+    for (let i = 0; i < bufSize && result.length < length; i++) {
+      const byte = randomBytes[i]!;
+      if (byte < maxByte) {
+        result += chars[byte % charLen];
+      }
+    }
   }
   return `${prefix}_${result}`;
 }
@@ -680,6 +690,8 @@ function getRateLimitKey(
       return `rate:${request.workspaceId}:${limitType}`;
     case "session":
       return `rate:${request.sessionId}:${limitType}`;
+    default:
+      throw new Error(`Invalid rate limit scope: ${config.scope}`);
   }
 }
 
@@ -762,6 +774,8 @@ function getBudgetKey(
       return `budget:${request.workspaceId}`;
     case "session":
       return `budget:${request.sessionId}`;
+    default:
+      throw new Error(`Invalid budget scope: ${config.scope}`);
   }
 }
 
