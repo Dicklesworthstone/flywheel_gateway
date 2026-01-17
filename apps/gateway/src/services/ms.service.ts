@@ -113,9 +113,10 @@ async function executeMsCommand(
       env: { ...process.env, NO_COLOR: "1" },
     });
 
-    // Set up timeout
+    // Set up timeout with cleanup
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         proc.kill();
         reject(new Error(`Command timed out after ${timeout}ms`));
       }, timeout);
@@ -150,7 +151,13 @@ async function executeMsCommand(
       }
     })();
 
-    return await Promise.race([resultPromise, timeoutPromise]);
+    try {
+      return await Promise.race([resultPromise, timeoutPromise]);
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    }
   } catch (error) {
     return {
       ok: false,

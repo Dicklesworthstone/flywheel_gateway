@@ -217,20 +217,27 @@ async function checkCLI(
       env: { ...process.env, NO_COLOR: "1" },
     });
 
-    // Create timeout promise
-    const timeout = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error("Timeout")), timeoutMs);
+    // Set up timeout with cleanup
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error("Timeout")), timeoutMs);
     });
 
     // Race between command and timeout
-    const result = await Promise.race([
-      (async () => {
-        const stdout = await new Response(proc.stdout).text();
-        const exitCode = await proc.exited;
-        return { stdout, exitCode };
-      })(),
-      timeout,
-    ]);
+    const resultPromise = (async () => {
+      const stdout = await new Response(proc.stdout).text();
+      const exitCode = await proc.exited;
+      return { stdout, exitCode };
+    })();
+
+    let result: { stdout: string; exitCode: number };
+    try {
+      result = await Promise.race([resultPromise, timeoutPromise]);
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    }
 
     const latencyMs = Math.round(performance.now() - startTime);
 

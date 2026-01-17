@@ -153,14 +153,15 @@ export function createMcpAgentMailToolCaller(
     });
 
     const timeoutMs = options?.timeoutMs;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise =
       timeoutMs && timeoutMs > 0
-        ? new Promise((_, reject) =>
-            setTimeout(
+        ? new Promise((_, reject) => {
+            timeoutId = setTimeout(
               () => reject(new Error("Tool call timed out")),
               timeoutMs,
-            ),
-          )
+            );
+          })
         : null;
 
     const abortPromise = options?.signal
@@ -189,6 +190,9 @@ export function createMcpAgentMailToolCaller(
       );
       throw error;
     } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
       log.debug(
         {
           toolName,

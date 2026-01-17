@@ -610,9 +610,10 @@ export class LocalExecutor implements WorkspaceExecutor {
       stderr: "pipe",
     });
 
-    // Wait with timeout
+    // Set up timeout with cleanup
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error("Command timed out")), timeout);
+      timeoutId = setTimeout(() => reject(new Error("Command timed out")), timeout);
     });
 
     try {
@@ -629,6 +630,10 @@ export class LocalExecutor implements WorkspaceExecutor {
     } catch (err) {
       proc.kill();
       throw err;
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
     }
   }
 }
@@ -653,8 +658,10 @@ export class DockerExecutor implements WorkspaceExecutor {
       stderr: "pipe",
     });
 
+    // Set up timeout with cleanup
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error("Command timed out")), timeout);
+      timeoutId = setTimeout(() => reject(new Error("Command timed out")), timeout);
     });
 
     try {
@@ -671,6 +678,10 @@ export class DockerExecutor implements WorkspaceExecutor {
     } catch (err) {
       proc.kill();
       throw err;
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
     }
   }
 }
