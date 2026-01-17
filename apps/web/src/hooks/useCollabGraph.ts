@@ -6,7 +6,7 @@
  * updates and view mode filtering.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUiStore } from "../stores/ui";
 
 // ============================================================================
@@ -403,6 +403,11 @@ function useQuery<T>(
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  const mockDataRef = useRef(mockData);
+  useEffect(() => {
+    mockDataRef.current = mockData;
+  }, [mockData]);
+
   const fetch = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -410,7 +415,7 @@ function useQuery<T>(
     if (mockMode) {
       // Simulate network delay
       await new Promise((r) => setTimeout(r, 300));
-      setData(mockData);
+      setData(mockDataRef.current);
       setIsLoading(false);
       return;
     }
@@ -421,11 +426,10 @@ function useQuery<T>(
     } catch (e) {
       setError(e instanceof Error ? e : new Error("Unknown error"));
       // Fall back to mock data on error
-      setData(mockData);
-    } finally {
-      setIsLoading(false);
+      setData(mockDataRef.current);
     }
-  }, [endpoint, mockData, mockMode]);
+    setIsLoading(false);
+  }, [endpoint, mockMode]);
 
   useEffect(() => {
     fetch();
@@ -528,6 +532,7 @@ export function useGraphSubscription(
   const wsRef = useRef<WebSocket | null>(null);
   const batchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const eventQueueRef = useRef<GraphEvent[]>([]);
+  const connectRef = useRef<() => void>(() => {});
 
   const processEvents = useCallback(() => {
     const events = eventQueueRef.current;
@@ -603,7 +608,7 @@ export function useGraphSubscription(
     ws.onclose = () => {
       setConnected(false);
       // Attempt reconnection after 3 seconds
-      setTimeout(connect, 3000);
+      setTimeout(() => connectRef.current(), 3000);
     };
 
     ws.onerror = () => {
@@ -612,6 +617,11 @@ export function useGraphSubscription(
 
     wsRef.current = ws;
   }, [mockMode, queueEvent]);
+
+  // Keep connectRef in sync with connect for self-referencing
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   const reconnect = useCallback(() => {
     if (wsRef.current) {
@@ -708,7 +718,7 @@ export function useFilteredGraph(
   data: CollabGraphData | null,
   viewMode: ViewMode,
 ): FilteredGraphData {
-  return useCallback(() => {
+  return useMemo(() => {
     if (!data) {
       return { nodes: [], edges: [] };
     }
@@ -742,7 +752,7 @@ export function useFilteredGraph(
           edges: data.edges,
         };
     }
-  }, [data, viewMode])();
+  }, [data, viewMode]);
 }
 
 // ============================================================================

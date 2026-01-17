@@ -1050,6 +1050,10 @@ export function FleetPage() {
     sessions?.filter((s) => s.status === "running" || s.status === "paused")
       .length ?? 0;
   const reposCount = repos?.length;
+  const needsAttention =
+    (stats?.dirtyRepos ?? 0) +
+    (stats?.behindRepos ?? 0) +
+    (stats?.divergedRepos ?? 0);
   const tabs: Tab[] = [
     {
       id: "repos",
@@ -1095,20 +1099,9 @@ export function FleetPage() {
         />
         <QuickStatCard
           title="Needs Attention"
-          value={
-            (stats?.dirtyRepos ?? 0) +
-            (stats?.behindRepos ?? 0) +
-            (stats?.divergedRepos ?? 0)
-          }
+          value={needsAttention}
           icon={<AlertCircle size={18} />}
-          variant={
-            (stats?.dirtyRepos ?? 0) +
-              (stats?.behindRepos ?? 0) +
-              (stats?.divergedRepos ?? 0) >
-            0
-              ? "warning"
-              : "default"
-          }
+          variant={needsAttention > 0 ? "warning" : "default"}
         />
         <QuickStatCard
           title="Active Sweeps"

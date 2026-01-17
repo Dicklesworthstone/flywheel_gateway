@@ -337,13 +337,15 @@ export function OnboardingWizard({
   const handleCreateAndAuthenticate = useCallback(async () => {
     if (!state.provider || !state.authMode) return;
 
+    const accountName =
+      state.profileName ||
+      `${PROVIDER_INFO[state.provider].displayName} Account`;
+
     try {
       await create({
         workspaceId,
         provider: state.provider,
-        name:
-          state.profileName ||
-          `${PROVIDER_INFO[state.provider].displayName} Account`,
+        name: accountName,
         authMode: state.authMode,
       });
       setStep("authenticate");

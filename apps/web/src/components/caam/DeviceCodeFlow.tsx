@@ -291,11 +291,11 @@ export function DeviceCodeFlow({
     onCancel?.();
   }, [cancel, onCancel]);
 
-  const handleOpenUrl = useCallback(() => {
+  const handleOpenUrl = () => {
     if (challenge?.verificationUrl) {
       window.open(challenge.verificationUrl, "_blank", "noopener,noreferrer");
     }
-  }, [challenge?.verificationUrl]);
+  };
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-6 max-w-md mx-auto">

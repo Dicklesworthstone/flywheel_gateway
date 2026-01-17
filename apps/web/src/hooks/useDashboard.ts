@@ -94,7 +94,8 @@ export function useDashboard(
       setState((s) => ({
         ...s,
         loading: false,
-        error: err instanceof Error ? err.message : "Failed to load dashboards",
+        error:
+          err instanceof Error ? err.message : "Failed to load dashboards",
       }));
     }
   }, []);
@@ -115,7 +116,8 @@ export function useDashboard(
       setState((s) => ({
         ...s,
         loading: false,
-        error: err instanceof Error ? err.message : "Failed to load dashboard",
+        error:
+          err instanceof Error ? err.message : "Failed to load dashboard",
       }));
       return null;
     }
@@ -625,12 +627,10 @@ export function useDashboard(
   }, [widgetConfigStr, fetchWidgetData]);
 
   // Load dashboard on mount if ID provided
-  // Note: We only depend on dashboardId to avoid re-fetching when callbacks change
   useEffect(() => {
     if (dashboardId) {
       getDashboard(dashboardId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dashboardId, getDashboard]);
 
   // Fetch initial widget data when dashboard is loaded

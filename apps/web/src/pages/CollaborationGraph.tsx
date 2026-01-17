@@ -841,8 +841,8 @@ export function CollaborationGraphPage() {
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
-  // Get selected node
-  const selectedNode = useMemo(() => {
+  // Get selected node - no manual memoization needed, compiler handles this
+  const selectedNode = (() => {
     if (!selectedNodeId || !data) return null;
 
     // Check agents
@@ -882,7 +882,7 @@ export function CollaborationGraphPage() {
     }
 
     return null;
-  }, [selectedNodeId, data]);
+  })();
 
   return (
     <div className="page collab-page">

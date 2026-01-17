@@ -750,9 +750,9 @@ export function SetupPage() {
       await install(tool, "easy", true);
       // Refresh detection after install
       await refresh(true);
+      setInstallingTool(null);
     } catch {
       // Error is handled by the hook
-    } finally {
       setInstallingTool(null);
     }
   }, [confirmModal.tool, install, refresh]);
