@@ -14,8 +14,16 @@ describe("Utilities Service", () => {
     test("returns all known utilities", async () => {
       const result = await listUtilities();
 
-      expect(result.length).toBe(2);
-      expect(result.map((u) => u.name).sort()).toEqual(["csctf", "giil"]);
+      expect(result.length).toBe(7);
+      expect(result.map((u) => u.name).sort()).toEqual([
+        "apr",
+        "csctf",
+        "giil",
+        "jfp",
+        "ms",
+        "pt",
+        "slb",
+      ]);
     });
 
     test("each utility has required fields", async () => {
@@ -81,7 +89,7 @@ describe("Utilities Service", () => {
     test("returns health status for all utilities", async () => {
       const result = await runDoctor();
 
-      expect(result.utilities.length).toBe(2);
+      expect(result.utilities.length).toBe(7);
       expect(result.timestamp).toBeDefined();
       expect(typeof result.healthy).toBe("boolean");
     });
@@ -106,7 +114,10 @@ describe("Utilities Service", () => {
       for (const check of result.utilities) {
         if (check.status === "missing") {
           expect(check.message).toContain("Run:");
-          expect(check.message).toContain("curl");
+          // Install commands use either curl or go install
+          const hasCurl = check.message.includes("curl");
+          const hasGoInstall = check.message.includes("go install");
+          expect(hasCurl || hasGoInstall).toBe(true);
         }
       }
     });
