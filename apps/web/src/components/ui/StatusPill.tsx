@@ -1,12 +1,21 @@
 import type { ReactNode } from "react";
 
-type Tone = "positive" | "warning" | "danger" | "muted";
+export type Tone = "positive" | "warning" | "danger" | "critical" | "muted";
 
 interface StatusPillProps {
   tone?: Tone;
+  title?: string;
   children: ReactNode;
 }
 
-export function StatusPill({ tone = "muted", children }: StatusPillProps) {
-  return <span className={`status-pill status-pill--${tone}`}>{children}</span>;
+export function StatusPill({
+  tone = "muted",
+  title,
+  children,
+}: StatusPillProps) {
+  return (
+    <span className={`status-pill status-pill--${tone}`} title={title}>
+      {children}
+    </span>
+  );
 }

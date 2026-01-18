@@ -90,10 +90,11 @@ const rootRoute = createRootRoute({
 });
 
 // Helper to wrap lazy component with Suspense
+// Returns RouteComponent-compatible function for TanStack Router
 function withSuspense<P extends object>(
   LazyComponent: React.LazyExoticComponent<React.ComponentType<P>>,
   Fallback: React.ComponentType,
-): React.ComponentType<P> {
+) {
   return function SuspenseWrapper(props: P) {
     return (
       <Suspense fallback={<Fallback />}>
@@ -235,7 +236,7 @@ declare module "@tanstack/react-router" {
 // Development Logging
 // ============================================================================
 
-if (import.meta.env.DEV) {
+if (import.meta.env["DEV"]) {
   // Log route loading timing in development
   const originalLazy = lazy;
   (globalThis as unknown as { __lazyImportCount?: number }).__lazyImportCount =
