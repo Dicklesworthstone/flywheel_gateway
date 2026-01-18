@@ -9,11 +9,11 @@
 import { AI_HINTS } from "../errors/ai-hints";
 import type { ErrorCode } from "../errors/codes";
 import {
-  deriveErrorCategory,
   type ApiError,
   type ApiErrorResponse,
   type ApiListResponse,
   type ApiResponse,
+  deriveErrorCategory,
   type ErrorCategory,
 } from "./envelope";
 

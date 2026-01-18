@@ -437,7 +437,11 @@ export async function rebuildIndex(
     );
   }
 
-  return response.data as { success: boolean; indexed: number; took_ms: number };
+  return response.data as {
+    success: boolean;
+    indexed: number;
+    took_ms: number;
+  };
 }
 
 // ============================================================================

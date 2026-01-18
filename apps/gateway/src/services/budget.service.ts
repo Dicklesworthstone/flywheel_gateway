@@ -290,7 +290,7 @@ export function calculateBurnRateAndProjection(
   amountUnits: number,
   periodStart: Date,
   periodEnd: Date,
-  period: BudgetPeriod,
+  _period: BudgetPeriod,
   now: Date = new Date(),
 ): {
   burnRateUnitsPerDay: number;

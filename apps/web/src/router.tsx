@@ -5,12 +5,12 @@
  * for skeleton loading states during route transitions.
  */
 
-import { lazy, Suspense } from "react";
 import {
   createRootRoute,
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
+import { lazy, Suspense } from "react";
 
 import { Shell } from "./components/layout/Shell";
 import {
@@ -19,8 +19,8 @@ import {
   BeadsSkeleton,
   CollaborationGraphSkeleton,
   CostAnalyticsSkeleton,
-  DashboardsSkeleton,
   DashboardSkeleton,
+  DashboardsSkeleton,
   DCGSkeleton,
   FleetSkeleton,
   PageSkeleton,
@@ -35,47 +35,47 @@ import {
 // ============================================================================
 
 const DashboardPage = lazy(() =>
-  import("./pages/Dashboard").then((m) => ({ default: m.DashboardPage }))
+  import("./pages/Dashboard").then((m) => ({ default: m.DashboardPage })),
 );
 const AgentsPage = lazy(() =>
-  import("./pages/Agents").then((m) => ({ default: m.AgentsPage }))
+  import("./pages/Agents").then((m) => ({ default: m.AgentsPage })),
 );
 const BeadsPage = lazy(() =>
-  import("./pages/Beads").then((m) => ({ default: m.BeadsPage }))
+  import("./pages/Beads").then((m) => ({ default: m.BeadsPage })),
 );
 const AccountsPage = lazy(() =>
-  import("./pages/Accounts").then((m) => ({ default: m.AccountsPage }))
+  import("./pages/Accounts").then((m) => ({ default: m.AccountsPage })),
 );
 const SettingsPage = lazy(() =>
-  import("./pages/Settings").then((m) => ({ default: m.SettingsPage }))
+  import("./pages/Settings").then((m) => ({ default: m.SettingsPage })),
 );
 const DashboardsPage = lazy(() =>
-  import("./pages/Dashboards").then((m) => ({ default: m.DashboardsPage }))
+  import("./pages/Dashboards").then((m) => ({ default: m.DashboardsPage })),
 );
 const DCGPage = lazy(() =>
-  import("./pages/DCG").then((m) => ({ default: m.DCGPage }))
+  import("./pages/DCG").then((m) => ({ default: m.DCGPage })),
 );
 const FleetPage = lazy(() =>
-  import("./pages/Fleet").then((m) => ({ default: m.FleetPage }))
+  import("./pages/Fleet").then((m) => ({ default: m.FleetPage })),
 );
 const PipelinesPage = lazy(() =>
-  import("./pages/Pipelines").then((m) => ({ default: m.PipelinesPage }))
+  import("./pages/Pipelines").then((m) => ({ default: m.PipelinesPage })),
 );
 const VelocityPage = lazy(() =>
-  import("./pages/Velocity").then((m) => ({ default: m.VelocityPage }))
+  import("./pages/Velocity").then((m) => ({ default: m.VelocityPage })),
 );
 const CollaborationGraphPage = lazy(() =>
   import("./pages/CollaborationGraph").then((m) => ({
     default: m.CollaborationGraphPage,
-  }))
+  })),
 );
 const CostAnalyticsPage = lazy(() =>
   import("./pages/CostAnalytics").then((m) => ({
     default: m.CostAnalyticsPage,
-  }))
+  })),
 );
 const SetupPage = lazy(() =>
-  import("./pages/Setup").then((m) => ({ default: m.SetupPage }))
+  import("./pages/Setup").then((m) => ({ default: m.SetupPage })),
 );
 
 // NotFoundPage stays static (small, always needed)
@@ -92,7 +92,7 @@ const rootRoute = createRootRoute({
 // Helper to wrap lazy component with Suspense
 function withSuspense<P extends object>(
   LazyComponent: React.LazyExoticComponent<React.ComponentType<P>>,
-  Fallback: React.ComponentType
+  Fallback: React.ComponentType,
 ): React.ComponentType<P> {
   return function SuspenseWrapper(props: P) {
     return (

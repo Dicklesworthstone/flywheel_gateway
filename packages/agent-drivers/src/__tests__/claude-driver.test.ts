@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import { ClaudeSDKDriver } from "../sdk/claude-driver";
 import { createDriverOptions } from "../base-driver";
+import { ClaudeSDKDriver } from "../sdk/claude-driver";
 import type { AgentConfig } from "../types";
 
 describe("ClaudeSDKDriver", () => {

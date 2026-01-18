@@ -613,7 +613,10 @@ export class LocalExecutor implements WorkspaceExecutor {
     // Set up timeout with cleanup
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error("Command timed out")), timeout);
+      timeoutId = setTimeout(
+        () => reject(new Error("Command timed out")),
+        timeout,
+      );
     });
 
     try {
@@ -661,7 +664,10 @@ export class DockerExecutor implements WorkspaceExecutor {
     // Set up timeout with cleanup
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error("Command timed out")), timeout);
+      timeoutId = setTimeout(
+        () => reject(new Error("Command timed out")),
+        timeout,
+      );
     });
 
     try {

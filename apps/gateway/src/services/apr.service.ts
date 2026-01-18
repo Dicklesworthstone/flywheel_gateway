@@ -121,16 +121,17 @@ async function executeAprCommand(
 
       // Truncate if needed
       const output =
-        stdout.length > maxOutputSize
-          ? stdout.slice(0, maxOutputSize)
-          : stdout;
+        stdout.length > maxOutputSize ? stdout.slice(0, maxOutputSize) : stdout;
 
       // Parse JSON response
       try {
         return JSON.parse(output.trim()) as AprResponse;
       } catch {
         // If parsing fails, create an error response
-        log.error({ stdout: output.slice(0, 200), stderr }, "Failed to parse apr output");
+        log.error(
+          { stdout: output.slice(0, 200), stderr },
+          "Failed to parse apr output",
+        );
         return {
           ok: false,
           code: "parse_error",
@@ -462,7 +463,9 @@ export interface AprService {
   ): Promise<AprIntegration>;
 
   /** Get stats and metrics */
-  getStats(options?: { workflow?: string }): Promise<AprMetrics & { convergence_trend?: number[] }>;
+  getStats(options?: {
+    workflow?: string;
+  }): Promise<AprMetrics & { convergence_trend?: number[] }>;
 }
 
 export function createAprService(): AprService {

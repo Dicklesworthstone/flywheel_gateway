@@ -13,8 +13,8 @@
  */
 
 import { createHash } from "node:crypto";
-import { readFile, writeFile, unlink, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { readFile, stat, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type {
   ChecksumManifest,
@@ -24,9 +24,9 @@ import type {
   ReleaseAsset,
   ReleaseInfo,
   UpdateCheckCache,
-  UpdateCheckResult,
   UpdateCheckerConfig,
   UpdateCheckerService,
+  UpdateCheckResult,
 } from "@flywheel/shared";
 import { UpdateError, UpdateErrorCode } from "@flywheel/shared";
 import { getLogger } from "../middleware/correlation";
@@ -181,7 +181,8 @@ export function createUpdateCheckerService(
       (a: { name: string }) => a.name === "checksums.json",
     );
 
-    let checksums: Map<string, { sha256: string; sha512?: string }> = new Map();
+    const checksums: Map<string, { sha256: string; sha512?: string }> =
+      new Map();
 
     if (checksumsAsset) {
       try {
@@ -197,7 +198,10 @@ export function createUpdateCheckerService(
           });
         }
       } catch (error) {
-        log.warn({ error }, "Failed to fetch checksums.json, proceeding without checksums");
+        log.warn(
+          { error },
+          "Failed to fetch checksums.json, proceeding without checksums",
+        );
       }
     }
 
@@ -212,14 +216,21 @@ export function createUpdateCheckerService(
           a.name.endsWith(".dmg") ||
           a.name.endsWith(".AppImage"),
       )
-      .map((a: { name: string; browser_download_url: string; size: number; content_type: string }) => ({
-        name: a.name,
-        downloadUrl: a.browser_download_url,
-        size: a.size,
-        sha256: checksums.get(a.name)?.sha256 ?? "",
-        sha512: checksums.get(a.name)?.sha512,
-        contentType: a.content_type,
-      }));
+      .map(
+        (a: {
+          name: string;
+          browser_download_url: string;
+          size: number;
+          content_type: string;
+        }) => ({
+          name: a.name,
+          downloadUrl: a.browser_download_url,
+          size: a.size,
+          sha256: checksums.get(a.name)?.sha256 ?? "",
+          sha512: checksums.get(a.name)?.sha512,
+          contentType: a.content_type,
+        }),
+      );
 
     return {
       version: data.tag_name?.replace(/^v/, "") ?? "unknown",
@@ -403,7 +414,9 @@ export function createUpdateCheckerService(
         const content = Buffer.concat(chunks);
 
         // Verify checksum BEFORE writing to disk
-        const actualChecksum = createHash("sha256").update(content).digest("hex");
+        const actualChecksum = createHash("sha256")
+          .update(content)
+          .digest("hex");
 
         if (asset.sha256 && !secureCompare(actualChecksum, asset.sha256)) {
           throw new UpdateError(
@@ -435,7 +448,8 @@ export function createUpdateCheckerService(
           filePath: destPath,
           actualChecksum,
           expectedChecksum: asset.sha256,
-          verified: !!asset.sha256 && secureCompare(actualChecksum, asset.sha256),
+          verified:
+            !!asset.sha256 && secureCompare(actualChecksum, asset.sha256),
           size: content.length,
           durationMs,
         };
@@ -508,4 +522,3 @@ export function getUpdateCheckerService(): UpdateCheckerService {
   }
   return serviceInstance;
 }
-

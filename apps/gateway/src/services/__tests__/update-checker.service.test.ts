@@ -2,10 +2,10 @@
  * Update Checker Service Tests
  */
 
-import { describe, expect, it, beforeEach, afterEach, mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { createHash } from "node:crypto";
-import { writeFile, unlink, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { readFile, unlink, writeFile } from "node:fs/promises";
 
 // Test the version comparison logic directly
 describe("Version Comparison", () => {
@@ -13,7 +13,11 @@ describe("Version Comparison", () => {
     const currentParts = current.replace(/^v/, "").split(".").map(Number);
     const latestParts = latest.replace(/^v/, "").split(".").map(Number);
 
-    for (let i = 0; i < Math.max(currentParts.length, latestParts.length); i++) {
+    for (
+      let i = 0;
+      i < Math.max(currentParts.length, latestParts.length);
+      i++
+    ) {
       const currentPart = currentParts[i] ?? 0;
       const latestPart = latestParts[i] ?? 0;
 
@@ -91,9 +95,12 @@ describe("Secure Compare", () => {
   });
 
   it("should handle hex strings (like checksums)", () => {
-    const hash1 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-    const hash2 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-    const hash3 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b854";
+    const hash1 =
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    const hash2 =
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    const hash3 =
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b854";
 
     expect(secureCompare(hash1, hash2)).toBe(true);
     expect(secureCompare(hash1, hash3)).toBe(false);
@@ -106,7 +113,9 @@ describe("Checksum Generation", () => {
     const hash = createHash("sha256").update(content).digest("hex");
 
     expect(hash).toHaveLength(64); // SHA256 produces 64 hex chars
-    expect(hash).toBe("c8ce4e97a404b12b1d8f0e245f04ff607be1048b16d973c2f23bab86655c808b");
+    expect(hash).toBe(
+      "c8ce4e97a404b12b1d8f0e245f04ff607be1048b16d973c2f23bab86655c808b",
+    );
   });
 
   it("should generate correct SHA512 hash", () => {
@@ -140,7 +149,9 @@ describe("Checksum Generation", () => {
     const hash = createHash("sha256").update(content).digest("hex");
 
     // Known empty string SHA256
-    expect(hash).toBe("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    expect(hash).toBe(
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    );
   });
 });
 
@@ -175,7 +186,9 @@ describe("Platform Identifier", () => {
     const knownArchs = ["x64", "arm64", "arm"];
 
     const [platform, arch] = identifier.split("-");
-    expect(knownPlatforms.some((p) => identifier.includes(p)) || platform).toBeTruthy();
+    expect(
+      knownPlatforms.some((p) => identifier.includes(p)) || platform,
+    ).toBeTruthy();
     expect(knownArchs.some((a) => identifier.includes(a)) || arch).toBeTruthy();
   });
 });
@@ -330,8 +343,12 @@ describe("Checksum Manifest Parsing", () => {
     }
 
     expect(checksums.size).toBe(2);
-    expect(checksums.get("flywheel-gateway-1.0.0-linux-x64.tar.gz")?.sha256).toBe("abc123");
-    expect(checksums.get("flywheel-gateway-1.0.0-darwin-x64.tar.gz")?.sha256).toBe("ghi789");
+    expect(
+      checksums.get("flywheel-gateway-1.0.0-linux-x64.tar.gz")?.sha256,
+    ).toBe("abc123");
+    expect(
+      checksums.get("flywheel-gateway-1.0.0-darwin-x64.tar.gz")?.sha256,
+    ).toBe("ghi789");
     expect(checksums.get("unknown-file.tar.gz")).toBeUndefined();
   });
 });

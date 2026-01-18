@@ -20,7 +20,6 @@ import {
   deleteEntry,
   getDoctor,
   getEntry,
-  getMsService,
   getStatus,
   isMsAvailable,
   listKnowledgeBases,
@@ -68,12 +67,13 @@ function handleError(error: unknown, c: Context) {
     let gatewayError: GatewayError;
 
     if (message.includes("ms") && message.includes("failed")) {
-      gatewayError = createGatewayError(
-        "SYSTEM_INTERNAL_ERROR",
-        message,
-        { cause: error },
-      );
-    } else if (message.includes("not available") || message.includes("unavailable")) {
+      gatewayError = createGatewayError("SYSTEM_INTERNAL_ERROR", message, {
+        cause: error,
+      });
+    } else if (
+      message.includes("not available") ||
+      message.includes("unavailable")
+    ) {
       gatewayError = createGatewayError(
         "SYSTEM_UNAVAILABLE",
         "Knowledge service (ms) is not available",
@@ -339,7 +339,8 @@ knowledge.post("/entries", async (c) => {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const { skipEmbedding, title, content, source, knowledgeBase, metadata } = parsed.data;
+    const { skipEmbedding, title, content, source, knowledgeBase, metadata } =
+      parsed.data;
 
     // Build entry data object, only including defined values
     const entryData: Parameters<typeof addEntry>[0] = { title, content };

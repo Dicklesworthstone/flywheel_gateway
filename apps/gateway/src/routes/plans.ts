@@ -13,7 +13,6 @@ import {
   sendError,
   sendInternalError,
   sendList,
-  sendNotFound,
   sendResource,
   sendValidationError,
 } from "../utils/response";
@@ -305,11 +304,7 @@ plans.get("/diff/:roundA", async (c) => {
     const options: { workflow?: string } = {};
     if (validated.workflow !== undefined) options.workflow = validated.workflow;
 
-    const diff = await apr.diffRounds(
-      roundA.round,
-      validated.roundB,
-      options,
-    );
+    const diff = await apr.diffRounds(roundA.round, validated.roundB, options);
 
     return sendResource(c, "apr_diff", diff);
   } catch (error) {

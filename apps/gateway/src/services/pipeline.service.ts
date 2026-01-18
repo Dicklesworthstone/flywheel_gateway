@@ -509,7 +509,7 @@ async function executeScript(
   _signal?: AbortSignal,
 ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   const log = getLogger();
-  
+
   // SECURITY: Do not substitute variables in inline scripts to prevent command injection.
   // Users should use environment variables (e.g., $PIPELINE_VAR) instead.
   // We only substitute for file paths to resolve locations.
@@ -914,7 +914,11 @@ async function executeTransform(
             // The expression itself must be trusted (from pipeline config).
             try {
               // Create function(item, index) { return expression; }
-              const fn = new Function("$item", "$index", `return ${operation.expression}`);
+              const fn = new Function(
+                "$item",
+                "$index",
+                `return ${operation.expression}`,
+              );
               return fn(item, index);
             } catch {
               return item;
@@ -932,7 +936,11 @@ async function executeTransform(
           const filtered = filterSource.filter((item, index) => {
             // SECURITY: Use Function constructor with arguments
             try {
-              const fn = new Function("$item", "$index", `return ${operation.condition}`);
+              const fn = new Function(
+                "$item",
+                "$index",
+                `return ${operation.condition}`,
+              );
               return fn(item, index);
             } catch {
               return true;
@@ -950,7 +958,12 @@ async function executeTransform(
           const reduced = reduceSource.reduce((acc, item, index) => {
             // SECURITY: Use Function constructor with arguments
             try {
-              const fn = new Function("$acc", "$item", "$index", `return ${operation.expression}`);
+              const fn = new Function(
+                "$acc",
+                "$item",
+                "$index",
+                `return ${operation.expression}`,
+              );
               return fn(acc, item, index);
             } catch {
               return acc;

@@ -272,7 +272,7 @@ export async function getBlockEvents(options: {
         .from(dcgBlocks)
         .where(eq(dcgBlocks.id, decoded.id))
         .get();
-      
+
       if (cursorBlock) {
         cursorCreatedAt = cursorBlock.createdAt;
         cursorId = cursorBlock.id;
@@ -299,9 +299,9 @@ export async function getBlockEvents(options: {
         lt(dcgBlocks.createdAt, cursorCreatedAt),
         and(
           eq(dcgBlocks.createdAt, cursorCreatedAt),
-          lt(dcgBlocks.id, cursorId)
-        )
-      )
+          lt(dcgBlocks.id, cursorId),
+        ),
+      ),
     );
   }
 
@@ -329,7 +329,8 @@ export async function getBlockEvents(options: {
     ruleId: row.ruleId ?? "unknown",
     severity: (row.severity as DCGSeverity) ?? "medium",
     reason: row.reason,
-    contextClassification: (row.contextClassification as DCGContextClassification) ?? "executed",
+    contextClassification:
+      (row.contextClassification as DCGContextClassification) ?? "executed",
     falsePositive: row.falsePositive,
   }));
 

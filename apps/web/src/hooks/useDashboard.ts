@@ -94,8 +94,7 @@ export function useDashboard(
       setState((s) => ({
         ...s,
         loading: false,
-        error:
-          err instanceof Error ? err.message : "Failed to load dashboards",
+        error: err instanceof Error ? err.message : "Failed to load dashboards",
       }));
     }
   }, []);
@@ -116,8 +115,7 @@ export function useDashboard(
       setState((s) => ({
         ...s,
         loading: false,
-        error:
-          err instanceof Error ? err.message : "Failed to load dashboard",
+        error: err instanceof Error ? err.message : "Failed to load dashboard",
       }));
       return null;
     }

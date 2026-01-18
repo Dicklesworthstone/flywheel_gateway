@@ -18,8 +18,8 @@
  */
 
 import { createHash } from "node:crypto";
-import { readdir, readFile, writeFile, stat } from "node:fs/promises";
-import { join, basename } from "node:path";
+import { readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { basename, join } from "node:path";
 
 // ============================================================================
 // Types
@@ -184,7 +184,9 @@ async function main() {
 
   if (!directory) {
     console.error("Usage: bun scripts/generate-checksums.ts <directory>");
-    console.error("Example: bun scripts/generate-checksums.ts release-artifacts");
+    console.error(
+      "Example: bun scripts/generate-checksums.ts release-artifacts",
+    );
     process.exit(2);
   }
 

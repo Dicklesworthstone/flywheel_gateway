@@ -16,8 +16,8 @@ import {
   getAllToolInfo,
   getReadinessStatus,
   getToolInfo,
-  installTool,
   type InstallMode,
+  installTool,
 } from "../services/setup.service";
 import {
   sendError,
@@ -50,7 +50,9 @@ const InstallRequestSchema = z.object({
     "bv",
     "ru",
   ]) as z.ZodType<DetectedType>,
-  mode: z.enum(["interactive", "easy"]).default("easy") as z.ZodType<InstallMode>,
+  mode: z
+    .enum(["interactive", "easy"])
+    .default("easy") as z.ZodType<InstallMode>,
   verify: z.boolean().default(true),
 });
 

@@ -94,9 +94,7 @@ export interface InstallResult {
 
 const API_BASE = "/api";
 
-async function fetchReadiness(
-  bypassCache = false
-): Promise<ReadinessStatus> {
+async function fetchReadiness(bypassCache = false): Promise<ReadinessStatus> {
   const url = bypassCache
     ? `${API_BASE}/setup/readiness?bypass_cache=true`
     : `${API_BASE}/setup/readiness`;
@@ -123,7 +121,7 @@ async function fetchTools(): Promise<ToolInfo[]> {
 async function installToolApi(
   tool: string,
   mode: InstallMode = "easy",
-  verify = true
+  verify = true,
 ): Promise<InstallResult> {
   const res = await fetch(`${API_BASE}/setup/install`, {
     method: "POST",
@@ -183,7 +181,9 @@ export function useReadiness() {
       const data = await fetchReadiness(bypassCache);
       setStatus(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch readiness");
+      setError(
+        err instanceof Error ? err.message : "Failed to fetch readiness",
+      );
     } finally {
       setLoading(false);
     }
@@ -250,14 +250,15 @@ export function useInstallTool() {
         setResult(data);
         return data;
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Installation failed";
+        const message =
+          err instanceof Error ? err.message : "Installation failed";
         setError(message);
         throw err;
       } finally {
         setInstalling(false);
       }
     },
-    []
+    [],
   );
 
   const reset = useCallback(() => {
@@ -309,7 +310,11 @@ export function useBatchInstall() {
         }
 
         setResults(installResults);
-        setProgress({ current: tools.length, total: tools.length, currentTool: null });
+        setProgress({
+          current: tools.length,
+          total: tools.length,
+          currentTool: null,
+        });
         return installResults;
       } catch (err) {
         setError(err instanceof Error ? err.message : "Batch install failed");
@@ -318,7 +323,7 @@ export function useBatchInstall() {
         setInstalling(false);
       }
     },
-    []
+    [],
   );
 
   const reset = useCallback(() => {
@@ -348,7 +353,8 @@ export function useVerifyTool() {
       setResult(data);
       return data;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Verification failed";
+      const message =
+        err instanceof Error ? err.message : "Verification failed";
       setError(message);
       throw err;
     } finally {

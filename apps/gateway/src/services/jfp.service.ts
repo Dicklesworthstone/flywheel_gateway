@@ -90,11 +90,11 @@ async function executeJfpCommand(
       // Truncate output if too large
       const truncatedStdout =
         stdout.length > maxOutputSize
-          ? stdout.slice(0, maxOutputSize) + "\n[Output truncated]"
+          ? `${stdout.slice(0, maxOutputSize)}\n[Output truncated]`
           : stdout;
       const truncatedStderr =
         stderr.length > maxOutputSize
-          ? stderr.slice(0, maxOutputSize) + "\n[Output truncated]"
+          ? `${stderr.slice(0, maxOutputSize)}\n[Output truncated]`
           : stderr;
 
       return {

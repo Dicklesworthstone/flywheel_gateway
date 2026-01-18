@@ -9,8 +9,6 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { getLogger } from "../middleware/correlation";
 import { getPtService } from "../services/pt.service";
-import type { Channel } from "../ws/channels";
-import { getHub } from "../ws/hub";
 import {
   sendError,
   sendInternalError,
@@ -19,6 +17,8 @@ import {
   sendValidationError,
 } from "../utils/response";
 import { transformZodError } from "../utils/validation";
+import type { Channel } from "../ws/channels";
+import { getHub } from "../ws/hub";
 
 const processes = new Hono();
 
@@ -137,16 +137,10 @@ processes.get("/doctor", async (c) => {
     const available = await pt.isAvailable();
 
     if (!available) {
-      return sendError(
-        c,
-        "PT_NOT_INSTALLED",
-        "pt CLI is not installed",
-        503,
-        {
-          hint: "Install from: https://github.com/Dicklesworthstone/process_triage",
-          severity: "recoverable",
-        },
-      );
+      return sendError(c, "PT_NOT_INSTALLED", "pt CLI is not installed", 503, {
+        hint: "Install from: https://github.com/Dicklesworthstone/process_triage",
+        severity: "recoverable",
+      });
     }
 
     const doctor = await pt.getDoctor();
@@ -171,16 +165,10 @@ processes.get("/scan", async (c) => {
 
     const available = await pt.isAvailable();
     if (!available) {
-      return sendError(
-        c,
-        "PT_NOT_INSTALLED",
-        "pt CLI is not installed",
-        503,
-        {
-          hint: "Install from: https://github.com/Dicklesworthstone/process_triage",
-          severity: "recoverable",
-        },
-      );
+      return sendError(c, "PT_NOT_INSTALLED", "pt CLI is not installed", 503, {
+        hint: "Install from: https://github.com/Dicklesworthstone/process_triage",
+        severity: "recoverable",
+      });
     }
 
     // Build scan options conditionally (for exactOptionalPropertyTypes)
@@ -255,16 +243,10 @@ processes.get("/:pid", async (c) => {
     const available = await pt.isAvailable();
 
     if (!available) {
-      return sendError(
-        c,
-        "PT_NOT_INSTALLED",
-        "pt CLI is not installed",
-        503,
-        {
-          hint: "Install from: https://github.com/Dicklesworthstone/process_triage",
-          severity: "recoverable",
-        },
-      );
+      return sendError(c, "PT_NOT_INSTALLED", "pt CLI is not installed", 503, {
+        hint: "Install from: https://github.com/Dicklesworthstone/process_triage",
+        severity: "recoverable",
+      });
     }
 
     const process = await pt.getProcessDetails(pid);
@@ -301,16 +283,10 @@ processes.post("/:pid/kill", async (c) => {
 
     const available = await pt.isAvailable();
     if (!available) {
-      return sendError(
-        c,
-        "PT_NOT_INSTALLED",
-        "pt CLI is not installed",
-        503,
-        {
-          hint: "Install from: https://github.com/Dicklesworthstone/process_triage",
-          severity: "recoverable",
-        },
-      );
+      return sendError(c, "PT_NOT_INSTALLED", "pt CLI is not installed", 503, {
+        hint: "Install from: https://github.com/Dicklesworthstone/process_triage",
+        severity: "recoverable",
+      });
     }
 
     // Build kill options conditionally (for exactOptionalPropertyTypes)
@@ -368,16 +344,10 @@ processes.post("/kill", async (c) => {
 
     const available = await pt.isAvailable();
     if (!available) {
-      return sendError(
-        c,
-        "PT_NOT_INSTALLED",
-        "pt CLI is not installed",
-        503,
-        {
-          hint: "Install from: https://github.com/Dicklesworthstone/process_triage",
-          severity: "recoverable",
-        },
-      );
+      return sendError(c, "PT_NOT_INSTALLED", "pt CLI is not installed", 503, {
+        hint: "Install from: https://github.com/Dicklesworthstone/process_triage",
+        severity: "recoverable",
+      });
     }
 
     // Build kill options conditionally (for exactOptionalPropertyTypes)
@@ -450,16 +420,10 @@ processes.get("/agents", async (c) => {
 
     const available = await pt.isAvailable();
     if (!available) {
-      return sendError(
-        c,
-        "PT_NOT_INSTALLED",
-        "pt CLI is not installed",
-        503,
-        {
-          hint: "Install from: https://github.com/Dicklesworthstone/process_triage",
-          severity: "recoverable",
-        },
-      );
+      return sendError(c, "PT_NOT_INSTALLED", "pt CLI is not installed", 503, {
+        hint: "Install from: https://github.com/Dicklesworthstone/process_triage",
+        severity: "recoverable",
+      });
     }
 
     // Build options conditionally (for exactOptionalPropertyTypes)
@@ -508,16 +472,10 @@ processes.post("/agents/cleanup", async (c) => {
 
     const available = await pt.isAvailable();
     if (!available) {
-      return sendError(
-        c,
-        "PT_NOT_INSTALLED",
-        "pt CLI is not installed",
-        503,
-        {
-          hint: "Install from: https://github.com/Dicklesworthstone/process_triage",
-          severity: "recoverable",
-        },
-      );
+      return sendError(c, "PT_NOT_INSTALLED", "pt CLI is not installed", 503, {
+        hint: "Install from: https://github.com/Dicklesworthstone/process_triage",
+        severity: "recoverable",
+      });
     }
 
     // Build options conditionally (for exactOptionalPropertyTypes)

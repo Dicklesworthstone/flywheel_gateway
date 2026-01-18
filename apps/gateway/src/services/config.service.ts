@@ -15,7 +15,6 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
-import { logger as rootLogger } from "./logger";
 
 // ============================================================================
 // Configuration Schema
@@ -82,24 +81,24 @@ const analyticsConfigSchema = z.object({
  * Complete Flywheel configuration schema.
  */
 export const flywheelConfigSchema = z.object({
-  server: serverConfigSchema.optional().transform((v) =>
-    serverConfigSchema.parse(v ?? {}),
-  ),
-  database: databaseConfigSchema.optional().transform((v) =>
-    databaseConfigSchema.parse(v ?? {}),
-  ),
-  agent: agentConfigSchema.optional().transform((v) =>
-    agentConfigSchema.parse(v ?? {}),
-  ),
-  security: securityConfigSchema.optional().transform((v) =>
-    securityConfigSchema.parse(v ?? {}),
-  ),
-  websocket: websocketConfigSchema.optional().transform((v) =>
-    websocketConfigSchema.parse(v ?? {}),
-  ),
-  analytics: analyticsConfigSchema.optional().transform((v) =>
-    analyticsConfigSchema.parse(v ?? {}),
-  ),
+  server: serverConfigSchema
+    .optional()
+    .transform((v) => serverConfigSchema.parse(v ?? {})),
+  database: databaseConfigSchema
+    .optional()
+    .transform((v) => databaseConfigSchema.parse(v ?? {})),
+  agent: agentConfigSchema
+    .optional()
+    .transform((v) => agentConfigSchema.parse(v ?? {})),
+  security: securityConfigSchema
+    .optional()
+    .transform((v) => securityConfigSchema.parse(v ?? {})),
+  websocket: websocketConfigSchema
+    .optional()
+    .transform((v) => websocketConfigSchema.parse(v ?? {})),
+  analytics: analyticsConfigSchema
+    .optional()
+    .transform((v) => analyticsConfigSchema.parse(v ?? {})),
 });
 
 export type FlywheelConfig = z.infer<typeof flywheelConfigSchema>;

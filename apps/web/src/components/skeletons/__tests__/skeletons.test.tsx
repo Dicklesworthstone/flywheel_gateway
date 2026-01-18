@@ -10,8 +10,8 @@ import {
   BeadsSkeleton,
   CollaborationGraphSkeleton,
   CostAnalyticsSkeleton,
-  DashboardsSkeleton,
   DashboardSkeleton,
+  DashboardsSkeleton,
   DCGSkeleton,
   FleetSkeleton,
   PageSkeleton,
@@ -21,18 +21,54 @@ import {
 } from "../index";
 
 const skeletons = [
-  { name: "DashboardSkeleton", Component: DashboardSkeleton, label: "Loading dashboard" },
-  { name: "AgentsSkeleton", Component: AgentsSkeleton, label: "Loading agents" },
+  {
+    name: "DashboardSkeleton",
+    Component: DashboardSkeleton,
+    label: "Loading dashboard",
+  },
+  {
+    name: "AgentsSkeleton",
+    Component: AgentsSkeleton,
+    label: "Loading agents",
+  },
   { name: "FleetSkeleton", Component: FleetSkeleton, label: "Loading fleet" },
   { name: "BeadsSkeleton", Component: BeadsSkeleton, label: "Loading beads" },
-  { name: "AccountsSkeleton", Component: AccountsSkeleton, label: "Loading accounts" },
-  { name: "SettingsSkeleton", Component: SettingsSkeleton, label: "Loading settings" },
-  { name: "DashboardsSkeleton", Component: DashboardsSkeleton, label: "Loading dashboards" },
+  {
+    name: "AccountsSkeleton",
+    Component: AccountsSkeleton,
+    label: "Loading accounts",
+  },
+  {
+    name: "SettingsSkeleton",
+    Component: SettingsSkeleton,
+    label: "Loading settings",
+  },
+  {
+    name: "DashboardsSkeleton",
+    Component: DashboardsSkeleton,
+    label: "Loading dashboards",
+  },
   { name: "DCGSkeleton", Component: DCGSkeleton, label: "Loading DCG" },
-  { name: "PipelinesSkeleton", Component: PipelinesSkeleton, label: "Loading pipelines" },
-  { name: "VelocitySkeleton", Component: VelocitySkeleton, label: "Loading velocity" },
-  { name: "CollaborationGraphSkeleton", Component: CollaborationGraphSkeleton, label: "Loading collaboration graph" },
-  { name: "CostAnalyticsSkeleton", Component: CostAnalyticsSkeleton, label: "Loading cost analytics" },
+  {
+    name: "PipelinesSkeleton",
+    Component: PipelinesSkeleton,
+    label: "Loading pipelines",
+  },
+  {
+    name: "VelocitySkeleton",
+    Component: VelocitySkeleton,
+    label: "Loading velocity",
+  },
+  {
+    name: "CollaborationGraphSkeleton",
+    Component: CollaborationGraphSkeleton,
+    label: "Loading collaboration graph",
+  },
+  {
+    name: "CostAnalyticsSkeleton",
+    Component: CostAnalyticsSkeleton,
+    label: "Loading cost analytics",
+  },
   { name: "PageSkeleton", Component: PageSkeleton, label: "Loading" },
 ];
 

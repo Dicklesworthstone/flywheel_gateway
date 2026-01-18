@@ -19,8 +19,8 @@
 
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
-import { readFile, writeFile, unlink } from "node:fs/promises";
-import { join, dirname } from "node:path";
+import { readFile, unlink, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
 // ============================================================================
 // Types (inline to avoid import issues in standalone script)
@@ -177,10 +177,14 @@ async function fetchLatestRelease(
     if (response.status === 403) {
       const remaining = response.headers.get("x-ratelimit-remaining");
       if (remaining === "0") {
-        throw new Error("GitHub API rate limit exceeded. Set GITHUB_TOKEN to increase limit.");
+        throw new Error(
+          "GitHub API rate limit exceeded. Set GITHUB_TOKEN to increase limit.",
+        );
       }
     }
-    throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `GitHub API error: ${response.status} ${response.statusText}`,
+    );
   }
 
   const data = await response.json();
@@ -194,7 +198,9 @@ async function fetchLatestRelease(
 
   if (checksumsAsset) {
     try {
-      const checksumsResponse = await fetch(checksumsAsset.browser_download_url);
+      const checksumsResponse = await fetch(
+        checksumsAsset.browser_download_url,
+      );
       const manifest: ChecksumManifest = await checksumsResponse.json();
 
       for (const file of manifest.files) {
@@ -204,7 +210,9 @@ async function fetchLatestRelease(
         });
       }
     } catch {
-      console.warn(colorize("Warning: Could not fetch checksums.json", "yellow"));
+      console.warn(
+        colorize("Warning: Could not fetch checksums.json", "yellow"),
+      );
     }
   }
 
@@ -335,7 +343,12 @@ async function checkCommand(
       process.exit(1);
     }
 
-    console.error(colorize(`\nError: ${error instanceof Error ? error.message : String(error)}`, "red"));
+    console.error(
+      colorize(
+        `\nError: ${error instanceof Error ? error.message : String(error)}`,
+        "red",
+      ),
+    );
     process.exit(1);
   }
 }
@@ -355,14 +368,20 @@ function printCheckResult(result: UpdateCheckResult): void {
     console.log("");
 
     if (result.release) {
-      console.log(`  Released: ${new Date(result.release.publishedAt).toLocaleDateString()}`);
+      console.log(
+        `  Released: ${new Date(result.release.publishedAt).toLocaleDateString()}`,
+      );
 
       if (result.release.assets.length > 0) {
         console.log("");
         console.log(colorize("  Available downloads:", "cyan"));
         for (const asset of result.release.assets) {
-          const hasChecksum = asset.sha256 ? colorize("✓", "green") : colorize("○", "yellow");
-          console.log(`    ${hasChecksum} ${asset.name} (${formatBytes(asset.size)})`);
+          const hasChecksum = asset.sha256
+            ? colorize("✓", "green")
+            : colorize("○", "yellow");
+          console.log(
+            `    ${hasChecksum} ${asset.name} (${formatBytes(asset.size)})`,
+          );
         }
       }
 
@@ -370,7 +389,9 @@ function printCheckResult(result: UpdateCheckResult): void {
       console.log(colorize("  To download:", "cyan"));
       console.log("    bun scripts/flywheel-update.ts download");
       console.log("");
-      console.log(`  Release page: ${colorize(result.release.htmlUrl, "cyan")}`);
+      console.log(
+        `  Release page: ${colorize(result.release.htmlUrl, "cyan")}`,
+      );
     }
   } else {
     console.log(colorize("  ✓ You're on the latest version!", "green"));
@@ -440,7 +461,9 @@ async function downloadCommand(jsonOutput: boolean): Promise<void> {
         }),
       );
     } else {
-      console.error(colorize(`\nNo release asset found for ${platform}`, "red"));
+      console.error(
+        colorize(`\nNo release asset found for ${platform}`, "red"),
+      );
       console.log("\nAvailable assets:");
       for (const a of release.assets) {
         console.log(`  - ${a.name}`);
@@ -470,12 +493,17 @@ async function downloadCommand(jsonOutput: boolean): Promise<void> {
     const response = await fetch(asset.downloadUrl);
 
     if (!response.ok) {
-      throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Download failed: ${response.status} ${response.statusText}`,
+      );
     }
 
     const chunks: Uint8Array[] = [];
     let downloaded = 0;
-    const contentLength = parseInt(response.headers.get("content-length") ?? "0", 10);
+    const contentLength = parseInt(
+      response.headers.get("content-length") ?? "0",
+      10,
+    );
 
     const reader = response.body?.getReader();
     if (!reader) {
@@ -492,7 +520,9 @@ async function downloadCommand(jsonOutput: boolean): Promise<void> {
 
       if (!jsonOutput && contentLength > 0) {
         const percent = Math.round((downloaded / contentLength) * 100);
-        process.stdout.write(`\r  Progress: ${percent}% (${formatBytes(downloaded)})`);
+        process.stdout.write(
+          `\r  Progress: ${percent}% (${formatBytes(downloaded)})`,
+        );
       }
     }
 
@@ -522,7 +552,9 @@ async function downloadCommand(jsonOutput: boolean): Promise<void> {
           console.error(`  Actual:   ${actualChecksum}`);
           console.error("");
           console.error(colorize("  File NOT written to disk.", "red"));
-          console.error("  This could indicate a corrupted download or tampered file.");
+          console.error(
+            "  This could indicate a corrupted download or tampered file.",
+          );
         }
         process.exit(1);
       }

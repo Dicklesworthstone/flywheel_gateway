@@ -1,8 +1,14 @@
-
-import { describe, expect, test, mock, spyOn } from "bun:test";
+import { describe, expect, mock, spyOn, test } from "bun:test";
+import {
+  createCheckpoint,
+  restoreCheckpoint,
+} from "./apps/gateway/src/services/checkpoint";
 import { executeRotation } from "./apps/gateway/src/services/context-rotation";
-import { createCheckpoint, restoreCheckpoint } from "./apps/gateway/src/services/checkpoint";
-import type { Agent, AgentConfig, TokenUsage } from "./packages/agent-drivers/src/types";
+import type {
+  Agent,
+  AgentConfig,
+  TokenUsage,
+} from "./packages/agent-drivers/src/types";
 
 // Mock dependencies
 // Mock createCheckpoint
@@ -39,7 +45,11 @@ const mockAgent: Agent = {
     workingDirectory: "/tmp",
   },
   activityState: "idle",
-  tokenUsage: { promptTokens: 100000, completionTokens: 0, totalTokens: 100000 },
+  tokenUsage: {
+    promptTokens: 100000,
+    completionTokens: 0,
+    totalTokens: 100000,
+  },
   contextHealth: "emergency",
   startedAt: new Date(),
   lastActivityAt: new Date(),
@@ -69,7 +79,11 @@ describe("Context Rotation", () => {
     mockHandlers.spawnAgent.mockClear();
 
     // Execute rotation
-    const result = await executeRotation(mockAgent, "checkpoint_and_restart", mockHandlers);
+    const result = await executeRotation(
+      mockAgent,
+      "checkpoint_and_restart",
+      mockHandlers,
+    );
 
     expect(result.success).toBe(true);
     expect(mockCreateCheckpoint).toHaveBeenCalled();
@@ -81,11 +95,11 @@ describe("Context Rotation", () => {
     // The issue is that spawnAgent is called with config only, not state
     const spawnCall = mockHandlers.spawnAgent.mock.calls[0];
     const spawnConfig = spawnCall[0] as any;
-    
+
     // It should NOT have conversationHistory or toolState yet because the code is buggy
     expect(spawnConfig.conversationHistory).toBeUndefined();
     expect(spawnConfig.toolState).toBeUndefined();
-    
+
     // We expect to fix this so that spawnAgent CAN receive state, OR the rotation logic
     // applies the state to the new agent using some other method (e.g. setState).
     // Currently `restoreCheckpoint` returns data but it's dropped on the floor.

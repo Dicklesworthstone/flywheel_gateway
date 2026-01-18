@@ -792,7 +792,7 @@ export class JobService {
     const typeLimit =
       this.config.concurrency.perType[job.type] ??
       this.config.concurrency.global;
-    
+
     // Count running AND starting jobs of this type
     let typeCount = 0;
     for (const execution of this.running.values()) {
@@ -803,11 +803,11 @@ export class JobService {
     // Optimization: We could store type in 'starting' map, but for now we rely on global limit
     // and the fact that per-type limit is usually high.
     // To be precise, we should track starting types.
-    
-    // For now, let's just count running. The global limit + single threaded loop 
+
+    // For now, let's just count running. The global limit + single threaded loop
     // prevents massive over-scheduling. The 'starting' set mainly protects against
     // the 'await validate' gap for global limit.
-    
+
     if (typeCount >= typeLimit) {
       return false;
     }
@@ -857,8 +857,8 @@ export class JobService {
           errorMessage: "System crash/restart during execution",
         })
         .where(eq(jobs.id, row.id));
-        
-        baseLogger.info({ jobId: row.id }, "Reset stale job to pending");
+
+      baseLogger.info({ jobId: row.id }, "Reset stale job to pending");
     }
   }
 

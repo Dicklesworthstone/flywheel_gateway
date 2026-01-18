@@ -152,12 +152,13 @@ async function executeSlbCommand<T = unknown>(
 
       // Truncate if needed
       const output =
-        stdout.length > maxOutputSize
-          ? stdout.slice(0, maxOutputSize)
-          : stdout;
+        stdout.length > maxOutputSize ? stdout.slice(0, maxOutputSize) : stdout;
 
       if (exitCode !== 0) {
-        log.warn({ args, exitCode, stderr: stderr.slice(0, 200) }, "slb command failed");
+        log.warn(
+          { args, exitCode, stderr: stderr.slice(0, 200) },
+          "slb command failed",
+        );
         return {
           ok: false,
           error: stderr || `Command failed with exit code ${exitCode}`,
@@ -169,7 +170,10 @@ async function executeSlbCommand<T = unknown>(
         const data = output.trim() ? JSON.parse(output.trim()) : null;
         return { ok: true, data: data as T };
       } catch {
-        log.error({ stdout: output.slice(0, 200), stderr }, "Failed to parse slb output");
+        log.error(
+          { stdout: output.slice(0, 200), stderr },
+          "Failed to parse slb output",
+        );
         return {
           ok: false,
           error: "Failed to parse slb output as JSON",
@@ -212,7 +216,7 @@ export async function isSlbAvailable(): Promise<boolean> {
 
 export async function getSlbVersion(): Promise<SlbVersion | null> {
   const result = await executeSlbCommand<SlbVersion>(["version"]);
-  return result.ok ? result.data ?? null : null;
+  return result.ok ? (result.data ?? null) : null;
 }
 
 // ============================================================================
@@ -322,12 +326,11 @@ export async function heartbeatSession(
 export async function listSessions(
   options: { project?: string } = {},
 ): Promise<SlbSession[]> {
-  const result = await executeSlbCommand<SlbSession[]>(
-    ["session", "list"],
-    { project: options.project },
-  );
+  const result = await executeSlbCommand<SlbSession[]>(["session", "list"], {
+    project: options.project,
+  });
 
-  return result.ok ? result.data ?? [] : [];
+  return result.ok ? (result.data ?? []) : [];
 }
 
 // ============================================================================
@@ -350,10 +353,9 @@ export async function checkCommand(
   command: string,
   options: { project?: string } = {},
 ): Promise<SlbTierCheck> {
-  const result = await executeSlbCommand<SlbTierCheck>(
-    ["check", command],
-    { project: options.project },
-  );
+  const result = await executeSlbCommand<SlbTierCheck>(["check", command], {
+    project: options.project,
+  });
 
   if (!result.ok || !result.data) {
     throw new Error(result.error ?? "Failed to check command");
@@ -402,10 +404,9 @@ export async function getRequest(
   requestId: string,
   options: { project?: string } = {},
 ): Promise<SlbRequest | null> {
-  const result = await executeSlbCommand<SlbRequest>(
-    ["status", requestId],
-    { project: options.project },
-  );
+  const result = await executeSlbCommand<SlbRequest>(["status", requestId], {
+    project: options.project,
+  });
 
   if (!result.ok) {
     if (result.error?.includes("not found")) {
@@ -421,7 +422,11 @@ export async function getRequest(
  * List pending requests.
  */
 export async function listPendingRequests(
-  options: { project?: string; reviewPool?: boolean; allProjects?: boolean } = {},
+  options: {
+    project?: string;
+    reviewPool?: boolean;
+    allProjects?: boolean;
+  } = {},
 ): Promise<SlbRequest[]> {
   const args = ["pending"];
 
@@ -436,7 +441,7 @@ export async function listPendingRequests(
     project: options.project,
   });
 
-  return result.ok ? result.data ?? [] : [];
+  return result.ok ? (result.data ?? []) : [];
 }
 
 /**
@@ -478,7 +483,7 @@ export async function getHistory(
     project: options.project,
   });
 
-  return result.ok ? result.data ?? [] : [];
+  return result.ok ? (result.data ?? []) : [];
 }
 
 // ============================================================================
@@ -637,10 +642,9 @@ export async function executeRequest(
 export async function listPatterns(
   options: { project?: string } = {},
 ): Promise<SlbPatterns> {
-  const result = await executeSlbCommand<SlbPatterns>(
-    ["patterns", "list"],
-    { project: options.project },
-  );
+  const result = await executeSlbCommand<SlbPatterns>(["patterns", "list"], {
+    project: options.project,
+  });
 
   if (!result.ok || !result.data) {
     throw new Error(result.error ?? "Failed to list patterns");
@@ -709,54 +713,78 @@ export interface SlbService {
   getVersion(): Promise<SlbVersion | null>;
 
   /** Start a new session */
-  startSession(options: SlbSessionStartOptions): Promise<{ session: SlbSession; key: string }>;
+  startSession(
+    options: SlbSessionStartOptions,
+  ): Promise<{ session: SlbSession; key: string }>;
 
   /** Resume or start a session */
-  resumeSession(options: SlbSessionStartOptions): Promise<{ session: SlbSession; key: string }>;
+  resumeSession(
+    options: SlbSessionStartOptions,
+  ): Promise<{ session: SlbSession; key: string }>;
 
   /** End a session */
   endSession(sessionId: string, options?: { project?: string }): Promise<void>;
 
   /** Update session heartbeat */
-  heartbeatSession(sessionId: string, options?: { project?: string }): Promise<void>;
+  heartbeatSession(
+    sessionId: string,
+    options?: { project?: string },
+  ): Promise<void>;
 
   /** List active sessions */
   listSessions(options?: { project?: string }): Promise<SlbSession[]>;
 
   /** Check which tier a command matches */
-  checkCommand(command: string, options?: { project?: string }): Promise<SlbTierCheck>;
+  checkCommand(
+    command: string,
+    options?: { project?: string },
+  ): Promise<SlbTierCheck>;
 
   /** Create an approval request */
-  createRequest(command: string, options: SlbRequestOptions): Promise<SlbRequest>;
+  createRequest(
+    command: string,
+    options: SlbRequestOptions,
+  ): Promise<SlbRequest>;
 
   /** Get request by ID */
-  getRequest(requestId: string, options?: { project?: string }): Promise<SlbRequest | null>;
+  getRequest(
+    requestId: string,
+    options?: { project?: string },
+  ): Promise<SlbRequest | null>;
 
   /** List pending requests */
-  listPendingRequests(
-    options?: { project?: string; reviewPool?: boolean; allProjects?: boolean },
-  ): Promise<SlbRequest[]>;
+  listPendingRequests(options?: {
+    project?: string;
+    reviewPool?: boolean;
+    allProjects?: boolean;
+  }): Promise<SlbRequest[]>;
 
   /** Get request history */
-  getHistory(
-    options?: {
-      project?: string;
-      query?: string;
-      status?: SlbRequestStatus;
-      tier?: SlbTier;
-      agent?: string;
-      since?: string;
-      limit?: number;
-    },
-  ): Promise<SlbRequest[]>;
+  getHistory(options?: {
+    project?: string;
+    query?: string;
+    status?: SlbRequestStatus;
+    tier?: SlbTier;
+    agent?: string;
+    since?: string;
+    limit?: number;
+  }): Promise<SlbRequest[]>;
 
   /** Approve a request */
-  approveRequest(requestId: string, options: SlbApprovalOptions): Promise<SlbRequest>;
+  approveRequest(
+    requestId: string,
+    options: SlbApprovalOptions,
+  ): Promise<SlbRequest>;
 
   /** Reject a request */
   rejectRequest(
     requestId: string,
-    options: { sessionId: string; sessionKey: string; reason?: string; project?: string },
+    options: {
+      sessionId: string;
+      sessionKey: string;
+      reason?: string;
+      project?: string;
+    },
   ): Promise<SlbRequest>;
 
   /** Cancel a request */

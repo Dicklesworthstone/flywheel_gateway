@@ -31,12 +31,12 @@ function generateId(prefix: string, length = 12): string {
   const charLen = chars.length;
   const maxByte = 256 - (256 % charLen);
   let result = "";
-  
+
   while (result.length < length) {
     const bufSize = Math.ceil((length - result.length) * 1.2);
     const randomBytes = new Uint8Array(bufSize);
     crypto.getRandomValues(randomBytes);
-    
+
     for (let i = 0; i < bufSize && result.length < length; i++) {
       const byte = randomBytes[i]!;
       if (byte < maxByte) {

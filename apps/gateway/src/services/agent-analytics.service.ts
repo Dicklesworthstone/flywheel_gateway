@@ -611,94 +611,97 @@ export async function getModelComparisonReport(
     // Get all agents with their models in one query
     const agents = await db.select().from(agentsTable);
 
-  // Build agent ID to model lookup
-  const agentModelMap = new Map<string, string>();
-  for (const agent of agents) {
-    agentModelMap.set(
-      agent.id,
-      (agent.model as string | undefined) ?? "unknown",
-    );
-  }
-
-  // Single batch query for all history in the period
-  const allHistory = await db
-    .select()
-    .from(historyTable)
-    .where(
-      and(gte(historyTable.createdAt, start), lte(historyTable.createdAt, end)),
-    );
-
-  const modelStats = new Map<
-    string,
-    {
-      tasks: number;
-      successful: number;
-      totalDuration: number;
-      totalTokens: number;
-    }
-  >();
-
-  // Process all history rows, grouping by model
-  for (const row of allHistory) {
-    const model = agentModelMap.get(row.agentId) ?? "unknown";
-    if (!modelStats.has(model)) {
-      modelStats.set(model, {
-        tasks: 0,
-        successful: 0,
-        totalDuration: 0,
-        totalTokens: 0,
-      });
-    }
-
-    const output = row.output as Record<string, unknown> | null;
-    const input = row.input as Record<string, unknown> | null;
-    const outcome = output?.["outcome"] as string | undefined;
-
-    if (outcome === "success" || outcome === "failure") {
-      const stats = modelStats.get(model)!;
-      stats.tasks++;
-      if (outcome === "success") stats.successful++;
-      stats.totalDuration += row.durationMs;
-      stats.totalTokens +=
-        ((input?.["promptTokens"] as number) ?? 0) +
-        ((output?.["responseTokens"] as number) ?? 0);
-    }
-  }
-
-  const models: ModelPerformance[] = [];
-  for (const [model, stats] of modelStats) {
-    if (stats.tasks > 0) {
-      models.push({
-        model,
-        tasksCompleted: stats.tasks,
-        successRate: (stats.successful / stats.tasks) * 100,
-        avgDurationSeconds: stats.totalDuration / stats.tasks / 1000,
-        avgTokensUsed: stats.totalTokens / stats.tasks,
-        avgCostUnits: stats.totalTokens / stats.tasks / 1000, // Simplified cost
-        qualityScore: (stats.successful / stats.tasks) * 100,
-      });
-    }
-  }
-
-  // Sort by quality score
-  models.sort((a, b) => b.qualityScore - a.qualityScore);
-
-  // Generate recommendations
-  const recommendations: string[] = [];
-  if (models.length >= 2) {
-    const best = models[0]!;
-    const worst = models[models.length - 1]!;
-    if (best.successRate - worst.successRate > 10) {
-      recommendations.push(
-        `Consider using ${best.model} for complex tasks - ${best.successRate.toFixed(1)}% success rate vs ${worst.successRate.toFixed(1)}% for ${worst.model}`,
+    // Build agent ID to model lookup
+    const agentModelMap = new Map<string, string>();
+    for (const agent of agents) {
+      agentModelMap.set(
+        agent.id,
+        (agent.model as string | undefined) ?? "unknown",
       );
     }
-    if (best.avgDurationSeconds < worst.avgDurationSeconds * 0.7) {
-      recommendations.push(
-        `${best.model} is ${((1 - best.avgDurationSeconds / worst.avgDurationSeconds) * 100).toFixed(0)}% faster than ${worst.model}`,
+
+    // Single batch query for all history in the period
+    const allHistory = await db
+      .select()
+      .from(historyTable)
+      .where(
+        and(
+          gte(historyTable.createdAt, start),
+          lte(historyTable.createdAt, end),
+        ),
       );
+
+    const modelStats = new Map<
+      string,
+      {
+        tasks: number;
+        successful: number;
+        totalDuration: number;
+        totalTokens: number;
+      }
+    >();
+
+    // Process all history rows, grouping by model
+    for (const row of allHistory) {
+      const model = agentModelMap.get(row.agentId) ?? "unknown";
+      if (!modelStats.has(model)) {
+        modelStats.set(model, {
+          tasks: 0,
+          successful: 0,
+          totalDuration: 0,
+          totalTokens: 0,
+        });
+      }
+
+      const output = row.output as Record<string, unknown> | null;
+      const input = row.input as Record<string, unknown> | null;
+      const outcome = output?.["outcome"] as string | undefined;
+
+      if (outcome === "success" || outcome === "failure") {
+        const stats = modelStats.get(model)!;
+        stats.tasks++;
+        if (outcome === "success") stats.successful++;
+        stats.totalDuration += row.durationMs;
+        stats.totalTokens +=
+          ((input?.["promptTokens"] as number) ?? 0) +
+          ((output?.["responseTokens"] as number) ?? 0);
+      }
     }
-  }
+
+    const models: ModelPerformance[] = [];
+    for (const [model, stats] of modelStats) {
+      if (stats.tasks > 0) {
+        models.push({
+          model,
+          tasksCompleted: stats.tasks,
+          successRate: (stats.successful / stats.tasks) * 100,
+          avgDurationSeconds: stats.totalDuration / stats.tasks / 1000,
+          avgTokensUsed: stats.totalTokens / stats.tasks,
+          avgCostUnits: stats.totalTokens / stats.tasks / 1000, // Simplified cost
+          qualityScore: (stats.successful / stats.tasks) * 100,
+        });
+      }
+    }
+
+    // Sort by quality score
+    models.sort((a, b) => b.qualityScore - a.qualityScore);
+
+    // Generate recommendations
+    const recommendations: string[] = [];
+    if (models.length >= 2) {
+      const best = models[0]!;
+      const worst = models[models.length - 1]!;
+      if (best.successRate - worst.successRate > 10) {
+        recommendations.push(
+          `Consider using ${best.model} for complex tasks - ${best.successRate.toFixed(1)}% success rate vs ${worst.successRate.toFixed(1)}% for ${worst.model}`,
+        );
+      }
+      if (best.avgDurationSeconds < worst.avgDurationSeconds * 0.7) {
+        recommendations.push(
+          `${best.model} is ${((1 - best.avgDurationSeconds / worst.avgDurationSeconds) * 100).toFixed(0)}% faster than ${worst.model}`,
+        );
+      }
+    }
 
     return {
       period: { start, end },
@@ -876,99 +879,103 @@ export async function getFleetAnalytics(
     // Two queries total: agents + all relevant history
     const agents = await db.select().from(agentsTable);
 
-  const allHistory = await db
-    .select()
-    .from(historyTable)
-    .where(
-      and(gte(historyTable.createdAt, start), lte(historyTable.createdAt, end)),
-    );
+    const allHistory = await db
+      .select()
+      .from(historyTable)
+      .where(
+        and(
+          gte(historyTable.createdAt, start),
+          lte(historyTable.createdAt, end),
+        ),
+      );
 
-  // Aggregate metrics per agent in-memory
-  const agentMetrics = new Map<
-    string,
-    {
-      successfulTasks: number;
-      failedTasks: number;
-      totalTasks: number;
-      errorCount: number;
+    // Aggregate metrics per agent in-memory
+    const agentMetrics = new Map<
+      string,
+      {
+        successfulTasks: number;
+        failedTasks: number;
+        totalTasks: number;
+        errorCount: number;
+      }
+    >();
+
+    for (const row of allHistory) {
+      if (!agentMetrics.has(row.agentId)) {
+        agentMetrics.set(row.agentId, {
+          successfulTasks: 0,
+          failedTasks: 0,
+          totalTasks: 0,
+          errorCount: 0,
+        });
+      }
+
+      const metrics = agentMetrics.get(row.agentId)!;
+      const output = row.output as Record<string, unknown> | null;
+      const outcome = output?.["outcome"] as string | undefined;
+
+      if (outcome === "success") {
+        metrics.successfulTasks++;
+        metrics.totalTasks++;
+      } else if (outcome === "failure" || outcome === "timeout") {
+        metrics.failedTasks++;
+        metrics.totalTasks++;
+        metrics.errorCount++;
+      }
     }
-  >();
 
-  for (const row of allHistory) {
-    if (!agentMetrics.has(row.agentId)) {
-      agentMetrics.set(row.agentId, {
-        successfulTasks: 0,
-        failedTasks: 0,
-        totalTasks: 0,
-        errorCount: 0,
-      });
+    let activeCount = 0;
+    let totalSuccessRate = 0;
+    let totalTasks = 0;
+    const performanceData: Array<{
+      agentId: string;
+      successRate: number;
+      errorRate: number;
+      tasksCompleted: number;
+    }> = [];
+
+    for (const agent of agents) {
+      const metrics = agentMetrics.get(agent.id);
+      if (metrics && metrics.totalTasks > 0) {
+        activeCount++;
+        const successRate =
+          (metrics.successfulTasks / metrics.totalTasks) * 100;
+        const errorRate = (metrics.errorCount / metrics.totalTasks) * 100;
+        totalSuccessRate += successRate;
+        totalTasks += metrics.totalTasks;
+
+        performanceData.push({
+          agentId: agent.id,
+          successRate,
+          errorRate,
+          tasksCompleted: metrics.totalTasks,
+        });
+      }
     }
 
-    const metrics = agentMetrics.get(row.agentId)!;
-    const output = row.output as Record<string, unknown> | null;
-    const outcome = output?.["outcome"] as string | undefined;
+    // Sort by success rate for top performers
+    performanceData.sort((a, b) => b.successRate - a.successRate);
 
-    if (outcome === "success") {
-      metrics.successfulTasks++;
-      metrics.totalTasks++;
-    } else if (outcome === "failure" || outcome === "timeout") {
-      metrics.failedTasks++;
-      metrics.totalTasks++;
-      metrics.errorCount++;
+    const topPerformers = performanceData.slice(0, 5).map((p) => ({
+      agentId: p.agentId,
+      successRate: p.successRate,
+    }));
+
+    // Find agents needing attention
+    const needsAttention: Array<{ agentId: string; issue: string }> = [];
+    for (const p of performanceData) {
+      if (p.successRate < 70 && p.tasksCompleted >= 3) {
+        needsAttention.push({
+          agentId: p.agentId,
+          issue: `Low success rate: ${p.successRate.toFixed(1)}%`,
+        });
+      } else if (p.errorRate > 30) {
+        needsAttention.push({
+          agentId: p.agentId,
+          issue: `High error rate: ${p.errorRate.toFixed(1)}%`,
+        });
+      }
     }
-  }
-
-  let activeCount = 0;
-  let totalSuccessRate = 0;
-  let totalTasks = 0;
-  const performanceData: Array<{
-    agentId: string;
-    successRate: number;
-    errorRate: number;
-    tasksCompleted: number;
-  }> = [];
-
-  for (const agent of agents) {
-    const metrics = agentMetrics.get(agent.id);
-    if (metrics && metrics.totalTasks > 0) {
-      activeCount++;
-      const successRate = (metrics.successfulTasks / metrics.totalTasks) * 100;
-      const errorRate = (metrics.errorCount / metrics.totalTasks) * 100;
-      totalSuccessRate += successRate;
-      totalTasks += metrics.totalTasks;
-
-      performanceData.push({
-        agentId: agent.id,
-        successRate,
-        errorRate,
-        tasksCompleted: metrics.totalTasks,
-      });
-    }
-  }
-
-  // Sort by success rate for top performers
-  performanceData.sort((a, b) => b.successRate - a.successRate);
-
-  const topPerformers = performanceData.slice(0, 5).map((p) => ({
-    agentId: p.agentId,
-    successRate: p.successRate,
-  }));
-
-  // Find agents needing attention
-  const needsAttention: Array<{ agentId: string; issue: string }> = [];
-  for (const p of performanceData) {
-    if (p.successRate < 70 && p.tasksCompleted >= 3) {
-      needsAttention.push({
-        agentId: p.agentId,
-        issue: `Low success rate: ${p.successRate.toFixed(1)}%`,
-      });
-    } else if (p.errorRate > 30) {
-      needsAttention.push({
-        agentId: p.agentId,
-        issue: `High error rate: ${p.errorRate.toFixed(1)}%`,
-      });
-    }
-  }
 
     return {
       totalAgents: agents.length,

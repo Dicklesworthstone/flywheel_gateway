@@ -30,9 +30,9 @@ import { StatusPill } from "../components/ui/StatusPill";
 import {
   type DetectedCLI,
   getToolDisplayInfo,
+  TOOL_DISPLAY_INFO,
   useInstallTool,
   useReadiness,
-  TOOL_DISPLAY_INFO,
 } from "../hooks/useSetup";
 import {
   fadeVariants,
@@ -132,7 +132,7 @@ interface ToolCardProps {
 function ToolCard({ cli, onInstall, installing, index = 0 }: ToolCardProps) {
   const display = getToolDisplayInfo(cli.name);
   const isAgent = ["claude", "codex", "gemini", "aider", "gh-copilot"].includes(
-    cli.name
+    cli.name,
   );
 
   return (
@@ -144,14 +144,22 @@ function ToolCard({ cli, onInstall, installing, index = 0 }: ToolCardProps) {
         opacity: cli.available ? 1 : 0.7,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <div
             style={{
               width: "36px",
               height: "36px",
               borderRadius: "8px",
-              backgroundColor: cli.available ? display.color : "var(--color-surface-3)",
+              backgroundColor: cli.available
+                ? display.color
+                : "var(--color-surface-3)",
               color: "white",
               display: "flex",
               alignItems: "center",
@@ -163,10 +171,20 @@ function ToolCard({ cli, onInstall, installing, index = 0 }: ToolCardProps) {
             {display.icon}
           </div>
           <div>
-            <div style={{ fontWeight: 500, display: "flex", alignItems: "center", gap: "8px" }}>
+            <div
+              style={{
+                fontWeight: 500,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
               {display.displayName}
               {cli.available ? (
-                <CheckCircle size={14} style={{ color: "var(--color-green-500)" }} />
+                <CheckCircle
+                  size={14}
+                  style={{ color: "var(--color-green-500)" }}
+                />
               ) : (
                 <XCircle size={14} style={{ color: "var(--color-red-500)" }} />
               )}
@@ -242,12 +260,17 @@ function RecommendationsPanel({
 }: RecommendationsPanelProps) {
   if (recommendations.length === 0 && missingRequired.length === 0) {
     return (
-      <div className="card" style={{ backgroundColor: "var(--color-green-50)" }}>
+      <div
+        className="card"
+        style={{ backgroundColor: "var(--color-green-50)" }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <CheckCircle size={24} style={{ color: "var(--color-green-500)" }} />
           <div>
             <div style={{ fontWeight: 500 }}>All systems ready!</div>
-            <div className="muted">Your setup is complete and ready to use.</div>
+            <div className="muted">
+              Your setup is complete and ready to use.
+            </div>
           </div>
         </div>
       </div>
@@ -273,7 +296,10 @@ function RecommendationsPanel({
               backgroundColor: "var(--color-surface-2)",
             }}
           >
-            <ChevronRight size={16} style={{ marginTop: "2px", flexShrink: 0 }} />
+            <ChevronRight
+              size={16}
+              style={{ marginTop: "2px", flexShrink: 0 }}
+            />
             <div>{rec}</div>
           </div>
         ))}
@@ -294,7 +320,11 @@ interface SetupStepsProps {
   completedSteps: SetupStep[];
 }
 
-function SetupSteps({ currentStep, onStepClick, completedSteps }: SetupStepsProps) {
+function SetupSteps({
+  currentStep,
+  onStepClick,
+  completedSteps,
+}: SetupStepsProps) {
   const steps: { id: SetupStep; label: string; icon: React.ReactNode }[] = [
     { id: "detect", label: "Detect", icon: <Terminal size={18} /> },
     { id: "install", label: "Install", icon: <Download size={18} /> },
@@ -402,7 +432,9 @@ function DetectStepContent({
             <Zap size={20} />
             AI Coding Agents
           </h3>
-          <StatusPill tone={summary.agentsAvailable > 0 ? "positive" : "warning"}>
+          <StatusPill
+            tone={summary.agentsAvailable > 0 ? "positive" : "warning"}
+          >
             {summary.agentsAvailable} / {summary.agentsTotal} available
           </StatusPill>
         </div>
@@ -425,7 +457,9 @@ function DetectStepContent({
             <Terminal size={20} />
             Developer Tools
           </h3>
-          <StatusPill tone={summary.toolsAvailable >= 2 ? "positive" : "warning"}>
+          <StatusPill
+            tone={summary.toolsAvailable >= 2 ? "positive" : "warning"}
+          >
             {summary.toolsAvailable} / {summary.toolsTotal} installed
           </StatusPill>
         </div>
@@ -442,7 +476,13 @@ function DetectStepContent({
       </section>
 
       {/* Next button */}
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "24px" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          marginTop: "24px",
+        }}
+      >
         <button className="btn btn--primary" onClick={onNext}>
           Continue to Install
           <ArrowRight size={16} />
@@ -530,7 +570,9 @@ function InstallStepContent({
         <div className="card" style={{ marginBottom: "24px" }}>
           <div className="card__header">
             <h3>Already Installed</h3>
-            <StatusPill tone="positive">{installedTools.length} tools</StatusPill>
+            <StatusPill tone="positive">
+              {installedTools.length} tools
+            </StatusPill>
           </div>
           <motion.div
             variants={listContainerVariants}
@@ -546,7 +588,13 @@ function InstallStepContent({
       )}
 
       {/* Navigation */}
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: "24px" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginTop: "24px",
+        }}
+      >
         <button className="btn btn--ghost" onClick={onBack}>
           Back
         </button>
@@ -576,7 +624,12 @@ interface VerifyStepContentProps {
   onBack: () => void;
 }
 
-function VerifyStepContent({ status, onRefresh, loading, onBack }: VerifyStepContentProps) {
+function VerifyStepContent({
+  status,
+  onRefresh,
+  loading,
+  onBack,
+}: VerifyStepContentProps) {
   const allCLIs = [...status.agents, ...status.tools];
   const availableCLIs = allCLIs.filter((cli) => cli.available);
   const totalAvailable = availableCLIs.length;
@@ -601,7 +654,11 @@ function VerifyStepContent({ status, onRefresh, loading, onBack }: VerifyStepCon
             onClick={onRefresh}
             disabled={loading}
           >
-            {loading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+            {loading ? (
+              <Loader2 size={14} className="spin" />
+            ) : (
+              <RefreshCw size={14} />
+            )}
             Re-verify
           </button>
         </div>
@@ -623,15 +680,34 @@ function VerifyStepContent({ status, onRefresh, loading, onBack }: VerifyStepCon
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
             >
-              <PartyPopper size={64} style={{ color: "var(--color-green-500)", marginBottom: "16px" }} />
+              <PartyPopper
+                size={64}
+                style={{
+                  color: "var(--color-green-500)",
+                  marginBottom: "16px",
+                }}
+              />
             </motion.div>
-            <div style={{ fontSize: "24px", fontWeight: 600, color: "var(--color-green-700)" }}>
+            <div
+              style={{
+                fontSize: "24px",
+                fontWeight: 600,
+                color: "var(--color-green-700)",
+              }}
+            >
               Setup Complete!
             </div>
             <div className="muted" style={{ marginTop: "8px" }}>
-              Your Flywheel Gateway environment is fully configured and ready to use.
+              Your Flywheel Gateway environment is fully configured and ready to
+              use.
             </div>
-            <div style={{ marginTop: "16px", fontSize: "14px", color: "var(--color-green-600)" }}>
+            <div
+              style={{
+                marginTop: "16px",
+                fontSize: "14px",
+                color: "var(--color-green-600)",
+              }}
+            >
               {totalAvailable} / {total} components available
             </div>
           </motion.div>
@@ -647,12 +723,16 @@ function VerifyStepContent({ status, onRefresh, loading, onBack }: VerifyStepCon
               borderRadius: "8px",
             }}
           >
-            <AlertCircle size={48} style={{ color: "var(--color-amber-500)", marginBottom: "12px" }} />
+            <AlertCircle
+              size={48}
+              style={{ color: "var(--color-amber-500)", marginBottom: "12px" }}
+            />
             <div style={{ fontWeight: 500, color: "var(--color-amber-700)" }}>
               Some components are missing
             </div>
             <div className="muted" style={{ marginTop: "4px" }}>
-              {totalAvailable} / {total} components available. Go back to install missing tools.
+              {totalAvailable} / {total} components available. Go back to
+              install missing tools.
             </div>
           </motion.div>
         )}
@@ -707,7 +787,13 @@ function VerifyStepContent({ status, onRefresh, loading, onBack }: VerifyStepCon
       </div>
 
       {/* Back button */}
-      <div style={{ display: "flex", justifyContent: "flex-start", marginTop: "24px" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-start",
+          marginTop: "24px",
+        }}
+      >
         <button className="btn btn--ghost" onClick={onBack}>
           Back
         </button>
@@ -766,10 +852,14 @@ export function SetupPage() {
 
   const handleNextStep = useCallback(() => {
     if (currentStep === "detect") {
-      setCompletedSteps((prev) => (prev.includes("detect") ? prev : [...prev, "detect"]));
+      setCompletedSteps((prev) =>
+        prev.includes("detect") ? prev : [...prev, "detect"],
+      );
       setCurrentStep("install");
     } else if (currentStep === "install") {
-      setCompletedSteps((prev) => (prev.includes("install") ? prev : [...prev, "install"]));
+      setCompletedSteps((prev) =>
+        prev.includes("install") ? prev : [...prev, "install"],
+      );
       setCurrentStep("verify");
     }
   }, [currentStep]);
@@ -832,7 +922,11 @@ export function SetupPage() {
           initial="hidden"
           animate="visible"
         >
-          <Loader2 size={32} className="spin" style={{ marginBottom: "16px" }} />
+          <Loader2
+            size={32}
+            className="spin"
+            style={{ marginBottom: "16px" }}
+          />
           <div>Detecting installed tools...</div>
         </motion.div>
       </div>
@@ -845,7 +939,9 @@ export function SetupPage() {
 
   const agents = status.agents;
   const tools = status.tools;
-  const toolDisplayInfo = confirmModal.tool ? getToolDisplayInfo(confirmModal.tool) : null;
+  const toolDisplayInfo = confirmModal.tool
+    ? getToolDisplayInfo(confirmModal.tool)
+    : null;
 
   return (
     <div className="page">
@@ -872,7 +968,11 @@ export function SetupPage() {
           onClick={handleRefresh}
           disabled={loading}
         >
-          {loading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
+          {loading ? (
+            <Loader2 size={16} className="spin" />
+          ) : (
+            <RefreshCw size={16} />
+          )}
           Refresh
         </button>
       </motion.div>

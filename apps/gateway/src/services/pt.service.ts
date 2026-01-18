@@ -329,7 +329,9 @@ export async function scanProcesses(
 /**
  * Get details for a specific process by PID.
  */
-export async function getProcessDetails(pid: number): Promise<PtProcess | null> {
+export async function getProcessDetails(
+  pid: number,
+): Promise<PtProcess | null> {
   const args = ["inspect", String(pid)];
 
   const response = await executePtCommand(args);
@@ -424,7 +426,11 @@ export async function killProcess(
   }
 
   // Validate kill target
-  const validation = validateKillTarget(pid, processDetails.name, options.force);
+  const validation = validateKillTarget(
+    pid,
+    processDetails.name,
+    options.force,
+  );
   if (!validation.valid) {
     log.warn(
       { pid, processName: processDetails.name, error: validation.error },
@@ -455,10 +461,7 @@ export async function killProcess(
   const response = await executePtCommand(args);
 
   if (!response.ok) {
-    log.error(
-      { pid, signal, code: response.code },
-      "Process kill failed",
-    );
+    log.error({ pid, signal, code: response.code }, "Process kill failed");
     return {
       pid,
       success: false,
@@ -512,10 +515,10 @@ export async function killProcesses(
  * These patterns identify processes that are related to agent operations.
  */
 const AGENT_PROCESS_PATTERNS = [
-  "claude",          // Claude CLI processes
-  "tmux.*flywheel",  // Flywheel tmux sessions
-  "bun.*gateway",    // Gateway process (for reference, won't kill)
-  "mcp-agent-mail",  // Agent mail server
+  "claude", // Claude CLI processes
+  "tmux.*flywheel", // Flywheel tmux sessions
+  "bun.*gateway", // Gateway process (for reference, won't kill)
+  "mcp-agent-mail", // Agent mail server
 ];
 
 /**

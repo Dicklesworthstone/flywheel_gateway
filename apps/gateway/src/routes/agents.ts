@@ -18,11 +18,11 @@ import {
   spawnAgent,
   terminateAgent,
 } from "../services/agent";
+import { getAgentDetectionService } from "../services/agent-detection.service";
 import {
   getAgentState,
   getAgentStateHistory,
 } from "../services/agent-state-machine";
-import { getAgentDetectionService } from "../services/agent-detection.service";
 import { agentLinks, agentListLinks, getLinkContext } from "../utils/links";
 import {
   sendError,
