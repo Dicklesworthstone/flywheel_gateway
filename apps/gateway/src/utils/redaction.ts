@@ -43,15 +43,20 @@ export function redactCommand(command: string): string {
   // Keys: password, secret, token, api-key, access-key, etc.
   // Separator: = or : or whitespace
   // Value: Quoted string OR non-whitespace chars
-  return command
-    .replace(
-      /(\b(?:password|secret|token|api[_-]?key|access[_-]?key|auth[_-]?token|client[_-]?secret)[=:\s]+)(["'](?:[^"'\\]|\\.)*["']|[^\s]+)/gi,
-      "$1[REDACTED]",
-    )
-    .replace(
-      /(\b(?:authorization|bearer)[=:\s]+)(["'](?:[^"'\\]|\\.)*["']|[^\s]+)/gi,
-      "$1[REDACTED]",
-    );
+  return (
+    command
+      .replace(
+        /(\b(?:password|secret|token|api[_-]?key|access[_-]?key|auth[_-]?token|client[_-]?secret)[=:\s]+)(["'](?:[^"'\\]|\\.)*["']|[^\s]+)/gi,
+        "$1[REDACTED]",
+      )
+      // Handle "Authorization: Bearer <token>" pattern - redact everything after "Authorization:"
+      .replace(
+        /(\bauthorization[=:\s]+)(bearer\s+)?([^\s'"]+|["'](?:[^"'\\]|\\.)*["'])/gi,
+        "$1[REDACTED]",
+      )
+      // Handle standalone "Bearer <token>" pattern
+      .replace(/(\bbearer\s+)([^\s'"]+)/gi, "$1[REDACTED]")
+  );
 }
 
 /**
