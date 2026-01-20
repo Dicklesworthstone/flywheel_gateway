@@ -183,11 +183,22 @@ export function getIdempotencyStats(): {
 async function generateFingerprint(
   method: string,
   path: string,
-  body: string | null,
+  body: ArrayBuffer | null,
 ): Promise<string> {
-  const data = `${method}:${path}:${body ?? ""}`;
+  const meta = `${method}:${path}:`;
   const encoder = new TextEncoder();
-  const dataBuffer = encoder.encode(data);
+  const metaBuffer = encoder.encode(meta);
+
+  let dataBuffer: Uint8Array;
+  if (body) {
+    const bodyArray = new Uint8Array(body);
+    dataBuffer = new Uint8Array(metaBuffer.length + bodyArray.length);
+    dataBuffer.set(metaBuffer);
+    dataBuffer.set(bodyArray, metaBuffer.length);
+  } else {
+    dataBuffer = metaBuffer;
+  }
+
   const hashBuffer = await crypto.subtle.digest("SHA-256", dataBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray
@@ -273,27 +284,28 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
     }
 
     // Get request body for fingerprinting
-    let bodyText: string | null = null;
+    let bodyBuffer: ArrayBuffer | null = null;
     try {
-      bodyText = await c.req.text();
+      bodyBuffer = await c.req.arrayBuffer();
       // Re-create the request with the body so downstream handlers can read it
       const originalRequest = c.req.raw;
 
       // Prepare headers for the new request:
       // 1. Clone original headers
-      // 2. Remove Content-Encoding (body is already decoded text)
-      // 3. Remove Transfer-Encoding (body is fixed string, not chunked)
-      // 4. Update Content-Length to match the text byte length
+      // 2. Remove Content-Encoding (body is already decoded)
+      // 3. Remove Transfer-Encoding (body is fixed, not chunked)
+      // 4. Update Content-Length to match the byte length
       const newHeaders = new Headers(originalRequest.headers);
       newHeaders.delete("content-encoding");
       newHeaders.delete("transfer-encoding");
-      const bodyByteLength = new TextEncoder().encode(bodyText).byteLength;
-      newHeaders.set("content-length", String(bodyByteLength));
+      if (bodyBuffer) {
+        newHeaders.set("content-length", String(bodyBuffer.byteLength));
+      }
 
       const newRequest = new Request(originalRequest.url, {
         method: originalRequest.method,
         headers: newHeaders,
-        body: bodyText,
+        body: bodyBuffer,
       });
       // Note: Mutating c.req.raw to allow body re-reading downstream
       (c.req as { raw: Request }).raw = newRequest;
@@ -301,7 +313,7 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
       // No body or already consumed
     }
 
-    const fingerprint = await generateFingerprint(method, path, bodyText);
+    const fingerprint = await generateFingerprint(method, path, bodyBuffer);
 
     // Check for existing record
     const existingRecord = getIdempotencyRecord(idempotencyKey);
