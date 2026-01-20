@@ -201,23 +201,23 @@ function mapToApprovalRequest(
     workspaceId: row.workspaceId,
     operation: {
       type: row.operationType as SafetyCategory,
-      command: row.operationCommand ?? undefined,
-      path: row.operationPath ?? undefined,
+      ...(row.operationCommand != null ? { command: row.operationCommand } : {}),
+      ...(row.operationPath != null ? { path: row.operationPath } : {}),
       description: row.operationDescription,
       details: operationDetails,
     },
     rule,
     context: {
       recentActions,
-      taskDescription: row.taskDescription ?? undefined,
+      ...(row.taskDescription != null ? { taskDescription: row.taskDescription } : {}),
     },
     status: row.status as ApprovalStatus,
     requestedAt: row.requestedAt,
     expiresAt: row.expiresAt,
-    decidedBy: row.decidedBy ?? undefined,
-    decidedAt: row.decidedAt ?? undefined,
-    decisionReason: row.decisionReason ?? undefined,
-    correlationId: row.correlationId ?? undefined,
+    ...(row.decidedBy != null ? { decidedBy: row.decidedBy } : {}),
+    ...(row.decidedAt != null ? { decidedAt: row.decidedAt } : {}),
+    ...(row.decisionReason != null ? { decisionReason: row.decisionReason } : {}),
+    ...(row.correlationId != null ? { correlationId: row.correlationId } : {}),
     priority: (row.priority as ApprovalRequest["priority"]) ?? "normal",
   };
 }
@@ -278,17 +278,23 @@ export async function createApprovalRequest(
     agentId: request.agentId,
     sessionId: request.sessionId,
     workspaceId: request.workspaceId,
-    operation: request.operation,
+    operation: {
+      type: request.operation.type,
+      description: request.operation.description,
+      details: request.operation.details ?? {},
+      ...(request.operation.command != null ? { command: request.operation.command } : {}),
+      ...(request.operation.path != null ? { path: request.operation.path } : {}),
+    },
     rule: request.rule,
     context: {
       recentActions: request.context?.recentActions ?? [],
-      taskDescription: request.context?.taskDescription,
+      ...(request.context?.taskDescription != null ? { taskDescription: request.context.taskDescription } : {}),
     },
     status: "pending",
     requestedAt: now,
     expiresAt,
     priority: request.priority ?? "normal",
-    correlationId: request.correlationId,
+    ...(request.correlationId != null ? { correlationId: request.correlationId } : {}),
   };
 }
 
@@ -364,7 +370,7 @@ export async function decideApproval(
       status,
       decidedBy: decision.decidedBy,
       decidedAt,
-      decisionReason: decision.reason,
+      ...(decision.reason != null ? { decisionReason: decision.reason } : {}),
     },
   };
 }
@@ -796,6 +802,7 @@ export async function _setApprovalExpiration(
   const result = await db
     .update(approvalRequests)
     .set({ expiresAt })
-    .where(eq(approvalRequests.id, requestId));
-  return result.rowsAffected > 0;
+    .where(eq(approvalRequests.id, requestId))
+    .returning({ id: approvalRequests.id });
+  return result.length > 0;
 }

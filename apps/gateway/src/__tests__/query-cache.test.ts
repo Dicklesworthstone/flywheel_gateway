@@ -245,7 +245,7 @@ describe("QueryCache", () => {
       cache.set("key1", 100);
 
       let computeCount = 0;
-      const result = await cache.getOrCompute("key1", async () => {
+      const result: number = await cache.getOrCompute("key1", async () => {
         computeCount++;
         return 42;
       });

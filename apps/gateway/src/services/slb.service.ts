@@ -115,7 +115,7 @@ interface SlbCommandResult<T = unknown> {
 
 async function executeSlbCommand<T = unknown>(
   args: string[],
-  options: { timeout?: number; maxOutputSize?: number; project?: string } = {},
+  options: { timeout?: number; maxOutputSize?: number; project?: string | undefined } = {},
 ): Promise<SlbCommandResult<T>> {
   const { timeout = 30000, maxOutputSize = 5 * 1024 * 1024, project } = options;
   const log = getLogger();

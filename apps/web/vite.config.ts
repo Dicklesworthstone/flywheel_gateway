@@ -1,7 +1,13 @@
 import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig, loadEnv, type Plugin } from "vite";
+import {
+  defineConfig,
+  loadEnv,
+  type Plugin,
+  type PluginOption,
+  type UserConfig,
+} from "vite";
 
 type CompilerStats = {
   compiled: number;
@@ -86,7 +92,8 @@ const compilerStatsPlugin = (
   },
 });
 
-export default defineConfig(({ mode }) => {
+// Using type assertion due to vite plugin type incompatibility from duplicate vite versions in bun
+export default defineConfig(({ mode }): UserConfig => {
   const env = loadEnv(mode, process.cwd(), "");
   const nodeEnv = env["NODE_ENV"] ?? process.env["NODE_ENV"] ?? mode;
   const isProd = nodeEnv === "production";
@@ -125,11 +132,12 @@ export default defineConfig(({ mode }) => {
     : {};
 
   return {
+    // Cast due to duplicate vite versions in node_modules causing Plugin type incompatibility
     plugins: [
       tailwindcss(),
       react(reactCompilerBabelConfig),
       compilerStatsPlugin(compilerStats, compilerEnabled),
-    ],
+    ] as PluginOption[],
 
     server: {
       port: 5173,

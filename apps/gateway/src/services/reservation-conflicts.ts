@@ -133,8 +133,8 @@ function checkOverlap(segs1: string[], segs2: string[]): boolean {
     return segs1.every((s) => s === "**");
   }
 
-  const s1 = segs1[0];
-  const s2 = segs2[0];
+  const s1 = segs1[0]!;
+  const s2 = segs2[0]!;
 
   // Handle recursive glob **
   if (s1 === "**") {
@@ -197,12 +197,12 @@ function segmentsOverlap(s1: string, s2: string): boolean {
 
 function getPrefix(s: string): string {
   const match = s.match(/^([^*?]*)/);
-  return match ? match[1] : "";
+  return match?.[1] ?? "";
 }
 
 function getSuffix(s: string): string {
   const match = s.match(/([^*?]*)$/);
-  return match ? match[1] : "";
+  return match?.[1] ?? "";
 }
 
 /**

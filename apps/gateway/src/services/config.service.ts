@@ -213,13 +213,19 @@ function deepMerge<T extends Record<string, unknown>>(
   return result;
 }
 
+/** Deep partial type for config building */
+type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
 /**
  * Apply environment variable overrides.
  */
 function applyEnvOverrides(
   config: Partial<FlywheelConfig>,
 ): Partial<FlywheelConfig> {
-  const result = { ...config };
+  // Use DeepPartial internally since we build up partial nested objects
+  const result: DeepPartial<FlywheelConfig> = { ...config };
 
   // Server overrides
   if (process.env["PORT"]) {
@@ -296,7 +302,8 @@ function applyEnvOverrides(
     };
   }
 
-  return result;
+  // Cast back to Partial - Zod validation will fill in defaults
+  return result as Partial<FlywheelConfig>;
 }
 
 /**
@@ -330,7 +337,7 @@ export async function loadConfig(
   sources.push({
     path: userConfigPath,
     loaded: userResult.loaded,
-    error: userResult.error,
+    ...(userResult.error !== undefined ? { error: userResult.error } : {}),
   });
   if (userResult.loaded) {
     mergedConfig = deepMerge(mergedConfig, userResult.config);
@@ -342,7 +349,7 @@ export async function loadConfig(
   sources.push({
     path: projectConfigPath,
     loaded: projectResult.loaded,
-    error: projectResult.error,
+    ...(projectResult.error !== undefined ? { error: projectResult.error } : {}),
   });
   if (projectResult.loaded) {
     mergedConfig = deepMerge(mergedConfig, projectResult.config);
@@ -355,15 +362,15 @@ export async function loadConfig(
   const parseResult = flywheelConfigSchema.safeParse(mergedConfig);
 
   if (!parseResult.success) {
-    const errors = parseResult.error.errors
-      .map((e) => `${e.path.join(".")}: ${e.message}`)
+    const errors = parseResult.error.issues
+      .map((e: z.ZodIssue) => `${e.path.join(".")}: ${e.message}`)
       .join(", ");
 
     log.error(
       {
         type: "config:validation_error",
         correlationId: getCorrelationId(),
-        errors: parseResult.error.errors,
+        errors: parseResult.error.issues,
         sources,
       },
       `Configuration validation failed: ${errors}`,
