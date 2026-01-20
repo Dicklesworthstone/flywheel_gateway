@@ -4,7 +4,7 @@
  * Tests for the CM (Cass-Memory) REST API endpoints.
  */
 
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { Hono } from "hono";
 import { memory } from "../routes/memory";
 import type {
@@ -199,6 +199,10 @@ mock.module("../services/cm.service", () => ({
     }
   },
 }));
+
+afterAll(() => {
+  mock.restore();
+});
 
 // ============================================================================
 // Test Setup

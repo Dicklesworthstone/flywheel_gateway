@@ -5,7 +5,16 @@
  * from other test files that mock "../db".
  */
 
-import { beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  test,
+} from "bun:test";
+import { restoreRealDb } from "./test-utils/db-mock-restore";
 
 // Mock the logger with child method - must be before imports
 const mockLogger = {
@@ -34,6 +43,12 @@ mock.module("../db", () => ({
   db: realDb,
   sqlite: realSqlite,
 }));
+
+afterAll(() => {
+  mock.restore();
+  // Restore real db module for other test files (mock.restore doesn't restore mock.module)
+  restoreRealDb();
+});
 
 import { Hono } from "hono";
 import { sqlite } from "../db/connection";

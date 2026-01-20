@@ -2,7 +2,15 @@
  * Tests for agent-events service.
  */
 
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  test,
+} from "bun:test";
 import type { WebSocketHub } from "../ws/hub";
 
 // Track state change subscribers
@@ -18,15 +26,22 @@ mock.module("../services/agent-state-machine", () => ({
   },
 }));
 
-// Mock the logger
+// Mock the logger (include child to match production usage)
+const mockLogger = {
+  info: () => {},
+  error: () => {},
+  warn: () => {},
+  debug: () => {},
+  child: () => mockLogger,
+};
+
 mock.module("../services/logger", () => ({
-  logger: {
-    info: () => {},
-    error: () => {},
-    warn: () => {},
-    debug: () => {},
-  },
+  logger: mockLogger,
 }));
+
+afterAll(() => {
+  mock.restore();
+});
 
 // Import after mocking
 import { AgentEventsService } from "../services/agent-events";

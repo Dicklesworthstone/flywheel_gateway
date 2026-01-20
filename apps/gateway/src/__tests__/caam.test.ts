@@ -4,7 +4,16 @@
  * Tests profile management, pool operations, and rotation strategies.
  */
 
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  test,
+} from "bun:test";
+import { restoreRealDb } from "./test-utils/db-mock-restore";
 
 // Mock the logger with child method (needed for service dependencies)
 const mockLogger = {
@@ -33,6 +42,12 @@ mock.module("../db", () => ({
   db: realDb,
   sqlite: realSqlite,
 }));
+
+afterAll(() => {
+  mock.restore();
+  // Restore real db module for other test files (mock.restore doesn't restore mock.module)
+  restoreRealDb();
+});
 
 import {
   createMockCaamExecutor,

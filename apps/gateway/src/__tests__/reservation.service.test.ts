@@ -5,7 +5,15 @@
  * Also tests conflict detection, TTL handling, and pattern matching.
  */
 
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  test,
+} from "bun:test";
 
 // Mock the logger with child method
 const mockLogger = {
@@ -19,6 +27,10 @@ const mockLogger = {
 mock.module("../services/logger", () => ({
   logger: mockLogger,
 }));
+
+afterAll(() => {
+  mock.restore();
+});
 
 import {
   _clearAllReservations,

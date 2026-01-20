@@ -5,12 +5,13 @@
  * Focus tests on extraction functions which are pure and don't need database.
  */
 
-import { describe, expect, mock, test } from "bun:test";
+import { afterAll, describe, expect, mock, test } from "bun:test";
 import {
   exportHistory,
   extractFromOutput,
   getHistoryStats,
 } from "../services/history.service";
+import { restoreRealDb } from "./test-utils/db-mock-restore";
 
 // Mock the database module to avoid actual DB operations
 // Using a Promise-based chainable mock to simulate Drizzle ORM query builder
@@ -44,6 +45,12 @@ mock.module("../db", () => {
       select: createChainable,
     },
   };
+});
+
+afterAll(() => {
+  mock.restore();
+  // Restore real db module for other test files (mock.restore doesn't restore mock.module)
+  restoreRealDb();
 });
 
 describe("History Service", () => {

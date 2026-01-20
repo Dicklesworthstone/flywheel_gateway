@@ -2,9 +2,10 @@
  * Tests for audit routes.
  */
 
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { Hono } from "hono";
 import audit from "../routes/audit";
+import { restoreDrizzleOrm, restoreRealDb } from "./test-utils/db-mock-restore";
 
 // Mock the correlation middleware
 mock.module("../middleware/correlation", () => ({
@@ -117,6 +118,13 @@ mock.module("drizzle-orm", () => ({
     strings.join(""),
   count: () => "count",
 }));
+
+afterAll(() => {
+  mock.restore();
+  // Restore real modules for other test files (mock.restore doesn't restore mock.module)
+  restoreRealDb();
+  restoreDrizzleOrm();
+});
 
 describe("Audit Routes", () => {
   let app: Hono;

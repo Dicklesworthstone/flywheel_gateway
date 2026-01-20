@@ -8,7 +8,7 @@
  * @see flywheel_gateway-kue (Risk Mitigations and Resilience)
  */
 
-import { describe, expect, mock, test } from "bun:test";
+import { afterAll, describe, expect, mock, test } from "bun:test";
 
 // ============================================================================
 // Mock Setup
@@ -25,6 +25,10 @@ const mockLogger = {
 mock.module("../services/logger", () => ({
   logger: mockLogger,
 }));
+
+afterAll(() => {
+  mock.restore();
+});
 
 // ============================================================================
 // Risk 1: Agent Runaway (Medium/High)

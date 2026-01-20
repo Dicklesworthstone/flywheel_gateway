@@ -2,7 +2,7 @@
  * Unit tests for the DCG Service.
  */
 
-import { describe, expect, mock, test } from "bun:test";
+import { afterAll, describe, expect, mock, test } from "bun:test";
 
 // Mock the logger with child method
 const mockLogger = {
@@ -16,6 +16,10 @@ const mockLogger = {
 mock.module("../services/logger", () => ({
   logger: mockLogger,
 }));
+
+afterAll(() => {
+  mock.restore();
+});
 
 import {
   type DCGBlockEvent,

@@ -2,9 +2,10 @@
  * Tests for audit service.
  */
 
-import { describe, expect, mock, test } from "bun:test";
+import { afterAll, describe, expect, mock, test } from "bun:test";
 import type { AuditEventOptions } from "../services/audit";
 import { audit, auditFailure, auditSuccess } from "../services/audit";
+import { restoreRealDb } from "./test-utils/db-mock-restore";
 
 // Mock the correlation middleware
 mock.module("../middleware/correlation", () => ({
@@ -27,6 +28,12 @@ mock.module("../db", () => ({
     }),
   },
 }));
+
+afterAll(() => {
+  mock.restore();
+  // Restore real db module for other test files (mock.restore doesn't restore mock.module)
+  restoreRealDb();
+});
 
 describe("Audit Service", () => {
   describe("audit", () => {
