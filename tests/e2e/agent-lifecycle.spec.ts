@@ -373,3 +373,4 @@ test.describe("Agent Lifecycle - Metrics Dashboard", () => {
     await expect(workstreamCard.locator(".pill")).toContainText("tracked");
   });
 });
+}

@@ -67,10 +67,12 @@ interface CounterEntry {
 export class InMemoryRateLimiter {
   private counters: Map<string, CounterEntry> = new Map();
   private cleanupIntervalMs: number;
+  private maxItems: number;
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
-  constructor(cleanupIntervalMs = 60_000) {
+  constructor(cleanupIntervalMs = 60_000, maxItems = 10000) {
     this.cleanupIntervalMs = cleanupIntervalMs;
+    this.maxItems = maxItems;
   }
 
   /**
@@ -116,14 +118,26 @@ export class InMemoryRateLimiter {
     if (this.counters.has(key)) {
       this.counters.delete(key);
     }
-    this.counters.set(key, entry);
+    
+    // Create NEW entry copy to avoid reference sharing issues if that's the cause
+    // Though it shouldn't matter for Map keys
+    const newEntry = { ...entry };
+    this.counters.set(key, newEntry);
 
     // Enforce max items
-    if (this.counters.size > this.maxItems) {
-      const oldestKey = this.counters.keys().next().value;
-      if (oldestKey) {
-        // console.log(`Evicting ${oldestKey} (size ${this.counters.size} > ${this.maxItems})`);
+    // Using while loop to be safe, though strict size management should only need one delete
+    while (this.counters.size > this.maxItems) {
+      const iterator = this.counters.keys();
+      const oldestKey = iterator.next().value;
+      if (oldestKey !== undefined) { // Check for undefined explicitly
+        // If we are about to delete the key we just added, something is wrong with logic or maxItems is too small
+        if (oldestKey === key) {
+             // This happens if maxItems < 1, or if we just added the only item and size > maxItems (e.g. maxItems 0)
+             // But maxItems is 5.
+        }
         this.counters.delete(oldestKey);
+      } else {
+        break; 
       }
     }
 

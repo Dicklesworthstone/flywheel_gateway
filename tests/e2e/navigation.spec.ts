@@ -100,7 +100,6 @@ test.describe("Navigation", () => {
     await expect(page.locator(".page")).toBeVisible();
   });
 });
-}
 
 test.describe("Sidebar", () => {
   test.beforeEach(async ({ page }) => {

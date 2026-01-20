@@ -62,9 +62,6 @@ test.describe("DCG Dashboard - Overview", () => {
     await expect(page.locator("button").filter({ hasText: "Test Command" })).toBeVisible();
   });
 });
-}
-}
-}
 
 test.describe("DCG Live Feed Tab", () => {
   test.beforeEach(async ({ page }) => {
