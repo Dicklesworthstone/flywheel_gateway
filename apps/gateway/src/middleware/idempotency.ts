@@ -199,7 +199,10 @@ async function generateFingerprint(
     dataBuffer = metaBuffer;
   }
 
-  const hashBuffer = await crypto.subtle.digest("SHA-256", dataBuffer);
+  // Create a fresh ArrayBuffer from the Uint8Array to satisfy TypeScript's strict typing
+  const digestInput = new ArrayBuffer(dataBuffer.byteLength);
+  new Uint8Array(digestInput).set(dataBuffer);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", digestInput);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray
     .slice(0, 8)
