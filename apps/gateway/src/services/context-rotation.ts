@@ -410,23 +410,24 @@ async function rotateCheckpointAndRestart(
       );
     }
 
+    // Restore from checkpoint to prepare state for new agent
+    const checkpoint = await restoreCheckpoint(checkpointId);
+
     const result = await handlers.spawnAgent({
       ...agent.config,
       id: undefined, // Generate new ID
+      conversationHistory: checkpoint.conversationHistory,
+      toolState: checkpoint.toolState,
     });
     newAgentId = result.agentId;
 
-    // Restore from checkpoint to new agent
-    const checkpoint = await restoreCheckpoint(checkpointId);
-    // In a real implementation, we'd inject the checkpoint state
-    // into the new agent's context
     log.debug(
       {
         newAgentId,
         checkpointId,
         historyLength: checkpoint.conversationHistory.length,
       },
-      "Restored checkpoint to new agent",
+      "Restored checkpoint state passed to new agent",
     );
   }
 

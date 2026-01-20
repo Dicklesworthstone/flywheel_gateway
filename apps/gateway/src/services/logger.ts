@@ -3,6 +3,13 @@ import pino from "pino";
 const isDev = process.env["NODE_ENV"] !== "production";
 const logLevel = process.env["LOG_LEVEL"] ?? (isDev ? "debug" : "info");
 
+const baseBindings = {
+  service: "flywheel-gateway",
+  pid: process.pid,
+};
+
+const isBun = typeof process.versions?.bun === "string";
+
 /**
  * Create the base logger. We ALWAYS use sync mode (no transport) now because:
  * 1. pino-pretty transport can cause issues in parallel test execution
@@ -14,10 +21,7 @@ const logLevel = process.env["LOG_LEVEL"] ?? (isDev ? "debug" : "info");
  */
 const baseLogger = pino({
   level: logLevel,
-  base: {
-    service: "flywheel-gateway",
-    pid: process.pid,
-  },
+  base: baseBindings,
   timestamp: pino.stdTimeFunctions.isoTime,
 });
 
@@ -27,15 +31,15 @@ const baseLogger = pino({
  * a new logger instance with the bindings as base.
  */
 function ensureChild(bindings: pino.Bindings): pino.Logger {
-  if (typeof baseLogger.child === "function") {
+  if (!isBun && typeof baseLogger.child === "function") {
     return baseLogger.child(bindings);
   }
-  // Fallback: create a new logger with the bindings
+  // Fallback: create a new logger with the bindings.
+  // In Bun, baseLogger.child can hang, so we always use the safe path.
   return pino({
     level: logLevel,
     base: {
-      service: "flywheel-gateway",
-      pid: process.pid,
+      ...baseBindings,
       ...bindings,
     },
     timestamp: pino.stdTimeFunctions.isoTime,

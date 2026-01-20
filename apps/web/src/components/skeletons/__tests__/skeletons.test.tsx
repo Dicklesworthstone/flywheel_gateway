@@ -2,9 +2,10 @@
  * Tests for page-level skeleton components.
  */
 
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { describe, expect, it } from "bun:test";
-import { render, screen } from "@testing-library/react";
-import "@testing-library/jest-dom/bun";
+import { render } from "@testing-library/react";
+import "@testing-library/jest-dom";
 import {
   AccountsSkeleton,
   AgentsSkeleton,
@@ -20,6 +21,8 @@ import {
   SettingsSkeleton,
   VelocitySkeleton,
 } from "../index";
+
+GlobalRegistrator.register();
 
 const skeletons = [
   {
@@ -80,14 +83,14 @@ describe("Skeleton Components", () => {
     });
 
     it("should have aria-busy attribute", () => {
-      render(<Component />);
-      const region = screen.getByRole("region");
+      const { getByRole } = render(<Component />);
+      const region = getByRole("region");
       expect(region).toHaveAttribute("aria-busy", "true");
     });
 
     it("should have aria-label for screen readers", () => {
-      render(<Component />);
-      expect(screen.getByLabelText(label)).toBeInTheDocument();
+      const { getByLabelText } = render(<Component />);
+      expect(getByLabelText(label)).toBeInTheDocument();
     });
 
     it("should have page class for layout consistency", () => {
@@ -106,10 +109,11 @@ describe("Skeleton Components", () => {
 describe("Skeleton Accessibility", () => {
   it("all skeletons should be hidden from assistive technology except for loading announcement", () => {
     skeletons.forEach(({ Component, label }) => {
-      const { container, unmount } = render(<Component />);
+      const { container, getByLabelText, getByRole, unmount } =
+        render(<Component />);
 
       // The container should be aria-busy and have an accessible name
-      const region = screen.getByRole("region");
+      const region = getByRole("region");
       expect(region).toHaveAttribute("aria-busy", "true");
       expect(region).toHaveAttribute("aria-label", label);
 
@@ -119,6 +123,7 @@ describe("Skeleton Accessibility", () => {
         expect(skeleton).toHaveAttribute("aria-hidden", "true");
       });
 
+      expect(getByLabelText(label)).toBeInTheDocument();
       unmount();
     });
   });

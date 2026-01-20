@@ -108,7 +108,8 @@ export function canSubscribe(
     case "system:fleet":
     case "system:supervisor":
     case "system:jobs":
-    case "system:context": {
+    case "system:context":
+    case "system:processes": {
       if (!auth.isAdmin) {
         return {
           allowed: false,
@@ -223,7 +224,8 @@ export function canPublish(
     case "system:fleet":
     case "system:supervisor":
     case "system:jobs":
-    case "system:context": {
+    case "system:context":
+    case "system:processes": {
       return {
         allowed: false,
         reason: "Only system services can publish to system channels",
