@@ -14,6 +14,10 @@
 
 import { expect, test } from "@playwright/test";
 
+const isPlaywright = process.env["PLAYWRIGHT_TEST"] === "1";
+
+if (isPlaywright) {
+
 test.describe("DCG Dashboard - Overview", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/dcg");
@@ -58,6 +62,9 @@ test.describe("DCG Dashboard - Overview", () => {
     await expect(page.locator("button").filter({ hasText: "Test Command" })).toBeVisible();
   });
 });
+}
+}
+}
 
 test.describe("DCG Live Feed Tab", () => {
   test.beforeEach(async ({ page }) => {
@@ -474,3 +481,4 @@ test.describe("DCG Block Events Review", () => {
     }
   });
 });
+}

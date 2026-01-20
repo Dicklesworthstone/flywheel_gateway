@@ -112,7 +112,20 @@ export class InMemoryRateLimiter {
 
     // Increment counter
     entry.count++;
+    // If key exists, delete first to update insertion order (LRU-like behavior for active keys)
+    if (this.counters.has(key)) {
+      this.counters.delete(key);
+    }
     this.counters.set(key, entry);
+
+    // Enforce max items
+    if (this.counters.size > this.maxItems) {
+      const oldestKey = this.counters.keys().next().value;
+      if (oldestKey) {
+        // console.log(`Evicting ${oldestKey} (size ${this.counters.size} > ${this.maxItems})`);
+        this.counters.delete(oldestKey);
+      }
+    }
 
     const remaining = Math.max(0, config.limit - entry.count);
     const exceeded = entry.count > config.limit;

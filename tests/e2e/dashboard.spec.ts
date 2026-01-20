@@ -60,3 +60,4 @@ test.describe("Dashboard", () => {
     await expect(page.locator(".grid--3")).toBeVisible();
   });
 });
+}

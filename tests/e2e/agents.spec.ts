@@ -85,3 +85,4 @@ test.describe("Agents Page - Responsiveness", () => {
     await expect(page.locator(".page")).toBeVisible();
   });
 });
+}

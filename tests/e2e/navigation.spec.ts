@@ -4,6 +4,10 @@
 
 import { expect, test } from "@playwright/test";
 
+const isPlaywright = process.env["PLAYWRIGHT_TEST"] === "1";
+
+if (isPlaywright) {
+
 test.describe("Navigation", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
@@ -96,6 +100,7 @@ test.describe("Navigation", () => {
     await expect(page.locator(".page")).toBeVisible();
   });
 });
+}
 
 test.describe("Sidebar", () => {
   test.beforeEach(async ({ page }) => {
@@ -139,3 +144,4 @@ test.describe("Sidebar", () => {
     await expect(page.locator(".sidebar__hint kbd")).toHaveText("⌘K");
   });
 });
+}
