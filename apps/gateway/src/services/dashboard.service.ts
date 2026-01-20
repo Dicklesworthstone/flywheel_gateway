@@ -512,9 +512,14 @@ export function addWidget(
     return undefined;
   }
 
+  const resolvedWidgetId =
+    typeof widget.id === "string" && widget.id.trim().length > 0
+      ? widget.id
+      : `widget_${ulid()}`;
+
   const widgetWithId: Widget = {
     ...widget,
-    id: widget.id ?? `widget_${ulid()}`,
+    id: resolvedWidgetId,
   };
 
   const updated: Dashboard = {
