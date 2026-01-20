@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+process.env["PLAYWRIGHT_TEST"] = "1";
+
 export default defineConfig({
   testDir: "./",
   timeout: 30_000,

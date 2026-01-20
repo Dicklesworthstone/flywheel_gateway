@@ -115,6 +115,7 @@ export class InMemoryRateLimiter {
     // Increment counter
     entry.count++;
     // If key exists, delete first to update insertion order (LRU-like behavior for active keys)
+    // Note: Do this BEFORE setting the new entry
     if (this.counters.has(key)) {
       this.counters.delete(key);
     }
@@ -127,14 +128,11 @@ export class InMemoryRateLimiter {
     // Enforce max items
     // Using while loop to be safe, though strict size management should only need one delete
     while (this.counters.size > this.maxItems) {
+      // Get the first key (insertion order)
       const iterator = this.counters.keys();
       const oldestKey = iterator.next().value;
-      if (oldestKey !== undefined) { // Check for undefined explicitly
-        // If we are about to delete the key we just added, something is wrong with logic or maxItems is too small
-        if (oldestKey === key) {
-             // This happens if maxItems < 1, or if we just added the only item and size > maxItems (e.g. maxItems 0)
-             // But maxItems is 5.
-        }
+      
+      if (oldestKey !== undefined) {
         this.counters.delete(oldestKey);
       } else {
         break; 

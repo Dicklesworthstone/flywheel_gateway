@@ -12,6 +12,10 @@
 
 import { expect, test } from "@playwright/test";
 
+const isPlaywright = process.env["PLAYWRIGHT_TEST"] === "1";
+
+if (isPlaywright) {
+
 test.describe("Agent Lifecycle - State Display", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/agents");
