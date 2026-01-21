@@ -5,11 +5,13 @@
  * version checking, and authentication status.
  *
  * Detection Targets:
- * - Agent CLIs: claude, codex, gemini, aider, gh-copilot
- * - Setup Tools: dcg, ubs, cass, cm, br, bv, ru
+ * - Registry-defined agents/tools from ACFS manifest
+ * - Curated fallback list when registry is unavailable
  */
 
+import type { ToolDefinition } from "@flywheel/shared";
 import { getLogger } from "../middleware/correlation";
+import { listAllTools } from "./tool-registry.service";
 
 // ============================================================================
 // Types
@@ -19,7 +21,9 @@ export type AgentType = "claude" | "codex" | "gemini" | "aider" | "gh-copilot";
 
 export type ToolType = "dcg" | "ubs" | "cass" | "cm" | "br" | "bv" | "ru";
 
-export type DetectedType = AgentType | ToolType;
+export type KnownDetectedType = AgentType | ToolType;
+
+export type DetectedType = string;
 
 export interface DetectedCapabilities {
   streaming: boolean;
@@ -77,7 +81,7 @@ interface CLIDefinition {
  * - module.dependencies / tags do not affect detection but inform readiness/UI
  * - authCheckCmd + capabilities remain curated here until ACFS adds explicit fields
  */
-const AGENT_CLIS: CLIDefinition[] = [
+const FALLBACK_AGENT_CLIS: CLIDefinition[] = [
   {
     name: "claude",
     commands: ["claude"],
@@ -143,7 +147,7 @@ const AGENT_CLIS: CLIDefinition[] = [
   },
 ];
 
-const TOOL_CLIS: CLIDefinition[] = [
+const FALLBACK_TOOL_CLIS: CLIDefinition[] = [
   {
     name: "dcg",
     commands: ["dcg"],
@@ -229,6 +233,118 @@ const TOOL_CLIS: CLIDefinition[] = [
     },
   },
 ];
+
+const FALLBACK_DEFINITIONS = new Map<string, CLIDefinition>(
+  [...FALLBACK_AGENT_CLIS, ...FALLBACK_TOOL_CLIS].map((def) => [def.name, def]),
+);
+
+const DEFAULT_AGENT_CAPABILITIES: DetectedCapabilities = {
+  streaming: false,
+  toolUse: false,
+  vision: false,
+  codeExecution: false,
+  fileAccess: false,
+};
+
+const DEFAULT_TOOL_CAPABILITIES: DetectedCapabilities = {
+  streaming: false,
+  toolUse: false,
+  vision: false,
+  codeExecution: false,
+  fileAccess: false,
+};
+
+const VERSION_FLAG_TOKENS = new Set(["--version", "-v", "-V", "version"]);
+
+function deriveCommandSpec(
+  tool: ToolDefinition,
+  fallback?: CLIDefinition,
+): { commands: string[]; versionFlag: string } {
+  if (fallback) {
+    return { commands: fallback.commands, versionFlag: fallback.versionFlag };
+  }
+
+  const verifyCommand = tool.verify?.command;
+  if (verifyCommand && verifyCommand.length > 0) {
+    const last = verifyCommand[verifyCommand.length - 1];
+    if (verifyCommand.length > 1 && VERSION_FLAG_TOKENS.has(last)) {
+      const commands = verifyCommand.slice(0, -1);
+      return {
+        commands: commands.length > 0 ? commands : [tool.name],
+        versionFlag: last,
+      };
+    }
+    if (verifyCommand.length === 1) {
+      return { commands: verifyCommand, versionFlag: "--version" };
+    }
+  }
+
+  return { commands: [tool.name], versionFlag: "--version" };
+}
+
+function deriveCapabilities(
+  tool: ToolDefinition,
+  fallback?: CLIDefinition,
+): DetectedCapabilities {
+  if (fallback) return fallback.capabilities;
+  return tool.category === "agent"
+    ? DEFAULT_AGENT_CAPABILITIES
+    : DEFAULT_TOOL_CAPABILITIES;
+}
+
+function buildCLIDefinition(tool: ToolDefinition): CLIDefinition {
+  const fallback = FALLBACK_DEFINITIONS.get(tool.name);
+  const { commands, versionFlag } = deriveCommandSpec(tool, fallback);
+
+  return {
+    name: tool.name,
+    commands,
+    versionFlag,
+    authCheckCmd: fallback?.authCheckCmd,
+    capabilities: deriveCapabilities(tool, fallback),
+  };
+}
+
+async function getRegistryDefinitions(): Promise<{
+  agents: CLIDefinition[];
+  tools: CLIDefinition[];
+}> {
+  const log = getLogger();
+
+  try {
+    const registryTools = await listAllTools();
+    if (registryTools.length === 0) {
+      return {
+        agents: FALLBACK_AGENT_CLIS,
+        tools: FALLBACK_TOOL_CLIS,
+      };
+    }
+
+    const agents: CLIDefinition[] = [];
+    const tools: CLIDefinition[] = [];
+    const seen = new Set<string>();
+
+    for (const tool of registryTools) {
+      if (!tool.name || seen.has(tool.name)) continue;
+      seen.add(tool.name);
+
+      const def = buildCLIDefinition(tool);
+      if (tool.category === "agent") {
+        agents.push(def);
+      } else {
+        tools.push(def);
+      }
+    }
+
+    return { agents, tools };
+  } catch (error) {
+    log.warn({ error }, "Failed to load ToolRegistry; using fallback detection list");
+    return {
+      agents: FALLBACK_AGENT_CLIS,
+      tools: FALLBACK_TOOL_CLIS,
+    };
+  }
+}
 
 // ============================================================================
 // Detection Helpers
@@ -436,16 +552,16 @@ export function clearDetectionCache(): void {
  * Detect all agent CLIs in parallel
  */
 export async function detectAgentCLIs(): Promise<DetectedCLI[]> {
-  const results = await Promise.all(AGENT_CLIS.map(detectCLI));
-  return results;
+  const { agents } = await getRegistryDefinitions();
+  return Promise.all(agents.map(detectCLI));
 }
 
 /**
  * Detect all setup tools in parallel
  */
 export async function detectToolCLIs(): Promise<DetectedCLI[]> {
-  const results = await Promise.all(TOOL_CLIS.map(detectCLI));
-  return results;
+  const { tools } = await getRegistryDefinitions();
+  return Promise.all(tools.map(detectCLI));
 }
 
 /**
@@ -466,9 +582,11 @@ export async function detectAllCLIs(
   log.info("Starting CLI detection");
 
   // Detect agents and tools in parallel
+  const { agents: agentDefs, tools: toolDefs } =
+    await getRegistryDefinitions();
   const [agents, tools] = await Promise.all([
-    detectAgentCLIs(),
-    detectToolCLIs(),
+    Promise.all(agentDefs.map(detectCLI)),
+    Promise.all(toolDefs.map(detectCLI)),
   ]);
 
   // Collect auth issues
@@ -518,9 +636,8 @@ export async function detectAllCLIs(
 export async function detectCLIByName(
   name: DetectedType,
 ): Promise<DetectedCLI | null> {
-  const def =
-    AGENT_CLIS.find((d) => d.name === name) ||
-    TOOL_CLIS.find((d) => d.name === name);
+  const { agents, tools } = await getRegistryDefinitions();
+  const def = agents.find((d) => d.name === name) || tools.find((d) => d.name === name);
 
   if (!def) {
     return null;
