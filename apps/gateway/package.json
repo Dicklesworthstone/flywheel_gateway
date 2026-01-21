@@ -18,7 +18,8 @@
     "drizzle-orm": "^0.40.1",
     "hono": "^4.11.0",
     "pino": "^10.1.1",
-    "ulid": "^3.0.2"
+    "ulid": "^3.0.2",
+    "yaml": "^2.8.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
