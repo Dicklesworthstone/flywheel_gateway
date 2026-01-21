@@ -6,6 +6,13 @@
  * to the appropriate agent:state and agent:output channels.
  *
  * Part of bead bd-28om: Bridge NTM output/state to WebSocket events.
+ * Part of bead bd-pbt2: Backpressure/throttling for NTM ingest + WS events.
+ *
+ * Throttling behavior:
+ * - Events are batched within a configurable window (default: 100ms)
+ * - Per-agent debouncing coalesces rapid state changes
+ * - Maximum events per batch prevents event storms (default: 50)
+ * - Fallback: if batch limit exceeded, oldest events are dropped with warning
  */
 
 import type { NtmClient, NtmTailOutput } from "@flywheel/flywheel-clients";
@@ -18,6 +25,181 @@ import type {
 } from "./ntm-ingest.service";
 import { getLogger } from "../middleware/correlation";
 import type { AgentOutputPayload, AgentStatePayload } from "./agent-events";
+
+// =============================================================================
+// Throttling Constants
+// =============================================================================
+
+/**
+ * Default batch window in milliseconds.
+ * Events within this window are coalesced before publishing.
+ */
+export const DEFAULT_BATCH_WINDOW_MS = 100;
+
+/**
+ * Default maximum events per batch.
+ * Prevents event storms from overwhelming the WebSocket hub.
+ */
+export const DEFAULT_MAX_EVENTS_PER_BATCH = 50;
+
+/**
+ * Default per-agent debounce interval in milliseconds.
+ * Rapid state changes for the same agent are coalesced.
+ */
+export const DEFAULT_DEBOUNCE_MS = 50;
+
+// =============================================================================
+// Throttled Event Batcher
+// =============================================================================
+
+/**
+ * Event queued for batched publishing.
+ */
+interface QueuedEvent<T> {
+  key: string;
+  event: T;
+  timestamp: number;
+}
+
+/**
+ * Throttled event batcher for preventing WebSocket event storms.
+ *
+ * Features:
+ * - Per-key debouncing: rapid events for the same key keep only the latest
+ * - Batching window: events are collected and flushed periodically
+ * - Max events cap: prevents runaway event accumulation
+ * - Graceful degradation: drops oldest events when limit exceeded
+ *
+ * @template T The event type
+ */
+export class ThrottledEventBatcher<T> {
+  private queue = new Map<string, QueuedEvent<T>>();
+  private flushTimer: ReturnType<typeof setTimeout> | null = null;
+  private droppedCount = 0;
+  private lastFlushTime = Date.now();
+
+  constructor(
+    private readonly onFlush: (events: Array<{ key: string; event: T }>) => void,
+    private readonly config: {
+      batchWindowMs: number;
+      maxEventsPerBatch: number;
+      debounceMs: number;
+    },
+  ) {}
+
+  /**
+   * Queue an event for batched publishing.
+   * If an event with the same key exists and was queued within debounceMs,
+   * the new event replaces it (coalescing).
+   *
+   * @param key - Unique key for debouncing (e.g., agentId)
+   * @param event - The event to queue
+   */
+  enqueue(key: string, event: T): void {
+    const now = Date.now();
+    const existing = this.queue.get(key);
+
+    // Per-key debouncing: replace if within debounce window
+    if (existing && now - existing.timestamp < this.config.debounceMs) {
+      // Update the existing entry with new event
+      existing.event = event;
+      existing.timestamp = now;
+    } else {
+      // Check if we're at capacity
+      if (this.queue.size >= this.config.maxEventsPerBatch) {
+        // Drop the oldest event
+        let oldestKey: string | null = null;
+        let oldestTime = Infinity;
+        for (const [k, v] of this.queue) {
+          if (v.timestamp < oldestTime) {
+            oldestTime = v.timestamp;
+            oldestKey = k;
+          }
+        }
+        if (oldestKey) {
+          this.queue.delete(oldestKey);
+          this.droppedCount++;
+        }
+      }
+
+      // Add the new event
+      this.queue.set(key, { key, event, timestamp: now });
+    }
+
+    // Schedule flush if not already scheduled
+    this.scheduleFlush();
+  }
+
+  /**
+   * Immediately flush all queued events.
+   * Useful for shutdown or when immediate delivery is needed.
+   */
+  flush(): void {
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+
+    if (this.queue.size === 0) return;
+
+    const events = Array.from(this.queue.values()).map((q) => ({
+      key: q.key,
+      event: q.event,
+    }));
+
+    this.queue.clear();
+    this.lastFlushTime = Date.now();
+
+    try {
+      this.onFlush(events);
+    } catch {
+      // Swallow errors to prevent breaking the batcher
+    }
+  }
+
+  /**
+   * Get statistics about the batcher.
+   */
+  getStats(): {
+    queueSize: number;
+    droppedCount: number;
+    lastFlushTime: number;
+  } {
+    return {
+      queueSize: this.queue.size,
+      droppedCount: this.droppedCount,
+      lastFlushTime: this.lastFlushTime,
+    };
+  }
+
+  /**
+   * Reset dropped event counter.
+   */
+  resetDroppedCount(): void {
+    this.droppedCount = 0;
+  }
+
+  /**
+   * Stop the batcher and flush remaining events.
+   */
+  stop(): void {
+    this.flush();
+  }
+
+  private scheduleFlush(): void {
+    if (this.flushTimer) return;
+
+    this.flushTimer = setTimeout(() => {
+      this.flushTimer = null;
+      this.flush();
+    }, this.config.batchWindowMs);
+
+    // Don't prevent process exit
+    if (this.flushTimer.unref) {
+      this.flushTimer.unref();
+    }
+  }
+}
 
 // =============================================================================
 // Types
@@ -33,6 +215,14 @@ export interface NtmWsBridgeConfig {
   tailLines?: number;
   /** Whether to enable output streaming (default: true) */
   enableOutputStreaming?: boolean;
+  /** Batch window for event throttling in milliseconds (default: 100) */
+  batchWindowMs?: number;
+  /** Maximum events per batch before dropping (default: 50) */
+  maxEventsPerBatch?: number;
+  /** Per-agent debounce interval in milliseconds (default: 50) */
+  debounceMs?: number;
+  /** Whether to enable event throttling (default: true) */
+  enableThrottling?: boolean;
 }
 
 /**
@@ -60,11 +250,26 @@ interface PaneOutput {
 // =============================================================================
 
 /**
+ * Internal event type for batching.
+ */
+interface BatchableStateEvent {
+  agentId: string;
+  event: NtmStateChangeEvent;
+  tracked: TrackedNtmAgent;
+  isHealthChange: boolean;
+}
+
+/**
  * NTM WebSocket Bridge Service
  *
  * Subscribes to NTM ingest events and publishes them to WebSocket channels:
  * - State changes → agent:state:{agentId}
  * - Tail output → agent:output:{agentId}
+ *
+ * Throttling:
+ * - Events are batched within a configurable window (default: 100ms)
+ * - Rapid state changes for the same agent are debounced
+ * - Maximum events per batch prevents event storms
  */
 export class NtmWsBridgeService {
   private config: Required<NtmWsBridgeConfig>;
@@ -72,6 +277,7 @@ export class NtmWsBridgeService {
   private tailPollInterval: ReturnType<typeof setInterval> | null = null;
   private outputStates = new Map<string, OutputState>();
   private running = false;
+  private stateBatcher: ThrottledEventBatcher<BatchableStateEvent> | null = null;
 
   constructor(
     private hub: WebSocketHub,
@@ -83,6 +289,10 @@ export class NtmWsBridgeService {
       tailPollIntervalMs: config.tailPollIntervalMs ?? 2000,
       tailLines: config.tailLines ?? 50,
       enableOutputStreaming: config.enableOutputStreaming ?? true,
+      batchWindowMs: config.batchWindowMs ?? DEFAULT_BATCH_WINDOW_MS,
+      maxEventsPerBatch: config.maxEventsPerBatch ?? DEFAULT_MAX_EVENTS_PER_BATCH,
+      debounceMs: config.debounceMs ?? DEFAULT_DEBOUNCE_MS,
+      enableThrottling: config.enableThrottling ?? true,
     };
   }
 
@@ -94,6 +304,18 @@ export class NtmWsBridgeService {
 
     const log = getLogger();
     this.running = true;
+
+    // Initialize the state event batcher if throttling is enabled
+    if (this.config.enableThrottling) {
+      this.stateBatcher = new ThrottledEventBatcher<BatchableStateEvent>(
+        (events) => this.flushBatchedEvents(events),
+        {
+          batchWindowMs: this.config.batchWindowMs,
+          maxEventsPerBatch: this.config.maxEventsPerBatch,
+          debounceMs: this.config.debounceMs,
+        },
+      );
+    }
 
     // Subscribe to NTM ingest state change events
     this.unsubscribeIngest = this.ingestService.onStateChange((event) => {
@@ -110,6 +332,10 @@ export class NtmWsBridgeService {
         tailPollIntervalMs: this.config.tailPollIntervalMs,
         tailLines: this.config.tailLines,
         outputStreamingEnabled: this.config.enableOutputStreaming,
+        throttlingEnabled: this.config.enableThrottling,
+        batchWindowMs: this.config.batchWindowMs,
+        maxEventsPerBatch: this.config.maxEventsPerBatch,
+        debounceMs: this.config.debounceMs,
       },
       "[NTM-WS-BRIDGE] Started NTM WebSocket bridge service",
     );
@@ -132,6 +358,19 @@ export class NtmWsBridgeService {
       this.tailPollInterval = null;
     }
 
+    // Flush any remaining batched events before stopping
+    if (this.stateBatcher) {
+      const stats = this.stateBatcher.getStats();
+      if (stats.droppedCount > 0) {
+        log.warn(
+          { droppedCount: stats.droppedCount },
+          "[NTM-WS-BRIDGE] Events were dropped due to throttling during this session",
+        );
+      }
+      this.stateBatcher.stop();
+      this.stateBatcher = null;
+    }
+
     this.outputStates.clear();
     log.info("[NTM-WS-BRIDGE] Stopped NTM WebSocket bridge service");
   }
@@ -143,11 +382,27 @@ export class NtmWsBridgeService {
     running: boolean;
     trackedOutputStates: number;
     config: NtmWsBridgeConfig;
+    throttling: {
+      enabled: boolean;
+      queueSize: number;
+      droppedCount: number;
+      lastFlushTime: number;
+    };
   } {
+    const batcherStats = this.stateBatcher?.getStats() ?? {
+      queueSize: 0,
+      droppedCount: 0,
+      lastFlushTime: 0,
+    };
+
     return {
       running: this.running,
       trackedOutputStates: this.outputStates.size,
       config: this.config,
+      throttling: {
+        enabled: this.config.enableThrottling,
+        ...batcherStats,
+      },
     };
   }
 
@@ -157,6 +412,7 @@ export class NtmWsBridgeService {
 
   /**
    * Handle state change events from NTM ingest service.
+   * Events are queued for batched publishing if throttling is enabled.
    */
   private handleStateChangeEvent(event: NtmStateChangeEvent): void {
     const log = getLogger();
@@ -175,11 +431,57 @@ export class NtmWsBridgeService {
     }
 
     const agentId = tracked.gatewayAgentId;
+    const isHealthChange = event.type === "ntm.agent.health_changed";
 
-    if (event.type === "ntm.agent.state_changed") {
-      this.publishStateChange(agentId, event, tracked);
-    } else if (event.type === "ntm.agent.health_changed") {
+    // If throttling is enabled, queue the event for batched publishing
+    if (this.stateBatcher) {
+      this.stateBatcher.enqueue(agentId, {
+        agentId,
+        event,
+        tracked,
+        isHealthChange,
+      });
+      return;
+    }
+
+    // Direct publishing when throttling is disabled
+    if (isHealthChange) {
       this.publishHealthChange(agentId, event, tracked);
+    } else {
+      this.publishStateChange(agentId, event, tracked);
+    }
+  }
+
+  /**
+   * Flush batched events to the WebSocket hub.
+   * Called by the ThrottledEventBatcher when the batch window expires.
+   */
+  private flushBatchedEvents(
+    events: Array<{ key: string; event: BatchableStateEvent }>,
+  ): void {
+    const log = getLogger();
+
+    if (events.length === 0) return;
+
+    log.debug(
+      { eventCount: events.length },
+      "[NTM-WS-BRIDGE] Flushing batched events",
+    );
+
+    for (const { event: batchedEvent } of events) {
+      if (batchedEvent.isHealthChange) {
+        this.publishHealthChange(
+          batchedEvent.agentId,
+          batchedEvent.event,
+          batchedEvent.tracked,
+        );
+      } else {
+        this.publishStateChange(
+          batchedEvent.agentId,
+          batchedEvent.event,
+          batchedEvent.tracked,
+        );
+      }
     }
   }
 
