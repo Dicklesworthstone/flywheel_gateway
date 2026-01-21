@@ -10,7 +10,6 @@
 
 import {
   type BackoffConfig,
-  type ConnectionState,
   type ConnectionStatus,
   calculateBackoff,
   createInitialStatus,

@@ -23,7 +23,6 @@ import {
   DashboardsSkeleton,
   DCGSkeleton,
   FleetSkeleton,
-  PageSkeleton,
   PipelinesSkeleton,
   SettingsSkeleton,
   SetupSkeleton,
@@ -238,7 +237,7 @@ declare module "@tanstack/react-router" {
 
 if (import.meta.env["DEV"]) {
   // Log route loading timing in development
-  const originalLazy = lazy;
+  const _originalLazy = lazy;
   (globalThis as unknown as { __lazyImportCount?: number }).__lazyImportCount =
     0;
 

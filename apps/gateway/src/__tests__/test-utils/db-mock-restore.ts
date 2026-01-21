@@ -22,10 +22,10 @@
  * ```
  */
 
-import { mock } from "bun:test";
 import { Database } from "bun:sqlite";
-import { drizzle } from "drizzle-orm/bun-sqlite";
+import { mock } from "bun:test";
 import * as drizzleOrmExports from "drizzle-orm";
+import { drizzle } from "drizzle-orm/bun-sqlite";
 import * as schema from "../../db/schema";
 
 // Create a fresh connection to the real database

@@ -30,7 +30,6 @@ import { StatusPill } from "../components/ui/StatusPill";
 import {
   type DetectedCLI,
   getToolDisplayInfo,
-  TOOL_DISPLAY_INFO,
   useInstallTool,
   useReadiness,
 } from "../hooks/useSetup";

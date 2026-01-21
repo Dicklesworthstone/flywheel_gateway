@@ -349,7 +349,9 @@ export async function loadConfig(
   sources.push({
     path: projectConfigPath,
     loaded: projectResult.loaded,
-    ...(projectResult.error !== undefined ? { error: projectResult.error } : {}),
+    ...(projectResult.error !== undefined
+      ? { error: projectResult.error }
+      : {}),
   });
   if (projectResult.loaded) {
     mergedConfig = deepMerge(mergedConfig, projectResult.config);

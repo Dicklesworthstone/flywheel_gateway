@@ -588,7 +588,7 @@ export function useDashboard(
   ]);
 
   // Set up individual widget refresh timers
-  const widgetConfigStr = JSON.stringify(
+  const _widgetConfigStr = JSON.stringify(
     state.currentDashboard?.widgets.map((w) => ({
       id: w.id,
       interval: w.refreshInterval,
@@ -622,7 +622,7 @@ export function useDashboard(
       });
     };
     // biome-ignore lint/correctness/useExhaustiveDependencies: widgetConfigStr is used as a trigger
-  }, [widgetConfigStr, fetchWidgetData]);
+  }, [fetchWidgetData]);
 
   // Load dashboard on mount if ID provided
   useEffect(() => {

@@ -14,8 +14,7 @@
 
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { readFile, stat, unlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { readFile, unlink, writeFile } from "node:fs/promises";
 import type {
   ChecksumManifest,
   DownloadProgress,
@@ -65,7 +64,7 @@ function isNewerVersion(current: string, latest: string): boolean {
 /**
  * Get platform identifier for current system.
  */
-function getPlatformIdentifier(): string {
+function _getPlatformIdentifier(): string {
   const platform = process.platform;
   const arch = process.arch;
 

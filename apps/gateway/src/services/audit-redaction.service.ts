@@ -155,10 +155,7 @@ export class AuditRedactionService {
     }
 
     if (typeof data === "object") {
-      return this.redactObject(
-        data as Record<string, unknown>,
-        visited,
-      ) as T;
+      return this.redactObject(data as Record<string, unknown>, visited) as T;
     }
 
     return data;

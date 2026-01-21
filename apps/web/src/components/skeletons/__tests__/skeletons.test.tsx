@@ -2,8 +2,8 @@
  * Tests for page-level skeleton components.
  */
 
-import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { describe, expect, it } from "bun:test";
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { render } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import {
@@ -109,8 +109,9 @@ describe("Skeleton Components", () => {
 describe("Skeleton Accessibility", () => {
   it("all skeletons should be hidden from assistive technology except for loading announcement", () => {
     skeletons.forEach(({ Component, label }) => {
-      const { container, getByLabelText, getByRole, unmount } =
-        render(<Component />);
+      const { container, getByLabelText, getByRole, unmount } = render(
+        <Component />,
+      );
 
       // The container should be aria-busy and have an accessible name
       const region = getByRole("region");

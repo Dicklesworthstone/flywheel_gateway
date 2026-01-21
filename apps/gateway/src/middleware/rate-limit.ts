@@ -119,7 +119,7 @@ export class InMemoryRateLimiter {
     if (this.counters.has(key)) {
       this.counters.delete(key);
     }
-    
+
     // Create NEW entry copy to avoid reference sharing issues if that's the cause
     // Though it shouldn't matter for Map keys
     const newEntry = { ...entry };
@@ -131,11 +131,11 @@ export class InMemoryRateLimiter {
       // Get the first key (insertion order)
       const iterator = this.counters.keys();
       const oldestKey = iterator.next().value;
-      
+
       if (oldestKey !== undefined) {
         this.counters.delete(oldestKey);
       } else {
-        break; 
+        break;
       }
     }
 

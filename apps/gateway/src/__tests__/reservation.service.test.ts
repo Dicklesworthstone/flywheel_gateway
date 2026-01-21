@@ -681,7 +681,10 @@ describe("Reservation Service", () => {
         mode: "shared",
       });
 
-      const page1 = await listReservations({ projectId: "project-1", limit: 2 });
+      const page1 = await listReservations({
+        projectId: "project-1",
+        limit: 2,
+      });
       expect(page1.reservations).toHaveLength(2);
       expect(page1.hasMore).toBe(true);
       expect(page1.nextCursor).toBeDefined();

@@ -201,7 +201,9 @@ function mapToApprovalRequest(
     workspaceId: row.workspaceId,
     operation: {
       type: row.operationType as SafetyCategory,
-      ...(row.operationCommand != null ? { command: row.operationCommand } : {}),
+      ...(row.operationCommand != null
+        ? { command: row.operationCommand }
+        : {}),
       ...(row.operationPath != null ? { path: row.operationPath } : {}),
       description: row.operationDescription,
       details: operationDetails,
@@ -209,14 +211,18 @@ function mapToApprovalRequest(
     rule,
     context: {
       recentActions,
-      ...(row.taskDescription != null ? { taskDescription: row.taskDescription } : {}),
+      ...(row.taskDescription != null
+        ? { taskDescription: row.taskDescription }
+        : {}),
     },
     status: row.status as ApprovalStatus,
     requestedAt: row.requestedAt,
     expiresAt: row.expiresAt,
     ...(row.decidedBy != null ? { decidedBy: row.decidedBy } : {}),
     ...(row.decidedAt != null ? { decidedAt: row.decidedAt } : {}),
-    ...(row.decisionReason != null ? { decisionReason: row.decisionReason } : {}),
+    ...(row.decisionReason != null
+      ? { decisionReason: row.decisionReason }
+      : {}),
     ...(row.correlationId != null ? { correlationId: row.correlationId } : {}),
     priority: (row.priority as ApprovalRequest["priority"]) ?? "normal",
   };
@@ -282,19 +288,27 @@ export async function createApprovalRequest(
       type: request.operation.type,
       description: request.operation.description,
       details: request.operation.details ?? {},
-      ...(request.operation.command != null ? { command: request.operation.command } : {}),
-      ...(request.operation.path != null ? { path: request.operation.path } : {}),
+      ...(request.operation.command != null
+        ? { command: request.operation.command }
+        : {}),
+      ...(request.operation.path != null
+        ? { path: request.operation.path }
+        : {}),
     },
     rule: request.rule,
     context: {
       recentActions: request.context?.recentActions ?? [],
-      ...(request.context?.taskDescription != null ? { taskDescription: request.context.taskDescription } : {}),
+      ...(request.context?.taskDescription != null
+        ? { taskDescription: request.context.taskDescription }
+        : {}),
     },
     status: "pending",
     requestedAt: now,
     expiresAt,
     priority: request.priority ?? "normal",
-    ...(request.correlationId != null ? { correlationId: request.correlationId } : {}),
+    ...(request.correlationId != null
+      ? { correlationId: request.correlationId }
+      : {}),
   };
 }
 

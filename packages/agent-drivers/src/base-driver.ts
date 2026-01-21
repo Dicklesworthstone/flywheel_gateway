@@ -449,7 +449,8 @@ export abstract class BaseDriver implements AgentDriver {
       promptTokens:
         (state.tokenUsage.promptTokens ?? 0) + (usage.promptTokens ?? 0),
       completionTokens:
-        (state.tokenUsage.completionTokens ?? 0) + (usage.completionTokens ?? 0),
+        (state.tokenUsage.completionTokens ?? 0) +
+        (usage.completionTokens ?? 0),
       totalTokens: 0, // Will be calculated below
     };
     // Calculate total (use provided total if given, otherwise sum prompt + completion)
@@ -487,7 +488,10 @@ export abstract class BaseDriver implements AgentDriver {
   /**
    * Update context health based on current token usage.
    */
-  private updateContextHealth(agentId: string, state: InternalAgentState): void {
+  private updateContextHealth(
+    agentId: string,
+    state: InternalAgentState,
+  ): void {
     // Calculate context health
     const maxTokens = state.config.maxTokens ?? 100000;
     const usagePercent = (state.tokenUsage.totalTokens / maxTokens) * 100;
