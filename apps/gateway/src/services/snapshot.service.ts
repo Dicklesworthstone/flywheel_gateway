@@ -912,14 +912,20 @@ export class SnapshotService {
       ? toolsResult.data
       : createEmptyToolHealthSnapshot();
 
+    const agentMail = agentMailResult.success && agentMailResult.data
+      ? agentMailResult.data
+      : createEmptyAgentMailSnapshot(false);
+
     // Build summary
     const summary = this.buildHealthSummary(
       ntm,
       beads,
       tools,
+      agentMail,
       ntmResult,
       beadsResult,
       toolsResult,
+      agentMailResult,
     );
 
     const generationDurationMs = Math.round(performance.now() - startTime);
@@ -935,17 +941,7 @@ export class SnapshotService {
       meta,
       summary,
       ntm,
-      agentMail: {
-        capturedAt: new Date().toISOString(),
-        available: false,
-        agents: [],
-        reservations: [],
-        messages: {
-          total: 0,
-          unread: 0,
-          byPriority: { low: 0, normal: 0, high: 0, urgent: 0 },
-        },
-      },
+      agentMail,
       beads,
       tools,
     };
@@ -973,16 +969,22 @@ export class SnapshotService {
     ntm: NtmSnapshot,
     beads: BeadsSnapshot,
     tools: ToolHealthSnapshot,
+    agentMail: AgentMailSnapshot,
     ntmResult: CollectionResult<NtmSnapshot>,
     beadsResult: CollectionResult<BeadsSnapshot>,
     toolsResult: CollectionResult<ToolHealthSnapshot>,
+    agentMailResult: CollectionResult<AgentMailSnapshot>,
   ): SystemHealthSummary {
     // Determine individual component health
     const ntmHealth: SystemHealthStatus = ntmResult.success
       ? deriveHealthStatus(ntm.available)
       : "unknown";
 
-    const agentMailHealth: SystemHealthStatus = "unknown"; // Not implemented yet
+    const agentMailHealth: SystemHealthStatus = agentMailResult.success
+      ? agentMail.available
+        ? agentMail.status ?? "healthy"
+        : "unhealthy"
+      : "unknown";
 
     const beadsHealth: SystemHealthStatus = beadsResult.success
       ? beads.brAvailable || beads.bvAvailable
@@ -1018,6 +1020,12 @@ export class SnapshotService {
       issues.push(`NTM collection failed: ${ntmResult.error}`);
     } else if (!ntm.available) {
       issues.push("NTM is not available");
+    }
+
+    if (!agentMailResult.success) {
+      issues.push(`Agent Mail collection failed: ${agentMailResult.error}`);
+    } else if (!agentMail.available) {
+      issues.push("Agent Mail is not available");
     }
 
     if (!beadsResult.success) {
