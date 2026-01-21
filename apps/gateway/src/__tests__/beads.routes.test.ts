@@ -28,6 +28,12 @@ const samplePlan = {
   data_hash: "hash",
   plan: [],
 };
+const sampleGraph = {
+  format: "json" as const,
+  nodes: 0,
+  edges: 0,
+  data_hash: "hash",
+};
 
 describe("beads routes", () => {
   test("GET /beads/triage returns BV output", async () => {
@@ -38,6 +44,7 @@ describe("beads routes", () => {
         getTriage: async () => sampleTriage,
         getInsights: async () => sampleInsights,
         getPlan: async () => samplePlan,
+        getGraph: async () => sampleGraph,
         syncBeads: async () => ({ exitCode: 0, stdout: "ok", stderr: "" }),
       }),
     );
@@ -69,6 +76,7 @@ describe("beads routes", () => {
         }),
         getInsights: async () => sampleInsights,
         getPlan: async () => samplePlan,
+        getGraph: async () => sampleGraph,
         syncBeads: async () => ({ exitCode: 0, stdout: "ok", stderr: "" }),
       }),
     );
@@ -96,6 +104,7 @@ describe("beads routes", () => {
         }),
         getInsights: async () => sampleInsights,
         getPlan: async () => samplePlan,
+        getGraph: async () => sampleGraph,
         syncBeads: async () => ({ exitCode: 0, stdout: "ok", stderr: "" }),
       }),
     );
@@ -126,6 +135,7 @@ describe("beads routes", () => {
         }),
         getInsights: async () => sampleInsights,
         getPlan: async () => samplePlan,
+        getGraph: async () => sampleGraph,
         syncBeads: async () => ({ exitCode: 0, stdout: "ok", stderr: "" }),
       }),
     );
@@ -153,6 +163,7 @@ describe("beads routes", () => {
         }),
         getInsights: async () => sampleInsights,
         getPlan: async () => samplePlan,
+        getGraph: async () => sampleGraph,
         syncBeads: async () => ({ exitCode: 0, stdout: "ok", stderr: "" }),
       }),
     );
@@ -183,6 +194,7 @@ describe("beads routes", () => {
         }),
         getInsights: async () => sampleInsights,
         getPlan: async () => samplePlan,
+        getGraph: async () => sampleGraph,
         syncBeads: async () => ({ exitCode: 0, stdout: "ok", stderr: "" }),
       }),
     );
@@ -208,6 +220,7 @@ describe("beads routes", () => {
         },
         getInsights: async () => sampleInsights,
         getPlan: async () => samplePlan,
+        getGraph: async () => sampleGraph,
         syncBeads: async () => ({ exitCode: 0, stdout: "ok", stderr: "" }),
       }),
     );
@@ -226,6 +239,7 @@ describe("beads routes", () => {
         getTriage: async () => sampleTriage,
         getInsights: async () => sampleInsights,
         getPlan: async () => samplePlan,
+        getGraph: async () => sampleGraph,
         syncBeads: async () => ({ exitCode: 0, stdout: "ok", stderr: "" }),
       }),
     );
@@ -247,6 +261,7 @@ describe("beads routes", () => {
         getTriage: async () => sampleTriage,
         getInsights: async () => sampleInsights,
         getPlan: async () => samplePlan,
+        getGraph: async () => sampleGraph,
         syncBeads: async () => ({ exitCode: 0, stdout: "ok", stderr: "" }),
       }),
     );
@@ -268,6 +283,7 @@ describe("beads routes", () => {
         getTriage: async () => sampleTriage,
         getInsights: async () => sampleInsights,
         getPlan: async () => samplePlan,
+        getGraph: async () => sampleGraph,
         syncBeads: async () => ({ exitCode: 0, stdout: "synced", stderr: "" }),
       }),
     );
@@ -289,6 +305,7 @@ describe("beads routes", () => {
         getTriage: async () => sampleTriage,
         getInsights: async () => sampleInsights,
         getPlan: async () => samplePlan,
+        getGraph: async () => sampleGraph,
         syncBeads: async () => ({
           exitCode: 2,
           stdout: "",

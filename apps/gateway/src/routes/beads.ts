@@ -177,6 +177,40 @@ function createBeadsRoutes(service?: BeadsService) {
   });
 
   /**
+   * GET /beads/graph - BV graph visualization
+   * Query params:
+   *   format: json | dot | mermaid (default: json)
+   *   rootId: optional root issue ID for subgraph
+   *   depth: optional max depth (0 = unlimited)
+   */
+  router.get("/graph", async (c) => {
+    try {
+      const serviceInstance = c.get("beadsService");
+      const format = c.req.query("format") as "json" | "dot" | "mermaid" | undefined;
+      const rootId = c.req.query("rootId");
+      const depthStr = c.req.query("depth");
+      const depth = depthStr ? Number.parseInt(depthStr, 10) : undefined;
+
+      // Build options object conditionally to satisfy exactOptionalPropertyTypes
+      const options: Parameters<typeof serviceInstance.getGraph>[0] = {
+        format: format ?? "json",
+      };
+      if (rootId !== undefined) {
+        options.rootId = rootId;
+      }
+      if (depth !== undefined && !Number.isNaN(depth)) {
+        options.depth = depth;
+      }
+
+      const graph = await serviceInstance.getGraph(options);
+
+      return sendResource(c, "graph", graph);
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  /**
    * POST /beads/sync - Run br sync --flush-only
    */
   router.post("/sync", async (c) => {

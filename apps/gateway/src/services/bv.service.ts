@@ -3,6 +3,8 @@ import type {
   BvClient,
   BvCommandResult,
   BvCommandRunner,
+  BvGraphOptions,
+  BvGraphResult,
   BvInsightsResult,
   BvPlanResult,
   BvTriageResult,
@@ -209,6 +211,26 @@ export async function getBvPlan(): Promise<BvPlanResult> {
       latencyMs,
     },
     "BV plan fetched",
+  );
+  return data;
+}
+
+export async function getBvGraph(
+  options?: BvGraphOptions,
+): Promise<BvGraphResult> {
+  const log = getLogger();
+  const start = performance.now();
+  const data = await getBvClient().getGraph(options);
+  const latencyMs = Math.round(performance.now() - start);
+  log.info(
+    {
+      bvCommand: "bv --robot-graph",
+      format: options?.format ?? "json",
+      rootId: options?.rootId,
+      dataHash: data.data_hash,
+      latencyMs,
+    },
+    "BV graph fetched",
   );
   return data;
 }
