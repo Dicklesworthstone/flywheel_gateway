@@ -170,6 +170,32 @@ export class WebSocketHub {
   }
 
   /**
+   * Close and remove a connection from the hub.
+   * This properly closes the underlying WebSocket before removing it.
+   *
+   * @param connectionId - The connection ID to close
+   * @param code - WebSocket close code (default: 1000 Normal Closure)
+   * @param reason - Close reason message
+   */
+  closeConnection(connectionId: string, code = 1000, reason?: string): void {
+    const ws = this.connections.get(connectionId);
+    if (!ws) return;
+
+    // Close the WebSocket connection
+    try {
+      ws.close(code, reason);
+    } catch (err) {
+      logger.warn(
+        { connectionId, error: err },
+        "Error closing WebSocket connection",
+      );
+    }
+
+    // Remove from hub tracking
+    this.removeConnection(connectionId);
+  }
+
+  /**
    * Subscribe a connection to a channel.
    *
    * @param connectionId - The connection ID

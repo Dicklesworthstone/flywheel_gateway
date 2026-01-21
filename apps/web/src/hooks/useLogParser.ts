@@ -89,9 +89,20 @@ export function useLogParser(
   const [parsing, setParsing] = useState(false);
   const [workerAvailable, setWorkerAvailable] = useState(false);
 
-  // Pending promises for worker responses
-  const pendingRef = useRef<Map<string, (value: unknown) => void>>(new Map());
+  // Pending promises for worker responses (store both resolve and reject)
+  const pendingRef = useRef<
+    Map<string, { resolve: (value: unknown) => void; reject: (err: Error) => void }>
+  >(new Map());
   const requestIdRef = useRef(0);
+
+  // Helper to reject all pending promises
+  const rejectAllPending = useCallback((reason: string) => {
+    const error = new Error(reason);
+    for (const [key, { reject }] of pendingRef.current) {
+      reject(error);
+    }
+    pendingRef.current.clear();
+  }, []);
 
   // Initialize worker
   useEffect(() => {
@@ -107,21 +118,21 @@ export function useLogParser(
 
         // Handle responses
         if (type === "parsed") {
-          const resolver = pendingRef.current.get(`parse-${requestId}`);
-          if (resolver) {
-            resolver(data.logs);
+          const pending = pendingRef.current.get(`parse-${requestId}`);
+          if (pending) {
+            pending.resolve(data.logs);
             pendingRef.current.delete(`parse-${requestId}`);
           }
         } else if (type === "searchResults") {
-          const resolver = pendingRef.current.get(`search-${requestId}`);
-          if (resolver) {
-            resolver(data.results);
+          const pending = pendingRef.current.get(`search-${requestId}`);
+          if (pending) {
+            pending.resolve(data.results);
             pendingRef.current.delete(`search-${requestId}`);
           }
         } else if (type === "filterResults") {
-          const resolver = pendingRef.current.get(`filter-${requestId}`);
-          if (resolver) {
-            resolver(data.filtered);
+          const pending = pendingRef.current.get(`filter-${requestId}`);
+          if (pending) {
+            pending.resolve(data.filtered);
             pendingRef.current.delete(`filter-${requestId}`);
           }
         }
@@ -129,6 +140,7 @@ export function useLogParser(
 
       workerRef.current.onerror = (error) => {
         console.error("[useLogParser] Worker error:", error);
+        rejectAllPending("Worker error occurred");
         setWorkerAvailable(false);
       };
 
@@ -142,10 +154,11 @@ export function useLogParser(
     }
 
     return () => {
+      rejectAllPending("Component unmounted");
       workerRef.current?.terminate();
       workerRef.current = null;
     };
-  }, []);
+  }, [rejectAllPending]);
 
   // Parse raw logs
   const parse = useCallback(
@@ -160,11 +173,11 @@ export function useLogParser(
         if (workerRef.current && workerAvailable) {
           const requestId = ++requestIdRef.current;
 
-          parsed = await new Promise<ParsedLogLine[]>((resolve) => {
-            pendingRef.current.set(
-              `parse-${requestId}`,
-              resolve as (v: unknown) => void,
-            );
+          parsed = await new Promise<ParsedLogLine[]>((resolve, reject) => {
+            pendingRef.current.set(`parse-${requestId}`, {
+              resolve: resolve as (v: unknown) => void,
+              reject,
+            });
             workerRef.current?.postMessage({
               type: "parse",
               logs: rawLogs,
@@ -203,11 +216,11 @@ export function useLogParser(
       if (workerRef.current && workerAvailable) {
         const requestId = ++requestIdRef.current;
 
-        return new Promise<ParsedLogLine[]>((resolve) => {
-          pendingRef.current.set(
-            `search-${requestId}`,
-            resolve as (v: unknown) => void,
-          );
+        return new Promise<ParsedLogLine[]>((resolve, reject) => {
+          pendingRef.current.set(`search-${requestId}`, {
+            resolve: resolve as (v: unknown) => void,
+            reject,
+          });
           workerRef.current?.postMessage({
             type: "search",
             query,
@@ -229,11 +242,11 @@ export function useLogParser(
       if (workerRef.current && workerAvailable) {
         const requestId = ++requestIdRef.current;
 
-        return new Promise<ParsedLogLine[]>((resolve) => {
-          pendingRef.current.set(
-            `filter-${requestId}`,
-            resolve as (v: unknown) => void,
-          );
+        return new Promise<ParsedLogLine[]>((resolve, reject) => {
+          pendingRef.current.set(`filter-${requestId}`, {
+            resolve: resolve as (v: unknown) => void,
+            reject,
+          });
           workerRef.current?.postMessage({
             type: "filter",
             filter: filterOptions,

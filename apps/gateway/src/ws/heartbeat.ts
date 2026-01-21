@@ -101,9 +101,10 @@ export class HeartbeatManager {
     for (const connectionId of dead) {
       logger.warn(
         { connectionId },
-        "Removing dead connection (heartbeat timeout)",
+        "Closing dead connection (heartbeat timeout)",
       );
-      this.hub.removeConnection(connectionId);
+      // Use closeConnection to properly close the WebSocket before removing
+      this.hub.closeConnection(connectionId, 1001, "Heartbeat timeout");
     }
 
     if (dead.length > 0) {

@@ -51,9 +51,9 @@ export type LogLevel =
   | "unknown";
 
 export type WorkerMessage =
-  | { type: "parse"; logs: RawLogLine[] }
-  | { type: "search"; query: string; logs: ParsedLogLine[] }
-  | { type: "filter"; filter: LogFilter; logs: ParsedLogLine[] };
+  | { type: "parse"; logs: RawLogLine[]; requestId: number }
+  | { type: "search"; query: string; logs: ParsedLogLine[]; requestId: number }
+  | { type: "filter"; filter: LogFilter; logs: ParsedLogLine[]; requestId: number };
 
 export interface LogFilter {
   levels?: LogLevel[];
@@ -272,25 +272,25 @@ function filterLogs(filter: LogFilter, logs: ParsedLogLine[]): ParsedLogLine[] {
 
 // Worker message handler
 self.onmessage = (event: MessageEvent<WorkerMessage>) => {
-  const { type } = event.data;
+  const { type, requestId } = event.data;
 
   switch (type) {
     case "parse": {
       const { logs } = event.data;
       const parsed = logs.map(parseLogLine);
-      self.postMessage({ type: "parsed", logs: parsed });
+      self.postMessage({ type: "parsed", logs: parsed, requestId });
       break;
     }
     case "search": {
       const { query, logs } = event.data;
       const results = searchLogs(query, logs);
-      self.postMessage({ type: "searchResults", results });
+      self.postMessage({ type: "searchResults", results, requestId });
       break;
     }
     case "filter": {
       const { filter, logs } = event.data;
       const filtered = filterLogs(filter, logs);
-      self.postMessage({ type: "filterResults", filtered });
+      self.postMessage({ type: "filterResults", filtered, requestId });
       break;
     }
   }

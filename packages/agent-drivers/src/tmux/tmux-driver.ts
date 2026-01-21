@@ -60,9 +60,11 @@ interface TmuxAgentSession {
   config: AgentConfig;
   sessionName: string;
   windowName: string;
-  captureInterval?: ReturnType<typeof setInterval>;
+  captureInterval: ReturnType<typeof setInterval> | undefined;
   lastCapturedOutput: string;
   outputBuffer: string[];
+  /** Flag to prevent race condition during termination */
+  terminating: boolean;
 }
 
 // ============================================================================
@@ -171,8 +173,10 @@ export class TmuxDriver extends BaseDriver {
       config,
       sessionName,
       windowName,
+      captureInterval: undefined,
       lastCapturedOutput: "",
       outputBuffer: [],
+      terminating: false,
     };
 
     this.sessions.set(config.id, session);
@@ -468,6 +472,20 @@ export class TmuxDriver extends BaseDriver {
         this.detectActivityState(agentId, output);
       }
     } catch (_err) {
+      // Prevent race condition: if we're already terminating, skip
+      if (session.terminating) {
+        return;
+      }
+
+      // Clear the interval FIRST to prevent additional ticks during async check
+      if (session.captureInterval) {
+        clearInterval(session.captureInterval);
+        session.captureInterval = undefined;
+      }
+
+      // Mark as terminating before async operations
+      session.terminating = true;
+
       // Session might have ended
       if (!(await this.isSessionRunning(agentId))) {
         // Emit terminated event first (while agents Map still has subscribers)
@@ -478,11 +496,6 @@ export class TmuxDriver extends BaseDriver {
           reason: "normal",
           exitCode: 0,
         });
-
-        // Clean up capture interval
-        if (session.captureInterval) {
-          clearInterval(session.captureInterval);
-        }
 
         // Clean up BaseDriver agent state
         const state = this.agents.get(agentId);
@@ -496,6 +509,14 @@ export class TmuxDriver extends BaseDriver {
 
         // Clean up driver session
         this.sessions.delete(agentId);
+      } else {
+        // Session is still running - this was a transient error
+        // Restart the capture interval
+        session.terminating = false;
+        session.captureInterval = setInterval(
+          () => this.captureOutput(agentId, session),
+          this.captureIntervalMs,
+        );
       }
     }
   }
