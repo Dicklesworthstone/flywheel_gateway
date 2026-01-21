@@ -1521,3 +1521,333 @@ export const RateCardListResponseSchema = createApiListResponseSchema(
   "RateCardListResponse",
   RateCardSchema,
 );
+
+// ============================================================================
+// Setup Schemas
+// ============================================================================
+
+export const ToolCategorySchema = z
+  .enum(["agent", "tool"])
+  .openapi({
+    description: "Tool category: agent CLI or developer tool",
+  });
+
+registry.register("ToolCategory", ToolCategorySchema);
+
+export const ManifestMetadataSchema = z
+  .object({
+    schemaVersion: z.string().openapi({
+      description: "ACFS manifest schema version",
+      example: "1.0.0",
+    }),
+    source: z.string().optional().openapi({
+      description: "Source path of the manifest",
+    }),
+    generatedAt: z.string().optional().openapi({
+      description: "When the manifest was generated",
+    }),
+  })
+  .openapi("ManifestMetadata");
+
+registry.register("ManifestMetadata", ManifestMetadataSchema);
+
+export const ToolInfoSchema = z
+  .object({
+    name: z.string().openapi({
+      description: "Tool identifier",
+      example: "dcg",
+    }),
+    displayName: z.string().openapi({
+      description: "Human-readable tool name",
+      example: "Destructive Command Guard",
+    }),
+    description: z.string().openapi({
+      description: "Tool description",
+    }),
+    category: ToolCategorySchema,
+    tags: z.array(z.string()).optional().openapi({
+      description: "Tool tags from manifest (e.g., critical, recommended)",
+      example: ["critical", "safety"],
+    }),
+    optional: z.boolean().optional().openapi({
+      description: "Whether tool is optional for setup",
+    }),
+    enabledByDefault: z.boolean().optional().openapi({
+      description: "Whether tool is enabled by default",
+    }),
+    phase: z.number().int().optional().openapi({
+      description: "Setup phase number from manifest",
+      example: 1,
+    }),
+    manifestVersion: z.string().optional().openapi({
+      description: "Manifest schema version this tool came from",
+    }),
+    installCommand: z.string().optional().openapi({
+      description: "Command to install the tool",
+    }),
+    installUrl: z.string().optional().openapi({
+      description: "URL for manual installation instructions",
+    }),
+    docsUrl: z.string().optional().openapi({
+      description: "Documentation URL",
+    }),
+  })
+  .openapi("ToolInfo");
+
+registry.register("ToolInfo", ToolInfoSchema);
+
+export const DetectedCLISchema = z
+  .object({
+    name: z.string().openapi({
+      description: "Tool identifier",
+    }),
+    available: z.boolean().openapi({
+      description: "Whether the tool is installed and accessible",
+    }),
+    version: z.string().optional().openapi({
+      description: "Detected version string",
+    }),
+    path: z.string().optional().openapi({
+      description: "Path to the executable",
+    }),
+    authenticated: z.boolean().optional().openapi({
+      description: "Whether the tool is authenticated (for agent CLIs)",
+    }),
+    authError: z.string().optional().openapi({
+      description: "Authentication error message if auth failed",
+    }),
+    detectedAt: TimestampSchema,
+    durationMs: z.number().int().openapi({
+      description: "Detection duration in milliseconds",
+    }),
+  })
+  .openapi("DetectedCLI");
+
+registry.register("DetectedCLI", DetectedCLISchema);
+
+export const ReadinessSummarySchema = z
+  .object({
+    agentsAvailable: z.number().int().openapi({
+      description: "Number of available agent CLIs",
+    }),
+    agentsTotal: z.number().int().openapi({
+      description: "Total number of known agent CLIs",
+    }),
+    toolsAvailable: z.number().int().openapi({
+      description: "Number of available developer tools",
+    }),
+    toolsTotal: z.number().int().openapi({
+      description: "Total number of known developer tools",
+    }),
+    authIssues: z.array(z.string()).openapi({
+      description: "Tools with authentication issues",
+    }),
+    missingRequired: z.array(z.string()).openapi({
+      description: "Required tools that are not installed",
+    }),
+  })
+  .openapi("ReadinessSummary");
+
+registry.register("ReadinessSummary", ReadinessSummarySchema);
+
+export const ReadinessStatusSchema = z
+  .object({
+    ready: z.boolean().openapi({
+      description: "Overall readiness status",
+    }),
+    agents: z.array(DetectedCLISchema).openapi({
+      description: "Detection results for agent CLIs",
+    }),
+    tools: z.array(DetectedCLISchema).openapi({
+      description: "Detection results for developer tools",
+    }),
+    manifest: ManifestMetadataSchema.optional().openapi({
+      description: "Tool registry manifest metadata",
+    }),
+    summary: ReadinessSummarySchema,
+    recommendations: z.array(z.string()).openapi({
+      description: "Recommendations to improve readiness",
+    }),
+    detectedAt: TimestampSchema,
+    durationMs: z.number().int().openapi({
+      description: "Total detection duration in milliseconds",
+    }),
+  })
+  .openapi("ReadinessStatus");
+
+registry.register("ReadinessStatus", ReadinessStatusSchema);
+
+export const ToolInfoWithStatusSchema = ToolInfoSchema.extend({
+  status: DetectedCLISchema.openapi({
+    description: "Current detection status for this tool",
+  }),
+}).openapi("ToolInfoWithStatus");
+
+registry.register("ToolInfoWithStatus", ToolInfoWithStatusSchema);
+
+export const SetupInstallModeSchema = z
+  .enum(["interactive", "easy"])
+  .openapi({
+    description: "Installation mode: interactive prompts or automated",
+  });
+
+registry.register("SetupInstallMode", SetupInstallModeSchema);
+
+export const SetupInstallRequestSchema = z
+  .object({
+    tool: z.string().openapi({
+      description: "Tool name to install",
+      example: "dcg",
+    }),
+    mode: SetupInstallModeSchema.default("easy"),
+    verify: z.boolean().default(true).openapi({
+      description: "Whether to verify installation after completion",
+    }),
+  })
+  .openapi("SetupInstallRequest");
+
+registry.register("SetupInstallRequest", SetupInstallRequestSchema);
+
+export const SetupBatchInstallRequestSchema = z
+  .object({
+    tools: z.array(z.string()).min(1).openapi({
+      description: "Tool names to install",
+    }),
+    mode: SetupInstallModeSchema.default("easy"),
+    verify: z.boolean().default(true).openapi({
+      description: "Whether to verify each installation",
+    }),
+    stopOnError: z.boolean().default(false).openapi({
+      description: "Whether to stop on first error",
+    }),
+  })
+  .openapi("SetupBatchInstallRequest");
+
+registry.register("SetupBatchInstallRequest", SetupBatchInstallRequestSchema);
+
+export const SetupInstallResultSchema = z
+  .object({
+    tool: z.string().openapi({
+      description: "Tool that was installed",
+    }),
+    success: z.boolean().openapi({
+      description: "Whether installation succeeded",
+    }),
+    version: z.string().optional().openapi({
+      description: "Installed version",
+    }),
+    path: z.string().optional().openapi({
+      description: "Path to installed executable",
+    }),
+    error: z.string().optional().openapi({
+      description: "Error message if installation failed",
+    }),
+    durationMs: z.number().int().openapi({
+      description: "Installation duration in milliseconds",
+    }),
+  })
+  .openapi("SetupInstallResult");
+
+registry.register("SetupInstallResult", SetupInstallResultSchema);
+
+export const SetupBatchInstallResultSchema = z
+  .object({
+    success: z.boolean().openapi({
+      description: "Whether all installations succeeded",
+    }),
+    results: z.array(SetupInstallResultSchema).openapi({
+      description: "Individual installation results",
+    }),
+    summary: z.object({
+      total: z.number().int(),
+      succeeded: z.number().int(),
+      failed: z.number().int(),
+    }),
+  })
+  .openapi("SetupBatchInstallResult");
+
+registry.register("SetupBatchInstallResult", SetupBatchInstallResultSchema);
+
+export const VerificationResultSchema = z
+  .object({
+    tool: z.string(),
+    available: z.boolean(),
+    version: z.string().optional(),
+    path: z.string().optional(),
+    authenticated: z.boolean().optional(),
+    authError: z.string().optional(),
+    detectedAt: TimestampSchema,
+    durationMs: z.number().int(),
+  })
+  .openapi("VerificationResult");
+
+registry.register("VerificationResult", VerificationResultSchema);
+
+export const RegistryRefreshResultSchema = z
+  .object({
+    manifest: ManifestMetadataSchema,
+    toolCount: z.number().int().openapi({
+      description: "Number of tools in refreshed registry",
+    }),
+    refreshedAt: TimestampSchema,
+  })
+  .openapi("RegistryRefreshResult");
+
+registry.register("RegistryRefreshResult", RegistryRefreshResultSchema);
+
+export const CacheClearedResultSchema = z
+  .object({
+    message: z.string(),
+    timestamp: TimestampSchema,
+  })
+  .openapi("CacheClearedResult");
+
+registry.register("CacheClearedResult", CacheClearedResultSchema);
+
+// Setup response wrappers
+export const ReadinessStatusResponseSchema = createApiResponseSchema(
+  "ReadinessStatusResponse",
+  ReadinessStatusSchema,
+  "readiness_status",
+);
+
+export const ToolInfoListResponseSchema = createApiListResponseSchema(
+  "ToolInfoListResponse",
+  ToolInfoSchema,
+);
+
+export const ToolInfoWithStatusResponseSchema = createApiResponseSchema(
+  "ToolInfoWithStatusResponse",
+  ToolInfoWithStatusSchema,
+  "tool_info",
+);
+
+export const SetupInstallResultResponseSchema = createApiResponseSchema(
+  "SetupInstallResultResponse",
+  SetupInstallResultSchema,
+  "install_result",
+);
+
+export const SetupBatchInstallResultResponseSchema = createApiResponseSchema(
+  "SetupBatchInstallResultResponse",
+  SetupBatchInstallResultSchema,
+  "batch_install_result",
+);
+
+export const VerificationResultResponseSchema = createApiResponseSchema(
+  "VerificationResultResponse",
+  VerificationResultSchema,
+  "verification_result",
+);
+
+export const RegistryRefreshResultResponseSchema = createApiResponseSchema(
+  "RegistryRefreshResultResponse",
+  RegistryRefreshResultSchema,
+  "registry_refresh",
+);
+
+export const CacheClearedResultResponseSchema = createApiResponseSchema(
+  "CacheClearedResultResponse",
+  CacheClearedResultSchema,
+  "cache_cleared",
+);

@@ -19,6 +19,7 @@ import {
   type AlertRule,
   type AlertRuleUpdate,
   DEFAULT_COOLDOWN_MS,
+  type NtmHealthContext,
   SEVERITY_ORDER,
 } from "../models/alert";
 import { logger } from "./logger";
@@ -46,6 +47,10 @@ const listeners: AlertListener[] = [];
 
 type IsWorkingContext = NonNullable<AlertContext["ntm"]>["isWorking"];
 
+/** Track previous agent count for termination detection */
+let previousTrackedAgentCount = 0;
+let previousTrackedAgentIds = new Set<string>();
+
 function mapIsWorkingContext(snapshot: {
   output: NtmIsWorkingOutput;
   checkedAt: Date;
@@ -63,6 +68,7 @@ function mapIsWorkingContext(snapshot: {
     };
   }
 
+  // Build summary from output or compute from agents
   const summary = snapshot.output.summary
     ? {
         totalAgents: snapshot.output.summary.total_agents,
@@ -72,12 +78,62 @@ function mapIsWorkingContext(snapshot: {
         contextLowCount: snapshot.output.summary.context_low_count,
         errorCount: snapshot.output.summary.error_count,
       }
-    : undefined;
+    : {
+        totalAgents: Object.keys(agents).length,
+        workingCount: Object.values(agents).filter((a) => a.isWorking).length,
+        idleCount: Object.values(agents).filter((a) => a.isIdle).length,
+        rateLimitedCount: Object.values(agents).filter((a) => a.isRateLimited)
+          .length,
+        contextLowCount: Object.values(agents).filter((a) => a.isContextLow)
+          .length,
+        errorCount: Object.values(agents).filter(
+          (a) => a.recommendation === "INVESTIGATE",
+        ).length,
+      };
 
   return {
     checkedAt: snapshot.checkedAt,
     agents,
     summary,
+  };
+}
+
+/**
+ * Build NTM health context from tracked agents.
+ */
+function buildHealthContext(): NtmHealthContext | undefined {
+  const ingestService = getNtmIngestService();
+  const trackedAgents = ingestService.getTrackedAgents();
+
+  if (trackedAgents.size === 0) return undefined;
+
+  const agents: NtmHealthContext["agents"] = {};
+  let healthyCount = 0;
+  let degradedCount = 0;
+  let unhealthyCount = 0;
+
+  for (const [pane, agent] of trackedAgents.entries()) {
+    agents[pane] = {
+      pane: agent.pane,
+      sessionName: agent.sessionName,
+      agentType: agent.agentType,
+      health: agent.lastHealth,
+      lastSeenAt: agent.lastSeenAt,
+    };
+
+    if (agent.lastHealth === "healthy") healthyCount++;
+    else if (agent.lastHealth === "degraded") degradedCount++;
+    else if (agent.lastHealth === "unhealthy") unhealthyCount++;
+  }
+
+  return {
+    agents,
+    summary: {
+      totalAgents: trackedAgents.size,
+      healthyCount,
+      degradedCount,
+      unhealthyCount,
+    },
   };
 }
 
@@ -147,7 +203,40 @@ export function getAlertRule(ruleId: string): AlertRule | undefined {
  */
 function buildAlertContext(correlationId: string): AlertContext {
   const snapshot = getMetricsSnapshot();
-  const ntmSnapshot = getNtmIngestService().getIsWorkingSnapshot();
+  const ingestService = getNtmIngestService();
+  const ntmSnapshot = ingestService.getIsWorkingSnapshot();
+  const healthContext = buildHealthContext();
+
+  // Track agent terminations
+  const trackedAgents = ingestService.getTrackedAgents();
+  const currentAgentIds = new Set(trackedAgents.keys());
+  const currentAgentCount = trackedAgents.size;
+
+  // Find removed agents (present before, not present now)
+  const removedAgents: string[] = [];
+  for (const agentId of previousTrackedAgentIds) {
+    if (!currentAgentIds.has(agentId)) {
+      removedAgents.push(agentId);
+    }
+  }
+
+  // Build NTM context
+  const ntmContext: AlertContext["ntm"] = {};
+  if (ntmSnapshot) {
+    ntmContext.isWorking = mapIsWorkingContext(ntmSnapshot);
+  }
+  if (healthContext) {
+    ntmContext.health = healthContext;
+  }
+  ntmContext.previousAgentCount = previousTrackedAgentCount;
+  ntmContext.currentAgentCount = currentAgentCount;
+  if (removedAgents.length > 0) {
+    ntmContext.removedAgents = removedAgents;
+  }
+
+  // Update tracking for next evaluation
+  previousTrackedAgentCount = currentAgentCount;
+  previousTrackedAgentIds = currentAgentIds;
 
   return {
     metrics: {
@@ -169,13 +258,7 @@ function buildAlertContext(correlationId: string): AlertContext {
     },
     correlationId,
     timestamp: new Date(),
-    ...(ntmSnapshot
-      ? {
-          ntm: {
-            isWorking: mapIsWorkingContext(ntmSnapshot),
-          },
-        }
-      : {}),
+    ...(Object.keys(ntmContext).length > 0 ? { ntm: ntmContext } : {}),
   };
 }
 
@@ -667,6 +750,204 @@ export function initializeDefaultAlertRules(): void {
     title: "High memory usage",
     message: (ctx) => `Memory usage is ${ctx.metrics.system.memoryUsageMb}MB`,
     source: "system_monitor",
+  });
+
+  // ==========================================================================
+  // NTM Health Alerting Rules (bd-1ngj)
+  // ==========================================================================
+
+  // NTM health degraded - agents report degraded or unhealthy status
+  registerAlertRule({
+    id: "ntm_health_degraded",
+    name: "NTM Agent Health Degraded",
+    enabled: true,
+    description: "Fires when NTM agents report degraded or unhealthy health",
+    type: "ntm_health_degraded",
+    severity: "warning",
+    cooldown: 5 * 60 * 1000, // 5 minutes
+    condition: (ctx) => {
+      const health = ctx.ntm?.health;
+      if (!health) return false;
+      return health.summary.degradedCount > 0 || health.summary.unhealthyCount > 0;
+    },
+    title: (ctx) => {
+      const health = ctx.ntm?.health;
+      if (!health) return "NTM agent health issue";
+      const unhealthy = health.summary.unhealthyCount;
+      const degraded = health.summary.degradedCount;
+      if (unhealthy > 0) {
+        return unhealthy === 1
+          ? "NTM agent unhealthy"
+          : `${unhealthy} NTM agents unhealthy`;
+      }
+      return degraded === 1
+        ? "NTM agent health degraded"
+        : `${degraded} NTM agents health degraded`;
+    },
+    message: (ctx) => {
+      const health = ctx.ntm?.health;
+      if (!health) return "One or more NTM agents have health issues";
+      const issues: string[] = [];
+      for (const [pane, agent] of Object.entries(health.agents)) {
+        if (agent.health !== "healthy") {
+          issues.push(`${pane} (${agent.agentType}): ${agent.health}`);
+        }
+      }
+      return issues.length > 0
+        ? `Affected agents: ${issues.join(", ")}`
+        : "NTM agents have health issues";
+    },
+    metadata: (ctx) => {
+      const health = ctx.ntm?.health;
+      if (!health) return undefined;
+      return {
+        summary: health.summary,
+        affectedAgents: Object.entries(health.agents)
+          .filter(([, a]) => a.health !== "healthy")
+          .map(([pane, a]) => ({
+            pane,
+            sessionName: a.sessionName,
+            agentType: a.agentType,
+            health: a.health,
+            lastSeenAt: a.lastSeenAt.toISOString(),
+          })),
+      };
+    },
+    source: "ntm_health_monitor",
+    actions: [
+      { id: "view_agents", label: "View Agents", type: "link" },
+      { id: "restart_agent", label: "Restart Agent", type: "custom" },
+    ],
+  });
+
+  // NTM rate limited - agents are rate limited
+  registerAlertRule({
+    id: "ntm_rate_limited",
+    name: "NTM Agent Rate Limited",
+    enabled: true,
+    description: "Fires when NTM agents are rate limited",
+    type: "ntm_rate_limited",
+    severity: "warning",
+    cooldown: 15 * 60 * 1000, // 15 minutes (rate limits take time to clear)
+    condition: (ctx) => {
+      const summary = ctx.ntm?.isWorking?.summary;
+      if (!summary) return false;
+      return summary.rateLimitedCount > 0;
+    },
+    title: (ctx) => {
+      const count = ctx.ntm?.isWorking?.summary?.rateLimitedCount ?? 0;
+      return count === 1
+        ? "NTM agent rate limited"
+        : `${count} NTM agents rate limited`;
+    },
+    message: (ctx) => {
+      const agents = ctx.ntm?.isWorking?.agents;
+      if (!agents) return "One or more agents are rate limited";
+      const limited = Object.entries(agents)
+        .filter(([, a]) => a.isRateLimited)
+        .map(([id]) => id);
+      return limited.length > 0
+        ? `Rate limited agents: ${limited.join(", ")}`
+        : "Agents are experiencing rate limiting";
+    },
+    metadata: (ctx) => ({
+      summary: ctx.ntm?.isWorking?.summary,
+      rateLimitedAgents: Object.entries(ctx.ntm?.isWorking?.agents ?? {})
+        .filter(([, a]) => a.isRateLimited)
+        .map(([id, a]) => ({
+          agentId: id,
+          confidence: a.confidence,
+          recommendation: a.recommendation,
+        })),
+    }),
+    source: "ntm_rate_limit_monitor",
+    actions: [
+      { id: "view_accounts", label: "View Accounts", type: "link" },
+      { id: "rotate_account", label: "Rotate Account", type: "custom" },
+    ],
+  });
+
+  // NTM context low - agents have low context budget
+  registerAlertRule({
+    id: "ntm_context_low",
+    name: "NTM Agent Context Low",
+    enabled: true,
+    description: "Fires when NTM agents have low context budget remaining",
+    type: "ntm_context_low",
+    severity: "info",
+    cooldown: 10 * 60 * 1000, // 10 minutes
+    condition: (ctx) => {
+      const summary = ctx.ntm?.isWorking?.summary;
+      if (!summary) return false;
+      return summary.contextLowCount > 0;
+    },
+    title: (ctx) => {
+      const count = ctx.ntm?.isWorking?.summary?.contextLowCount ?? 0;
+      return count === 1
+        ? "NTM agent context low"
+        : `${count} NTM agents context low`;
+    },
+    message: (ctx) => {
+      const agents = ctx.ntm?.isWorking?.agents;
+      if (!agents) return "One or more agents have low context budget";
+      const lowContext = Object.entries(agents)
+        .filter(([, a]) => a.isContextLow)
+        .map(([id]) => id);
+      return lowContext.length > 0
+        ? `Low context agents: ${lowContext.join(", ")}`
+        : "Agents have low context budget remaining";
+    },
+    metadata: (ctx) => ({
+      summary: ctx.ntm?.isWorking?.summary,
+      contextLowAgents: Object.entries(ctx.ntm?.isWorking?.agents ?? {})
+        .filter(([, a]) => a.isContextLow)
+        .map(([id, a]) => ({
+          agentId: id,
+          confidence: a.confidence,
+          recommendation: a.recommendation,
+          recommendationReason: a.recommendationReason,
+        })),
+    }),
+    source: "ntm_context_monitor",
+    actions: [
+      { id: "create_checkpoint", label: "Create Checkpoint", type: "custom" },
+      { id: "handoff", label: "Handoff Session", type: "custom" },
+    ],
+  });
+
+  // Agent terminated - agents removed from NTM tracking
+  registerAlertRule({
+    id: "agent_terminated",
+    name: "Agent Terminated",
+    enabled: true,
+    description: "Fires when NTM agents are terminated or disappear",
+    type: "agent_terminated",
+    severity: "warning",
+    cooldown: 2 * 60 * 1000, // 2 minutes (terminations should be reported quickly)
+    condition: (ctx) => {
+      const removed = ctx.ntm?.removedAgents;
+      return removed !== undefined && removed.length > 0;
+    },
+    title: (ctx) => {
+      const count = ctx.ntm?.removedAgents?.length ?? 0;
+      return count === 1 ? "Agent terminated" : `${count} agents terminated`;
+    },
+    message: (ctx) => {
+      const removed = ctx.ntm?.removedAgents;
+      if (!removed || removed.length === 0) return "An agent was terminated";
+      return `Terminated agents: ${removed.join(", ")}`;
+    },
+    metadata: (ctx) => ({
+      removedAgents: ctx.ntm?.removedAgents,
+      previousAgentCount: ctx.ntm?.previousAgentCount,
+      currentAgentCount: ctx.ntm?.currentAgentCount,
+      timestamp: ctx.timestamp.toISOString(),
+    }),
+    source: "ntm_termination_monitor",
+    actions: [
+      { id: "view_history", label: "View History", type: "link" },
+      { id: "spawn_new", label: "Spawn New Agent", type: "custom" },
+    ],
   });
 
   logger.info(

@@ -1240,12 +1240,6 @@ NEVER EVER DO THAT AGAIN. The answer is literally ALWAYS the same: those are cha
 
 ---
 
-## Note on Built-in TODO Functionality
-
-Also, if I ask you to explicitly use your built-in TODO functionality, don't complain about this and say you need to use beads. You can use built-in TODOs if I tell you specifically to do so. Always comply with such orders.
-
----
-
 ## Common Tasks
 
 ### Adding a New API Endpoint
@@ -1303,3 +1297,9 @@ bun test:e2e
 # Run contract tests
 bun test:contract
 ```
+
+---
+
+## Note on Built-in TODO Functionality
+
+Also, if I ask you to explicitly use your built-in TODO functionality, don't complain about this and say you need to use beads. You can use built-in TODOs if I tell you specifically to do so. Always comply with such orders.

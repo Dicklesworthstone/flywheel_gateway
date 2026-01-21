@@ -15,6 +15,10 @@ export type AlertSeverity = "info" | "warning" | "error" | "critical";
 export type AlertType =
   | "agent_error"
   | "agent_stalled"
+  | "agent_terminated"
+  | "ntm_health_degraded"
+  | "ntm_rate_limited"
+  | "ntm_context_low"
   | "quota_warning"
   | "quota_exceeded"
   | "daemon_failed"
@@ -89,6 +93,13 @@ export interface AlertContext {
   /** Optional NTM signals */
   ntm?: {
     isWorking?: NtmIsWorkingContext;
+    health?: NtmHealthContext;
+    /** Previously tracked agent count (for termination detection) */
+    previousAgentCount?: number;
+    /** Currently tracked agent count */
+    currentAgentCount?: number;
+    /** Agents that were removed since last check */
+    removedAgents?: string[];
   };
 }
 
@@ -109,13 +120,37 @@ export interface NtmIsWorkingContext {
       recommendationReason: string;
     }
   >;
-  summary?: {
+  summary: {
     totalAgents: number;
     workingCount: number;
     idleCount: number;
     rateLimitedCount: number;
     contextLowCount: number;
     errorCount: number;
+  };
+}
+
+/**
+ * NTM agent health context for alert rules.
+ */
+export interface NtmHealthContext {
+  /** Agents with their health status */
+  agents: Record<
+    string,
+    {
+      pane: string;
+      sessionName: string;
+      agentType: string;
+      health: "healthy" | "degraded" | "unhealthy";
+      lastSeenAt: Date;
+    }
+  >;
+  /** Summary of health statuses */
+  summary: {
+    totalAgents: number;
+    healthyCount: number;
+    degradedCount: number;
+    unhealthyCount: number;
   };
 }
 

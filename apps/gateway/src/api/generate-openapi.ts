@@ -16,6 +16,7 @@ import {
   BudgetListResponseSchema,
   BudgetResponseSchema,
   BudgetStatusResponseSchema,
+  CacheClearedResultResponseSchema,
   CheckpointListResponseSchema,
   CheckpointResponseSchema,
   ConflictListResponseSchema,
@@ -52,16 +53,25 @@ import {
   ProviderIdSchema,
   RateCardListResponseSchema,
   RateCardSchema,
+  ReadinessStatusResponseSchema,
   RecommendationCategorySchema,
   RecommendationListResponseSchema,
   RecommendationStatusSchema,
+  RegistryRefreshResultResponseSchema,
   ReservationResponseSchema,
   RestoreCheckpointRequestSchema,
   registry,
   SendMessageRequestSchema,
+  SetupBatchInstallRequestSchema,
+  SetupBatchInstallResultResponseSchema,
+  SetupInstallRequestSchema,
+  SetupInstallResultResponseSchema,
   SpawnAgentRequestSchema,
+  ToolInfoListResponseSchema,
+  ToolInfoWithStatusResponseSchema,
   TopSpendingAgentSchema,
   UpdateDashboardRequestSchema,
+  VerificationResultResponseSchema,
   WidgetDataResponseSchema,
   WidgetSchema,
 } from "./schemas";
@@ -1971,6 +1981,254 @@ registry.registerPath({
 });
 
 // ============================================================================
+// Setup Routes
+// ============================================================================
+
+registry.registerPath({
+  method: "get",
+  path: "/setup/readiness",
+  summary: "Get setup readiness status",
+  description:
+    "Returns comprehensive readiness status including detected agents, tools, manifest metadata, and recommendations. Results are cached for 60s by default.",
+  tags: ["Setup"],
+  request: {
+    query: z.object({
+      bypass_cache: z.coerce.boolean().optional().openapi({
+        description: "Set to true to force fresh detection",
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Readiness status with manifest metadata and recommendations",
+      content: {
+        "application/json": {
+          schema: ReadinessStatusResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/setup/tools",
+  summary: "List all known tools",
+  description:
+    "Returns information about all known tools from the ACFS manifest, including manifest-driven fields like tags, optional, enabledByDefault, and phase.",
+  tags: ["Setup"],
+  responses: {
+    200: {
+      description: "List of tool information",
+      content: {
+        "application/json": {
+          schema: ToolInfoListResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/setup/tools/{name}",
+  summary: "Get tool information",
+  description:
+    "Returns detailed information about a specific tool including its current detection status.",
+  tags: ["Setup"],
+  request: {
+    params: z.object({
+      name: z.string().openapi({
+        description: "Tool name",
+        example: "dcg",
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Tool information with detection status",
+      content: {
+        "application/json": {
+          schema: ToolInfoWithStatusResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Tool not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/setup/install",
+  summary: "Install a tool",
+  description:
+    "Installs the specified tool with progress events sent via WebSocket. Installation is idempotent - if tool is already installed, returns success.",
+  tags: ["Setup"],
+  request: {
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: SetupInstallRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Installation result",
+      content: {
+        "application/json": {
+          schema: SetupInstallResultResponseSchema,
+        },
+      },
+    },
+    400: {
+      description: "No automated installation available for this tool",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+    500: {
+      description: "Installation failed",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/setup/install/batch",
+  summary: "Install multiple tools",
+  description:
+    "Installs multiple tools sequentially with progress events. Can optionally stop on first error.",
+  tags: ["Setup"],
+  request: {
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: SetupBatchInstallRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Batch installation results",
+      content: {
+        "application/json": {
+          schema: SetupBatchInstallResultResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/setup/verify/{name}",
+  summary: "Verify tool installation",
+  description:
+    "Forces a fresh detection of the specified tool to verify its installation status.",
+  tags: ["Setup"],
+  request: {
+    params: z.object({
+      name: z.string().openapi({
+        description: "Tool name to verify",
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Verification result",
+      content: {
+        "application/json": {
+          schema: VerificationResultResponseSchema,
+        },
+      },
+    },
+    404: {
+      description: "Tool not found",
+      content: {
+        "application/json": {
+          schema: ApiErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/setup/cache",
+  summary: "Clear detection cache",
+  description:
+    "Clears the tool detection cache, forcing fresh detection on next readiness check.",
+  tags: ["Setup"],
+  responses: {
+    200: {
+      description: "Cache cleared",
+      content: {
+        "application/json": {
+          schema: CacheClearedResultResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/setup/registry/cache",
+  summary: "Clear registry cache",
+  description: "Clears the tool registry manifest cache.",
+  tags: ["Setup"],
+  responses: {
+    200: {
+      description: "Registry cache cleared",
+      content: {
+        "application/json": {
+          schema: CacheClearedResultResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/setup/registry/refresh",
+  summary: "Refresh tool registry",
+  description:
+    "Forces a reload of the ACFS tool registry manifest. Returns manifest metadata and tool count.",
+  tags: ["Setup"],
+  responses: {
+    200: {
+      description: "Registry refreshed with manifest metadata",
+      content: {
+        "application/json": {
+          schema: RegistryRefreshResultResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// ============================================================================
 // OpenAPI Document Generator
 // ============================================================================
 
@@ -2056,6 +2314,11 @@ See the WebSocket documentation for event types and subscription.
       {
         name: "System",
         description: "System health and status endpoints",
+      },
+      {
+        name: "Setup",
+        description:
+          "Setup wizard endpoints for tool detection, installation, and registry management. Uses ACFS manifest for tool metadata.",
       },
       {
         name: "Agents",
