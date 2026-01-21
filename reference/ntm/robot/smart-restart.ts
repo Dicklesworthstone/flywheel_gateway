@@ -298,17 +298,20 @@ export function calculateRestartSummary(
     agentsByAction[action.action].push(agentId);
   }
 
-  return {
+  const summary: RestartSummary = {
     restarted: agentsByAction.RESTARTED.length,
     skipped: agentsByAction.SKIPPED.length,
     waiting: agentsByAction.WAITING.length,
     failed: agentsByAction.FAILED.length,
-    would_restart:
-      agentsByAction.WOULD_RESTART.length > 0
-        ? agentsByAction.WOULD_RESTART.length
-        : undefined,
     agents_by_action: agentsByAction,
   };
+
+  // Only include would_restart if non-zero (for exactOptionalPropertyTypes)
+  if (agentsByAction.WOULD_RESTART.length > 0) {
+    summary.would_restart = agentsByAction.WOULD_RESTART.length;
+  }
+
+  return summary;
 }
 
 // =============================================================================
@@ -345,7 +348,12 @@ export const EXIT_SEQUENCES: Record<
  * Get exit sequence for agent type.
  */
 export function getExitSequence(
-  agentType: string
+  agentType: string,
 ): { keys: string[]; description: string } {
-  return EXIT_SEQUENCES[agentType] ?? EXIT_SEQUENCES.default;
+  const sequence = EXIT_SEQUENCES[agentType] ?? EXIT_SEQUENCES["default"];
+  if (!sequence) {
+    // Fallback if no default found
+    return { keys: ["Ctrl+C"], description: "Interrupt" };
+  }
+  return sequence;
 }

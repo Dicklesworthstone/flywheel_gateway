@@ -295,15 +295,29 @@ export function detectWorkState(
   const is_working = workScore > idleScore && !is_rate_limited;
   const is_idle = idleScore > workScore || (workScore === 0 && idleScore > 0);
 
-  return {
+  const result: {
+    is_working: boolean;
+    is_idle: boolean;
+    is_rate_limited: boolean;
+    is_context_low: boolean;
+    context_remaining?: number;
+    confidence: number;
+    indicators: WorkIndicators;
+  } = {
     is_working,
     is_idle,
     is_rate_limited,
     is_context_low,
-    context_remaining: contextRemaining,
     confidence,
     indicators,
   };
+
+  // Only include context_remaining if defined (for exactOptionalPropertyTypes)
+  if (contextRemaining !== undefined) {
+    result.context_remaining = contextRemaining;
+  }
+
+  return result;
 }
 
 /**

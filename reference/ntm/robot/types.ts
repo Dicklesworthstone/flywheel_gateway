@@ -209,14 +209,20 @@ export function createErrorResponse(
   version: string,
   error: string,
   code: ErrorCode,
-  hint?: string
+  hint?: string,
 ): RobotResponse {
-  return {
+  const response: RobotResponse = {
     success: false,
     timestamp: new Date().toISOString(),
     version,
     error,
     error_code: code,
-    hint,
   };
+
+  // Only include hint if provided (for exactOptionalPropertyTypes)
+  if (hint !== undefined) {
+    response.hint = hint;
+  }
+
+  return response;
 }

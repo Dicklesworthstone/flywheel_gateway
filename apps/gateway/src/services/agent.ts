@@ -38,6 +38,13 @@ import {
   getOutput as getOutputFromBuffer,
   pushOutput,
 } from "./output.service";
+import {
+  clearAgentHealth,
+  getAgentHealth,
+  getFleetHealthSummary,
+  isSafeToRestart,
+  pushOutputSample,
+} from "./agent-health.service";
 
 // In-memory agent registry
 const agents = new Map<string, AgentRecord>();
@@ -94,6 +101,9 @@ async function handleAgentEvents(
           streamType,
           event.output.metadata,
         );
+
+        // Feed output to health monitoring for work detection
+        pushOutputSample(agentId, event.output.content);
       }
 
       // 2. Handle State Changes
@@ -124,6 +134,7 @@ async function handleAgentEvents(
           markAgentTerminated(agentId);
           removeAutoCheckpointService(agentId);
           cleanupOutputBuffer(agentId);
+          clearAgentHealth(agentId);
           agents.delete(agentId);
         } catch (err) {
           log.error({ err, agentId }, "Error handling agent termination event");
@@ -559,6 +570,9 @@ export async function terminateAgent(
     // Clean up output buffer
     cleanupOutputBuffer(agentId);
 
+    // Clean up health monitoring data
+    clearAgentHealth(agentId);
+
     // Update DB status - use terminated even on error since we've cleaned up
     try {
       await db
@@ -779,4 +793,51 @@ export class AgentError extends Error {
     super(message);
     this.name = "AgentError";
   }
+}
+
+// =============================================================================
+// Health Monitoring
+// =============================================================================
+
+/**
+ * Get health status for a specific agent.
+ * Combines local state assessment with provider usage tracking.
+ */
+export function getAgentHealthStatus(agentId: string) {
+  const record = agents.get(agentId);
+  if (!record) {
+    throw new AgentError("AGENT_NOT_FOUND", `Agent ${agentId} not found`);
+  }
+
+  return getAgentHealth(agentId, record.agent.driverType);
+}
+
+/**
+ * Check if it's safe to restart an agent.
+ * Returns false if the agent is actively working.
+ */
+export function checkSafeToRestart(agentId: string) {
+  const record = agents.get(agentId);
+  if (!record) {
+    throw new AgentError("AGENT_NOT_FOUND", `Agent ${agentId} not found`);
+  }
+
+  return isSafeToRestart(agentId, record.agent.driverType);
+}
+
+/**
+ * Get fleet-wide health summary.
+ */
+export function getFleetHealth() {
+  const agentIds = Array.from(agents.keys());
+
+  // First, refresh health for all agents
+  for (const agentId of agentIds) {
+    const record = agents.get(agentId);
+    if (record) {
+      getAgentHealth(agentId, record.agent.driverType);
+    }
+  }
+
+  return getFleetHealthSummary(agentIds);
 }
