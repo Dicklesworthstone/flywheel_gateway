@@ -9,6 +9,7 @@ import {
   DEFAULT_PAGINATION,
   decodeCursor,
 } from "@flywheel/shared/api/pagination";
+import type { NtmIsWorkingOutput } from "@flywheel/flywheel-clients";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
   type Alert,
@@ -22,6 +23,7 @@ import {
 } from "../models/alert";
 import { logger } from "./logger";
 import { getMetricsSnapshot } from "./metrics";
+import { getNtmIngestService } from "./ntm-ingest.service";
 
 /** Active alerts */
 const activeAlerts = new Map<string, Alert>();
@@ -41,6 +43,43 @@ const alertRules = new Map<string, AlertRule>();
 /** Alert event listeners */
 type AlertListener = (alert: Alert) => void;
 const listeners: AlertListener[] = [];
+
+type IsWorkingContext = NonNullable<AlertContext["ntm"]>["isWorking"];
+
+function mapIsWorkingContext(snapshot: {
+  output: NtmIsWorkingOutput;
+  checkedAt: Date;
+}): IsWorkingContext {
+  const agents: NonNullable<IsWorkingContext>["agents"] = {};
+  for (const [agentId, status] of Object.entries(snapshot.output.agents)) {
+    agents[agentId] = {
+      isWorking: status.is_working,
+      isIdle: status.is_idle,
+      isRateLimited: status.is_rate_limited,
+      isContextLow: status.is_context_low,
+      confidence: status.confidence,
+      recommendation: status.recommendation,
+      recommendationReason: status.recommendation_reason,
+    };
+  }
+
+  const summary = snapshot.output.summary
+    ? {
+        totalAgents: snapshot.output.summary.total_agents,
+        workingCount: snapshot.output.summary.working_count,
+        idleCount: snapshot.output.summary.idle_count,
+        rateLimitedCount: snapshot.output.summary.rate_limited_count,
+        contextLowCount: snapshot.output.summary.context_low_count,
+        errorCount: snapshot.output.summary.error_count,
+      }
+    : undefined;
+
+  return {
+    checkedAt: snapshot.checkedAt,
+    agents,
+    summary,
+  };
+}
 
 /**
  * Generate a cryptographically secure unique alert ID.
@@ -108,6 +147,7 @@ export function getAlertRule(ruleId: string): AlertRule | undefined {
  */
 function buildAlertContext(correlationId: string): AlertContext {
   const snapshot = getMetricsSnapshot();
+  const ntmSnapshot = getNtmIngestService().getIsWorkingSnapshot();
 
   return {
     metrics: {
@@ -129,6 +169,13 @@ function buildAlertContext(correlationId: string): AlertContext {
     },
     correlationId,
     timestamp: new Date(),
+    ...(ntmSnapshot
+      ? {
+          ntm: {
+            isWorking: mapIsWorkingContext(ntmSnapshot),
+          },
+        }
+      : {}),
   };
 }
 
@@ -157,6 +204,10 @@ export function fireAlert(rule: AlertRule, context: AlertContext): Alert {
     correlationId,
   };
   if (rule.actions !== undefined) alert.actions = rule.actions;
+  if (rule.metadata) {
+    const metadata = rule.metadata(context);
+    if (metadata !== undefined) alert.metadata = metadata;
+  }
 
   // Store in active alerts
   activeAlerts.set(alert.id, alert);
@@ -480,6 +531,25 @@ export function clearAlertRules(): void {
  * Initialize default alert rules.
  */
 export function initializeDefaultAlertRules(): void {
+  const getStalledAgents = (ctx: AlertContext) => {
+    const isWorking = ctx.ntm?.isWorking;
+    if (!isWorking) return [];
+    return Object.entries(isWorking.agents)
+      .filter(([, status]) =>
+        ["RESTART", "INVESTIGATE"].includes(status.recommendation),
+      )
+      .map(([agentId, status]) => ({
+        agentId,
+        recommendation: status.recommendation,
+        reason: status.recommendationReason,
+        confidence: status.confidence,
+        isWorking: status.isWorking,
+        isIdle: status.isIdle,
+        isRateLimited: status.isRateLimited,
+        isContextLow: status.isContextLow,
+      }));
+  };
+
   // Agent stalled - no activity for 5+ minutes
   registerAlertRule({
     id: "agent_stalled",
@@ -489,12 +559,30 @@ export function initializeDefaultAlertRules(): void {
     type: "agent_stalled",
     severity: "warning",
     cooldown: 10 * 60 * 1000, // 10 minutes
-    condition: (_ctx) => {
-      // Would need to track per-agent last activity
-      return false;
+    condition: (ctx) => getStalledAgents(ctx).length > 0,
+    title: (ctx) => {
+      const stalled = getStalledAgents(ctx);
+      return stalled.length === 1
+        ? "Agent may be stalled"
+        : "Multiple agents may be stalled";
     },
-    title: "Agent may be stalled",
-    message: (_ctx) => `Agent has shown no output for over 5 minutes`,
+    message: (ctx) => {
+      const stalled = getStalledAgents(ctx);
+      if (stalled.length === 0) {
+        return "Agent has shown no output for over 5 minutes";
+      }
+      const ids = stalled.map((agent) => agent.agentId).join(", ");
+      return `Potentially stalled agents: ${ids}`;
+    },
+    metadata: (ctx) => {
+      const stalled = getStalledAgents(ctx);
+      if (stalled.length === 0) return undefined;
+      return {
+        checkedAt: ctx.ntm?.isWorking?.checkedAt.toISOString(),
+        agents: stalled,
+        source: "ntm_is_working",
+      };
+    },
     source: "agent_monitor",
     actions: [
       { id: "interrupt", label: "Interrupt Agent", type: "custom" },

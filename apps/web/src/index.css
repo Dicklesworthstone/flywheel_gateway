@@ -1288,6 +1288,34 @@
     max-height: calc(100vh - 200px);
   }
 
+  .modal__field {
+    @apply grid gap-2;
+    margin-bottom: 16px;
+  }
+
+  .modal__field label {
+    font-size: 0.85rem;
+    color: var(--color-ink-muted);
+  }
+
+  .modal__field input,
+  .modal__field select,
+  .modal__field textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-ink);
+  }
+
+  .modal__field input:focus,
+  .modal__field select:focus,
+  .modal__field textarea:focus {
+    @apply outline-none;
+    border-color: var(--color-accent);
+  }
+
   .modal__footer {
     @apply flex justify-end gap-3;
     padding: 16px 24px;

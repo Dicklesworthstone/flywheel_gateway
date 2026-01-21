@@ -408,6 +408,54 @@ const ProjectHealthOutputSchema = z
   })
   .passthrough();
 
+const IsWorkingQuerySchema = z.object({
+  agents_requested: z.array(z.string()),
+  lines_captured: z.number(),
+});
+
+const WorkIndicatorsSchema = z
+  .object({
+    work: z.array(z.string()),
+    limit: z.array(z.string()),
+  })
+  .passthrough();
+
+const AgentWorkStatusSchema = z
+  .object({
+    agent_type: z.string(),
+    is_working: z.boolean(),
+    is_idle: z.boolean(),
+    is_rate_limited: z.boolean(),
+    is_context_low: z.boolean(),
+    context_remaining: z.number().optional(),
+    confidence: z.number(),
+    indicators: WorkIndicatorsSchema,
+    recommendation: z.string(),
+    recommendation_reason: z.string(),
+    raw_sample: z.string().optional(),
+  })
+  .passthrough();
+
+const IsWorkingSummarySchema = z.object({
+  total_agents: z.number(),
+  working_count: z.number(),
+  idle_count: z.number(),
+  rate_limited_count: z.number(),
+  context_low_count: z.number(),
+  error_count: z.number(),
+  by_recommendation: z.record(z.array(z.string())),
+});
+
+const IsWorkingOutputSchema = RobotResponseSchema.and(
+  z
+    .object({
+      query: IsWorkingQuerySchema,
+      agents: z.record(AgentWorkStatusSchema),
+      summary: IsWorkingSummarySchema,
+    })
+    .passthrough(),
+);
+
 // ============================================================================
 // Exported Types
 // ============================================================================
@@ -421,6 +469,7 @@ export type NtmSnapshotOutput = z.infer<typeof SnapshotOutputSchema>;
 export type NtmSnapshotDeltaOutput = z.infer<typeof SnapshotDeltaOutputSchema>;
 export type NtmSessionHealthOutput = z.infer<typeof SessionHealthOutputSchema>;
 export type NtmProjectHealthOutput = z.infer<typeof ProjectHealthOutputSchema>;
+export type NtmIsWorkingOutput = z.infer<typeof IsWorkingOutputSchema>;
 export type NtmSnapshotResult = NtmSnapshotOutput | NtmSnapshotDeltaOutput;
 export type NtmHealthResult = NtmSessionHealthOutput | NtmProjectHealthOutput;
 
@@ -459,6 +508,13 @@ export interface NtmHealthOptions {
   cwd?: string;
 }
 
+export interface NtmIsWorkingOptions {
+  agents?: string[];
+  linesCaptured?: number;
+  verbose?: boolean;
+  cwd?: string;
+}
+
 // ============================================================================
 // Client Interface
 // ============================================================================
@@ -471,6 +527,7 @@ export interface NtmClient {
   snapshot: (options?: NtmSnapshotOptions) => Promise<NtmSnapshotResult>;
   tail: (session: string, options?: NtmTailOptions) => Promise<NtmTailOutput>;
   health: (session: string, options?: NtmHealthOptions) => Promise<NtmSessionHealthOutput>;
+  isWorking: (options?: NtmIsWorkingOptions) => Promise<NtmIsWorkingOutput>;
   /** Returns true if ntm is available on PATH */
   isAvailable: () => Promise<boolean>;
 }
@@ -643,6 +700,25 @@ export function createNtmClient(options: NtmClientOptions): NtmClient {
         buildRunOptions(defaultTimeout, healthOpts?.cwd),
       );
       return parseJson(stdout, SessionHealthOutputSchema, "health");
+    },
+
+    isWorking: async (workingOpts) => {
+      const args = ["--robot-is-working", ROBOT_FORMAT_ARG];
+      if (workingOpts?.agents && workingOpts.agents.length > 0) {
+        args.push("--agents", workingOpts.agents.join(","));
+      }
+      if (workingOpts?.linesCaptured !== undefined) {
+        args.push("--lines", String(workingOpts.linesCaptured));
+      }
+      if (workingOpts?.verbose) {
+        args.push("--verbose");
+      }
+      const stdout = await runNtmCommand(
+        options.runner,
+        args,
+        buildRunOptions(defaultTimeout, workingOpts?.cwd),
+      );
+      return parseJson(stdout, IsWorkingOutputSchema, "is-working");
     },
 
     isAvailable: async () => {

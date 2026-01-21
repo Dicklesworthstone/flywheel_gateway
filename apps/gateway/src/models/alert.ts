@@ -86,6 +86,37 @@ export interface AlertContext {
   correlationId: string;
   /** Current timestamp */
   timestamp: Date;
+  /** Optional NTM signals */
+  ntm?: {
+    isWorking?: NtmIsWorkingContext;
+  };
+}
+
+/**
+ * NTM is-working context for alert rules.
+ */
+export interface NtmIsWorkingContext {
+  checkedAt: Date;
+  agents: Record<
+    string,
+    {
+      isWorking: boolean;
+      isIdle: boolean;
+      isRateLimited: boolean;
+      isContextLow: boolean;
+      confidence: number;
+      recommendation: string;
+      recommendationReason: string;
+    }
+  >;
+  summary?: {
+    totalAgents: number;
+    workingCount: number;
+    idleCount: number;
+    rateLimitedCount: number;
+    contextLowCount: number;
+    errorCount: number;
+  };
 }
 
 /**
@@ -110,6 +141,8 @@ export interface AlertRule {
   title: string | ((context: AlertContext) => string);
   /** Message (static or dynamic) */
   message: string | ((context: AlertContext) => string);
+  /** Optional metadata for alert consumers */
+  metadata?: (context: AlertContext) => Record<string, unknown> | undefined;
   /** Minimum time between alerts in ms (cooldown) */
   cooldown?: number;
   /** Source identifier */

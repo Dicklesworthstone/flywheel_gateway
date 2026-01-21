@@ -15,6 +15,7 @@ import {
   createBunNtmCommandRunner,
   createNtmClient,
   type NtmClient,
+  type NtmIsWorkingOutput,
   type NtmSessionHealthOutput,
   type NtmSnapshotOutput,
   type NtmStatusOutput,
@@ -74,6 +75,16 @@ export interface TrackedNtmAgent {
   lastState: NtmAgentState;
   lastHealth: NtmHealthStatus;
   lastSeenAt: Date;
+  lastWorkStatus?: {
+    isWorking: boolean;
+    isIdle: boolean;
+    isRateLimited: boolean;
+    isContextLow: boolean;
+    confidence: number;
+    recommendation: string;
+    recommendationReason: string;
+    checkedAt: Date;
+  };
   gatewayAgentId?: string;
 }
 
@@ -163,6 +174,10 @@ export class NtmIngestService {
   private listeners: NtmEventListener[] = [];
   private lastPollTime: Date | null = null;
   private consecutiveErrors = 0;
+  private lastIsWorkingSnapshot: {
+    output: NtmIsWorkingOutput;
+    checkedAt: Date;
+  } | null = null;
 
   constructor(config: NtmIngestConfig = {}) {
     this.config = {
@@ -241,6 +256,17 @@ export class NtmIngestService {
    */
   getTrackedAgents(): Map<string, TrackedNtmAgent> {
     return new Map(this.trackedAgents);
+  }
+
+  /**
+   * Get the most recent NTM is-working snapshot, if available.
+   */
+  getIsWorkingSnapshot(): { output: NtmIsWorkingOutput; checkedAt: Date } | null {
+    if (!this.lastIsWorkingSnapshot) return null;
+    return {
+      output: this.lastIsWorkingSnapshot.output,
+      checkedAt: this.lastIsWorkingSnapshot.checkedAt,
+    };
   }
 
   /**
@@ -328,6 +354,17 @@ export class NtmIngestService {
             "[NTM-INGEST] Failed to get health for session",
           );
         }
+      }
+
+      // Get is-working signal for stuck detection
+      try {
+        const isWorking = await this.client.isWorking();
+        await this.processIsWorking(isWorking);
+      } catch (err) {
+        log.debug(
+          { error: String(err) },
+          "[NTM-INGEST] Failed to get is-working signal",
+        );
       }
 
       // Success - reset backoff
@@ -557,6 +594,28 @@ export class NtmIngestService {
           "[NTM-INGEST] Agent health changed",
         );
       }
+    }
+  }
+
+  private async processIsWorking(output: NtmIsWorkingOutput): Promise<void> {
+    const checkedAt = new Date();
+    this.lastIsWorkingSnapshot = { output, checkedAt };
+
+    for (const [agentId, status] of Object.entries(output.agents)) {
+      const tracked = this.trackedAgents.get(agentId);
+      if (!tracked) continue;
+
+      tracked.lastWorkStatus = {
+        isWorking: status.is_working,
+        isIdle: status.is_idle,
+        isRateLimited: status.is_rate_limited,
+        isContextLow: status.is_context_low,
+        confidence: status.confidence,
+        recommendation: status.recommendation,
+        recommendationReason: status.recommendation_reason,
+        checkedAt,
+      };
+      tracked.lastSeenAt = checkedAt;
     }
   }
 
