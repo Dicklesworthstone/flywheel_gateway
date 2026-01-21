@@ -80,6 +80,21 @@ export interface InstallResult {
 // Tool Information Registry
 // ============================================================================
 
+/**
+ * ACFS manifest mapping note (bd-2k5b)
+ * Source: acfs.manifest.yaml modules[] in agentic_coding_flywheel_setup.
+ *
+ * Mapping → ToolInfo (Gateway setup registry):
+ * - module.id: agents.<name> → ToolInfo.name (agent), stack.<name>/tools.<name> → ToolInfo.name (tool)
+ * - module.description → ToolInfo.description
+ * - module.category + tags: agents → category="agent"; stack/tools → category="tool"
+ * - module.optional / enabled_by_default / tags (critical/recommended) → readiness + required tool policy
+ * - module.verified_installer or install[]: prefer ACFS-managed install over raw multi-step scripts;
+ *   if install is complex, omit installCommand and keep installUrl/docsUrl instead.
+ *
+ * Known omissions (still curated here until ACFS adds fields):
+ * - displayName, docsUrl, authCheckCmd, capability flags, versionFlag nuances.
+ */
 const TOOL_INFO: Record<string, ToolInfo> = {
   // Agent CLIs
   claude: {
