@@ -8,10 +8,11 @@
  * Gateway workflow: run `ubs <changed-files>` before commits/PRs.
  */
 
+import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
 import { z } from "zod";
 import {
   CliCommandError,
-  createBunCommandRunner as createSharedBunCommandRunner,
+  createBunCliRunner as createSharedBunCliRunner,
 } from "../cli-runner";
 
 // ============================================================================
@@ -43,27 +44,10 @@ export interface UBSClientOptions {
 // Error Types
 // ============================================================================
 
-export class UBSClientError extends Error {
-  readonly kind:
-    | "command_failed"
-    | "parse_error"
-    | "validation_error"
-    | "unavailable"
-    | "timeout"
-    | "not_installed";
-  readonly details?: Record<string, unknown>;
-
-  constructor(
-    kind: UBSClientError["kind"],
-    message: string,
-    details?: Record<string, unknown>,
-  ) {
-    super(message);
+export class UBSClientError extends CliClientError {
+  constructor(kind: CliErrorKind, message: string, details?: CliErrorDetails) {
+    super(kind, message, details);
     this.name = "UBSClientError";
-    this.kind = kind;
-    if (details) {
-      this.details = details;
-    }
   }
 }
 
@@ -733,7 +717,7 @@ ${finding.codeSnippet ? `## Code Context\n\`\`\`\n${finding.codeSnippet}\n\`\`\`
  * Create a command runner that uses Bun.spawn for subprocess execution.
  */
 export function createBunUBSCommandRunner(): UBSCommandRunner {
-  const runner = createSharedBunCommandRunner({ timeoutMs: 60000 });
+  const runner = createSharedBunCliRunner({ timeoutMs: 60000 });
   return {
     run: async (command, args, options) => {
       try {

@@ -1,19 +1,16 @@
+import type { CliErrorDetails, CliErrorKind } from "@flywheel/shared";
 import { z } from "zod";
 
-export type CliCommandErrorKind =
-  | "timeout"
-  | "spawn_failed"
-  | "parse_error"
-  | "validation_error";
+export type CliCommandErrorKind = CliErrorKind | "spawn_failed";
 
 export class CliCommandError extends Error {
   readonly kind: CliCommandErrorKind;
-  readonly details?: Record<string, unknown>;
+  readonly details?: CliErrorDetails;
 
   constructor(
     kind: CliCommandErrorKind,
     message: string,
-    details?: Record<string, unknown>,
+    details?: CliErrorDetails,
   ) {
     super(message);
     this.name = "CliCommandError";
@@ -106,7 +103,7 @@ async function readStreamSafe(
   return { text: content, truncated };
 }
 
-export function createBunCommandRunner(
+export function createBunCliRunner(
   defaults: CliRunnerDefaults = {},
 ): CliCommandRunner {
   return {

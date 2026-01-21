@@ -1,3 +1,4 @@
+import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
 import { z } from "zod";
 
 export interface BvCommandResult {
@@ -19,21 +20,10 @@ export interface BvClientOptions {
   cwd?: string;
 }
 
-export class BvClientError extends Error {
-  readonly kind: "command_failed" | "parse_error" | "validation_error";
-  readonly details?: Record<string, unknown>;
-
-  constructor(
-    kind: BvClientError["kind"],
-    message: string,
-    details?: Record<string, unknown>,
-  ) {
-    super(message);
+export class BvClientError extends CliClientError {
+  constructor(kind: CliErrorKind, message: string, details?: CliErrorDetails) {
+    super(kind, message, details);
     this.name = "BvClientError";
-    this.kind = kind;
-    if (details) {
-      this.details = details;
-    }
   }
 }
 

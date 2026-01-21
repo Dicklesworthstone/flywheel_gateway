@@ -5,10 +5,11 @@
  * Always uses --json/--robot flags to avoid interactive TUI mode.
  */
 
+import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
 import { z } from "zod";
 import {
   CliCommandError,
-  createBunCommandRunner as createSharedBunCommandRunner,
+  createBunCliRunner as createSharedBunCliRunner,
 } from "../cli-runner";
 
 // ============================================================================
@@ -40,26 +41,10 @@ export interface CassClientOptions {
 // Error Types
 // ============================================================================
 
-export class CassClientError extends Error {
-  readonly kind:
-    | "command_failed"
-    | "parse_error"
-    | "validation_error"
-    | "unavailable"
-    | "timeout";
-  readonly details?: Record<string, unknown>;
-
-  constructor(
-    kind: CassClientError["kind"],
-    message: string,
-    details?: Record<string, unknown>,
-  ) {
-    super(message);
+export class CassClientError extends CliClientError {
+  constructor(kind: CliErrorKind, message: string, details?: CliErrorDetails) {
+    super(kind, message, details);
     this.name = "CassClientError";
-    this.kind = kind;
-    if (details) {
-      this.details = details;
-    }
   }
 }
 
@@ -443,7 +428,7 @@ export function createCassClient(options: CassClientOptions): CassClient {
  * Create a command runner that uses Bun.spawn for subprocess execution.
  */
 export function createBunCommandRunner(): CassCommandRunner {
-  const runner = createSharedBunCommandRunner({ timeoutMs: 30000 });
+  const runner = createSharedBunCliRunner({ timeoutMs: 30000 });
   return {
     run: async (command, args, options) => {
       try {
