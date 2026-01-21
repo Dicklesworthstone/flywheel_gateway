@@ -28,6 +28,7 @@ import {
 } from "../base-driver";
 import type { DriverOptions } from "../interface";
 import type { Agent, AgentConfig, SendResult } from "../types";
+import { detectWorkState } from "../work-detection";
 
 // ============================================================================
 // Tmux Configuration
@@ -522,27 +523,69 @@ export class TmuxDriver extends BaseDriver {
   }
 
   /**
-   * Detect activity state from terminal output.
-   * This is heuristic-based since we don't have structured events.
+   * Detect activity state from terminal output using NTM-based pattern matching.
+   * This uses comprehensive patterns to accurately detect agent work state.
+   *
+   * Key principle: NEVER interrupt agents doing useful work.
    */
   private detectActivityState(agentId: string, output: string): void {
-    const lines = output.split("\n");
-    const lastLines = lines.slice(-10).join("\n").toLowerCase();
+    const session = this.sessions.get(agentId);
+    if (!session) return;
 
-    // Heuristic: look for common patterns
-    if (lastLines.includes("$ ") || lastLines.includes("> ")) {
-      // Looks like a shell prompt - likely idle
-      this.updateState(agentId, { activityState: "idle" });
-    } else if (lastLines.includes("thinking") || lastLines.includes("...")) {
-      this.updateState(agentId, { activityState: "thinking" });
-    } else if (lastLines.includes("error:")) {
-      this.updateState(agentId, { activityState: "error" });
-    } else {
-      // Assume working if there's recent output
-      const state = this.agents.get(agentId);
-      if (state && state.activityState === "thinking") {
-        this.updateState(agentId, { activityState: "working" });
+    // Use the last 50 lines for analysis (more context than before)
+    const lines = output.split("\n");
+    const recentOutput = lines.slice(-50).join("\n");
+
+    // Detect agent type from config or binary
+    const agentType = session.config.provider || this.agentBinary;
+
+    // Use NTM-based work detection patterns
+    const detection = detectWorkState(recentOutput, agentType);
+
+    // Only update state if we have reasonable confidence
+    if (detection.confidence > 0.3) {
+      const currentState = this.agents.get(agentId)?.activityState;
+
+      // Avoid unnecessary state updates
+      if (currentState !== detection.activityState) {
+        this.updateState(agentId, { activityState: detection.activityState });
+
+        // Log state change with detection details for debugging
+        logDriver("debug", this.driverType, "activity_state_detected", {
+          agentId,
+          previousState: currentState,
+          newState: detection.activityState,
+          confidence: detection.confidence,
+          isWorking: detection.isWorking,
+          isIdle: detection.isIdle,
+          matchedPatterns: detection.matchedPatterns,
+        });
       }
+    }
+
+    // Emit context warning if context is running low
+    if (
+      detection.isContextLow &&
+      detection.contextRemainingPercent !== undefined
+    ) {
+      const level =
+        detection.contextRemainingPercent < 10
+          ? "emergency"
+          : detection.contextRemainingPercent < 20
+            ? "critical"
+            : "warning";
+
+      this.emitEvent(agentId, {
+        type: "context_warning",
+        agentId,
+        timestamp: new Date(),
+        level,
+        usagePercent: 100 - detection.contextRemainingPercent,
+        suggestion:
+          level === "emergency"
+            ? "Context nearly exhausted. Start new conversation."
+            : "Consider summarizing context soon.",
+      });
     }
   }
 }

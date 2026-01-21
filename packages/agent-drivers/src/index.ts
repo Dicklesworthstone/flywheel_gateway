@@ -51,3 +51,5 @@ export * from "./sdk";
 export * from "./tmux";
 // Core types
 export * from "./types";
+// Work detection utilities
+export * from "./work-detection";
