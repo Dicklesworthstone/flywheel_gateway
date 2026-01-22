@@ -5,7 +5,11 @@
  * Always uses --json/--robot flags to avoid interactive TUI mode.
  */
 
-import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
+import {
+  CliClientError,
+  type CliErrorDetails,
+  type CliErrorKind,
+} from "@flywheel/shared";
 import { z } from "zod";
 import {
   CliCommandError,

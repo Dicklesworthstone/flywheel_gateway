@@ -196,10 +196,15 @@ export interface MsClient {
   status: (options?: MsCommandOptions) => Promise<MsStatus>;
 
   /** List all knowledge bases */
-  listKnowledgeBases: (options?: MsCommandOptions) => Promise<MsKnowledgeBase[]>;
+  listKnowledgeBases: (
+    options?: MsCommandOptions,
+  ) => Promise<MsKnowledgeBase[]>;
 
   /** Semantic search across knowledge bases */
-  search: (query: string, options?: MsSearchOptions) => Promise<MsSearchResponse>;
+  search: (
+    query: string,
+    options?: MsSearchOptions,
+  ) => Promise<MsSearchResponse>;
 
   /** Fast availability check */
   isAvailable: () => Promise<boolean>;
@@ -244,18 +249,26 @@ function parseResponse<T>(
 
   // Check if response is OK
   if (!envelope.ok) {
-    throw new MsClientError("command_failed", `MS ${context} failed: ${envelope.code}`, {
-      code: envelope.code,
-      hint: envelope.hint,
-    });
+    throw new MsClientError(
+      "command_failed",
+      `MS ${context} failed: ${envelope.code}`,
+      {
+        code: envelope.code,
+        hint: envelope.hint,
+      },
+    );
   }
 
   // Parse the data with the specific schema
   const result = schema.safeParse(envelope.data);
   if (!result.success) {
-    throw new MsClientError("validation_error", `Invalid MS ${context} response`, {
-      issues: result.error.issues,
-    });
+    throw new MsClientError(
+      "validation_error",
+      `Invalid MS ${context} response`,
+      {
+        issues: result.error.issues,
+      },
+    );
   }
 
   return result.data;
@@ -273,7 +286,10 @@ function buildRunOptions(
   return result;
 }
 
-async function getVersion(runner: MsCommandRunner, cwd?: string): Promise<string | null> {
+async function getVersion(
+  runner: MsCommandRunner,
+  cwd?: string,
+): Promise<string | null> {
   try {
     const opts: { cwd?: string; timeout: number } = { timeout: 5000 };
     if (cwd !== undefined) opts.cwd = cwd;
@@ -301,7 +317,10 @@ export function createMsClient(options: MsClientOptions): MsClient {
     status: async (opts): Promise<MsStatus> => {
       try {
         const doctor = await createMsClient(options).doctor(opts);
-        const version = await getVersion(options.runner, opts?.cwd ?? options.cwd);
+        const version = await getVersion(
+          options.runner,
+          opts?.cwd ?? options.cwd,
+        );
 
         // Try to get knowledge base list
         let knowledgeBaseNames: string[] = [];

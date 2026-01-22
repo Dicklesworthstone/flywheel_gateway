@@ -263,14 +263,10 @@ function parseJson<T>(
   try {
     parsed = JSON.parse(stdout);
   } catch (error) {
-    throw new AprClientError(
-      "parse_error",
-      `Failed to parse APR ${context}`,
-      {
-        cause: error instanceof Error ? error.message : String(error),
-        stdout: stdout.slice(0, 500),
-      },
-    );
+    throw new AprClientError("parse_error", `Failed to parse APR ${context}`, {
+      cause: error instanceof Error ? error.message : String(error),
+      stdout: stdout.slice(0, 500),
+    });
   }
 
   const result = schema.safeParse(parsed);

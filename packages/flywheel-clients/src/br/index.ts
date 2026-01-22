@@ -5,7 +5,11 @@
  * Always uses --json output and supports auto-import/flush controls.
  */
 
-import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
+import {
+  CliClientError,
+  type CliErrorDetails,
+  type CliErrorKind,
+} from "@flywheel/shared";
 import { z } from "zod";
 import {
   CliCommandError,
@@ -243,8 +247,14 @@ export interface BrSyncOptions extends BrCommandOptions {
 export interface BrClient {
   ready: (options?: BrReadyOptions) => Promise<BrIssue[]>;
   list: (options?: BrListOptions) => Promise<BrIssue[]>;
-  show: (ids: string | string[], options?: BrCommandOptions) => Promise<BrIssue[]>;
-  create: (input: BrCreateInput, options?: BrCommandOptions) => Promise<BrIssue>;
+  show: (
+    ids: string | string[],
+    options?: BrCommandOptions,
+  ) => Promise<BrIssue[]>;
+  create: (
+    input: BrCreateInput,
+    options?: BrCommandOptions,
+  ) => Promise<BrIssue>;
   update: (
     ids: string | string[],
     input: BrUpdateInput,
@@ -271,7 +281,10 @@ function extractJsonPayload(stdout: string): string {
       .map((token) => trimmed.indexOf(token))
       .filter((index) => index >= 0),
   );
-  const lastBrace = Math.max(trimmed.lastIndexOf("}"), trimmed.lastIndexOf("]"));
+  const lastBrace = Math.max(
+    trimmed.lastIndexOf("}"),
+    trimmed.lastIndexOf("]"),
+  );
 
   if (firstBrace >= 0 && lastBrace > firstBrace) {
     return trimmed.slice(firstBrace, lastBrace + 1);
@@ -333,7 +346,11 @@ function parseIssueList(stdout: string, context: string): BrIssue[] {
   });
 }
 
-function pushRepeated(args: string[], flag: string, values?: Array<string | number>) {
+function pushRepeated(
+  args: string[],
+  flag: string,
+  values?: Array<string | number>,
+) {
   if (!values || values.length === 0) return;
   for (const value of values) {
     args.push(flag, String(value));
@@ -408,8 +425,7 @@ export function createBrClient(options: BrClientOptions): BrClient {
       if (opts?.labels) pushRepeated(args, "--label", opts.labels);
       if (opts?.labelsAny) pushRepeated(args, "--label-any", opts.labelsAny);
       if (opts?.types) pushRepeated(args, "--type", opts.types);
-      if (opts?.priorities)
-        pushRepeated(args, "--priority", opts.priorities);
+      if (opts?.priorities) pushRepeated(args, "--priority", opts.priorities);
       if (opts?.sort) args.push("--sort", opts.sort);
       if (opts?.includeDeferred) args.push("--include-deferred");
       args.push(...buildGlobalArgs(options, opts));
@@ -431,16 +447,14 @@ export function createBrClient(options: BrClientOptions): BrClient {
       if (opts?.ids) pushRepeated(args, "--id", opts.ids);
       if (opts?.labels) pushRepeated(args, "--label", opts.labels);
       if (opts?.labelsAny) pushRepeated(args, "--label-any", opts.labelsAny);
-      if (opts?.priorities)
-        pushRepeated(args, "--priority", opts.priorities);
+      if (opts?.priorities) pushRepeated(args, "--priority", opts.priorities);
       if (opts?.priorityMin !== undefined)
         args.push("--priority-min", String(opts.priorityMin));
       if (opts?.priorityMax !== undefined)
         args.push("--priority-max", String(opts.priorityMax));
       if (opts?.titleContains)
         args.push("--title-contains", opts.titleContains);
-      if (opts?.descContains)
-        args.push("--desc-contains", opts.descContains);
+      if (opts?.descContains) args.push("--desc-contains", opts.descContains);
       if (opts?.notesContains)
         args.push("--notes-contains", opts.notesContains);
       if (opts?.all) args.push("--all");
@@ -461,7 +475,12 @@ export function createBrClient(options: BrClientOptions): BrClient {
 
     show: async (ids, opts) => {
       const idList = Array.isArray(ids) ? ids : [ids];
-      const args = ["show", ...idList, "--json", ...buildGlobalArgs(options, opts)];
+      const args = [
+        "show",
+        ...idList,
+        "--json",
+        ...buildGlobalArgs(options, opts),
+      ];
       const stdout = await runBrCommand(
         options.runner,
         args,
@@ -560,7 +579,12 @@ export function createBrClient(options: BrClientOptions): BrClient {
     },
 
     syncStatus: async (opts) => {
-      const args = ["sync", "--status", "--json", ...buildGlobalArgs(options, opts)];
+      const args = [
+        "sync",
+        "--status",
+        "--json",
+        ...buildGlobalArgs(options, opts),
+      ];
       const stdout = await runBrCommand(
         options.runner,
         args,

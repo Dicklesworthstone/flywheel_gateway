@@ -1,4 +1,8 @@
-import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
+import {
+  CliClientError,
+  type CliErrorDetails,
+  type CliErrorKind,
+} from "@flywheel/shared";
 import { z } from "zod";
 
 export interface BvCommandResult {

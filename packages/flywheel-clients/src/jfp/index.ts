@@ -96,23 +96,31 @@ const JfpCategoriesResponseSchema = z.array(JfpCategorySchema);
 
 // Search response can be various shapes, we'll handle that
 const JfpSearchResponseSchema = z.union([
-  z.object({
-    results: z.array(JfpPromptSchema),
-  }).passthrough(),
-  z.object({
-    prompts: z.array(JfpPromptSchema),
-  }).passthrough(),
+  z
+    .object({
+      results: z.array(JfpPromptSchema),
+    })
+    .passthrough(),
+  z
+    .object({
+      prompts: z.array(JfpPromptSchema),
+    })
+    .passthrough(),
   z.array(JfpPromptSchema),
 ]);
 
 // Suggest response can also be various shapes
 const JfpSuggestResponseSchema = z.union([
-  z.object({
-    suggestions: z.array(JfpPromptSchema),
-  }).passthrough(),
-  z.object({
-    prompts: z.array(JfpPromptSchema),
-  }).passthrough(),
+  z
+    .object({
+      suggestions: z.array(JfpPromptSchema),
+    })
+    .passthrough(),
+  z
+    .object({
+      prompts: z.array(JfpPromptSchema),
+    })
+    .passthrough(),
   z.array(JfpPromptSchema),
 ]);
 
@@ -184,10 +192,16 @@ export interface JfpClient {
   listCategories: (options?: JfpCommandOptions) => Promise<JfpCategory[]>;
 
   /** Search prompts by query */
-  search: (query: string, options?: JfpSearchOptions) => Promise<JfpSearchResult>;
+  search: (
+    query: string,
+    options?: JfpSearchOptions,
+  ) => Promise<JfpSearchResult>;
 
   /** Suggest prompts for a task */
-  suggest: (task: string, options?: JfpSuggestOptions) => Promise<JfpSuggestResult>;
+  suggest: (
+    task: string,
+    options?: JfpSuggestOptions,
+  ) => Promise<JfpSuggestResult>;
 
   /** Get a random prompt */
   getRandom: (options?: JfpCommandOptions) => Promise<JfpPrompt | null>;
@@ -278,7 +292,9 @@ async function getVersion(
  * Extract prompts array from various response shapes.
  * Type assertion needed because passthrough() interferes with TypeScript narrowing.
  */
-function extractPrompts(response: z.infer<typeof JfpSearchResponseSchema>): JfpPrompt[] {
+function extractPrompts(
+  response: z.infer<typeof JfpSearchResponseSchema>,
+): JfpPrompt[] {
   if (Array.isArray(response)) {
     return response;
   }
@@ -296,7 +312,9 @@ function extractPrompts(response: z.infer<typeof JfpSearchResponseSchema>): JfpP
  * Extract suggestions from various response shapes.
  * Type assertion needed because passthrough() interferes with TypeScript narrowing.
  */
-function extractSuggestions(response: z.infer<typeof JfpSuggestResponseSchema>): JfpPrompt[] {
+function extractSuggestions(
+  response: z.infer<typeof JfpSuggestResponseSchema>,
+): JfpPrompt[] {
   if (Array.isArray(response)) {
     return response;
   }
@@ -359,7 +377,10 @@ export function createJfpClient(options: JfpClientOptions): JfpClient {
         return parseJson(stdout, JfpPromptSchema, "show");
       } catch (error) {
         // Check if it's a "not found" error
-        if (error instanceof JfpClientError && error.kind === "command_failed") {
+        if (
+          error instanceof JfpClientError &&
+          error.kind === "command_failed"
+        ) {
           const details = error.details as { stderr?: string } | undefined;
           const stderr = details?.stderr?.toLowerCase() ?? "";
           if (stderr.includes("not found") || stderr.includes("no prompt")) {

@@ -108,7 +108,8 @@ export function createBunCliRunner(
 ): CliCommandRunner {
   return {
     run: async (command, args, options) => {
-      const timeoutMs = options?.timeoutMs ?? defaults.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+      const timeoutMs =
+        options?.timeoutMs ?? defaults.timeoutMs ?? DEFAULT_TIMEOUT_MS;
       const maxOutputBytes =
         options?.maxOutputBytes ??
         defaults.maxOutputBytes ??

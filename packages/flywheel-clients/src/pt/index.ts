@@ -245,18 +245,26 @@ function parseResponse<T>(
 
   // Check if response is OK
   if (!envelope.ok) {
-    throw new PtClientError("command_failed", `PT ${context} failed: ${envelope.code}`, {
-      code: envelope.code,
-      hint: envelope.hint,
-    });
+    throw new PtClientError(
+      "command_failed",
+      `PT ${context} failed: ${envelope.code}`,
+      {
+        code: envelope.code,
+        hint: envelope.hint,
+      },
+    );
   }
 
   // Parse the data with the specific schema
   const result = schema.safeParse(envelope.data);
   if (!result.success) {
-    throw new PtClientError("validation_error", `Invalid PT ${context} response`, {
-      issues: result.error.issues,
-    });
+    throw new PtClientError(
+      "validation_error",
+      `Invalid PT ${context} response`,
+      {
+        issues: result.error.issues,
+      },
+    );
   }
 
   return result.data;
@@ -274,7 +282,10 @@ function buildRunOptions(
   return result;
 }
 
-async function getVersion(runner: PtCommandRunner, cwd?: string): Promise<string | null> {
+async function getVersion(
+  runner: PtCommandRunner,
+  cwd?: string,
+): Promise<string | null> {
   try {
     const opts: { cwd?: string; timeout: number } = { timeout: 5000 };
     if (cwd !== undefined) opts.cwd = cwd;
@@ -302,7 +313,10 @@ export function createPtClient(options: PtClientOptions): PtClient {
     status: async (opts): Promise<PtStatus> => {
       try {
         const doctor = await createPtClient(options).doctor(opts);
-        const version = await getVersion(options.runner, opts?.cwd ?? options.cwd);
+        const version = await getVersion(
+          options.runner,
+          opts?.cwd ?? options.cwd,
+        );
 
         const status: PtStatus = {
           available: true,

@@ -6,7 +6,11 @@
  * Always uses --json flags to get machine-parseable output.
  */
 
-import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
+import {
+  CliClientError,
+  type CliErrorDetails,
+  type CliErrorKind,
+} from "@flywheel/shared";
 import { z } from "zod";
 import {
   CliCommandError,
