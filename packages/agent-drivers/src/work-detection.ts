@@ -196,7 +196,8 @@ export function detectWorkState(
 
   // Determine states
   const isRateLimited = limitScore > 0;
-  const isContextLow = contextLowScore > 0 || (contextRemainingPercent ?? 100) < 20;
+  const isContextLow =
+    contextLowScore > 0 || (contextRemainingPercent ?? 100) < 20;
   const isWorking = workScore > idleScore && !isRateLimited;
   const isIdle = idleScore > workScore || (workScore === 0 && idleScore > 0);
 

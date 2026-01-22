@@ -21,11 +21,7 @@ import {
   generateNtmPaneId,
   generateNtmSessionName,
 } from "../naming";
-import type {
-  Agent,
-  AgentConfig,
-  SendResult,
-} from "../types";
+import type { Agent, AgentConfig, SendResult } from "../types";
 import {
   type NtmClient,
   type NtmCommandRunner,
@@ -79,7 +75,11 @@ export class NtmDriver extends BaseDriver {
     super(config);
     const runner = options.runner ?? createBunNtmCommandRunner();
     // Build client options, only including cwd if defined
-    const clientOpts: { runner: NtmCommandRunner; cwd?: string; timeout?: number } = {
+    const clientOpts: {
+      runner: NtmCommandRunner;
+      cwd?: string;
+      timeout?: number;
+    } = {
       runner,
       timeout: options.commandTimeoutMs ?? 30000,
     };
@@ -135,13 +135,18 @@ export class NtmDriver extends BaseDriver {
     let paneId = generateNtmPaneId(sessionName);
 
     try {
-      const spawnStatusOpts = this.cwd !== undefined ? { cwd: this.cwd } : undefined;
+      const spawnStatusOpts =
+        this.cwd !== undefined ? { cwd: this.cwd } : undefined;
       const status = await this.client.status(spawnStatusOpts);
       const existingSession = status.sessions.find(
-        (s) => s.name === sessionName
+        (s) => s.name === sessionName,
       );
 
-      if (existingSession && existingSession.agents && existingSession.agents.length > 0) {
+      if (
+        existingSession &&
+        existingSession.agents &&
+        existingSession.agents.length > 0
+      ) {
         // Use existing agent's pane
         paneId = existingSession.agents[0]!.pane;
         logDriver("info", this.driverType, "action=spawn found_existing", {
@@ -318,7 +323,9 @@ export class NtmDriver extends BaseDriver {
 
     try {
       // Build tail options
-      const tailOpts: { lines: number; cwd?: string } = { lines: this.tailLines };
+      const tailOpts: { lines: number; cwd?: string } = {
+        lines: this.tailLines,
+      };
       if (this.cwd !== undefined) {
         tailOpts.cwd = this.cwd;
       }
@@ -339,7 +346,7 @@ export class NtmDriver extends BaseDriver {
 
       // Also get snapshot for state detection
       const snapshot = await this.client.snapshot(
-        Object.keys(snapshotOpts).length > 0 ? snapshotOpts : undefined
+        Object.keys(snapshotOpts).length > 0 ? snapshotOpts : undefined,
       );
 
       this.processStateFromSnapshot(agentId, snapshot);
@@ -406,7 +413,9 @@ export class NtmDriver extends BaseDriver {
    */
   private processStateFromSnapshot(
     agentId: string,
-    snapshot: NtmSnapshotOutput | { ts: string; since: string; changes: unknown[] },
+    snapshot:
+      | NtmSnapshotOutput
+      | { ts: string; since: string; changes: unknown[] },
   ): void {
     const session = this.sessions.get(agentId);
     if (!session) return;
@@ -415,7 +424,7 @@ export class NtmDriver extends BaseDriver {
     if ("sessions" in snapshot) {
       const fullSnapshot = snapshot as NtmSnapshotOutput;
       const sessionData = fullSnapshot.sessions.find(
-        (s) => s.name === session.sessionName
+        (s) => s.name === session.sessionName,
       );
 
       if (sessionData) {
@@ -472,11 +481,11 @@ export class NtmDriver extends BaseDriver {
       }
       const context = await this.client.context(
         session.sessionName,
-        Object.keys(contextOpts).length > 0 ? contextOpts : undefined
+        Object.keys(contextOpts).length > 0 ? contextOpts : undefined,
       );
 
       const agentContext = context.agents.find(
-        (a) => a.pane === session.paneId
+        (a) => a.pane === session.paneId,
       );
 
       if (agentContext) {
@@ -525,11 +534,11 @@ export class NtmDriver extends BaseDriver {
       }
       const health = await this.client.health(
         session.sessionName,
-        Object.keys(healthOpts).length > 0 ? healthOpts : undefined
+        Object.keys(healthOpts).length > 0 ? healthOpts : undefined,
       );
 
       const agentHealth = health.agents.find(
-        (a) => a.agent_type === session.config.provider
+        (a) => a.agent_type === session.config.provider,
       );
 
       if (agentHealth) {
