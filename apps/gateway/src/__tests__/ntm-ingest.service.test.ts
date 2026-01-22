@@ -135,26 +135,38 @@ describe("mapNtmHealthToLifecycle", () => {
 
   describe("healthy and degraded dont trigger changes", () => {
     test("healthy returns null regardless of current state", () => {
-      expect(mapNtmHealthToLifecycle("healthy", LifecycleState.READY)).toBeNull();
+      expect(
+        mapNtmHealthToLifecycle("healthy", LifecycleState.READY),
+      ).toBeNull();
       expect(
         mapNtmHealthToLifecycle("healthy", LifecycleState.EXECUTING),
       ).toBeNull();
-      expect(mapNtmHealthToLifecycle("healthy", LifecycleState.FAILED)).toBeNull();
+      expect(
+        mapNtmHealthToLifecycle("healthy", LifecycleState.FAILED),
+      ).toBeNull();
       expect(mapNtmHealthToLifecycle("healthy", undefined)).toBeNull();
     });
 
     test("degraded returns null regardless of current state", () => {
-      expect(mapNtmHealthToLifecycle("degraded", LifecycleState.READY)).toBeNull();
+      expect(
+        mapNtmHealthToLifecycle("degraded", LifecycleState.READY),
+      ).toBeNull();
       expect(
         mapNtmHealthToLifecycle("degraded", LifecycleState.EXECUTING),
       ).toBeNull();
-      expect(mapNtmHealthToLifecycle("degraded", LifecycleState.FAILED)).toBeNull();
+      expect(
+        mapNtmHealthToLifecycle("degraded", LifecycleState.FAILED),
+      ).toBeNull();
       expect(mapNtmHealthToLifecycle("degraded", undefined)).toBeNull();
     });
   });
 
   describe("all health statuses", () => {
-    const healthStatuses: NtmHealthStatus[] = ["healthy", "degraded", "unhealthy"];
+    const healthStatuses: NtmHealthStatus[] = [
+      "healthy",
+      "degraded",
+      "unhealthy",
+    ];
 
     test("all health statuses are handled", () => {
       for (const health of healthStatuses) {
@@ -266,9 +278,9 @@ describe("State transition scenarios", () => {
     });
 
     test("unhealthy health -> FAILED", () => {
-      expect(mapNtmHealthToLifecycle("unhealthy", LifecycleState.EXECUTING)).toBe(
-        LifecycleState.FAILED,
-      );
+      expect(
+        mapNtmHealthToLifecycle("unhealthy", LifecycleState.EXECUTING),
+      ).toBe(LifecycleState.FAILED);
     });
 
     test("stalled -> PAUSED to allow recovery", () => {

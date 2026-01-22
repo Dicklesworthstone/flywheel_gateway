@@ -263,7 +263,9 @@ describe("System Routes", () => {
       expect(deleteRes.status).toBe(200);
       const deleteBody = (await deleteRes.json()) as CacheClearedEnvelope;
       expect(deleteBody.object).toBe("snapshot_cache_cleared");
-      expect(deleteBody.data.message).toBe("Snapshot cache cleared successfully");
+      expect(deleteBody.data.message).toBe(
+        "Snapshot cache cleared successfully",
+      );
       expect(typeof deleteBody.data.timestamp).toBe("string");
 
       // Verify cache is now empty

@@ -141,9 +141,9 @@ describe("Safety Routes", () => {
         expect(typeof tool.healthy).toBe("boolean");
         expect(typeof tool.latencyMs).toBe("number");
         // version can be string or null
-        expect(
-          tool.version === null || typeof tool.version === "string",
-        ).toBe(true);
+        expect(tool.version === null || typeof tool.version === "string").toBe(
+          true,
+        );
       }
     });
 
@@ -205,9 +205,9 @@ describe("Safety Routes", () => {
 
       // If DCG is not installed, should have recommendation
       if (!body.data.tools.dcg.installed) {
-        expect(
-          body.data.summary.issues.some((i) => i.includes("DCG")),
-        ).toBe(true);
+        expect(body.data.summary.issues.some((i) => i.includes("DCG"))).toBe(
+          true,
+        );
         expect(
           body.data.summary.recommendations.some((r) => r.includes("dcg")),
         ).toBe(true);
@@ -215,9 +215,9 @@ describe("Safety Routes", () => {
 
       // If SLB is not installed, should have recommendation
       if (!body.data.tools.slb.installed) {
-        expect(
-          body.data.summary.issues.some((i) => i.includes("SLB")),
-        ).toBe(true);
+        expect(body.data.summary.issues.some((i) => i.includes("SLB"))).toBe(
+          true,
+        );
         expect(
           body.data.summary.recommendations.some((r) => r.includes("slb")),
         ).toBe(true);
@@ -225,9 +225,9 @@ describe("Safety Routes", () => {
 
       // If UBS is not installed, should have recommendation
       if (!body.data.tools.ubs.installed) {
-        expect(
-          body.data.summary.issues.some((i) => i.includes("UBS")),
-        ).toBe(true);
+        expect(body.data.summary.issues.some((i) => i.includes("UBS"))).toBe(
+          true,
+        );
         expect(
           body.data.summary.recommendations.some((r) => r.includes("ubs")),
         ).toBe(true);

@@ -710,7 +710,8 @@ describe("NTM Alerting Rules (bd-39ee)", () => {
           id: "agent-stuck",
           isWorking: false,
           recommendation: "RESTART",
-          recommendationReason: "No output for 10 minutes, last activity was tool call",
+          recommendationReason:
+            "No output for 10 minutes, last activity was tool call",
           confidence: 0.97,
         },
       ]);

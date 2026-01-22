@@ -127,7 +127,12 @@ describe("BR Endpoints Integration Tests", () => {
       "should return list of beads with count",
       async () => {
         const testName = "list_beads";
-        logTest({ test: testName, action: "starting", method: "GET", path: "/beads" });
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "GET",
+          path: "/beads",
+        });
 
         const res = await app.request("/beads");
         const data = await res.json();
@@ -1071,9 +1076,12 @@ describe("BR Endpoints Integration Tests", () => {
           path: `/beads/${beadId}`,
         });
 
-        const closeRes = await app.request(`/beads/${beadId}?reason=completed`, {
-          method: "DELETE",
-        });
+        const closeRes = await app.request(
+          `/beads/${beadId}?reason=completed`,
+          {
+            method: "DELETE",
+          },
+        );
         const closeData = await closeRes.json();
 
         expect(closeRes.status).toBe(200);

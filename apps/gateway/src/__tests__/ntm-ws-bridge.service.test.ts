@@ -51,9 +51,18 @@ describe("ThrottledEventBatcher", () => {
 
       // Events should now be flushed
       expect(flushedEvents.length).toBe(3);
-      expect(flushedEvents).toContainEqual({ key: "agent-1", event: "event-1" });
-      expect(flushedEvents).toContainEqual({ key: "agent-2", event: "event-2" });
-      expect(flushedEvents).toContainEqual({ key: "agent-3", event: "event-3" });
+      expect(flushedEvents).toContainEqual({
+        key: "agent-1",
+        event: "event-1",
+      });
+      expect(flushedEvents).toContainEqual({
+        key: "agent-2",
+        event: "event-2",
+      });
+      expect(flushedEvents).toContainEqual({
+        key: "agent-3",
+        event: "event-3",
+      });
 
       batcher.stop();
     });
@@ -110,8 +119,14 @@ describe("ThrottledEventBatcher", () => {
 
       // Should have 2 events: last for agent-1 and one for agent-2
       expect(flushedEvents.length).toBe(2);
-      expect(flushedEvents).toContainEqual({ key: "agent-1", event: "state-3" });
-      expect(flushedEvents).toContainEqual({ key: "agent-2", event: "state-a" });
+      expect(flushedEvents).toContainEqual({
+        key: "agent-1",
+        event: "state-3",
+      });
+      expect(flushedEvents).toContainEqual({
+        key: "agent-2",
+        event: "state-a",
+      });
 
       batcher.stop();
     });
@@ -183,14 +198,11 @@ describe("ThrottledEventBatcher", () => {
     });
 
     test("getStats reports dropped count", () => {
-      const batcher = new ThrottledEventBatcher<string>(
-        () => {},
-        {
-          batchWindowMs: 1000,
-          maxEventsPerBatch: 2,
-          debounceMs: 0,
-        },
-      );
+      const batcher = new ThrottledEventBatcher<string>(() => {}, {
+        batchWindowMs: 1000,
+        maxEventsPerBatch: 2,
+        debounceMs: 0,
+      });
 
       batcher.enqueue("a", "1");
       batcher.enqueue("b", "2");
@@ -204,14 +216,11 @@ describe("ThrottledEventBatcher", () => {
     });
 
     test("resetDroppedCount clears counter", () => {
-      const batcher = new ThrottledEventBatcher<string>(
-        () => {},
-        {
-          batchWindowMs: 1000,
-          maxEventsPerBatch: 1,
-          debounceMs: 0,
-        },
-      );
+      const batcher = new ThrottledEventBatcher<string>(() => {}, {
+        batchWindowMs: 1000,
+        maxEventsPerBatch: 1,
+        debounceMs: 0,
+      });
 
       batcher.enqueue("a", "1");
       batcher.enqueue("b", "2");
@@ -401,14 +410,11 @@ describe("Backpressure behavior", () => {
     });
 
     test("drops exactly one event when limit+1 reached", () => {
-      const batcher = new ThrottledEventBatcher<number>(
-        () => {},
-        {
-          batchWindowMs: 1000,
-          maxEventsPerBatch: 5,
-          debounceMs: 0,
-        },
-      );
+      const batcher = new ThrottledEventBatcher<number>(() => {}, {
+        batchWindowMs: 1000,
+        maxEventsPerBatch: 5,
+        debounceMs: 0,
+      });
 
       // Add max + 1 events
       for (let i = 0; i < 6; i++) {
@@ -423,14 +429,11 @@ describe("Backpressure behavior", () => {
     });
 
     test("empty queue after flush", () => {
-      const batcher = new ThrottledEventBatcher<number>(
-        () => {},
-        {
-          batchWindowMs: 1000,
-          maxEventsPerBatch: 10,
-          debounceMs: 0,
-        },
-      );
+      const batcher = new ThrottledEventBatcher<number>(() => {}, {
+        batchWindowMs: 1000,
+        maxEventsPerBatch: 10,
+        debounceMs: 0,
+      });
 
       batcher.enqueue("a", 1);
       batcher.enqueue("b", 2);
@@ -485,14 +488,11 @@ describe("Backpressure behavior", () => {
 
   describe("stats tracking", () => {
     test("lastFlushTime updates after flush", async () => {
-      const batcher = new ThrottledEventBatcher<string>(
-        () => {},
-        {
-          batchWindowMs: 50,
-          maxEventsPerBatch: 10,
-          debounceMs: 0,
-        },
-      );
+      const batcher = new ThrottledEventBatcher<string>(() => {}, {
+        batchWindowMs: 50,
+        maxEventsPerBatch: 10,
+        debounceMs: 0,
+      });
 
       const initialFlushTime = batcher.getStats().lastFlushTime;
 
@@ -506,14 +506,11 @@ describe("Backpressure behavior", () => {
     });
 
     test("stats accurate after multiple operations", () => {
-      const batcher = new ThrottledEventBatcher<number>(
-        () => {},
-        {
-          batchWindowMs: 1000,
-          maxEventsPerBatch: 3,
-          debounceMs: 0,
-        },
-      );
+      const batcher = new ThrottledEventBatcher<number>(() => {}, {
+        batchWindowMs: 1000,
+        maxEventsPerBatch: 3,
+        debounceMs: 0,
+      });
 
       // Add 5 events (2 will be dropped)
       for (let i = 0; i < 5; i++) {

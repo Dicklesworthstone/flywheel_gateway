@@ -192,7 +192,9 @@ describe("beads routes", () => {
             ...sampleTriage,
             triage: {
               ...sampleTriage.triage,
-              blockers_to_clear: [{ id: "bead-3", title: "Blocker", score: 0.5 }],
+              blockers_to_clear: [
+                { id: "bead-3", title: "Blocker", score: 0.5 },
+              ],
             },
           }),
         }),
