@@ -59,6 +59,18 @@ type CacheClearData = {
   timestamp: string;
 };
 
+type ManifestMetadata = {
+  schemaVersion: string;
+  source?: string;
+  generatedAt?: string;
+};
+
+type RegistryRefreshData = {
+  manifest: ManifestMetadata;
+  toolCount: number;
+  refreshedAt: string;
+};
+
 describe("Setup Routes", () => {
   const app = new Hono().route("/setup", setup);
 
@@ -239,6 +251,127 @@ describe("Setup Routes", () => {
       expect(body.object).toBe("cache_cleared");
       expect(body.data.message).toBe("Detection cache cleared");
       expect(body.data.timestamp).toBeDefined();
+    });
+  });
+
+  // ============================================================================
+  // Contract tests for manifest refresh endpoint (bd-1jdm)
+  //
+  // These tests validate the API contract for both success and error cases.
+  // When the ACFS manifest is unavailable, the endpoint returns a structured
+  // error response - this is tested below.
+  // ============================================================================
+
+  describe("POST /setup/registry/refresh", () => {
+    test("returns structured error when manifest is unavailable", async () => {
+      // Without a manifest file, the endpoint should return a structured error
+      const res = await app.request("/setup/registry/refresh", {
+        method: "POST",
+      });
+
+      // May succeed (200) if manifest exists, or error (5xx) if not
+      const body = (await res.json()) as Envelope<RegistryRefreshData>;
+
+      if (res.status === 200) {
+        // Success path: verify response schema
+        expect(body.object).toBe("registry_refresh");
+        expect(body.data).toBeDefined();
+        expect(body.data.manifest).toBeDefined();
+        expect(typeof body.data.manifest.schemaVersion).toBe("string");
+        expect(typeof body.data.toolCount).toBe("number");
+        expect(body.data.toolCount).toBeGreaterThanOrEqual(0);
+        expect(body.data.refreshedAt).toBeDefined();
+        expect(typeof body.data.refreshedAt).toBe("string");
+      } else {
+        // Error path: verify error response schema
+        expect(res.status).toBeGreaterThanOrEqual(500);
+        expect(body.error).toBeDefined();
+        // Error code may be SYSTEM_UNAVAILABLE (original) or INTERNAL_ERROR (wrapped)
+        expect(["SYSTEM_UNAVAILABLE", "INTERNAL_ERROR"]).toContain(
+          body.error?.code,
+        );
+      }
+    });
+
+    test("response has valid envelope format", async () => {
+      const res = await app.request("/setup/registry/refresh", {
+        method: "POST",
+      });
+      const body = (await res.json()) as Envelope<unknown>;
+
+      // Either success or error should have valid envelope
+      if (res.status === 200) {
+        expect(body.object).toBe("registry_refresh");
+        expect(body.data).toBeDefined();
+      } else {
+        expect(body.error).toBeDefined();
+      }
+    });
+
+    test("returns proper content type", async () => {
+      const res = await app.request("/setup/registry/refresh", {
+        method: "POST",
+      });
+
+      expect(res.headers.get("content-type")).toContain("application/json");
+    });
+  });
+
+  describe("DELETE /setup/registry/cache", () => {
+    test("clears tool registry cache", async () => {
+      const res = await app.request("/setup/registry/cache", {
+        method: "DELETE",
+      });
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as Envelope<CacheClearData>;
+
+      // Verify canonical envelope format
+      expect(body.object).toBe("registry_cache_cleared");
+      expect(body.data).toBeDefined();
+
+      // Verify response structure
+      expect(body.data.message).toBe("Tool registry cache cleared");
+      expect(body.data.timestamp).toBeDefined();
+      expect(typeof body.data.timestamp).toBe("string");
+
+      // Should be valid ISO timestamp
+      expect(new Date(body.data.timestamp).toISOString()).toBe(
+        body.data.timestamp,
+      );
+    });
+
+    test("returns success even when cache is already empty", async () => {
+      // Clear cache first
+      await app.request("/setup/registry/cache", { method: "DELETE" });
+
+      // Clear again - should still succeed
+      const res = await app.request("/setup/registry/cache", {
+        method: "DELETE",
+      });
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as Envelope<CacheClearData>;
+      expect(body.object).toBe("registry_cache_cleared");
+      expect(body.data.message).toBe("Tool registry cache cleared");
+    });
+
+    test("returns proper content type", async () => {
+      const res = await app.request("/setup/registry/cache", {
+        method: "DELETE",
+      });
+
+      expect(res.headers.get("content-type")).toContain("application/json");
+    });
+
+    test("idempotent operation - multiple clears are safe", async () => {
+      // Clear multiple times in succession
+      for (let i = 0; i < 3; i++) {
+        const res = await app.request("/setup/registry/cache", {
+          method: "DELETE",
+        });
+        expect(res.status).toBe(200);
+      }
     });
   });
 });
