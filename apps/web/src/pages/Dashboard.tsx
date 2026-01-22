@@ -1,3 +1,4 @@
+import { SafetyPosturePanel } from "../components/dashboard/SafetyPosturePanel";
 import { StatusPill } from "../components/ui/StatusPill";
 import { mockAgents, mockBeads, mockMetrics } from "../lib/mock-data";
 
@@ -46,6 +47,10 @@ export function DashboardPage() {
           <h4>Mock-first</h4>
           <p className="muted">UI running without backend.</p>
         </div>
+      </section>
+
+      <section style={{ marginTop: "24px" }}>
+        <SafetyPosturePanel />
       </section>
     </div>
   );
