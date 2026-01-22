@@ -24,7 +24,8 @@ const statusTone: Record<string, "positive" | "warning" | "danger" | "muted"> =
   };
 
 const statusOptions = ["open", "in_progress", "blocked", "closed"] as const;
-const typeOptions = ["task", "bug", "feature", "chore", "epic"] as const;
+// Common types for quick selection, but custom types are also supported
+const defaultTypeOptions = ["task", "bug", "feature", "chore", "epic"] as const;
 
 const tableGridTemplate =
   "minmax(120px, 1.1fr) 140px minmax(240px, 2fr) 120px 140px 200px";
@@ -51,7 +52,10 @@ async function createBead(payload: Record<string, unknown>): Promise<Bead> {
   return json.data;
 }
 
-async function updateBead(id: string, payload: Record<string, unknown>): Promise<Bead> {
+async function updateBead(
+  id: string,
+  payload: Record<string, unknown>,
+): Promise<Bead> {
   const res = await fetch(`${API_BASE}/beads/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -99,15 +103,16 @@ export function BeadsPage() {
   const [createTitle, setCreateTitle] = useState("");
   const [createDescription, setCreateDescription] = useState("");
   const [createPriority, setCreatePriority] = useState("2");
-  const [createType, setCreateType] = useState<(typeof typeOptions)[number]>("task");
+  const [createType, setCreateType] = useState("task");
   const [createLoading, setCreateLoading] = useState(false);
 
   const [editOpen, setEditOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Bead | null>(null);
   const [editTitle, setEditTitle] = useState("");
-  const [editStatus, setEditStatus] = useState<(typeof statusOptions)[number]>("open");
+  const [editStatus, setEditStatus] =
+    useState<(typeof statusOptions)[number]>("open");
   const [editPriority, setEditPriority] = useState("");
-  const [editType, setEditType] = useState<(typeof typeOptions)[number]>("task");
+  const [editType, setEditType] = useState("task");
   const [editLoading, setEditLoading] = useState(false);
 
   const [closeTarget, setCloseTarget] = useState<Bead | null>(null);
@@ -115,6 +120,15 @@ export function BeadsPage() {
   const [closeLoading, setCloseLoading] = useState(false);
 
   const totalCount = useMemo(() => beads.length, [beads.length]);
+
+  // Compute available types: default options + any custom types found in beads
+  const typeOptions = useMemo(() => {
+    const customTypes = beads
+      .map((b) => b.issue_type)
+      .filter((t): t is string => !!t && !defaultTypeOptions.includes(t as typeof defaultTypeOptions[number]));
+    const uniqueCustomTypes = [...new Set(customTypes)];
+    return [...defaultTypeOptions, ...uniqueCustomTypes.sort()];
+  }, [beads]);
 
   const loadBeads = useCallback(async () => {
     setError(null);
@@ -168,7 +182,8 @@ export function BeadsPage() {
           title: createTitle.trim(),
           type: createType,
         };
-        if (createDescription.trim()) payload.description = createDescription.trim();
+        if (createDescription.trim())
+          payload.description = createDescription.trim();
         if (priorityValue !== undefined) payload.priority = priorityValue;
         const created = await createBead(payload);
         applyBeadUpdate(created);
@@ -179,7 +194,9 @@ export function BeadsPage() {
       setCreatePriority("2");
       setCreateType("task");
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to create bead");
+      setActionError(
+        err instanceof Error ? err.message : "Failed to create bead",
+      );
     } finally {
       setCreateLoading(false);
     }
@@ -196,10 +213,8 @@ export function BeadsPage() {
     setEditTarget(bead);
     setEditTitle(bead.title);
     setEditStatus((bead.status as (typeof statusOptions)[number]) ?? "open");
-    setEditPriority(
-      bead.priority !== undefined ? String(bead.priority) : "",
-    );
-    setEditType((bead.issue_type as (typeof typeOptions)[number]) ?? "task");
+    setEditPriority(bead.priority !== undefined ? String(bead.priority) : "");
+    setEditType(bead.issue_type ?? "task");
     setEditOpen(true);
   }, []);
 
@@ -223,7 +238,8 @@ export function BeadsPage() {
         applyBeadUpdate(updated);
       } else {
         const payload: Record<string, unknown> = {};
-        if (editTitle.trim() !== editTarget.title) payload.title = editTitle.trim();
+        if (editTitle.trim() !== editTarget.title)
+          payload.title = editTitle.trim();
         if (editStatus !== editTarget.status) payload.status = editStatus;
         if (priorityValue !== undefined) payload.priority = priorityValue;
         if (editType !== editTarget.issue_type) payload.type = editType;
@@ -237,7 +253,9 @@ export function BeadsPage() {
       setEditOpen(false);
       setEditTarget(null);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to update bead");
+      setActionError(
+        err instanceof Error ? err.message : "Failed to update bead",
+      );
     } finally {
       setEditLoading(false);
     }
@@ -262,7 +280,9 @@ export function BeadsPage() {
         const updated = await claimBead(bead.id);
         applyBeadUpdate(updated);
       } catch (err) {
-        setActionError(err instanceof Error ? err.message : "Failed to claim bead");
+        setActionError(
+          err instanceof Error ? err.message : "Failed to claim bead",
+        );
       }
     },
     [applyBeadUpdate, mockMode],
@@ -276,13 +296,18 @@ export function BeadsPage() {
       if (mockMode) {
         applyBeadUpdate({ ...closeTarget, status: "closed" });
       } else {
-        const updated = await closeBead(closeTarget.id, closeReason.trim() || undefined);
+        const updated = await closeBead(
+          closeTarget.id,
+          closeReason.trim() || undefined,
+        );
         applyBeadUpdate(updated);
       }
       setCloseTarget(null);
       setCloseReason("");
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to close bead");
+      setActionError(
+        err instanceof Error ? err.message : "Failed to close bead",
+      );
     } finally {
       setCloseLoading(false);
     }
@@ -295,7 +320,8 @@ export function BeadsPage() {
           <div>
             <h3>Beads</h3>
             <p className="card__subtitle">
-              {mockMode ? "Mock data mode" : "Live br data"} · {totalCount} tracked
+              {mockMode ? "Mock data mode" : "Live br data"} · {totalCount}{" "}
+              tracked
             </p>
           </div>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -440,9 +466,7 @@ export function BeadsPage() {
           <select
             id="bead-type"
             value={createType}
-            onChange={(event) =>
-              setCreateType(event.target.value as (typeof typeOptions)[number])
-            }
+            onChange={(event) => setCreateType(event.target.value)}
           >
             {typeOptions.map((option) => (
               <option key={option} value={option}>
@@ -491,7 +515,9 @@ export function BeadsPage() {
             id="bead-edit-status"
             value={editStatus}
             onChange={(event) =>
-              setEditStatus(event.target.value as (typeof statusOptions)[number])
+              setEditStatus(
+                event.target.value as (typeof statusOptions)[number],
+              )
             }
           >
             {statusOptions.map((option) => (
@@ -514,15 +540,17 @@ export function BeadsPage() {
           <select
             id="bead-edit-type"
             value={editType}
-            onChange={(event) =>
-              setEditType(event.target.value as (typeof typeOptions)[number])
-            }
+            onChange={(event) => setEditType(event.target.value)}
           >
             {typeOptions.map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
             ))}
+            {/* Show current type if it's not in the list (custom type from another source) */}
+            {editType && !typeOptions.includes(editType) && (
+              <option value={editType}>{editType}</option>
+            )}
           </select>
         </div>
       </Modal>
@@ -552,8 +580,7 @@ export function BeadsPage() {
         }
       >
         <p>
-          Close bead{" "}
-          <span className="mono">{closeTarget?.id ?? ""}</span>?
+          Close bead <span className="mono">{closeTarget?.id ?? ""}</span>?
         </p>
         <div className="modal__field">
           <label htmlFor="bead-close-reason">Reason (optional)</label>
