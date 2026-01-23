@@ -23,6 +23,11 @@ import {
   createBeadsService,
 } from "../services/beads.service";
 import {
+  beadLinks,
+  beadThreadingHints,
+  getLinkContext,
+} from "../utils/links";
+import {
   sendError,
   sendResource,
   sendValidationError,
@@ -242,15 +247,18 @@ function createBeadsRoutes(service?: BeadsService) {
   });
 
   /**
-   * GET /beads/ready - BV quick wins
+   * GET /beads/triage/quick-wins - BV quick wins (canonical)
+   *
+   * Returns tasks that are easy to complete and unblock other work.
+   * This is the canonical endpoint; /beads/ready is an alias for compatibility.
    */
-  router.get("/ready", async (c) => {
+  router.get("/triage/quick-wins", async (c) => {
     try {
       const serviceInstance = c.get("beadsService");
       const triage = await serviceInstance.getTriage();
       const limit = parseLimit(c.req.query("limit"));
       const beads = triage.triage.quick_wins ?? [];
-      return sendResource(c, "ready", {
+      return sendResource(c, "quick_wins", {
         beads: limit ? beads.slice(0, limit) : beads,
       });
     } catch (error) {
@@ -259,7 +267,54 @@ function createBeadsRoutes(service?: BeadsService) {
   });
 
   /**
-   * GET /beads/blocked - BV blockers to clear
+   * GET /beads/ready - BV quick wins (alias)
+   *
+   * @deprecated Use /beads/triage/quick-wins instead for clarity.
+   * This endpoint returns BV triage quick wins, not BR ready issues.
+   * For BR ready (unblocked) issues, use /beads/list/ready.
+   */
+  router.get("/ready", async (c) => {
+    try {
+      const serviceInstance = c.get("beadsService");
+      const triage = await serviceInstance.getTriage();
+      const limit = parseLimit(c.req.query("limit"));
+      const beads = triage.triage.quick_wins ?? [];
+      return sendResource(c, "quick_wins", {
+        beads: limit ? beads.slice(0, limit) : beads,
+        _deprecated: {
+          message: "Use /beads/triage/quick-wins instead",
+          canonical: "/beads/triage/quick-wins",
+        },
+      });
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  /**
+   * GET /beads/triage/blockers - BV blockers to clear (canonical)
+   *
+   * Returns high-impact tasks that are blocking multiple dependents.
+   * This is the canonical endpoint; /beads/blocked is an alias for compatibility.
+   */
+  router.get("/triage/blockers", async (c) => {
+    try {
+      const serviceInstance = c.get("beadsService");
+      const triage = await serviceInstance.getTriage();
+      const limit = parseLimit(c.req.query("limit"));
+      const beads = triage.triage.blockers_to_clear ?? [];
+      return sendResource(c, "blockers", {
+        beads: limit ? beads.slice(0, limit) : beads,
+      });
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  /**
+   * GET /beads/blocked - BV blockers to clear (alias)
+   *
+   * @deprecated Use /beads/triage/blockers instead for clarity.
    */
   router.get("/blocked", async (c) => {
     try {
@@ -267,8 +322,12 @@ function createBeadsRoutes(service?: BeadsService) {
       const triage = await serviceInstance.getTriage();
       const limit = parseLimit(c.req.query("limit"));
       const beads = triage.triage.blockers_to_clear ?? [];
-      return sendResource(c, "blocked", {
+      return sendResource(c, "blockers", {
         beads: limit ? beads.slice(0, limit) : beads,
+        _deprecated: {
+          message: "Use /beads/triage/blockers instead",
+          canonical: "/beads/triage/blockers",
+        },
       });
     } catch (error) {
       return handleError(error, c);
@@ -506,7 +565,18 @@ function createBeadsRoutes(service?: BeadsService) {
       log.debug({ options }, "Listing beads with filters");
       const beads = await serviceInstance.list(options);
 
-      return sendResource(c, "beads", { beads, count: beads.length });
+      // Add links and threading hints to each bead
+      const ctx = getLinkContext(c);
+      const beadsWithLinks = beads.map((bead) => ({
+        ...bead,
+        links: beadLinks({ id: bead.id }, ctx),
+        threading: beadThreadingHints({ id: bead.id }),
+      }));
+
+      return sendResource(c, "beads", {
+        beads: beadsWithLinks,
+        count: beadsWithLinks.length,
+      });
     } catch (error) {
       return handleError(error, c);
     }
@@ -543,7 +613,19 @@ function createBeadsRoutes(service?: BeadsService) {
       if (sort) options.sort = sort;
 
       const beads = await serviceInstance.ready(options);
-      return sendResource(c, "beads", { beads, count: beads.length });
+
+      // Add links and threading hints to each bead
+      const ctx = getLinkContext(c);
+      const beadsWithLinks = beads.map((bead) => ({
+        ...bead,
+        links: beadLinks({ id: bead.id }, ctx),
+        threading: beadThreadingHints({ id: bead.id }),
+      }));
+
+      return sendResource(c, "beads", {
+        beads: beadsWithLinks,
+        count: beadsWithLinks.length,
+      });
     } catch (error) {
       return handleError(error, c);
     }
@@ -551,6 +633,10 @@ function createBeadsRoutes(service?: BeadsService) {
 
   /**
    * GET /beads/:id - Show a specific bead
+   *
+   * Response includes:
+   * - links: HATEOAS links for CRUD and mail thread coordination
+   * - threading: Hints for using the bead ID as Agent Mail thread_id
    */
   router.get("/:id", async (c) => {
     try {
@@ -579,7 +665,15 @@ function createBeadsRoutes(service?: BeadsService) {
         );
         return respondWithGatewayError(c, mapped);
       }
-      return sendResource(c, "bead", beads[0]);
+
+      const ctx = getLinkContext(c);
+      // bead is guaranteed to exist since we checked beads.length above
+      const bead = beads[0]!;
+      return sendResource(c, "bead", {
+        ...bead,
+        links: beadLinks({ id: bead.id }, ctx),
+        threading: beadThreadingHints({ id: bead.id }),
+      });
     } catch (error) {
       return handleError(error, c);
     }
@@ -587,6 +681,10 @@ function createBeadsRoutes(service?: BeadsService) {
 
   /**
    * POST /beads - Create a new bead
+   *
+   * Response includes:
+   * - links: HATEOAS links for CRUD and mail thread coordination
+   * - threading: Hints for using the bead ID as Agent Mail thread_id
    */
   router.post("/", async (c) => {
     try {
@@ -598,7 +696,18 @@ function createBeadsRoutes(service?: BeadsService) {
       const bead = await serviceInstance.create(
         stripUndefined(parsed) as BrCreateInput,
       );
-      return sendResource(c, "bead", bead, 201);
+
+      const ctx = getLinkContext(c);
+      return sendResource(
+        c,
+        "bead",
+        {
+          ...bead,
+          links: beadLinks({ id: bead.id }, ctx),
+          threading: beadThreadingHints({ id: bead.id }),
+        },
+        201,
+      );
     } catch (error) {
       return handleError(error, c);
     }
@@ -606,6 +715,10 @@ function createBeadsRoutes(service?: BeadsService) {
 
   /**
    * PATCH /beads/:id - Update a bead
+   *
+   * Response includes:
+   * - links: HATEOAS links for CRUD and mail thread coordination
+   * - threading: Hints for using the bead ID as Agent Mail thread_id
    */
   router.patch("/:id", async (c) => {
     try {
@@ -626,7 +739,15 @@ function createBeadsRoutes(service?: BeadsService) {
         );
         return respondWithGatewayError(c, mapped);
       }
-      return sendResource(c, "bead", beads[0]);
+
+      const ctx = getLinkContext(c);
+      // bead is guaranteed to exist since we checked beads.length above
+      const bead = beads[0]!;
+      return sendResource(c, "bead", {
+        ...bead,
+        links: beadLinks({ id: bead.id }, ctx),
+        threading: beadThreadingHints({ id: bead.id }),
+      });
     } catch (error) {
       return handleError(error, c);
     }
@@ -634,6 +755,10 @@ function createBeadsRoutes(service?: BeadsService) {
 
   /**
    * DELETE /beads/:id - Close a bead
+   *
+   * Response includes:
+   * - links: HATEOAS links for CRUD and mail thread coordination
+   * - threading: Hints for using the bead ID as Agent Mail thread_id
    */
   router.delete("/:id", async (c) => {
     try {
@@ -654,7 +779,15 @@ function createBeadsRoutes(service?: BeadsService) {
         );
         return respondWithGatewayError(c, mapped);
       }
-      return sendResource(c, "bead", beads[0]);
+
+      const ctx = getLinkContext(c);
+      // bead is guaranteed to exist since we checked beads.length above
+      const bead = beads[0]!;
+      return sendResource(c, "bead", {
+        ...bead,
+        links: beadLinks({ id: bead.id }, ctx),
+        threading: beadThreadingHints({ id: bead.id }),
+      });
     } catch (error) {
       return handleError(error, c);
     }
@@ -662,6 +795,10 @@ function createBeadsRoutes(service?: BeadsService) {
 
   /**
    * POST /beads/:id/close - Close a bead (alternative to DELETE)
+   *
+   * Response includes:
+   * - links: HATEOAS links for CRUD and mail thread coordination
+   * - threading: Hints for using the bead ID as Agent Mail thread_id
    */
   router.post("/:id/close", async (c) => {
     try {
@@ -682,7 +819,15 @@ function createBeadsRoutes(service?: BeadsService) {
         );
         return respondWithGatewayError(c, mapped);
       }
-      return sendResource(c, "bead", beads[0]);
+
+      const ctx = getLinkContext(c);
+      // bead is guaranteed to exist since we checked beads.length above
+      const bead = beads[0]!;
+      return sendResource(c, "bead", {
+        ...bead,
+        links: beadLinks({ id: bead.id }, ctx),
+        threading: beadThreadingHints({ id: bead.id }),
+      });
     } catch (error) {
       return handleError(error, c);
     }
@@ -690,6 +835,10 @@ function createBeadsRoutes(service?: BeadsService) {
 
   /**
    * POST /beads/:id/claim - Claim a bead (set status to in_progress)
+   *
+   * Response includes:
+   * - links: HATEOAS links for CRUD and mail thread coordination
+   * - threading: Hints for using the bead ID as Agent Mail thread_id
    */
   router.post("/:id/claim", async (c) => {
     try {
@@ -704,7 +853,15 @@ function createBeadsRoutes(service?: BeadsService) {
         );
         return respondWithGatewayError(c, mapped);
       }
-      return sendResource(c, "bead", beads[0]);
+
+      const ctx = getLinkContext(c);
+      // bead is guaranteed to exist since we checked beads.length above
+      const bead = beads[0]!;
+      return sendResource(c, "bead", {
+        ...bead,
+        links: beadLinks({ id: bead.id }, ctx),
+        threading: beadThreadingHints({ id: bead.id }),
+      });
     } catch (error) {
       return handleError(error, c);
     }

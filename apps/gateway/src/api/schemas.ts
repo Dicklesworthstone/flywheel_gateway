@@ -2066,10 +2066,18 @@ export const ManifestMetadataSchema = z
       example: "1.0.0",
     }),
     source: z.string().optional().openapi({
-      description: "Source path of the manifest",
+      description: "Source identifier of the manifest",
     }),
     generatedAt: z.string().optional().openapi({
       description: "When the manifest was generated",
+    }),
+    manifestPath: z.string().optional().openapi({
+      description: "Absolute filesystem path to the loaded manifest",
+      example: "/data/projects/flywheel_gateway/acfs.manifest.yaml",
+    }),
+    manifestHash: z.string().optional().openapi({
+      description: "SHA-256 hash of the manifest content for verification",
+      example: "a1b2c3d4e5f6...",
     }),
   })
   .openapi("ManifestMetadata");

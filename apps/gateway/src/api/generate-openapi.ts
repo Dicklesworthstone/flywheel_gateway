@@ -2779,10 +2779,56 @@ All errors follow a consistent structure with:
 - \`hint\`: Suggested action for AI agents
 - \`severity\`: Error severity (terminal, recoverable, retry)
 
-## WebSocket
+## WebSocket API
 
 Real-time updates are available via WebSocket at \`/ws\`.
-See the WebSocket documentation for event types and subscription.
+
+### Connection
+
+\`\`\`javascript
+const ws = new WebSocket('wss://gateway.example.com/ws');
+ws.onopen = () => {
+  ws.send(JSON.stringify({ type: 'subscribe', channels: ['agent:state:agent_123'] }));
+};
+\`\`\`
+
+### Channel Patterns
+
+| Channel Pattern | Description |
+|-----------------|-------------|
+| \`agent:state:{agentId}\` | Lifecycle state changes |
+| \`agent:output:{agentId}\` | Streaming output chunks |
+| \`agent:tools:{agentId}\` | Tool call events |
+| \`ntm:state\` | NTM session/agent state changes |
+| \`ntm:health\` | NTM health status changes |
+| \`ntm:alerts\` | NTM alert events |
+| \`dcg:blocks\` | DCG block events |
+| \`dcg:config\` | DCG configuration changes |
+| \`beads:updates\` | Bead CRUD events |
+| \`setup:install:progress\` | Installation progress |
+| \`session:{sessionId}\` | Session-specific events |
+
+### Message Format
+
+\`\`\`json
+{
+  "channel": "agent:state:agent_123",
+  "type": "state_changed",
+  "data": { "previousState": "ready", "newState": "executing" },
+  "cursor": "cursor_abc123",
+  "timestamp": "2026-01-22T10:00:00.123Z"
+}
+\`\`\`
+
+### Reconnection
+
+On reconnect, send the last received cursor to catch up on missed messages:
+
+\`\`\`json
+{ "type": "subscribe", "channels": ["agent:output:agent_123"], "cursor": "cursor_abc123" }
+\`\`\`
+
+See \`/docs/robot-mode-api.md\` for complete WebSocket documentation.
       `.trim(),
       contact: {
         name: "Flywheel Gateway Support",

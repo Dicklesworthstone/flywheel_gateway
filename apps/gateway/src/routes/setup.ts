@@ -21,6 +21,7 @@ import {
 } from "../services/setup.service";
 import {
   clearToolRegistryCache,
+  getToolRegistryMetadata,
   loadToolRegistry,
 } from "../services/tool-registry.service";
 import {
@@ -375,11 +376,14 @@ setup.delete("/registry/cache", async (c) => {
 setup.post("/registry/refresh", async (c) => {
   try {
     const registry = await loadToolRegistry({ bypassCache: true });
+    const meta = getToolRegistryMetadata();
     return sendResource(c, "registry_refresh", {
       manifest: {
         schemaVersion: registry.schemaVersion,
         source: registry.source ?? null,
         generatedAt: registry.generatedAt ?? null,
+        manifestPath: meta?.manifestPath ?? null,
+        manifestHash: meta?.manifestHash ?? null,
       },
       toolCount: registry.tools.length,
       refreshedAt: new Date().toISOString(),
