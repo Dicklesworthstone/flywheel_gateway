@@ -214,6 +214,13 @@ const InstalledCheckSpecSchema = z.object({
   outputCapBytes: z.number().int().positive().optional(),
 });
 
+const VerifiedInstallerSpecSchema = z.object({
+  runner: z.string(),
+  args: z.array(z.string()).optional(),
+  fallback_url: z.string().optional(),
+  run_in_tmux: z.boolean().optional(),
+});
+
 const ToolDefinitionSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -226,6 +233,7 @@ const ToolDefinitionSchema = z.object({
   phase: z.number().int().optional(),
   docsUrl: z.string().optional(),
   install: z.array(InstallSpecSchema).optional(),
+  verifiedInstaller: VerifiedInstallerSpecSchema.optional(),
   verify: VerificationSpecSchema.optional(),
   installedCheck: InstalledCheckSpecSchema.optional(),
   checksums: z.record(z.string()).optional(),

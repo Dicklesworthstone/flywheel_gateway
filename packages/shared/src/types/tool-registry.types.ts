@@ -54,6 +54,22 @@ export interface InstalledCheckSpec {
   outputCapBytes?: number;
 }
 
+/**
+ * Verified installer specification from ACFS manifest.
+ * Preferred over generic InstallSpec when present.
+ * Contains only public-safe fields (no private paths).
+ */
+export interface VerifiedInstallerSpec {
+  /** Install runner command (e.g. "curl", "bash", "npm") */
+  runner: string;
+  /** Arguments to pass to the runner */
+  args?: string[];
+  /** Fallback URL for manual installation if automated fails */
+  fallback_url?: string;
+  /** Whether to run the installer in tmux (for interactive installs) */
+  run_in_tmux?: boolean;
+}
+
 export interface ToolDefinition {
   /** Stable identifier (e.g. "agents.claude", "tools.bv") */
   id: string;
@@ -77,6 +93,8 @@ export interface ToolDefinition {
   docsUrl?: string;
   /** Installation steps */
   install?: InstallSpec[];
+  /** Verified installer from ACFS manifest (preferred over install) */
+  verifiedInstaller?: VerifiedInstallerSpec;
   /** Verification instructions */
   verify?: VerificationSpec;
   /** Installed check instructions (for detection) */

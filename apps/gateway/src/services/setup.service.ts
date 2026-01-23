@@ -5,7 +5,11 @@
  * agent CLIs and developer tools for the Flywheel Gateway setup wizard.
  */
 
-import type { InstallSpec, ToolDefinition } from "@flywheel/shared";
+import type {
+  InstallSpec,
+  ToolDefinition,
+  VerifiedInstallerSpec,
+} from "@flywheel/shared";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
   type DetectedCLI,
@@ -24,6 +28,21 @@ import {
 // Types
 // ============================================================================
 
+/**
+ * Verified installer info surfaced in API responses.
+ * Contains only public-safe fields (no private paths).
+ */
+export interface VerifiedInstallerInfo {
+  /** Install runner command (e.g. "curl", "bash", "npm") */
+  runner: string;
+  /** Arguments to pass to the runner */
+  args?: string[];
+  /** Fallback URL for manual installation if automated fails */
+  fallbackUrl?: string;
+  /** Whether to run the installer in tmux (for interactive installs) */
+  runInTmux?: boolean;
+}
+
 export interface ToolInfo {
   name: DetectedType;
   displayName: string;
@@ -37,6 +56,8 @@ export interface ToolInfo {
   installCommand?: string;
   installUrl?: string;
   docsUrl?: string;
+  /** Verified installer from ACFS manifest (preferred over installCommand) */
+  verifiedInstaller?: VerifiedInstallerInfo;
 }
 
 export interface ToolCategories {
@@ -250,15 +271,58 @@ function buildInstallCommand(install?: InstallSpec[]): string | undefined {
 }
 
 /**
+ * Convert VerifiedInstallerSpec from manifest to VerifiedInstallerInfo for API.
+ * Maps snake_case to camelCase and ensures public-safe output.
+ */
+function toVerifiedInstallerInfo(
+  spec: VerifiedInstallerSpec,
+): VerifiedInstallerInfo {
+  return {
+    runner: spec.runner,
+    ...(spec.args && { args: spec.args }),
+    ...(spec.fallback_url && { fallbackUrl: spec.fallback_url }),
+    ...(spec.run_in_tmux !== undefined && { runInTmux: spec.run_in_tmux }),
+  };
+}
+
+/**
+ * Build install command from verified installer spec.
+ * Constructs a shell command from runner + args.
+ */
+function buildVerifiedInstallerCommand(
+  spec: VerifiedInstallerSpec,
+): string | undefined {
+  if (!spec.runner) return undefined;
+  const args = spec.args?.length ? ` ${spec.args.join(" ")}` : "";
+  return `${spec.runner}${args}`.trim();
+}
+
+/**
  * Convert a ToolDefinition from the registry into a ToolInfo for setup endpoints.
  * Uses hardcoded TOOL_INFO as fallback for missing fields only.
+ * Prefers verifiedInstaller over install array when present.
  */
 function toToolInfo(tool: ToolDefinition, manifestVersion?: string): ToolInfo {
   const fallback = TOOL_INFO[tool.name];
+
+  // Prefer verified installer command over install array
   const installCommand =
-    buildInstallCommand(tool.install) ?? fallback?.installCommand;
-  const installUrl = tool.install?.[0]?.url ?? fallback?.installUrl;
+    (tool.verifiedInstaller
+      ? buildVerifiedInstallerCommand(tool.verifiedInstaller)
+      : buildInstallCommand(tool.install)) ?? fallback?.installCommand;
+
+  // Use verified installer fallback_url, then install url, then fallback
+  const installUrl =
+    tool.verifiedInstaller?.fallback_url ??
+    tool.install?.[0]?.url ??
+    fallback?.installUrl;
+
   const docsUrl = tool.docsUrl ?? fallback?.docsUrl;
+
+  // Map verified installer if present
+  const verifiedInstaller = tool.verifiedInstaller
+    ? toVerifiedInstallerInfo(tool.verifiedInstaller)
+    : undefined;
 
   return {
     name: tool.name as DetectedType,
@@ -275,6 +339,7 @@ function toToolInfo(tool: ToolDefinition, manifestVersion?: string): ToolInfo {
     ...(installCommand && { installCommand }),
     ...(installUrl && { installUrl }),
     ...(docsUrl && { docsUrl }),
+    ...(verifiedInstaller && { verifiedInstaller }),
   };
 }
 
@@ -557,11 +622,42 @@ export async function installTool(
     };
   }
 
+  // Check if verified installer requires tmux (interactive install)
+  if (toolInfo.verifiedInstaller?.runInTmux && request.mode !== "interactive") {
+    const meta = getToolRegistryMetadata();
+    log.info(
+      {
+        toolId: request.tool,
+        verifiedInstaller: toolInfo.verifiedInstaller,
+        manifestVersion: meta?.schemaVersion ?? null,
+        manifestHash: meta?.manifestHash ?? null,
+      },
+      "Tool requires interactive tmux install",
+    );
+    return {
+      tool: request.tool,
+      success: false,
+      error: `${request.tool} requires interactive installation in tmux. Use mode: "interactive" or visit: ${toolInfo.verifiedInstaller.fallbackUrl || toolInfo.docsUrl}`,
+      durationMs: 0,
+    };
+  }
+
+  // Determine install source for logging
+  const installSource = toolInfo.verifiedInstaller ? "verified_installer" : "install_spec";
+
   log.info(
     {
       tool: request.tool,
       mode: request.mode,
       verify: request.verify,
+      installSource,
+      ...(toolInfo.verifiedInstaller && {
+        verifiedInstaller: {
+          runner: toolInfo.verifiedInstaller.runner,
+          hasArgs: !!toolInfo.verifiedInstaller.args,
+          runInTmux: toolInfo.verifiedInstaller.runInTmux,
+        },
+      }),
       correlationId,
     },
     "Starting tool installation",
