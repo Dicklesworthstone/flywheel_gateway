@@ -50,6 +50,17 @@ export interface ReadinessSummary {
   missingRequired: string[];
 }
 
+export interface ToolCategories {
+  required: string[];
+  recommended: string[];
+  optional: string[];
+}
+
+export interface PhaseOrderEntry {
+  phase: number;
+  tools: string[];
+}
+
 export interface ReadinessStatus {
   ready: boolean;
   agents: DetectedCLI[];
@@ -60,6 +71,10 @@ export interface ReadinessStatus {
     generatedAt?: string;
   };
   summary: ReadinessSummary;
+  /** Tool categorization: required, recommended, optional */
+  toolCategories?: ToolCategories;
+  /** Install order by phase (lower phase = install first) */
+  installOrder?: PhaseOrderEntry[];
   recommendations: string[];
   detectedAt: string;
   durationMs: number;
@@ -477,4 +492,33 @@ export function getToolDisplayInfo(name: string) {
       color: "#6B7280",
     }
   );
+}
+
+export type ToolPriority = "required" | "recommended" | "optional";
+
+/**
+ * Get the priority of a tool based on the tool categories.
+ */
+export function getToolPriority(
+  toolName: string,
+  categories?: ToolCategories,
+): ToolPriority {
+  if (!categories) return "optional";
+  if (categories.required.includes(toolName)) return "required";
+  if (categories.recommended.includes(toolName)) return "recommended";
+  return "optional";
+}
+
+/**
+ * Get the phase for a tool based on install order.
+ */
+export function getToolPhase(
+  toolName: string,
+  installOrder?: PhaseOrderEntry[],
+): number | undefined {
+  if (!installOrder) return undefined;
+  for (const entry of installOrder) {
+    if (entry.tools.includes(toolName)) return entry.phase;
+  }
+  return undefined;
 }

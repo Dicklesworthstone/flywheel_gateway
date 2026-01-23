@@ -321,8 +321,9 @@ function isRequiredTool(tool: ToolDefinition): boolean {
   if (tool.optional === true) return false;
   // Enabled by default and not optional means required
   if (tool.enabledByDefault === true) return true;
-  // Default: if not explicitly optional, treat as required
-  return tool.optional !== true;
+  // Default: non-optional tools are required
+  // (At this point tool.optional is false or undefined, which we treat as required)
+  return true;
 }
 
 /**

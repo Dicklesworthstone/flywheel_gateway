@@ -14,12 +14,14 @@ import {
   Check,
   CheckCircle,
   ChevronRight,
+  Circle,
   Download,
   ExternalLink,
   Loader2,
   PartyPopper,
   RefreshCw,
   Shield,
+  Star,
   Terminal,
   XCircle,
   Zap,
@@ -29,7 +31,12 @@ import { ConfirmModal } from "../components/ui/Modal";
 import { StatusPill } from "../components/ui/StatusPill";
 import {
   type DetectedCLI,
+  type ToolCategories,
+  type ToolPriority,
+  type PhaseOrderEntry,
   getToolDisplayInfo,
+  getToolPriority,
+  getToolPhase,
   useInstallTool,
   useReadiness,
 } from "../hooks/useSetup";
@@ -118,6 +125,68 @@ function ReadinessScore({
 }
 
 // ============================================================================
+// Priority Badge
+// ============================================================================
+
+interface PriorityBadgeProps {
+  priority: ToolPriority;
+  phase?: number;
+}
+
+function PriorityBadge({ priority, phase }: PriorityBadgeProps) {
+  const config: Record<
+    ToolPriority,
+    { label: string; color: string; bgColor: string; icon: React.ReactNode }
+  > = {
+    required: {
+      label: "Required",
+      color: "var(--color-red-600)",
+      bgColor: "var(--color-red-50)",
+      icon: <Star size={10} fill="currentColor" />,
+    },
+    recommended: {
+      label: "Recommended",
+      color: "var(--color-amber-600)",
+      bgColor: "var(--color-amber-50)",
+      icon: <Star size={10} />,
+    },
+    optional: {
+      label: "Optional",
+      color: "var(--color-slate-500)",
+      bgColor: "var(--color-slate-100)",
+      icon: <Circle size={10} />,
+    },
+  };
+
+  const { label, color, bgColor, icon } = config[priority];
+
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "4px",
+        padding: "2px 6px",
+        borderRadius: "4px",
+        fontSize: "10px",
+        fontWeight: 500,
+        color,
+        backgroundColor: bgColor,
+        textTransform: "uppercase",
+        letterSpacing: "0.025em",
+      }}
+      title={phase !== undefined ? `Phase ${phase}` : undefined}
+    >
+      {icon}
+      {label}
+      {phase !== undefined && (
+        <span style={{ opacity: 0.7, marginLeft: "2px" }}>P{phase}</span>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
 // Tool Card
 // ============================================================================
 
@@ -126,9 +195,18 @@ interface ToolCardProps {
   onInstall?: () => void;
   installing?: boolean;
   index?: number;
+  priority?: ToolPriority;
+  phase?: number;
 }
 
-function ToolCard({ cli, onInstall, installing, index = 0 }: ToolCardProps) {
+function ToolCard({
+  cli,
+  onInstall,
+  installing,
+  index = 0,
+  priority,
+  phase,
+}: ToolCardProps) {
   const display = getToolDisplayInfo(cli.name);
   const isAgent = ["claude", "codex", "gemini", "aider", "gh-copilot"].includes(
     cli.name,
@@ -188,12 +266,22 @@ function ToolCard({ cli, onInstall, installing, index = 0 }: ToolCardProps) {
                 <XCircle size={14} style={{ color: "var(--color-red-500)" }} />
               )}
             </div>
-            <div className="muted" style={{ fontSize: "12px" }}>
-              {cli.available
-                ? cli.version
-                  ? `v${cli.version}`
-                  : "Installed"
-                : "Not installed"}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginTop: "2px",
+              }}
+            >
+              <span className="muted" style={{ fontSize: "12px" }}>
+                {cli.available
+                  ? cli.version
+                    ? `v${cli.version}`
+                    : "Installed"
+                  : "Not installed"}
+              </span>
+              {priority && <PriorityBadge priority={priority} phase={phase} />}
             </div>
           </div>
         </div>
@@ -389,6 +477,8 @@ interface DetectStepContentProps {
   isReady: boolean;
   recommendations: string[];
   missingRequired: string[];
+  toolCategories?: ToolCategories;
+  installOrder?: PhaseOrderEntry[];
   onNext: () => void;
 }
 
@@ -399,6 +489,8 @@ function DetectStepContent({
   isReady,
   recommendations,
   missingRequired,
+  toolCategories,
+  installOrder,
   onNext,
 }: DetectStepContentProps) {
   return (
@@ -444,7 +536,13 @@ function DetectStepContent({
           animate="visible"
         >
           {agents.map((agent, i) => (
-            <ToolCard key={agent.name} cli={agent} index={i} />
+            <ToolCard
+              key={agent.name}
+              cli={agent}
+              index={i}
+              priority={getToolPriority(agent.name, toolCategories)}
+              phase={getToolPhase(agent.name, installOrder)}
+            />
           ))}
         </motion.div>
       </section>
@@ -469,7 +567,13 @@ function DetectStepContent({
           animate="visible"
         >
           {tools.map((tool, i) => (
-            <ToolCard key={tool.name} cli={tool} index={i} />
+            <ToolCard
+              key={tool.name}
+              cli={tool}
+              index={i}
+              priority={getToolPriority(tool.name, toolCategories)}
+              phase={getToolPhase(tool.name, installOrder)}
+            />
           ))}
         </motion.div>
       </section>
@@ -495,6 +599,8 @@ interface InstallStepContentProps {
   tools: DetectedCLI[];
   onInstall: (tool: string) => void;
   installingTool: string | null;
+  toolCategories?: ToolCategories;
+  installOrder?: PhaseOrderEntry[];
   onNext: () => void;
   onBack: () => void;
 }
@@ -503,10 +609,19 @@ function InstallStepContent({
   tools,
   onInstall,
   installingTool,
+  toolCategories,
+  installOrder,
   onNext,
   onBack,
 }: InstallStepContentProps) {
-  const missingTools = tools.filter((t) => !t.available);
+  // Sort missing tools by phase (install order)
+  const missingTools = tools
+    .filter((t) => !t.available)
+    .sort((a, b) => {
+      const phaseA = getToolPhase(a.name, installOrder) ?? 999;
+      const phaseB = getToolPhase(b.name, installOrder) ?? 999;
+      return phaseA - phaseB;
+    });
   const installedTools = tools.filter((t) => t.available);
 
   return (
@@ -559,6 +674,8 @@ function InstallStepContent({
                 onInstall={() => onInstall(tool.name)}
                 installing={installingTool === tool.name}
                 index={i}
+                priority={getToolPriority(tool.name, toolCategories)}
+                phase={getToolPhase(tool.name, installOrder)}
               />
             ))}
           </motion.div>
@@ -580,7 +697,13 @@ function InstallStepContent({
             className="grid grid--2"
           >
             {installedTools.map((tool, i) => (
-              <ToolCard key={tool.name} cli={tool} index={i} />
+              <ToolCard
+                key={tool.name}
+                cli={tool}
+                index={i}
+                priority={getToolPriority(tool.name, toolCategories)}
+                phase={getToolPhase(tool.name, installOrder)}
+              />
             ))}
           </motion.div>
         </div>
@@ -617,6 +740,8 @@ interface VerifyStepContentProps {
       toolsAvailable: number;
       toolsTotal: number;
     };
+    toolCategories?: ToolCategories;
+    installOrder?: PhaseOrderEntry[];
   };
   onRefresh: () => void;
   loading: boolean;
@@ -749,7 +874,13 @@ function VerifyStepContent({
           className="grid grid--2"
         >
           {allCLIs.map((cli, i) => (
-            <ToolCard key={cli.name} cli={cli} index={i} />
+            <ToolCard
+              key={cli.name}
+              cli={cli}
+              index={i}
+              priority={getToolPriority(cli.name, status.toolCategories)}
+              phase={getToolPhase(cli.name, status.installOrder)}
+            />
           ))}
         </motion.div>
       </div>
@@ -993,6 +1124,8 @@ export function SetupPage() {
             isReady={isReady}
             recommendations={status.recommendations}
             missingRequired={status.summary.missingRequired}
+            toolCategories={status.toolCategories}
+            installOrder={status.installOrder}
             onNext={handleNextStep}
           />
         )}
@@ -1002,6 +1135,8 @@ export function SetupPage() {
             tools={tools}
             onInstall={handleInstallRequest}
             installingTool={installingTool}
+            toolCategories={status.toolCategories}
+            installOrder={status.installOrder}
             onNext={handleNextStep}
             onBack={handleBackStep}
           />
