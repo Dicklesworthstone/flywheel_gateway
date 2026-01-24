@@ -211,8 +211,8 @@ const FileConflictSchema = z.object({
 const FileChangesSummarySchema = z.object({
   total_changes: z.number(),
   unique_files: z.number(),
-  by_agent: z.record(z.number()),
-  by_operation: z.record(z.number()),
+  by_agent: z.record(z.string(), z.number()),
+  by_operation: z.record(z.string(), z.number()),
   most_active_agent: z.string().optional(),
   conflicts: z.array(FileConflictSchema).optional(),
 });
@@ -233,9 +233,9 @@ const FilesOutputSchema = RobotResponseSchema.and(
 const MetricsTokenUsageSchema = z.object({
   total_tokens: z.number(),
   total_cost_usd: z.number(),
-  by_agent: z.record(z.number()),
-  by_model: z.record(z.number()),
-  context_current_percent: z.record(z.number()),
+  by_agent: z.record(z.string(), z.number()),
+  by_model: z.record(z.string(), z.number()),
+  context_current_percent: z.record(z.string(), z.number()),
 });
 
 const AgentMetricsSchema = z.object({
@@ -263,7 +263,7 @@ const MetricsOutputSchema = RobotResponseSchema.and(
       session: z.string().optional(),
       period: z.string(),
       token_usage: MetricsTokenUsageSchema,
-      agent_stats: z.record(AgentMetricsSchema),
+      agent_stats: z.record(z.string(), AgentMetricsSchema),
       session_stats: SessionMetricsSchema,
       _agent_hints: AgentHintsSchema.optional(),
     })
@@ -290,7 +290,7 @@ const TailOutputSchema = RobotResponseSchema.and(
     .object({
       session: z.string(),
       captured_at: z.string(),
-      panes: z.record(PaneOutputSchema),
+      panes: z.record(z.string(), PaneOutputSchema),
       _agent_hints: TailAgentHintsSchema.optional(),
     })
     .passthrough(),
@@ -327,7 +327,7 @@ const NtmAlertSchema = z
     message: z.string(),
     session: z.string().optional(),
     pane: z.string().optional(),
-    context: z.record(z.unknown()).optional(),
+    context: z.record(z.string(), z.unknown()).optional(),
     created_at: z.string(),
     duration_ms: z.number().optional(),
     count: z.number().optional(),
@@ -337,8 +337,8 @@ const NtmAlertSchema = z
 const NtmAlertSummarySchema = z
   .object({
     total_active: z.number(),
-    by_severity: z.record(z.number()).optional(),
-    by_type: z.record(z.number()).optional(),
+    by_severity: z.record(z.string(), z.number()).optional(),
+    by_type: z.record(z.string(), z.number()).optional(),
   })
   .passthrough();
 
@@ -355,7 +355,7 @@ const SnapshotChangeSchema = z.object({
   type: z.string(),
   session: z.string().optional(),
   pane: z.string().optional(),
-  data: z.record(z.unknown()).optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
 });
 
 const SnapshotDeltaOutputSchema = z
@@ -408,9 +408,11 @@ const ProjectHealthOutputSchema = z
     checked_at: z.string(),
     system: HealthSystemSchema,
     sessions: z.record(
+      z.string(),
       z.object({
         healthy: z.boolean(),
         agents: z.record(
+          z.string(),
           z.object({
             responsive: z.boolean(),
             output_rate: z.string(),
@@ -467,14 +469,14 @@ const IsWorkingSummarySchema = z.object({
   rate_limited_count: z.number(),
   context_low_count: z.number(),
   error_count: z.number(),
-  by_recommendation: z.record(z.array(z.string())),
+  by_recommendation: z.record(z.string(), z.array(z.string())),
 });
 
 const IsWorkingOutputSchema = RobotResponseSchema.and(
   z
     .object({
       query: IsWorkingQuerySchema,
-      agents: z.record(AgentWorkStatusSchema),
+      agents: z.record(z.string(), AgentWorkStatusSchema),
       summary: IsWorkingSummarySchema,
     })
     .passthrough(),
@@ -796,10 +798,10 @@ export function createBunNtmCommandRunner(): NtmCommandRunner {
   return {
     run: async (command, args, options) => {
       try {
-        const result = await runner.run(command, args, {
-          cwd: options?.cwd,
-          timeoutMs: options?.timeout,
-        });
+        const runOptions: { cwd?: string; timeoutMs?: number } = {};
+        if (options?.cwd) runOptions.cwd = options.cwd;
+        if (options?.timeout) runOptions.timeoutMs = options.timeout;
+        const result = await runner.run(command, args, runOptions);
         return {
           stdout: result.stdout,
           stderr: result.stderr,

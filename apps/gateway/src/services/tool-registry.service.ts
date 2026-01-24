@@ -236,7 +236,7 @@ const ToolDefinitionSchema = z.object({
   verifiedInstaller: VerifiedInstallerSpecSchema.optional(),
   verify: VerificationSpecSchema.optional(),
   installedCheck: InstalledCheckSpecSchema.optional(),
-  checksums: z.record(z.string()).optional(),
+  checksums: z.record(z.string(), z.string()).optional(),
 });
 
 const ToolRegistrySchema = z.object({
@@ -324,7 +324,36 @@ function parseManifest(
     );
   }
 
-  return result.data;
+  // Build result with only defined properties to satisfy exactOptionalPropertyTypes
+  // Filter out undefined values from tools array
+  const tools: ToolDefinition[] = result.data.tools.map((tool) => {
+    const t: ToolDefinition = {
+      id: tool.id,
+      name: tool.name,
+      category: tool.category,
+    };
+    if (tool.displayName) t.displayName = tool.displayName;
+    if (tool.description) t.description = tool.description;
+    if (tool.tags) t.tags = tool.tags;
+    if (tool.optional !== undefined) t.optional = tool.optional;
+    if (tool.enabledByDefault !== undefined)
+      t.enabledByDefault = tool.enabledByDefault;
+    if (tool.phase !== undefined) t.phase = tool.phase;
+    if (tool.docsUrl) t.docsUrl = tool.docsUrl;
+    if (tool.install) t.install = tool.install;
+    if (tool.verifiedInstaller) t.verifiedInstaller = tool.verifiedInstaller;
+    if (tool.verify) t.verify = tool.verify;
+    if (tool.installedCheck) t.installedCheck = tool.installedCheck;
+    if (tool.checksums) t.checksums = tool.checksums;
+    return t;
+  });
+  const registry: ToolRegistry = {
+    schemaVersion: result.data.schemaVersion,
+    tools,
+  };
+  if (result.data.source) registry.source = result.data.source;
+  if (result.data.generatedAt) registry.generatedAt = result.data.generatedAt;
+  return registry;
 }
 
 // ============================================================================
@@ -403,14 +432,15 @@ export async function loadToolRegistryWithMetadata(
       },
       "Tool registry cache hit",
     );
-    return {
+    const result: ToolRegistryLoadResult = {
       registry: cached.registry,
       source: cached.source,
-      errorCategory: cached.errorCategory,
-      userMessage: cached.errorCategory
-        ? USER_FACING_MESSAGES[cached.errorCategory]
-        : undefined,
     };
+    if (cached.errorCategory) {
+      result.errorCategory = cached.errorCategory;
+      result.userMessage = USER_FACING_MESSAGES[cached.errorCategory];
+    }
+    return result;
   }
 
   // Check if manifest exists

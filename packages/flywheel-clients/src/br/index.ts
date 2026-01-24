@@ -13,6 +13,7 @@ import {
 import { z } from "zod";
 import {
   CliCommandError,
+  type CliCommandOptions,
   createBunCliRunner as createSharedBunCliRunner,
 } from "../cli-runner";
 
@@ -362,15 +363,22 @@ function buildGlobalArgs(
   overrides?: BrCommandOptions,
 ): string[] {
   const merged: BrCommandOptions = {
-    db: defaults.db,
-    actor: defaults.actor,
-    autoImport: defaults.autoImport,
-    autoFlush: defaults.autoFlush,
-    allowStale: defaults.allowStale,
-    lockTimeoutMs: defaults.lockTimeoutMs,
-    noDb: defaults.noDb,
     ...overrides,
   };
+  const dbVal = overrides?.db ?? defaults.db;
+  if (dbVal) merged.db = dbVal;
+  const actorVal = overrides?.actor ?? defaults.actor;
+  if (actorVal) merged.actor = actorVal;
+  const autoImport = overrides?.autoImport ?? defaults.autoImport;
+  if (autoImport !== undefined) merged.autoImport = autoImport;
+  const autoFlush = overrides?.autoFlush ?? defaults.autoFlush;
+  if (autoFlush !== undefined) merged.autoFlush = autoFlush;
+  const allowStale = overrides?.allowStale ?? defaults.allowStale;
+  if (allowStale !== undefined) merged.allowStale = allowStale;
+  const lockTimeoutVal = overrides?.lockTimeoutMs ?? defaults.lockTimeoutMs;
+  if (lockTimeoutVal !== undefined) merged.lockTimeoutMs = lockTimeoutVal;
+  const noDb = overrides?.noDb ?? defaults.noDb;
+  if (noDb !== undefined) merged.noDb = noDb;
 
   const args: string[] = [];
   if (merged.db) args.push("--db", merged.db);
@@ -624,15 +632,15 @@ export function createBrClient(options: BrClientOptions): BrClient {
 /**
  * Create a command runner that uses Bun.spawn for subprocess execution.
  */
-export function createBunCommandRunner(): BrCommandRunner {
+export function createBunBrCommandRunner(): BrCommandRunner {
   const runner = createSharedBunCliRunner({ timeoutMs: 30000 });
   return {
     run: async (command, args, options) => {
       try {
-        const result = await runner.run(command, args, {
-          cwd: options?.cwd,
-          timeoutMs: options?.timeout,
-        });
+        const cliOpts: CliCommandOptions = {};
+        if (options?.cwd) cliOpts.cwd = options.cwd;
+        if (options?.timeout) cliOpts.timeoutMs = options.timeout;
+        const result = await runner.run(command, args, cliOpts);
         return {
           stdout: result.stdout,
           stderr: result.stderr,

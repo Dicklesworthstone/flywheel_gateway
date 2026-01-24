@@ -283,7 +283,7 @@ export function detectWorkState(
     if (matches.length > 0) {
       contextLowScore += 1;
       const lastMatch = matches[matches.length - 1];
-      if (lastMatch[1]) {
+      if (lastMatch && lastMatch[1]) {
         contextRemaining = parseInt(lastMatch[1], 10);
       }
     }

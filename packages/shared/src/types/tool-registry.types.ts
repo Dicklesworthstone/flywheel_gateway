@@ -17,28 +17,28 @@ export interface InstallSpec {
   /** Primary command to execute (e.g. "curl", "npm", "pip") */
   command: string;
   /** Arguments to pass to the command */
-  args?: string[];
+  args?: string[] | undefined;
   /** Optional install URL for manual steps or scripts */
-  url?: string;
+  url?: string | undefined;
   /** Optional mode hint for UI */
-  mode?: InstallMode;
+  mode?: InstallMode | undefined;
   /** Whether the install requires elevated privileges */
-  requiresSudo?: boolean;
+  requiresSudo?: boolean | undefined;
   /** Additional instructions for humans */
-  notes?: string;
+  notes?: string | undefined;
 }
 
 export interface VerificationSpec {
   /** Command to verify installation (e.g. ["tool", "--version"]) */
-  command?: string[];
+  command?: string[] | undefined;
   /** Acceptable exit codes (defaults to [0] if omitted) */
-  expectedExitCodes?: number[];
+  expectedExitCodes?: number[] | undefined;
   /** Optional minimum version constraint */
-  minVersion?: string;
+  minVersion?: string | undefined;
   /** Regex string to extract a version from stdout */
-  versionRegex?: string;
+  versionRegex?: string | undefined;
   /** Timeout override for verification */
-  timeoutMs?: number;
+  timeoutMs?: number | undefined;
 }
 
 export type InstalledCheckRunAs = "root" | "user";
@@ -47,11 +47,11 @@ export interface InstalledCheckSpec {
   /** Command to check if tool is installed (e.g. ["command", "-v", "tool"]) */
   command: string[];
   /** Privilege context for execution */
-  run_as?: InstalledCheckRunAs;
+  run_as?: InstalledCheckRunAs | undefined;
   /** Timeout for check execution in ms (default: 5000) */
-  timeoutMs?: number;
+  timeoutMs?: number | undefined;
   /** Max output bytes to capture (default: 4096) */
-  outputCapBytes?: number;
+  outputCapBytes?: number | undefined;
 }
 
 /**
@@ -63,11 +63,11 @@ export interface VerifiedInstallerSpec {
   /** Install runner command (e.g. "curl", "bash", "npm") */
   runner: string;
   /** Arguments to pass to the runner */
-  args?: string[];
+  args?: string[] | undefined;
   /** Fallback URL for manual installation if automated fails */
-  fallback_url?: string;
+  fallback_url?: string | undefined;
   /** Whether to run the installer in tmux (for interactive installs) */
-  run_in_tmux?: boolean;
+  run_in_tmux?: boolean | undefined;
 }
 
 export interface ToolDefinition {
@@ -76,40 +76,40 @@ export interface ToolDefinition {
   /** Short name used in detection/services (e.g. "claude", "bv") */
   name: string;
   /** Human-friendly display name */
-  displayName?: string;
+  displayName?: string | undefined;
   /** Short description */
-  description?: string;
+  description?: string | undefined;
   /** Tool category for UI grouping */
   category: ToolCategory;
   /** Optional tags such as "critical", "recommended" */
-  tags?: ToolTag[];
+  tags?: ToolTag[] | undefined;
   /** Whether the tool is optional */
-  optional?: boolean;
+  optional?: boolean | undefined;
   /** Whether enabled by default in a stack */
-  enabledByDefault?: boolean;
+  enabledByDefault?: boolean | undefined;
   /** Installation phase/order (lower = earlier) */
-  phase?: number;
+  phase?: number | undefined;
   /** Documentation URL */
-  docsUrl?: string;
+  docsUrl?: string | undefined;
   /** Installation steps */
-  install?: InstallSpec[];
+  install?: InstallSpec[] | undefined;
   /** Verified installer from ACFS manifest (preferred over install) */
-  verifiedInstaller?: VerifiedInstallerSpec;
+  verifiedInstaller?: VerifiedInstallerSpec | undefined;
   /** Verification instructions */
-  verify?: VerificationSpec;
+  verify?: VerificationSpec | undefined;
   /** Installed check instructions (for detection) */
-  installedCheck?: InstalledCheckSpec;
+  installedCheck?: InstalledCheckSpec | undefined;
   /** Checksums for install artifacts (public-safe) */
-  checksums?: Record<string, string>;
+  checksums?: Record<string, string> | undefined;
 }
 
 export interface ToolRegistry {
   /** Schema version for compatibility */
   schemaVersion: string;
   /** Registry source (e.g. "acfs") */
-  source?: string;
+  source?: string | undefined;
   /** When the registry was generated */
-  generatedAt?: string;
+  generatedAt?: string | undefined;
   /** Tool definitions */
   tools: ToolDefinition[];
 }

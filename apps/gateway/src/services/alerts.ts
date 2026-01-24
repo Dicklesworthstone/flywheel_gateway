@@ -64,7 +64,18 @@ function mapIsWorkingContext(snapshot: {
   checkedAt: Date;
 }): NtmIsWorkingContext {
   const agents: NtmIsWorkingContext["agents"] = {};
-  for (const [agentId, status] of Object.entries(snapshot.output.agents)) {
+  for (const [agentId, agentStatus] of Object.entries(snapshot.output.agents)) {
+    // Type assertion needed because Object.entries returns unknown values
+    // with noUncheckedIndexedAccess enabled
+    const status = agentStatus as {
+      is_working: boolean;
+      is_idle: boolean;
+      is_rate_limited: boolean;
+      is_context_low: boolean;
+      confidence: number;
+      recommendation: string;
+      recommendation_reason: string;
+    };
     agents[agentId] = {
       isWorking: status.is_working,
       isIdle: status.is_idle,

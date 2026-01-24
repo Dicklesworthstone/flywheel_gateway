@@ -725,10 +725,10 @@ export function createBunUBSCommandRunner(): UBSCommandRunner {
   return {
     run: async (command, args, options) => {
       try {
-        const result = await runner.run(command, args, {
-          cwd: options?.cwd,
-          timeoutMs: options?.timeout,
-        });
+        const runOptions: { cwd?: string; timeoutMs?: number } = {};
+        if (options?.cwd) runOptions.cwd = options.cwd;
+        if (options?.timeout) runOptions.timeoutMs = options.timeout;
+        const result = await runner.run(command, args, runOptions);
         return {
           stdout: result.stdout,
           stderr: result.stderr,

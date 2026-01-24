@@ -173,9 +173,9 @@ export function BeadsPage() {
           id: `mock-${Date.now()}`,
           title: createTitle.trim(),
           status: "open",
-          priority: priorityValue,
           issue_type: createType,
         };
+        if (priorityValue !== undefined) newBead.priority = priorityValue;
         setBeads((prev) => [newBead, ...prev]);
       } else {
         const payload: Record<string, unknown> = {
@@ -183,8 +183,8 @@ export function BeadsPage() {
           type: createType,
         };
         if (createDescription.trim())
-          payload.description = createDescription.trim();
-        if (priorityValue !== undefined) payload.priority = priorityValue;
+          payload["description"] = createDescription.trim();
+        if (priorityValue !== undefined) payload["priority"] = priorityValue;
         const created = await createBead(payload);
         applyBeadUpdate(created);
       }
@@ -229,20 +229,21 @@ export function BeadsPage() {
         : parsedPriority;
       if (mockMode) {
         const updated: Bead = {
-          ...editTarget,
+          id: editTarget.id,
           title: editTitle.trim(),
-          status: editStatus,
-          priority: priorityValue,
           issue_type: editType,
         };
+        if (editStatus) updated.status = editStatus;
+        if (priorityValue !== undefined) updated.priority = priorityValue;
+        if (editTarget.assignee) updated.assignee = editTarget.assignee;
         applyBeadUpdate(updated);
       } else {
         const payload: Record<string, unknown> = {};
         if (editTitle.trim() !== editTarget.title)
-          payload.title = editTitle.trim();
-        if (editStatus !== editTarget.status) payload.status = editStatus;
-        if (priorityValue !== undefined) payload.priority = priorityValue;
-        if (editType !== editTarget.issue_type) payload.type = editType;
+          payload["title"] = editTitle.trim();
+        if (editStatus !== editTarget.status) payload["status"] = editStatus;
+        if (priorityValue !== undefined) payload["priority"] = priorityValue;
+        if (editType !== editTarget.issue_type) payload["type"] = editType;
         if (Object.keys(payload).length === 0) {
           setEditOpen(false);
           return;

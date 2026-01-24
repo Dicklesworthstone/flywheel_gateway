@@ -130,7 +130,7 @@ function ReadinessScore({
 
 interface PriorityBadgeProps {
   priority: ToolPriority;
-  phase?: number;
+  phase?: number | undefined;
 }
 
 function PriorityBadge({ priority, phase }: PriorityBadgeProps) {
@@ -196,7 +196,7 @@ interface ToolCardProps {
   installing?: boolean;
   index?: number;
   priority?: ToolPriority;
-  phase?: number;
+  phase?: number | undefined;
 }
 
 function ToolCard({
@@ -477,8 +477,8 @@ interface DetectStepContentProps {
   isReady: boolean;
   recommendations: string[];
   missingRequired: string[];
-  toolCategories?: ToolCategories;
-  installOrder?: PhaseOrderEntry[];
+  toolCategories?: ToolCategories | undefined;
+  installOrder?: PhaseOrderEntry[] | undefined;
   onNext: () => void;
 }
 
@@ -599,8 +599,8 @@ interface InstallStepContentProps {
   tools: DetectedCLI[];
   onInstall: (tool: string) => void;
   installingTool: string | null;
-  toolCategories?: ToolCategories;
-  installOrder?: PhaseOrderEntry[];
+  toolCategories?: ToolCategories | undefined;
+  installOrder?: PhaseOrderEntry[] | undefined;
   onNext: () => void;
   onBack: () => void;
 }

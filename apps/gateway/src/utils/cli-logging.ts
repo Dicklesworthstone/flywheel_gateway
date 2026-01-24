@@ -160,10 +160,12 @@ export function buildCliCommandLogFields(
 
   // Add optional fields only if present
   if (input.stdout) {
-    fields.stdout = truncateOutput(input.stdout);
+    const truncated = truncateOutput(input.stdout);
+    if (truncated) fields.stdout = truncated;
   }
   if (input.stderr) {
-    fields.stderr = truncateOutput(input.stderr);
+    const truncated = truncateOutput(input.stderr);
+    if (truncated) fields.stderr = truncated;
   }
   if (input.timedOut) {
     fields.timedOut = true;
