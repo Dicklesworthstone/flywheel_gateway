@@ -73,9 +73,10 @@ const RchDoctorCheckSchema = z
   .object({
     category: z.string(),
     name: z.string(),
-    status: z.enum(["pass", "warn", "fail", "skip"]),
+    status: z.enum(["pass", "warning", "fail", "skip"]),
     message: z.string(),
     details: z.string().optional(),
+    suggestion: z.string().optional(),
     fixable: z.boolean().optional(),
   })
   .passthrough();
@@ -85,12 +86,14 @@ const RchDoctorSchema = z
     checks: z.array(RchDoctorCheckSchema),
     summary: z
       .object({
-        pass: z.number(),
-        warn: z.number(),
-        fail: z.number(),
-        skip: z.number(),
+        total: z.number(),
+        passed: z.number(),
+        warnings: z.number(),
+        failed: z.number(),
       })
+      .passthrough()
       .optional(),
+    fixes_applied: z.array(z.string()).optional(),
   })
   .passthrough();
 
@@ -326,9 +329,13 @@ export function createRchClient(options: RchClientOptions): RchClient {
         }
 
         const passedChecks =
-          doctor.checks?.filter((c) => c.status === "pass").length ?? 0;
+          doctor.summary?.passed ??
+          doctor.checks?.filter((c) => c.status === "pass").length ??
+          0;
         const failedChecks =
-          doctor.checks?.filter((c) => c.status === "fail").length ?? 0;
+          doctor.summary?.failed ??
+          doctor.checks?.filter((c) => c.status === "fail").length ??
+          0;
 
         const health: RchHealthStatus = {
           available: true,
