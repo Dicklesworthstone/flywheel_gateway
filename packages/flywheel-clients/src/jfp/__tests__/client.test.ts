@@ -92,7 +92,14 @@ describe("JFP client", () => {
 
     test("returns null when prompt not found", async () => {
       const runner = createRunner("", 1);
-      (runner as { run: (cmd: string, args: string[]) => Promise<{ stdout: string; stderr: string; exitCode: number }> }).run = async () => ({
+      (
+        runner as {
+          run: (
+            cmd: string,
+            args: string[],
+          ) => Promise<{ stdout: string; stderr: string; exitCode: number }>;
+        }
+      ).run = async () => ({
         stdout: "",
         stderr: "not found",
         exitCode: 1,
@@ -431,7 +438,9 @@ describe("JFP client", () => {
 
     test("validates difficulty enum values", async () => {
       for (const difficulty of ["beginner", "intermediate", "advanced"]) {
-        const prompt = createPrompt({ difficulty: difficulty as "beginner" | "intermediate" | "advanced" });
+        const prompt = createPrompt({
+          difficulty: difficulty as "beginner" | "intermediate" | "advanced",
+        });
         const runner = createRunner(JSON.stringify(prompt));
         const client = createJfpClient({ runner });
 

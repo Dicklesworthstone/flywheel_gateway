@@ -208,10 +208,14 @@ function parseJson<T>(
   try {
     parsed = JSON.parse(stdout);
   } catch (error) {
-    throw new GiilClientError("parse_error", `Failed to parse GIIL ${context}`, {
-      cause: error instanceof Error ? error.message : String(error),
-      stdout: stdout.slice(0, 500),
-    });
+    throw new GiilClientError(
+      "parse_error",
+      `Failed to parse GIIL ${context}`,
+      {
+        cause: error instanceof Error ? error.message : String(error),
+        stdout: stdout.slice(0, 500),
+      },
+    );
   }
 
   const result = schema.safeParse(parsed);
@@ -289,7 +293,12 @@ export function createGiilClient(options: GiilClientOptions): GiilClient {
     },
 
     downloadAlbum: async (url, opts) => {
-      const args = [url, "--json", "--all", ...buildDownloadArgs(options, opts)];
+      const args = [
+        url,
+        "--json",
+        "--all",
+        ...buildDownloadArgs(options, opts),
+      ];
 
       const stdout = await runGiilCommand(
         options.runner,

@@ -281,7 +281,11 @@ export function createCaamClient(options: CaamClientOptions): CaamClient {
 
     isAvailable: async () => {
       try {
-        await runCaamCommand(options.runner, ["status", "--json"], buildRunOptions(options));
+        await runCaamCommand(
+          options.runner,
+          ["status", "--json"],
+          buildRunOptions(options),
+        );
         return true;
       } catch {
         return false;

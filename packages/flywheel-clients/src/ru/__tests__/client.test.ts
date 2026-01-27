@@ -10,16 +10,31 @@ import {
 // Test Helpers
 // ============================================================================
 
-function createRunner(stdout: string, exitCode = 0): {
-  calls: { command: string; args: string[]; options?: { cwd?: string; timeout?: number } }[];
+function createRunner(
+  stdout: string,
+  exitCode = 0,
+): {
+  calls: {
+    command: string;
+    args: string[];
+    options?: { cwd?: string; timeout?: number };
+  }[];
   run: RuCommandRunner["run"];
 } {
-  const calls: { command: string; args: string[]; options?: { cwd?: string; timeout?: number } }[] = [];
+  const calls: {
+    command: string;
+    args: string[];
+    options?: { cwd?: string; timeout?: number };
+  }[] = [];
   return {
     calls,
     run: async (command, args, options) => {
       // Only include options property if defined (exactOptionalPropertyTypes)
-      const call: { command: string; args: string[]; options?: { cwd?: string; timeout?: number } } = { command, args };
+      const call: {
+        command: string;
+        args: string[];
+        options?: { cwd?: string; timeout?: number };
+      } = { command, args };
       if (options !== undefined) {
         call.options = options;
       }
@@ -63,7 +78,11 @@ function createRunnerWithMap(
 describe("RU client", () => {
   describe("version command", () => {
     test("parses JSON version output", async () => {
-      const versionInfo = { version: "1.2.3", commit: "abc123", date: "2026-01-27" };
+      const versionInfo = {
+        version: "1.2.3",
+        commit: "abc123",
+        date: "2026-01-27",
+      };
       const runner = createRunner(JSON.stringify(versionInfo));
       const client = createRuClient({ runner });
 
@@ -410,7 +429,10 @@ describe("RU client", () => {
       const runner = createRunner(JSON.stringify(phase3Result));
       const client = createRuClient({ runner });
 
-      const result = await client.sweepPhase3("owner/repo", "/path/to/plan.json");
+      const result = await client.sweepPhase3(
+        "owner/repo",
+        "/path/to/plan.json",
+      );
 
       expect(result.success).toBe(true);
       const args = runner.calls[0]?.args ?? [];
@@ -428,7 +450,9 @@ describe("RU client", () => {
       const runner = createRunner(JSON.stringify({ success: true }));
       const client = createRuClient({ runner });
 
-      await client.sweepPhase3("owner/repo", "/path/to/plan.json", { autoApprove: true });
+      await client.sweepPhase3("owner/repo", "/path/to/plan.json", {
+        autoApprove: true,
+      });
 
       const args = runner.calls[0]?.args ?? [];
       expect(args).toContain("--auto-approve");
@@ -438,7 +462,9 @@ describe("RU client", () => {
       const runner = createRunner(JSON.stringify({ success: true }));
       const client = createRuClient({ runner });
 
-      await client.sweepPhase3("owner/repo", "/path/to/plan.json", { dryRun: true });
+      await client.sweepPhase3("owner/repo", "/path/to/plan.json", {
+        dryRun: true,
+      });
 
       const args = runner.calls[0]?.args ?? [];
       expect(args).toContain("--dry-run");
@@ -524,7 +550,11 @@ describe("RU client", () => {
 
     test("per-call options override client config", async () => {
       const runner = createRunner(JSON.stringify({ repos: 0 }));
-      const client = createRuClient({ runner, cwd: "/default", timeout: 10000 });
+      const client = createRuClient({
+        runner,
+        cwd: "/default",
+        timeout: 10000,
+      });
 
       await client.status({ cwd: "/override", timeout: 5000 });
 

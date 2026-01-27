@@ -110,7 +110,11 @@ describe("BR client", () => {
 
   describe("show command", () => {
     test("fetches issue by ID", async () => {
-      const issue = { id: "bd-abc", title: "Show test", description: "Details" };
+      const issue = {
+        id: "bd-abc",
+        title: "Show test",
+        description: "Details",
+      };
       const runner = createRunner(JSON.stringify([issue]));
       const client = createBrClient({ runner });
 

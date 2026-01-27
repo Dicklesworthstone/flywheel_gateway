@@ -34,8 +34,10 @@ function createMockRunner(result: Partial<CliCommandResult>): CliCommandRunner {
         stderr: result.stderr ?? "",
         exitCode: result.exitCode ?? 0,
       };
-      if (result.stdoutTruncated !== undefined) response.stdoutTruncated = result.stdoutTruncated;
-      if (result.stderrTruncated !== undefined) response.stderrTruncated = result.stderrTruncated;
+      if (result.stdoutTruncated !== undefined)
+        response.stdoutTruncated = result.stdoutTruncated;
+      if (result.stderrTruncated !== undefined)
+        response.stderrTruncated = result.stderrTruncated;
       if (result.timedOut !== undefined) response.timedOut = result.timedOut;
       return response;
     },
@@ -68,7 +70,7 @@ describe("parseJson", () => {
   });
 
   test("parses valid JSON array", () => {
-    const input = '[1, 2, 3]';
+    const input = "[1, 2, 3]";
     const result = parseJson<number[]>(input, "test");
     expect(result).toEqual([1, 2, 3]);
   });
@@ -311,9 +313,13 @@ describe("createBunCliRunner", () => {
 
   test("merges environment variables", async () => {
     const runner = createBunCliRunner({ env: { DEFAULT_VAR: "default" } });
-    const result = await runner.run("sh", ["-c", "echo $TEST_VAR:$DEFAULT_VAR"], {
-      env: { TEST_VAR: "value" },
-    });
+    const result = await runner.run(
+      "sh",
+      ["-c", "echo $TEST_VAR:$DEFAULT_VAR"],
+      {
+        env: { TEST_VAR: "value" },
+      },
+    );
 
     expect(result.stdout.trim()).toBe("value:default");
   });
@@ -561,7 +567,9 @@ describe("error detail logging", () => {
       error = e as CliCommandError;
     }
 
-    expect(error?.details?.["stdout"]).toBe("{malformed json with context data}");
+    expect(error?.details?.["stdout"]).toBe(
+      "{malformed json with context data}",
+    );
     expect(error?.details?.["cause"]).toBeDefined();
   });
 

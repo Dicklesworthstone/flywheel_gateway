@@ -86,9 +86,9 @@ import {
 // Fixture Factory: Creates a stub runner that returns predefined JSON
 // ============================================================================
 
-function createFixtureRunner<T extends { stdout: string; stderr: string; exitCode: number }>(
-  fixture: string,
-): { run: () => Promise<T> } {
+function createFixtureRunner<
+  T extends { stdout: string; stderr: string; exitCode: number },
+>(fixture: string): { run: () => Promise<T> } {
   return {
     run: async () =>
       ({
@@ -124,12 +124,21 @@ const SCHEMA_FIXTURES = {
       dependency_count: 2,
       dependent_count: 1,
       dependencies: [
-        { id: "bd-dep01", title: "Setup database", status: "closed", priority: 1 },
-        { id: "bd-dep02", title: "Define API spec", status: "open", priority: 2, dep_type: "blocks" },
+        {
+          id: "bd-dep01",
+          title: "Setup database",
+          status: "closed",
+          priority: 1,
+        },
+        {
+          id: "bd-dep02",
+          title: "Define API spec",
+          status: "open",
+          priority: 2,
+          dep_type: "blocks",
+        },
       ],
-      dependents: [
-        { id: "bd-child1", title: "Write tests", status: "open" },
-      ],
+      dependents: [{ id: "bd-child1", title: "Write tests", status: "open" }],
       parent: "bd-epic1",
       external_ref: "GH#123",
       due_at: "2026-02-01T00:00:00Z",
@@ -348,9 +357,24 @@ const SCHEMA_FIXTURES = {
       data: {
         workflow: "main",
         rounds: [
-          { round: 1, workflow: "main", status: "completed", created_at: "2026-01-25T10:00:00Z" },
-          { round: 2, workflow: "main", status: "completed", created_at: "2026-01-26T10:00:00Z" },
-          { round: 3, workflow: "main", status: "completed", created_at: "2026-01-27T08:00:00Z" },
+          {
+            round: 1,
+            workflow: "main",
+            status: "completed",
+            created_at: "2026-01-25T10:00:00Z",
+          },
+          {
+            round: 2,
+            workflow: "main",
+            status: "completed",
+            created_at: "2026-01-26T10:00:00Z",
+          },
+          {
+            round: 3,
+            workflow: "main",
+            status: "completed",
+            created_at: "2026-01-27T08:00:00Z",
+          },
         ],
         total: 3,
       },
@@ -382,8 +406,22 @@ const SCHEMA_FIXTURES = {
           panes: 6,
           created_at: "2026-01-27T08:00:00Z",
           agents: [
-            { type: "claude", variant: "opus-4.5", pane: "%0", window: 0, pane_idx: 0, is_active: true },
-            { type: "codex", variant: "o3", pane: "%1", window: 0, pane_idx: 1, is_active: false },
+            {
+              type: "claude",
+              variant: "opus-4.5",
+              pane: "%0",
+              window: 0,
+              pane_idx: 0,
+              is_active: true,
+            },
+            {
+              type: "codex",
+              variant: "o3",
+              pane: "%1",
+              window: 0,
+              pane_idx: 1,
+              is_active: false,
+            },
           ],
         },
         {
@@ -535,7 +573,11 @@ const SCHEMA_FIXTURES = {
         status: "healthy",
         checks: [
           { name: "database", status: "ok", message: "SQLite connected" },
-          { name: "embeddings", status: "ok", message: "Model loaded (all-MiniLM-L6-v2)" },
+          {
+            name: "embeddings",
+            status: "ok",
+            message: "Model loaded (all-MiniLM-L6-v2)",
+          },
           { name: "index", status: "ok", message: "Index up to date" },
         ],
         embedding_service: {
@@ -583,7 +625,8 @@ const SCHEMA_FIXTURES = {
           {
             id: "skill-git-001",
             title: "Git Branch Management",
-            snippet: "Best practices for managing git branches in multi-agent workflows...",
+            snippet:
+              "Best practices for managing git branches in multi-agent workflows...",
             score: 0.94,
             knowledge_base: "skills",
             source: "git-workflow.md",
@@ -591,7 +634,8 @@ const SCHEMA_FIXTURES = {
           {
             id: "skill-git-002",
             title: "Commit Message Standards",
-            snippet: "Standardized commit message format for automated agents...",
+            snippet:
+              "Standardized commit message format for automated agents...",
             score: 0.87,
             knowledge_base: "skills",
             source: "commit-standards.md",
@@ -616,7 +660,11 @@ const SCHEMA_FIXTURES = {
         status: "healthy",
         checks: [
           { name: "procfs", status: "ok", message: "/proc accessible" },
-          { name: "permissions", status: "ok", message: "Can read process info" },
+          {
+            name: "permissions",
+            status: "ok",
+            message: "Can read process info",
+          },
           { name: "cgroups", status: "ok", message: "cgroups v2 available" },
         ],
         permissions: {
@@ -696,7 +744,8 @@ const SCHEMA_FIXTURES = {
         {
           id: "code-review-001",
           title: "Comprehensive Code Review",
-          description: "Thorough code review focusing on quality, security, and maintainability",
+          description:
+            "Thorough code review focusing on quality, security, and maintainability",
           category: "development",
           tags: ["code-review", "security", "quality", "best-practices"],
           author: "Jeffrey",
@@ -705,9 +754,14 @@ const SCHEMA_FIXTURES = {
           difficulty: "intermediate",
           estimatedTokens: 600,
           created: "2026-01-01T00:00:00Z",
-          content: "Review the following code for quality, security, and maintainability...",
+          content:
+            "Review the following code for quality, security, and maintainability...",
           whenToUse: ["PR reviews", "Code audits", "Pre-merge checks"],
-          tips: ["Focus on security first", "Check for edge cases", "Verify error handling"],
+          tips: [
+            "Focus on security first",
+            "Check for edge cases",
+            "Verify error handling",
+          ],
         },
         {
           id: "debug-systematic-002",
@@ -728,7 +782,8 @@ const SCHEMA_FIXTURES = {
     show: JSON.stringify({
       id: "code-review-001",
       title: "Comprehensive Code Review",
-      description: "Thorough code review focusing on quality, security, and maintainability",
+      description:
+        "Thorough code review focusing on quality, security, and maintainability",
       category: "development",
       tags: ["code-review", "security", "quality", "best-practices"],
       author: "Jeffrey",
@@ -737,9 +792,14 @@ const SCHEMA_FIXTURES = {
       difficulty: "intermediate",
       estimatedTokens: 600,
       created: "2026-01-01T00:00:00Z",
-      content: "Review the following code for quality, security, and maintainability...",
+      content:
+        "Review the following code for quality, security, and maintainability...",
       whenToUse: ["PR reviews", "Code audits", "Pre-merge checks"],
-      tips: ["Focus on security first", "Check for edge cases", "Verify error handling"],
+      tips: [
+        "Focus on security first",
+        "Check for edge cases",
+        "Verify error handling",
+      ],
     }),
     categories: JSON.stringify([
       { name: "development", count: 30 },
@@ -855,7 +915,8 @@ const SCHEMA_FIXTURES = {
         "User: Can you help implement authentication?",
         "Assistant: I'll implement JWT-based authentication.",
       ],
-      content: "Implemented the authentication flow using JWT tokens with proper expiration handling.",
+      content:
+        "Implemented the authentication flow using JWT tokens with proper expiration handling.",
       context_after: [
         "The token includes user ID, role, and expiration timestamp.",
         "Refresh tokens are stored securely in httpOnly cookies.",
@@ -876,7 +937,8 @@ const SCHEMA_FIXTURES = {
         {
           line_number: 242,
           role: "assistant",
-          content: "I'll implement JWT-based authentication. Here's the plan...",
+          content:
+            "I'll implement JWT-based authentication. Here's the plan...",
           timestamp: 1706356750,
         },
         {
@@ -959,7 +1021,7 @@ const SCHEMA_FIXTURES = {
     quickstart: JSON.stringify({
       success: true,
       summary: "CM provides procedural memory for coding agents",
-      oneCommand: "cm context \"your task description\" --json",
+      oneCommand: 'cm context "your task description" --json',
       expectations: {
         input: "A task description string",
         output: "Relevant rules, anti-patterns, and history snippets",
@@ -975,13 +1037,13 @@ const SCHEMA_FIXTURES = {
         "Don't forget to record outcomes for feedback",
       ],
       protocol: {
-        start: "cm context \"task\" --json",
+        start: 'cm context "task" --json',
         during: "Follow returned rules",
         end: "cm outcome success/failure rule-ids --json",
       },
       examples: [
-        "cm context \"implement user authentication\" --json",
-        "cm context \"refactor database queries\" --workspace /project --json",
+        'cm context "implement user authentication" --json',
+        'cm context "refactor database queries" --workspace /project --json',
       ],
       operatorNote: {
         automation: "Can be integrated into agent startup scripts",
@@ -990,7 +1052,10 @@ const SCHEMA_FIXTURES = {
       soloUser: {
         description: "For individual developers without agent swarms",
         manualReflection: ["Review rules weekly", "Add new learnings manually"],
-        onboarding: ["Start with cm quickstart", "Run cm stats to see coverage"],
+        onboarding: [
+          "Start with cm quickstart",
+          "Run cm stats to see coverage",
+        ],
       },
       inlineFeedbackFormat: {
         helpful: "[CM-HELPFUL: rule-id]",
@@ -1196,21 +1261,27 @@ const SCHEMA_FIXTURES = {
 
 describe("br Schema Snapshots", () => {
   test("issue shape matches snapshot", async () => {
-    const runner = createFixtureRunner<BrCommandResult>(SCHEMA_FIXTURES.br.issue);
+    const runner = createFixtureRunner<BrCommandResult>(
+      SCHEMA_FIXTURES.br.issue,
+    );
     const client = createBrClient({ runner: runner as BrCommandRunner });
     const result = await client.show("bd-abc12");
     expect(result[0]).toMatchSnapshot();
   });
 
   test("issue list shape matches snapshot", async () => {
-    const runner = createFixtureRunner<BrCommandResult>(SCHEMA_FIXTURES.br.issueList);
+    const runner = createFixtureRunner<BrCommandResult>(
+      SCHEMA_FIXTURES.br.issueList,
+    );
     const client = createBrClient({ runner: runner as BrCommandRunner });
     const result = await client.list();
     expect(result).toMatchSnapshot();
   });
 
   test("sync status shape matches snapshot", async () => {
-    const runner = createFixtureRunner<BrCommandResult>(SCHEMA_FIXTURES.br.syncStatus);
+    const runner = createFixtureRunner<BrCommandResult>(
+      SCHEMA_FIXTURES.br.syncStatus,
+    );
     const client = createBrClient({ runner: runner as BrCommandRunner });
     const result = await client.syncStatus();
     expect(result).toMatchSnapshot();
@@ -1223,14 +1294,18 @@ describe("br Schema Snapshots", () => {
 
 describe("bv Schema Snapshots", () => {
   test("triage shape matches snapshot", async () => {
-    const runner = createFixtureRunner<BvCommandResult>(SCHEMA_FIXTURES.bv.triage);
+    const runner = createFixtureRunner<BvCommandResult>(
+      SCHEMA_FIXTURES.bv.triage,
+    );
     const client = createBvClient({ runner: runner as BvCommandRunner });
     const result = await client.getTriage();
     expect(result).toMatchSnapshot();
   });
 
   test("graph shape matches snapshot", async () => {
-    const runner = createFixtureRunner<BvCommandResult>(SCHEMA_FIXTURES.bv.graph);
+    const runner = createFixtureRunner<BvCommandResult>(
+      SCHEMA_FIXTURES.bv.graph,
+    );
     const client = createBvClient({ runner: runner as BvCommandRunner });
     const result = await client.getGraph();
     expect(result).toMatchSnapshot();
@@ -1243,16 +1318,23 @@ describe("bv Schema Snapshots", () => {
 
 describe("caam Schema Snapshots", () => {
   test("status shape matches snapshot", async () => {
-    const runner = createFixtureRunner<CaamCommandResult>(SCHEMA_FIXTURES.caam.status);
+    const runner = createFixtureRunner<CaamCommandResult>(
+      SCHEMA_FIXTURES.caam.status,
+    );
     const client = createCaamClient({ runner: runner as CaamCommandRunner });
     const result = await client.status();
     expect(result).toMatchSnapshot();
   });
 
   test("activate shape matches snapshot", async () => {
-    const runner = createFixtureRunner<CaamCommandResult>(SCHEMA_FIXTURES.caam.activate);
+    const runner = createFixtureRunner<CaamCommandResult>(
+      SCHEMA_FIXTURES.caam.activate,
+    );
     const client = createCaamClient({ runner: runner as CaamCommandRunner });
-    const result = await client.activate({ provider: "claude-code", profile: "backup" });
+    const result = await client.activate({
+      provider: "claude-code",
+      profile: "backup",
+    });
     expect(result).toMatchSnapshot();
   });
 });
@@ -1263,28 +1345,36 @@ describe("caam Schema Snapshots", () => {
 
 describe("apr Schema Snapshots", () => {
   test("status shape matches snapshot", async () => {
-    const runner = createFixtureRunner<AprCommandResult>(SCHEMA_FIXTURES.apr.status);
+    const runner = createFixtureRunner<AprCommandResult>(
+      SCHEMA_FIXTURES.apr.status,
+    );
     const client = createAprClient({ runner: runner as AprCommandRunner });
     const result = await client.getStatus();
     expect(result).toMatchSnapshot();
   });
 
   test("workflows shape matches snapshot", async () => {
-    const runner = createFixtureRunner<AprCommandResult>(SCHEMA_FIXTURES.apr.workflows);
+    const runner = createFixtureRunner<AprCommandResult>(
+      SCHEMA_FIXTURES.apr.workflows,
+    );
     const client = createAprClient({ runner: runner as AprCommandRunner });
     const result = await client.listWorkflows();
     expect(result).toMatchSnapshot();
   });
 
   test("round shape matches snapshot", async () => {
-    const runner = createFixtureRunner<AprCommandResult>(SCHEMA_FIXTURES.apr.round);
+    const runner = createFixtureRunner<AprCommandResult>(
+      SCHEMA_FIXTURES.apr.round,
+    );
     const client = createAprClient({ runner: runner as AprCommandRunner });
     const result = await client.getRound(3);
     expect(result).toMatchSnapshot();
   });
 
   test("history shape matches snapshot", async () => {
-    const runner = createFixtureRunner<AprCommandResult>(SCHEMA_FIXTURES.apr.history);
+    const runner = createFixtureRunner<AprCommandResult>(
+      SCHEMA_FIXTURES.apr.history,
+    );
     const client = createAprClient({ runner: runner as AprCommandRunner });
     const result = await client.getHistory();
     expect(result).toMatchSnapshot();
@@ -1297,28 +1387,36 @@ describe("apr Schema Snapshots", () => {
 
 describe("ntm Schema Snapshots", () => {
   test("status shape matches snapshot", async () => {
-    const runner = createFixtureRunner<NtmCommandResult>(SCHEMA_FIXTURES.ntm.status);
+    const runner = createFixtureRunner<NtmCommandResult>(
+      SCHEMA_FIXTURES.ntm.status,
+    );
     const client = createNtmClient({ runner: runner as NtmCommandRunner });
     const result = await client.status();
     expect(result).toMatchSnapshot();
   });
 
   test("snapshot shape matches snapshot", async () => {
-    const runner = createFixtureRunner<NtmCommandResult>(SCHEMA_FIXTURES.ntm.snapshot);
+    const runner = createFixtureRunner<NtmCommandResult>(
+      SCHEMA_FIXTURES.ntm.snapshot,
+    );
     const client = createNtmClient({ runner: runner as NtmCommandRunner });
     const result = await client.snapshot();
     expect(result).toMatchSnapshot();
   });
 
   test("health shape matches snapshot", async () => {
-    const runner = createFixtureRunner<NtmCommandResult>(SCHEMA_FIXTURES.ntm.health);
+    const runner = createFixtureRunner<NtmCommandResult>(
+      SCHEMA_FIXTURES.ntm.health,
+    );
     const client = createNtmClient({ runner: runner as NtmCommandRunner });
     const result = await client.health("flywheel");
     expect(result).toMatchSnapshot();
   });
 
   test("context shape matches snapshot", async () => {
-    const runner = createFixtureRunner<NtmCommandResult>(SCHEMA_FIXTURES.ntm.context);
+    const runner = createFixtureRunner<NtmCommandResult>(
+      SCHEMA_FIXTURES.ntm.context,
+    );
     const client = createNtmClient({ runner: runner as NtmCommandRunner });
     const result = await client.context("flywheel");
     expect(result).toMatchSnapshot();
@@ -1331,21 +1429,27 @@ describe("ntm Schema Snapshots", () => {
 
 describe("ms Schema Snapshots", () => {
   test("doctor shape matches snapshot", async () => {
-    const runner = createFixtureRunner<MsCommandResult>(SCHEMA_FIXTURES.ms.doctor);
+    const runner = createFixtureRunner<MsCommandResult>(
+      SCHEMA_FIXTURES.ms.doctor,
+    );
     const client = createMsClient({ runner: runner as MsCommandRunner });
     const result = await client.doctor();
     expect(result).toMatchSnapshot();
   });
 
   test("list shape matches snapshot", async () => {
-    const runner = createFixtureRunner<MsCommandResult>(SCHEMA_FIXTURES.ms.list);
+    const runner = createFixtureRunner<MsCommandResult>(
+      SCHEMA_FIXTURES.ms.list,
+    );
     const client = createMsClient({ runner: runner as MsCommandRunner });
     const result = await client.listKnowledgeBases();
     expect(result).toMatchSnapshot();
   });
 
   test("search shape matches snapshot", async () => {
-    const runner = createFixtureRunner<MsCommandResult>(SCHEMA_FIXTURES.ms.search);
+    const runner = createFixtureRunner<MsCommandResult>(
+      SCHEMA_FIXTURES.ms.search,
+    );
     const client = createMsClient({ runner: runner as MsCommandRunner });
     const result = await client.search("git workflow");
     expect(result).toMatchSnapshot();
@@ -1358,14 +1462,18 @@ describe("ms Schema Snapshots", () => {
 
 describe("pt Schema Snapshots", () => {
   test("doctor shape matches snapshot", async () => {
-    const runner = createFixtureRunner<PtCommandResult>(SCHEMA_FIXTURES.pt.doctor);
+    const runner = createFixtureRunner<PtCommandResult>(
+      SCHEMA_FIXTURES.pt.doctor,
+    );
     const client = createPtClient({ runner: runner as PtCommandRunner });
     const result = await client.doctor();
     expect(result).toMatchSnapshot();
   });
 
   test("scan shape matches snapshot", async () => {
-    const runner = createFixtureRunner<PtCommandResult>(SCHEMA_FIXTURES.pt.scan);
+    const runner = createFixtureRunner<PtCommandResult>(
+      SCHEMA_FIXTURES.pt.scan,
+    );
     const client = createPtClient({ runner: runner as PtCommandRunner });
     const result = await client.scan();
     expect(result).toMatchSnapshot();
@@ -1378,35 +1486,45 @@ describe("pt Schema Snapshots", () => {
 
 describe("jfp Schema Snapshots", () => {
   test("list shape matches snapshot", async () => {
-    const runner = createFixtureRunner<JfpCommandResult>(SCHEMA_FIXTURES.jfp.list);
+    const runner = createFixtureRunner<JfpCommandResult>(
+      SCHEMA_FIXTURES.jfp.list,
+    );
     const client = createJfpClient({ runner: runner as JfpCommandRunner });
     const result = await client.list();
     expect(result).toMatchSnapshot();
   });
 
   test("show shape matches snapshot", async () => {
-    const runner = createFixtureRunner<JfpCommandResult>(SCHEMA_FIXTURES.jfp.show);
+    const runner = createFixtureRunner<JfpCommandResult>(
+      SCHEMA_FIXTURES.jfp.show,
+    );
     const client = createJfpClient({ runner: runner as JfpCommandRunner });
     const result = await client.get("code-review-001");
     expect(result).toMatchSnapshot();
   });
 
   test("categories shape matches snapshot", async () => {
-    const runner = createFixtureRunner<JfpCommandResult>(SCHEMA_FIXTURES.jfp.categories);
+    const runner = createFixtureRunner<JfpCommandResult>(
+      SCHEMA_FIXTURES.jfp.categories,
+    );
     const client = createJfpClient({ runner: runner as JfpCommandRunner });
     const result = await client.listCategories();
     expect(result).toMatchSnapshot();
   });
 
   test("search shape matches snapshot", async () => {
-    const runner = createFixtureRunner<JfpCommandResult>(SCHEMA_FIXTURES.jfp.search);
+    const runner = createFixtureRunner<JfpCommandResult>(
+      SCHEMA_FIXTURES.jfp.search,
+    );
     const client = createJfpClient({ runner: runner as JfpCommandRunner });
     const result = await client.search("code review");
     expect(result).toMatchSnapshot();
   });
 
   test("suggest shape matches snapshot", async () => {
-    const runner = createFixtureRunner<JfpCommandResult>(SCHEMA_FIXTURES.jfp.suggest);
+    const runner = createFixtureRunner<JfpCommandResult>(
+      SCHEMA_FIXTURES.jfp.suggest,
+    );
     const client = createJfpClient({ runner: runner as JfpCommandRunner });
     const result = await client.suggest("debug memory leak");
     expect(result).toMatchSnapshot();
@@ -1419,30 +1537,44 @@ describe("jfp Schema Snapshots", () => {
 
 describe("cass Schema Snapshots", () => {
   test("health shape matches snapshot", async () => {
-    const runner = createFixtureRunner<CassCommandResult>(SCHEMA_FIXTURES.cass.health);
+    const runner = createFixtureRunner<CassCommandResult>(
+      SCHEMA_FIXTURES.cass.health,
+    );
     const client = createCassClient({ runner: runner as CassCommandRunner });
     const result = await client.health({ includeMeta: true });
     expect(result).toMatchSnapshot();
   });
 
   test("search shape matches snapshot", async () => {
-    const runner = createFixtureRunner<CassCommandResult>(SCHEMA_FIXTURES.cass.search);
+    const runner = createFixtureRunner<CassCommandResult>(
+      SCHEMA_FIXTURES.cass.search,
+    );
     const client = createCassClient({ runner: runner as CassCommandRunner });
     const result = await client.search("authentication JWT");
     expect(result).toMatchSnapshot();
   });
 
   test("view shape matches snapshot", async () => {
-    const runner = createFixtureRunner<CassCommandResult>(SCHEMA_FIXTURES.cass.view);
+    const runner = createFixtureRunner<CassCommandResult>(
+      SCHEMA_FIXTURES.cass.view,
+    );
     const client = createCassClient({ runner: runner as CassCommandRunner });
-    const result = await client.view("/home/user/.claude/sessions/abc123.jsonl", { line: 245 });
+    const result = await client.view(
+      "/home/user/.claude/sessions/abc123.jsonl",
+      { line: 245 },
+    );
     expect(result).toMatchSnapshot();
   });
 
   test("expand shape matches snapshot", async () => {
-    const runner = createFixtureRunner<CassCommandResult>(SCHEMA_FIXTURES.cass.expand);
+    const runner = createFixtureRunner<CassCommandResult>(
+      SCHEMA_FIXTURES.cass.expand,
+    );
     const client = createCassClient({ runner: runner as CassCommandRunner });
-    const result = await client.expand("/home/user/.claude/sessions/abc123.jsonl", { line: 245 });
+    const result = await client.expand(
+      "/home/user/.claude/sessions/abc123.jsonl",
+      { line: 245 },
+    );
     expect(result).toMatchSnapshot();
   });
 });
@@ -1453,42 +1585,54 @@ describe("cass Schema Snapshots", () => {
 
 describe("cm Schema Snapshots", () => {
   test("context shape matches snapshot", async () => {
-    const runner = createFixtureRunner<CMCommandResult>(SCHEMA_FIXTURES.cm.context);
+    const runner = createFixtureRunner<CMCommandResult>(
+      SCHEMA_FIXTURES.cm.context,
+    );
     const client = createCMClient({ runner: runner as CMCommandRunner });
     const result = await client.context("implement authentication");
     expect(result).toMatchSnapshot();
   });
 
   test("quickstart shape matches snapshot", async () => {
-    const runner = createFixtureRunner<CMCommandResult>(SCHEMA_FIXTURES.cm.quickstart);
+    const runner = createFixtureRunner<CMCommandResult>(
+      SCHEMA_FIXTURES.cm.quickstart,
+    );
     const client = createCMClient({ runner: runner as CMCommandRunner });
     const result = await client.quickstart();
     expect(result).toMatchSnapshot();
   });
 
   test("stats shape matches snapshot", async () => {
-    const runner = createFixtureRunner<CMCommandResult>(SCHEMA_FIXTURES.cm.stats);
+    const runner = createFixtureRunner<CMCommandResult>(
+      SCHEMA_FIXTURES.cm.stats,
+    );
     const client = createCMClient({ runner: runner as CMCommandRunner });
     const result = await client.stats();
     expect(result).toMatchSnapshot();
   });
 
   test("doctor shape matches snapshot", async () => {
-    const runner = createFixtureRunner<CMCommandResult>(SCHEMA_FIXTURES.cm.doctor);
+    const runner = createFixtureRunner<CMCommandResult>(
+      SCHEMA_FIXTURES.cm.doctor,
+    );
     const client = createCMClient({ runner: runner as CMCommandRunner });
     const result = await client.doctor();
     expect(result).toMatchSnapshot();
   });
 
   test("playbook list shape matches snapshot", async () => {
-    const runner = createFixtureRunner<CMCommandResult>(SCHEMA_FIXTURES.cm.playbookList);
+    const runner = createFixtureRunner<CMCommandResult>(
+      SCHEMA_FIXTURES.cm.playbookList,
+    );
     const client = createCMClient({ runner: runner as CMCommandRunner });
     const result = await client.listPlaybook();
     expect(result).toMatchSnapshot();
   });
 
   test("outcome shape matches snapshot", async () => {
-    const runner = createFixtureRunner<CMCommandResult>(SCHEMA_FIXTURES.cm.outcome);
+    const runner = createFixtureRunner<CMCommandResult>(
+      SCHEMA_FIXTURES.cm.outcome,
+    );
     const client = createCMClient({ runner: runner as CMCommandRunner });
     const result = await client.outcome("success", ["rule-001", "rule-002"]);
     expect(result).toMatchSnapshot();
@@ -1501,51 +1645,68 @@ describe("cm Schema Snapshots", () => {
 
 describe("ru Schema Snapshots", () => {
   test("version shape matches snapshot", async () => {
-    const runner = createFixtureRunner<RuCommandResult>(SCHEMA_FIXTURES.ru.version);
+    const runner = createFixtureRunner<RuCommandResult>(
+      SCHEMA_FIXTURES.ru.version,
+    );
     const client = createRuClient({ runner: runner as RuCommandRunner });
     const result = await client.version();
     expect(result).toMatchSnapshot();
   });
 
   test("status shape matches snapshot", async () => {
-    const runner = createFixtureRunner<RuCommandResult>(SCHEMA_FIXTURES.ru.status);
+    const runner = createFixtureRunner<RuCommandResult>(
+      SCHEMA_FIXTURES.ru.status,
+    );
     const client = createRuClient({ runner: runner as RuCommandRunner });
     const result = await client.status();
     expect(result).toMatchSnapshot();
   });
 
   test("list shape matches snapshot", async () => {
-    const runner = createFixtureRunner<RuCommandResult>(SCHEMA_FIXTURES.ru.list);
+    const runner = createFixtureRunner<RuCommandResult>(
+      SCHEMA_FIXTURES.ru.list,
+    );
     const client = createRuClient({ runner: runner as RuCommandRunner });
     const result = await client.list();
     expect(result).toMatchSnapshot();
   });
 
   test("sync shape matches snapshot", async () => {
-    const runner = createFixtureRunner<RuCommandResult>(SCHEMA_FIXTURES.ru.sync);
+    const runner = createFixtureRunner<RuCommandResult>(
+      SCHEMA_FIXTURES.ru.sync,
+    );
     const client = createRuClient({ runner: runner as RuCommandRunner });
     const result = await client.sync("owner/flywheel_gateway");
     expect(result).toMatchSnapshot();
   });
 
   test("sweep phase1 shape matches snapshot", async () => {
-    const runner = createFixtureRunner<RuCommandResult>(SCHEMA_FIXTURES.ru.sweepPhase1);
+    const runner = createFixtureRunner<RuCommandResult>(
+      SCHEMA_FIXTURES.ru.sweepPhase1,
+    );
     const client = createRuClient({ runner: runner as RuCommandRunner });
     const result = await client.sweepPhase1("owner/flywheel_gateway");
     expect(result).toMatchSnapshot();
   });
 
   test("sweep phase2 shape matches snapshot", async () => {
-    const runner = createFixtureRunner<RuCommandResult>(SCHEMA_FIXTURES.ru.sweepPhase2);
+    const runner = createFixtureRunner<RuCommandResult>(
+      SCHEMA_FIXTURES.ru.sweepPhase2,
+    );
     const client = createRuClient({ runner: runner as RuCommandRunner });
     const result = await client.sweepPhase2("owner/flywheel_gateway");
     expect(result).toMatchSnapshot();
   });
 
   test("sweep phase3 shape matches snapshot", async () => {
-    const runner = createFixtureRunner<RuCommandResult>(SCHEMA_FIXTURES.ru.sweepPhase3);
+    const runner = createFixtureRunner<RuCommandResult>(
+      SCHEMA_FIXTURES.ru.sweepPhase3,
+    );
     const client = createRuClient({ runner: runner as RuCommandRunner });
-    const result = await client.sweepPhase3("owner/flywheel_gateway", "/path/to/plan.json");
+    const result = await client.sweepPhase3(
+      "owner/flywheel_gateway",
+      "/path/to/plan.json",
+    );
     expect(result).toMatchSnapshot();
   });
 });

@@ -410,7 +410,9 @@ describe("APR client", () => {
     });
 
     test("throws command_failed when envelope ok is false", async () => {
-      const runner = createRunner(envelope({}, false, "ERR_CONFIG", "Config not found"));
+      const runner = createRunner(
+        envelope({}, false, "ERR_CONFIG", "Config not found"),
+      );
       const client = createAprClient({ runner });
 
       let thrown: unknown;

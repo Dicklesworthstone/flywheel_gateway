@@ -183,9 +183,7 @@ describe("NTM client", () => {
       const payload = {
         ts: "2026-01-27T00:01:00Z",
         since: "2026-01-27T00:00:00Z",
-        changes: [
-          { type: "agent_state", session: "dev", pane: "%0" },
-        ],
+        changes: [{ type: "agent_state", session: "dev", pane: "%0" }],
       };
       const runner = createRunner(JSON.stringify(payload));
       const client = createNtmClient({ runner });

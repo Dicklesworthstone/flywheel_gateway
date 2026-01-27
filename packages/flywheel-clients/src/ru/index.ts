@@ -429,7 +429,15 @@ export function createRuClient(options: RuClientOptions): RuClient {
 
     sweepPhase1: async (repo, opts) => {
       const cliTimeout = opts?.timeout ?? 300000;
-      const args = ["agent-sweep", "--phase", "1", "--json", "--timeout", String(cliTimeout), repo];
+      const args = [
+        "agent-sweep",
+        "--phase",
+        "1",
+        "--json",
+        "--timeout",
+        String(cliTimeout),
+        repo,
+      ];
       if (opts?.dryRun) args.push("--dry-run");
 
       // Runner timeout has 5s buffer to let CLI timeout gracefully first
@@ -469,7 +477,15 @@ export function createRuClient(options: RuClientOptions): RuClient {
 
     sweepPhase2: async (repo, opts) => {
       const cliTimeout = opts?.timeout ?? 600000;
-      const args = ["agent-sweep", "--phase", "2", "--json", "--timeout", String(cliTimeout), repo];
+      const args = [
+        "agent-sweep",
+        "--phase",
+        "2",
+        "--json",
+        "--timeout",
+        String(cliTimeout),
+        repo,
+      ];
       if (opts?.dryRun) args.push("--dry-run");
 
       // Runner timeout has 5s buffer to let CLI timeout gracefully first
