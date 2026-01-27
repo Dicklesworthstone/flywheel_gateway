@@ -125,7 +125,13 @@ export function BeadsPage() {
   const typeOptions = useMemo(() => {
     const customTypes = beads
       .map((b) => b.issue_type)
-      .filter((t): t is string => !!t && !defaultTypeOptions.includes(t as typeof defaultTypeOptions[number]));
+      .filter(
+        (t): t is string =>
+          !!t &&
+          !defaultTypeOptions.includes(
+            t as (typeof defaultTypeOptions)[number],
+          ),
+      );
     const uniqueCustomTypes = [...new Set(customTypes)];
     return [...defaultTypeOptions, ...uniqueCustomTypes.sort()];
   }, [beads]);
