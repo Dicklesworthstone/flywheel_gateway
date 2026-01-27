@@ -21,12 +21,36 @@ export type InstallStatus =
   | "failed";
 export type InstallMode = "interactive" | "easy";
 
+export interface RobotModeInfo {
+  /** Whether robot/machine-readable mode is supported */
+  supported: boolean;
+  /** Primary flag to enable robot output (e.g., "--json", "--robot") */
+  flag?: string;
+  /** Output formats this mode can produce */
+  outputFormats?: string[];
+  /** Whether output conforms to the standard JSON envelope */
+  envelopeCompliant?: boolean;
+}
+
+export interface McpInfo {
+  /** Whether the tool exposes an MCP server */
+  available: boolean;
+  /** Capability level (tools, resources, or full) */
+  capabilities?: string;
+  /** Estimated count of available MCP tools */
+  toolCount?: number;
+}
+
 export interface DetectedCapabilities {
   streaming: boolean;
   toolUse: boolean;
   vision: boolean;
   codeExecution: boolean;
   fileAccess: boolean;
+  /** Robot/machine-readable output mode info */
+  robotMode?: RobotModeInfo;
+  /** MCP server info */
+  mcp?: McpInfo;
 }
 
 export interface DetectedCLI {
@@ -521,4 +545,178 @@ export function getToolPhase(
     if (entry.tools.includes(toolName)) return entry.phase;
   }
   return undefined;
+}
+
+// ============================================================================
+// Tool Registry Types
+// ============================================================================
+
+export interface RobotModeSpec {
+  flag: string;
+  altFlags?: string[];
+  outputFormats: string[];
+  subcommands?: string[];
+  envelopeCompliant: boolean;
+  notes?: string;
+}
+
+export interface McpSpec {
+  available: boolean;
+  capabilities?: string;
+  toolCount?: number;
+  notes?: string;
+}
+
+export interface ToolRegistryDefinition {
+  id: string;
+  name: string;
+  displayName?: string;
+  description?: string;
+  category: "agent" | "tool";
+  tags?: string[];
+  optional?: boolean;
+  enabledByDefault?: boolean;
+  phase?: number;
+  docsUrl?: string;
+  installCommand?: string;
+  verify?: {
+    command: string[];
+    expectedExitCodes?: number[];
+  };
+  installedCheck?: {
+    command: string[];
+    run_as?: string;
+    timeoutMs?: number;
+  };
+  robotMode?: RobotModeSpec;
+  mcp?: McpSpec;
+}
+
+export interface ToolRegistryResponse {
+  schemaVersion: string;
+  source: string | null;
+  generatedAt: string | null;
+  tools: ToolRegistryDefinition[];
+  metadata: {
+    manifestPath: string | null;
+    manifestHash: string | null;
+    registrySource: string | null;
+    loadedAt: number | null;
+    errorCategory: string | null;
+    userMessage: string | null;
+  };
+}
+
+// ============================================================================
+// Tool Registry Hook
+// ============================================================================
+
+async function fetchToolRegistry(
+  bypassCache = false,
+): Promise<ToolRegistryResponse> {
+  const url = bypassCache
+    ? `${API_BASE}/setup/registry?bypass_cache=true`
+    : `${API_BASE}/setup/registry`;
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch registry: ${res.statusText}`);
+  }
+
+  const json = await res.json();
+  return json.data;
+}
+
+/**
+ * Hook for fetching the tool registry.
+ *
+ * Provides access to the full ACFS manifest data including:
+ * - Tool definitions with display info
+ * - Robot mode and MCP capabilities
+ * - Install commands and documentation URLs
+ */
+export function useToolRegistry() {
+  const [registry, setRegistry] = useState<ToolRegistryResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async (bypassCache = false) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const data = await fetchToolRegistry(bypassCache);
+      setRegistry(data);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to fetch tool registry",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  // Build a lookup map for quick access
+  const toolMap = registry?.tools.reduce(
+    (acc, tool) => {
+      acc[tool.name] = tool;
+      return acc;
+    },
+    {} as Record<string, ToolRegistryDefinition>,
+  );
+
+  return {
+    registry,
+    tools: registry?.tools ?? [],
+    toolMap: toolMap ?? {},
+    loading,
+    error,
+    refresh,
+    /** Check if using fallback registry */
+    isFallback: registry?.metadata?.registrySource === "fallback",
+  };
+}
+
+/**
+ * Get tool display info from registry definition.
+ */
+export function getToolDisplayInfoFromRegistry(
+  tool: ToolRegistryDefinition,
+): { displayName: string; icon: string; color: string } {
+  // Default colors by category
+  const categoryColors: Record<string, string> = {
+    agent: "#CC785C", // Warm brown
+    tool: "#6B7280", // Gray
+  };
+
+  // Priority colors for known tools
+  const priorityColors: Record<string, string> = {
+    // Safety tools - red/amber
+    dcg: "#EF4444",
+    slb: "#DC2626",
+    ubs: "#F59E0B",
+    // Session tools - purple/cyan
+    cass: "#8B5CF6",
+    cm: "#06B6D4",
+    // Issue tracking - green
+    br: "#10B981",
+    bv: "#84CC16",
+    // Agents
+    claude: "#CC785C",
+    codex: "#74AA9C",
+    gemini: "#4285F4",
+    aider: "#14B8A6",
+    "gh-copilot": "#6e5494",
+  };
+
+  const displayName = tool.displayName ?? tool.name.toUpperCase();
+  const icon = tool.displayName?.charAt(0) ?? tool.name.charAt(0).toUpperCase();
+  const color =
+    priorityColors[tool.name] ?? categoryColors[tool.category] ?? "#6B7280";
+
+  return { displayName, icon, color };
 }

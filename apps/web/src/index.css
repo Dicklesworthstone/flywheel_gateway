@@ -378,6 +378,11 @@
     background: rgba(196, 77, 65, 0.15);
     color: var(--color-danger);
   }
+
+  .status-pill--info {
+    background: rgba(56, 139, 253, 0.15);
+    color: var(--color-blue-400);
+  }
 }
 
 /* ============================================

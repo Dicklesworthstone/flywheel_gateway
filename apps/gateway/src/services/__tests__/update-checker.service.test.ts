@@ -406,7 +406,8 @@ describe("Checksum Verification Error Context", () => {
   it("should include tool context in checksum mismatch error", () => {
     const toolId = "tools.dcg";
     const filename = "dcg-linux-x64.tar.gz";
-    const expected = "abc123def456789012345678901234567890abcdef1234567890123456";
+    const expected =
+      "abc123def456789012345678901234567890abcdef1234567890123456";
     const actual = "xyz987uvw654321098765432109876543210fedcba0987654321098765";
 
     // Simulate the error structure from verifyAgainstAcfsChecksums

@@ -25,7 +25,10 @@ import {
   type CliCommandLogInput,
   type CliCommandLogFields,
 } from "../cli-logging";
-import { requestContextStorage, type RequestContext } from "../../middleware/correlation";
+import {
+  requestContextStorage,
+  type RequestContext,
+} from "../../middleware/correlation";
 import { logger } from "../../services/logger";
 
 // Test correlation ID used in request context
@@ -46,7 +49,6 @@ function withRequestContext<T>(fn: () => T): T {
 }
 
 describe("CLI Logging Standards (ADR-007)", () => {
-
   // ==========================================================================
   // redactArgs - Sensitive Argument Redaction
   // ==========================================================================
@@ -143,7 +145,12 @@ describe("CLI Logging Standards (ADR-007)", () => {
       const args = ["--verbose", "--output=file.txt", "--count=10", "list"];
       const redacted = redactArgs(args);
 
-      expect(redacted).toEqual(["--verbose", "--output=file.txt", "--count=10", "list"]);
+      expect(redacted).toEqual([
+        "--verbose",
+        "--output=file.txt",
+        "--count=10",
+        "list",
+      ]);
     });
 
     test("handles empty args array", () => {
@@ -161,7 +168,12 @@ describe("CLI Logging Standards (ADR-007)", () => {
     });
 
     test("redacts multiple sensitive args in same array", () => {
-      const args = ["--token=abc", "--verbose", "--password=xyz", "--api-key=123"];
+      const args = [
+        "--token=abc",
+        "--verbose",
+        "--password=xyz",
+        "--api-key=123",
+      ];
       const redacted = redactArgs(args);
 
       expect(redacted).toEqual([
@@ -201,7 +213,9 @@ describe("CLI Logging Standards (ADR-007)", () => {
       const output = "y".repeat(600);
       const truncated = truncateOutput(output);
 
-      expect(truncated).toBe("y".repeat(500) + "... [truncated, 600 total bytes]");
+      expect(truncated).toBe(
+        "y".repeat(500) + "... [truncated, 600 total bytes]",
+      );
     });
 
     test("uses custom max length when specified", () => {
@@ -241,7 +255,9 @@ describe("CLI Logging Standards (ADR-007)", () => {
     };
 
     test("includes all required fields", () => {
-      const fields = withRequestContext(() => buildCliCommandLogFields(baseInput));
+      const fields = withRequestContext(() =>
+        buildCliCommandLogFields(baseInput),
+      );
 
       // Required fields per ADR-007
       expect(fields.tool).toBe("br");
@@ -355,7 +371,9 @@ describe("CLI Logging Standards (ADR-007)", () => {
 
   describe("buildCliResultLogFields", () => {
     test("includes required result fields", () => {
-      const fields = withRequestContext(() => buildCliResultLogFields("br", "br list", 100));
+      const fields = withRequestContext(() =>
+        buildCliResultLogFields("br", "br list", 100),
+      );
 
       expect(fields.tool).toBe("br");
       expect(fields.operation).toBe("br list");
@@ -426,7 +444,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
       };
 
       expect(() =>
-        withRequestContext(() => logCliCommand(input, "br command completed"))
+        withRequestContext(() => logCliCommand(input, "br command completed")),
       ).not.toThrow();
     });
   });
@@ -434,15 +452,15 @@ describe("CLI Logging Standards (ADR-007)", () => {
   describe("logCliResult", () => {
     test("executes without throwing", () => {
       expect(() =>
-        logCliResult("br", "br list", 50, "br list fetched", { count: 10 })
+        logCliResult("br", "br list", 50, "br list fetched", { count: 10 }),
       ).not.toThrow();
     });
 
     test("executes within request context", () => {
       expect(() =>
         withRequestContext(() =>
-          logCliResult("br", "br list", 50, "br list fetched", { count: 10 })
-        )
+          logCliResult("br", "br list", 50, "br list fetched", { count: 10 }),
+        ),
       ).not.toThrow();
     });
   });
@@ -486,7 +504,9 @@ describe("CLI Logging Standards (ADR-007)", () => {
       };
       const error = new Error("Test error");
 
-      expect(() => logCliError(input, "br command failed", error)).not.toThrow();
+      expect(() =>
+        logCliError(input, "br command failed", error),
+      ).not.toThrow();
     });
   });
 
@@ -509,7 +529,12 @@ describe("CLI Logging Standards (ADR-007)", () => {
       const brLogger = createToolLogger("br");
 
       expect(() =>
-        brLogger.command("list", ["--json"], { exitCode: 0, latencyMs: 50 }, "completed")
+        brLogger.command(
+          "list",
+          ["--json"],
+          { exitCode: 0, latencyMs: 50 },
+          "completed",
+        ),
       ).not.toThrow();
     });
 
@@ -522,8 +547,8 @@ describe("CLI Logging Standards (ADR-007)", () => {
           "list",
           ["--token=secret", "--verbose"],
           { exitCode: 0, latencyMs: 50 },
-          "completed"
-        )
+          "completed",
+        ),
       ).not.toThrow();
     });
 
@@ -531,7 +556,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
       const brLogger = createToolLogger("br");
 
       expect(() =>
-        brLogger.result("br list", 50, "fetched issues", { count: 5 })
+        brLogger.result("br list", 50, "fetched issues", { count: 5 }),
       ).not.toThrow();
     });
 
@@ -539,7 +564,12 @@ describe("CLI Logging Standards (ADR-007)", () => {
       const brLogger = createToolLogger("br");
 
       expect(() =>
-        brLogger.warning("list", ["--json"], { exitCode: 1, latencyMs: 100, timedOut: true }, "timed out")
+        brLogger.warning(
+          "list",
+          ["--json"],
+          { exitCode: 1, latencyMs: 100, timedOut: true },
+          "timed out",
+        ),
       ).not.toThrow();
     });
 
@@ -547,7 +577,12 @@ describe("CLI Logging Standards (ADR-007)", () => {
       const brLogger = createToolLogger("br");
 
       expect(() =>
-        brLogger.error("list", [], { exitCode: 1, latencyMs: 10, stderr: "failed" }, "command failed")
+        brLogger.error(
+          "list",
+          [],
+          { exitCode: 1, latencyMs: 10, stderr: "failed" },
+          "command failed",
+        ),
       ).not.toThrow();
     });
 
@@ -556,7 +591,13 @@ describe("CLI Logging Standards (ADR-007)", () => {
       const error = new Error("Test");
 
       expect(() =>
-        brLogger.error("list", [], { exitCode: 1, latencyMs: 10 }, "failed", error)
+        brLogger.error(
+          "list",
+          [],
+          { exitCode: 1, latencyMs: 10 },
+          "failed",
+          error,
+        ),
       ).not.toThrow();
     });
 
@@ -591,12 +632,14 @@ describe("CLI Logging Standards (ADR-007)", () => {
             "status",
             ["--json", "--token=secret123"],
             { exitCode: 0, latencyMs: 25, stdout: '{"enabled":true}' },
-            "dcg status completed"
+            "dcg status completed",
           );
 
           // Result logging (info level)
-          dcgLogger.result("dcg status", 25, "dcg status fetched", { enabled: true });
-        })
+          dcgLogger.result("dcg status", 25, "dcg status fetched", {
+            enabled: true,
+          });
+        }),
       ).not.toThrow();
     });
 
@@ -654,7 +697,9 @@ describe("CLI Logging Standards (ADR-007)", () => {
 
     test("all required fields present in result log fields", () => {
       const fields = withRequestContext(() =>
-        buildCliResultLogFields("ntm", "ntm --robot-status", 75, { sessionCount: 3 })
+        buildCliResultLogFields("ntm", "ntm --robot-status", 75, {
+          sessionCount: 3,
+        }),
       );
 
       // ADR-007 required result fields

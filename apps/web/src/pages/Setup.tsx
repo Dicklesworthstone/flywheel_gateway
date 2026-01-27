@@ -293,6 +293,18 @@ function ToolCard({
           {cli.available && cli.authenticated === true && (
             <StatusPill tone="positive">Authenticated</StatusPill>
           )}
+          {cli.available && cli.capabilities.robotMode?.supported && (
+            <StatusPill tone="info">
+              <Terminal size={10} style={{ marginRight: "4px" }} />
+              {cli.capabilities.robotMode.flag || "robot"}
+            </StatusPill>
+          )}
+          {cli.available && cli.capabilities.mcp?.available && (
+            <StatusPill tone="info">
+              <Zap size={10} style={{ marginRight: "4px" }} />
+              MCP
+            </StatusPill>
+          )}
           {!cli.available && !isAgent && onInstall && (
             <button
               className="btn btn--sm btn--secondary"
