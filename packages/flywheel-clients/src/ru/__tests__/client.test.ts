@@ -18,7 +18,12 @@ function createRunner(stdout: string, exitCode = 0): {
   return {
     calls,
     run: async (command, args, options) => {
-      calls.push({ command, args, options });
+      // Only include options property if defined (exactOptionalPropertyTypes)
+      const call: { command: string; args: string[]; options?: { cwd?: string; timeout?: number } } = { command, args };
+      if (options !== undefined) {
+        call.options = options;
+      }
+      calls.push(call);
       return {
         stdout,
         stderr: exitCode === 0 ? "" : "error from ru",
@@ -383,9 +388,9 @@ describe("RU client", () => {
 
       await client.sweepPhase2("owner/repo");
 
-      // Phase 2 default timeout is 600000ms (10 minutes)
+      // Phase 2 CLI timeout is 600000ms (10 minutes), runner adds 5s buffer
       const options = runner.calls[0]?.options;
-      expect(options?.timeout).toBe(600000);
+      expect(options?.timeout).toBe(605000);
     });
   });
 
