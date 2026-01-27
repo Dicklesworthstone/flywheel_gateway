@@ -910,6 +910,7 @@ function VerifyStepContent({
               index={i}
               priority={getToolPriority(cli.name, status.toolCategories)}
               phase={getToolPhase(cli.name, status.installOrder)}
+              registryTool={toolMap?.get(cli.name)}
             />
           ))}
         </motion.div>
@@ -1101,7 +1102,9 @@ export function SetupPage() {
   const agents = status.agents;
   const tools = status.tools;
   const toolDisplayInfo = confirmModal.tool
-    ? getToolDisplayInfo(confirmModal.tool)
+    ? toolMap?.get(confirmModal.tool)
+      ? getToolDisplayInfoFromRegistry(toolMap.get(confirmModal.tool)!)
+      : getToolDisplayInfo(confirmModal.tool)
     : null;
 
   return (
@@ -1157,6 +1160,7 @@ export function SetupPage() {
             missingRequired={status.summary.missingRequired}
             toolCategories={status.toolCategories}
             installOrder={status.installOrder}
+            toolMap={toolMap}
             onNext={handleNextStep}
           />
         )}
@@ -1168,6 +1172,7 @@ export function SetupPage() {
             installingTool={installingTool}
             toolCategories={status.toolCategories}
             installOrder={status.installOrder}
+            toolMap={toolMap}
             onNext={handleNextStep}
             onBack={handleBackStep}
           />
@@ -1176,6 +1181,7 @@ export function SetupPage() {
         {currentStep === "verify" && (
           <VerifyStepContent
             status={status}
+            toolMap={toolMap}
             onRefresh={handleRefresh}
             loading={loading}
             onBack={handleBackStep}
