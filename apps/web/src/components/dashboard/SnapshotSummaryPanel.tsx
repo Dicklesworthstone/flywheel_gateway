@@ -450,7 +450,12 @@ export function SnapshotSummaryPanel() {
   );
 
   return (
-    <motion.div variants={fadeVariants} initial="hidden" animate="visible">
+    <motion.div
+      data-testid="snapshot-summary-panel"
+      variants={fadeVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Header Card */}
       <div className="card">
         <div className="card__header">

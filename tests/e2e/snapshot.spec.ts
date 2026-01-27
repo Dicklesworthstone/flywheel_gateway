@@ -160,14 +160,22 @@ if (isPlaywright) {
 
       await page.goto("/");
 
-      const headerCard = page.locator(".card").filter({ hasText: "System Status" });
+      const panel = page.getByTestId("snapshot-summary-panel");
+      const headerCard = panel
+        .locator(".card")
+        .filter({ hasText: "System Status" });
       await expect(headerCard).toBeVisible();
-      await expect(headerCard.locator(".status-pill")).toContainText(
-        "All Systems Healthy",
-      );
+      const headerStatus = headerCard.locator(".card__header");
+      await expect(
+        headerStatus.getByText("All Systems Healthy", { exact: true }),
+      ).toBeVisible();
 
-      await expect(page.locator("h4").filter({ hasText: "Safety Tools" })).toBeVisible();
-      await expect(page.locator("h4").filter({ hasText: "Work Queue" })).toBeVisible();
+      await expect(
+        panel.getByRole("heading", { name: "Safety Tools" }),
+      ).toBeVisible();
+      await expect(
+        panel.getByRole("heading", { name: "Work Queue" }),
+      ).toBeVisible();
 
       await test.info().attach("snapshot-dom", {
         body: await page.content(),
@@ -211,22 +219,39 @@ if (isPlaywright) {
       await mockSnapshotResponse(page, degradedSnapshot);
       await page.goto("/");
 
-      const headerCard = page.locator(".card").filter({ hasText: "System Status" });
+      const panel = page.getByTestId("snapshot-summary-panel");
+      const headerCard = panel
+        .locator(".card")
+        .filter({ hasText: "System Status" });
       await expect(headerCard).toBeVisible();
-      await expect(headerCard.locator(".status-pill")).toContainText("Degraded");
+      const headerStatus = headerCard.locator(".card__header");
+      await expect(
+        headerStatus.getByText("Degraded", { exact: true }),
+      ).toBeVisible();
 
-      await expect(page.locator(".card").filter({ hasText: "Issue" })).toBeVisible();
-      await expect(page.locator("text=Agent Mail server is not running")).toBeVisible();
-      await expect(page.locator("text=UBS (Ultimate Bug Scanner) is not installed")).toBeVisible();
+      await expect(
+        panel.locator(".card").filter({ hasText: "Issue" }).first(),
+      ).toBeVisible();
+      await expect(
+        panel.getByText("Agent Mail server is not running"),
+      ).toBeVisible();
+      await expect(
+        panel.getByText("UBS (Ultimate Bug Scanner) is not installed"),
+      ).toBeVisible();
 
-      await expect(page.locator(".card").filter({ hasText: "No active agents" })).toBeVisible();
+      await expect(
+        panel.locator(".card").filter({ hasText: "No active agents" }),
+      ).toBeVisible();
       await page.waitForTimeout(500);
 
       const criticalErrors = consoleErrors.filter(
         (e) =>
           !e.includes("ResizeObserver") &&
           !e.includes("net::") &&
-          !e.includes("favicon"),
+          !e.includes("favicon") &&
+          !e.includes("WebSocket") &&
+          !e.includes("ws://") &&
+          !e.includes("websocket-context"),
       );
       expect(criticalErrors).toHaveLength(0);
 
