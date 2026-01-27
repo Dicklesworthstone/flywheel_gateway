@@ -393,4 +393,39 @@ setup.post("/registry/refresh", async (c) => {
   }
 });
 
+/**
+ * GET /setup/registry - Get full tool registry (parsed modules)
+ *
+ * Returns the complete tool registry including all parsed tool definitions.
+ * This endpoint exposes the manifest-driven tool inventory for clients
+ * that need the full module list rather than just metadata.
+ *
+ * Query params:
+ * - bypass_cache: Set to "true" to force fresh manifest load
+ */
+setup.get("/registry", async (c) => {
+  try {
+    const bypassCache = c.req.query("bypass_cache") === "true";
+    const registry = await loadToolRegistry({ bypassCache });
+    const meta = getToolRegistryMetadata();
+
+    return sendResource(c, "tool_registry", {
+      schemaVersion: registry.schemaVersion,
+      source: registry.source ?? null,
+      generatedAt: registry.generatedAt ?? null,
+      tools: registry.tools,
+      metadata: {
+        manifestPath: meta?.manifestPath ?? null,
+        manifestHash: meta?.manifestHash ?? null,
+        registrySource: meta?.registrySource ?? null,
+        loadedAt: meta?.loadedAt ?? null,
+        errorCategory: meta?.errorCategory ?? null,
+        userMessage: meta?.userMessage ?? null,
+      },
+    });
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
 export { setup };

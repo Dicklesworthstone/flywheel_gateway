@@ -1,0 +1,140 @@
+# Golden fixture: Valid ACFS manifest v1.0.0
+# Used by tool-registry.service.test.ts for schema validation tests
+
+schemaVersion: "1.0.0"
+source: "acfs"
+generatedAt: "2026-01-27T00:00:00Z"
+
+tools:
+  # Phase 0 - Core Safety Stack
+  - id: "agents.claude"
+    name: "claude"
+    displayName: "Claude Code"
+    description: "Anthropic's official CLI for Claude"
+    category: "agent"
+    tags: ["critical", "required"]
+    optional: false
+    enabledByDefault: true
+    phase: 0
+    docsUrl: "https://docs.anthropic.com/claude-code"
+    verify:
+      command: ["claude", "--version"]
+      expectedExitCodes: [0]
+    installedCheck:
+      command: ["command", "-v", "claude"]
+
+  - id: "tools.dcg"
+    name: "dcg"
+    displayName: "DCG"
+    description: "Destructive Command Guard - blocks dangerous shell commands"
+    category: "tool"
+    tags: ["critical", "required"]
+    optional: false
+    enabledByDefault: true
+    phase: 0
+    docsUrl: "https://github.com/Dicklesworthstone/destructive_command_guard"
+    verify:
+      command: ["dcg", "--version"]
+      expectedExitCodes: [0]
+    installedCheck:
+      command: ["command", "-v", "dcg"]
+    installCommand: "cargo install destructive_command_guard"
+
+  - id: "tools.slb"
+    name: "slb"
+    displayName: "SLB"
+    description: "Simultaneous Launch Button - two-person rule for destructive commands"
+    category: "tool"
+    tags: ["critical", "required"]
+    optional: false
+    enabledByDefault: true
+    phase: 0
+    docsUrl: "https://github.com/Dicklesworthstone/slb"
+    verify:
+      command: ["slb", "--version"]
+      expectedExitCodes: [0]
+    installedCheck:
+      command: ["command", "-v", "slb"]
+
+  - id: "tools.ubs"
+    name: "ubs"
+    displayName: "UBS"
+    description: "Ultimate Bug Scanner - code security scanning"
+    category: "tool"
+    tags: ["critical", "required"]
+    optional: false
+    enabledByDefault: true
+    phase: 0
+    docsUrl: "https://github.com/Dicklesworthstone/ubs"
+    verify:
+      command: ["ubs", "--version"]
+      expectedExitCodes: [0]
+    installedCheck:
+      command: ["command", "-v", "ubs"]
+
+  # Phase 1 - Issue Tracking
+  - id: "tools.br"
+    name: "br"
+    displayName: "br (Beads Rust)"
+    description: "Local-first issue tracker for AI agents"
+    category: "tool"
+    tags: ["critical", "required"]
+    optional: false
+    enabledByDefault: true
+    phase: 1
+    docsUrl: "https://github.com/Dicklesworthstone/beads_rust"
+    verify:
+      command: ["br", "--version"]
+      expectedExitCodes: [0]
+    installedCheck:
+      command: ["command", "-v", "br"]
+    installCommand: "cargo install beads_rust"
+
+  - id: "tools.bv"
+    name: "bv"
+    displayName: "bv (Beads Viewer)"
+    description: "Graph-aware task triage and visualization"
+    category: "tool"
+    tags: ["recommended"]
+    optional: true
+    enabledByDefault: true
+    phase: 1
+    docsUrl: "https://github.com/Dicklesworthstone/beads_viewer"
+    verify:
+      command: ["bv", "--version"]
+      expectedExitCodes: [0]
+    installedCheck:
+      command: ["command", "-v", "bv"]
+
+  # Phase 2 - Agent Infrastructure
+  - id: "tools.cass"
+    name: "cass"
+    displayName: "CASS"
+    description: "Coding Agent Session Search - mine past agent sessions"
+    category: "tool"
+    tags: ["recommended"]
+    optional: true
+    enabledByDefault: true
+    phase: 2
+    docsUrl: "https://github.com/Dicklesworthstone/cass"
+    verify:
+      command: ["cass", "--version"]
+      expectedExitCodes: [0]
+    installedCheck:
+      command: ["command", "-v", "cass"]
+
+  - id: "tools.ntm"
+    name: "ntm"
+    displayName: "NTM"
+    description: "Named Tmux Manager - multi-agent orchestration"
+    category: "tool"
+    tags: ["recommended"]
+    optional: true
+    enabledByDefault: true
+    phase: 2
+    docsUrl: "https://github.com/Dicklesworthstone/ntm"
+    verify:
+      command: ["ntm", "--version"]
+      expectedExitCodes: [0]
+    installedCheck:
+      command: ["command", "-v", "ntm"]

@@ -1,0 +1,8 @@
+# Golden fixture: Minimal valid manifest
+# Tests that only required fields are needed
+
+schemaVersion: "1.0.0"
+tools:
+  - id: "tools.minimal"
+    name: "minimal"
+    category: "tool"

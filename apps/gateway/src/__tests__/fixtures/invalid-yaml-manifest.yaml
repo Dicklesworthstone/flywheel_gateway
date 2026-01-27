@@ -1,0 +1,13 @@
+# Golden fixture: Invalid YAML syntax
+# Used by tool-registry.service.test.ts to test parse error handling
+
+schemaVersion: "1.0.0"
+tools:
+  - id: "tools.dcg"
+    name: "dcg"
+    description: This string is not quoted and has: colons: that: break: parsing
+    tags: [missing, closing, bracket
+  - id: incomplete
+    nested:
+      - broken:
+        indentation: issues

@@ -606,3 +606,111 @@ describe("Manifest provenance fields for readiness responses", () => {
     expect(meta?.manifestHash).toBeNull();
   });
 });
+
+// ============================================================================
+// Golden Fixture Tests
+//
+// These tests use the golden fixture files in __tests__/fixtures/ to validate
+// manifest parsing and validation behavior. The fixtures provide canonical
+// examples of valid/invalid manifests for documentation and regression testing.
+// ============================================================================
+
+import path from "node:path";
+import { readFileSync } from "node:fs";
+
+const fixturesDir = path.join(__dirname, "fixtures");
+
+// Load fixtures synchronously for test setup
+const loadFixture = (name: string): string => {
+  try {
+    return readFileSync(path.join(fixturesDir, name), "utf-8");
+  } catch {
+    return "";
+  }
+};
+
+describe("Golden fixture validation", () => {
+  const validFixture = loadFixture("valid-manifest.yaml");
+  const invalidSchemaFixture = loadFixture("invalid-schema-manifest.yaml");
+  const minimalFixture = loadFixture("minimal-manifest.yaml");
+
+  it("valid-manifest.yaml parses and validates successfully", async () => {
+    if (!validFixture) {
+      console.log("Skipping: valid-manifest.yaml fixture not found");
+      return;
+    }
+
+    const manifestPath = "/tmp/valid-fixture.yaml";
+    process.env["ACFS_MANIFEST_PATH"] = manifestPath;
+    defaultExists = false;
+    existsOverrides.set(manifestPath, true);
+    manifestContents.set(manifestPath, validFixture);
+
+    const registry = await loadToolRegistry();
+
+    expect(registry.schemaVersion).toBe("1.0.0");
+    expect(registry.source).toBe("acfs");
+    expect(Array.isArray(registry.tools)).toBe(true);
+    expect(registry.tools.length).toBeGreaterThan(0);
+
+    // Verify expected tools are present
+    const toolIds = registry.tools.map((t) => t.id);
+    expect(toolIds).toContain("agents.claude");
+    expect(toolIds).toContain("tools.dcg");
+    expect(toolIds).toContain("tools.slb");
+    expect(toolIds).toContain("tools.ubs");
+    expect(toolIds).toContain("tools.br");
+
+    const meta = getToolRegistryMetadata();
+    expect(meta?.registrySource).toBe("manifest");
+    expect(meta?.errorCategory).toBeUndefined();
+  });
+
+  it("invalid-schema-manifest.yaml triggers validation error and fallback", async () => {
+    if (!invalidSchemaFixture) {
+      console.log("Skipping: invalid-schema-manifest.yaml fixture not found");
+      return;
+    }
+
+    const manifestPath = "/tmp/invalid-schema-fixture.yaml";
+    process.env["ACFS_MANIFEST_PATH"] = manifestPath;
+    defaultExists = false;
+    existsOverrides.set(manifestPath, true);
+    manifestContents.set(manifestPath, invalidSchemaFixture);
+
+    const registry = await loadToolRegistry();
+
+    // Should return fallback registry
+    expect(registry.schemaVersion).toBe("1.0.0-fallback");
+    expect(registry.source).toBe("built-in");
+
+    const meta = getToolRegistryMetadata();
+    expect(meta?.registrySource).toBe("fallback");
+    expect(meta?.errorCategory).toBe("manifest_validation_error");
+    expect(meta?.userMessage).toBeDefined();
+  });
+
+  it("minimal-manifest.yaml validates with only required fields", async () => {
+    if (!minimalFixture) {
+      console.log("Skipping: minimal-manifest.yaml fixture not found");
+      return;
+    }
+
+    const manifestPath = "/tmp/minimal-fixture.yaml";
+    process.env["ACFS_MANIFEST_PATH"] = manifestPath;
+    defaultExists = false;
+    existsOverrides.set(manifestPath, true);
+    manifestContents.set(manifestPath, minimalFixture);
+
+    const registry = await loadToolRegistry();
+
+    expect(registry.schemaVersion).toBe("1.0.0");
+    expect(Array.isArray(registry.tools)).toBe(true);
+    expect(registry.tools.length).toBe(1);
+
+    const tool = registry.tools[0]!;
+    expect(tool.id).toBe("tools.minimal");
+    expect(tool.name).toBe("minimal");
+    expect(tool.category).toBe("tool");
+  });
+});

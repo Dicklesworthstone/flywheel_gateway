@@ -71,6 +71,35 @@ type RegistryRefreshData = {
   refreshedAt: string;
 };
 
+type ToolRegistryMetadata = {
+  manifestPath: string | null;
+  manifestHash: string | null;
+  registrySource: string | null;
+  loadedAt: number | null;
+  errorCategory: string | null;
+  userMessage: string | null;
+};
+
+type ToolDefinitionData = {
+  id: string;
+  name: string;
+  displayName?: string;
+  description?: string;
+  category: string;
+  tags?: string[];
+  optional?: boolean;
+  enabledByDefault?: boolean;
+  phase?: number;
+};
+
+type ToolRegistryData = {
+  schemaVersion: string;
+  source: string | null;
+  generatedAt: string | null;
+  tools: ToolDefinitionData[];
+  metadata: ToolRegistryMetadata;
+};
+
 describe("Setup Routes", () => {
   const app = new Hono().route("/setup", setup);
 
@@ -314,6 +343,81 @@ describe("Setup Routes", () => {
       });
 
       expect(res.headers.get("content-type")).toContain("application/json");
+    });
+  });
+
+  describe("GET /setup/registry", () => {
+    test("returns full tool registry with parsed modules", async () => {
+      const res = await app.request("/setup/registry");
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as Envelope<ToolRegistryData>;
+
+      // Verify canonical envelope format
+      expect(body.object).toBe("tool_registry");
+      expect(body.data).toBeDefined();
+
+      // Verify registry structure
+      expect(typeof body.data.schemaVersion).toBe("string");
+      expect(Array.isArray(body.data.tools)).toBe(true);
+      expect(body.data.tools.length).toBeGreaterThan(0);
+
+      // Verify metadata structure
+      expect(body.data.metadata).toBeDefined();
+      expect(body.data.metadata.registrySource).toBeDefined();
+    });
+
+    test("tools array contains expected tool definitions", async () => {
+      const res = await app.request("/setup/registry");
+      const body = (await res.json()) as Envelope<ToolRegistryData>;
+
+      const toolIds = body.data.tools.map((t) => t.id);
+
+      // Should include core tools from fallback registry
+      expect(toolIds).toContain("agents.claude");
+      expect(toolIds).toContain("tools.dcg");
+      expect(toolIds).toContain("tools.br");
+    });
+
+    test("each tool has required fields", async () => {
+      const res = await app.request("/setup/registry");
+      const body = (await res.json()) as Envelope<ToolRegistryData>;
+
+      for (const tool of body.data.tools) {
+        expect(typeof tool.id).toBe("string");
+        expect(typeof tool.name).toBe("string");
+        expect(typeof tool.category).toBe("string");
+        expect(["agent", "tool"]).toContain(tool.category);
+      }
+    });
+
+    test("returns proper content type", async () => {
+      const res = await app.request("/setup/registry");
+
+      expect(res.headers.get("content-type")).toContain("application/json");
+    });
+
+    test("respects bypass_cache parameter", async () => {
+      // First request to populate cache
+      const first = await app.request("/setup/registry");
+      expect(first.status).toBe(200);
+
+      // Second request with bypass_cache
+      const second = await app.request("/setup/registry?bypass_cache=true");
+      expect(second.status).toBe(200);
+
+      const body = (await second.json()) as Envelope<ToolRegistryData>;
+      expect(body.data.metadata.loadedAt).toBeDefined();
+    });
+
+    test("metadata indicates registry source", async () => {
+      const res = await app.request("/setup/registry");
+      const body = (await res.json()) as Envelope<ToolRegistryData>;
+
+      // Registry source should be either 'manifest' or 'fallback'
+      expect(["manifest", "fallback"]).toContain(
+        body.data.metadata.registrySource,
+      );
     });
   });
 

@@ -1,0 +1,15 @@
+# Golden fixture: Invalid schema - wrong types
+# Used by tool-registry.service.test.ts to test validation error handling
+
+schemaVersion: "2.1.0"  # Unsupported version
+
+tools:
+  - id: 123  # Should be string, not number
+    name: "dcg"
+    category: "tool"
+  - id: "tools.br"
+    name: null  # Should be string, not null
+    category: "invalid-category"  # Invalid category value
+  - id: "tools.missing-required"
+    # Missing required 'name' field
+    category: "tool"
