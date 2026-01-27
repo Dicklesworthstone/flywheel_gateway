@@ -428,13 +428,14 @@ export function createRuClient(options: RuClientOptions): RuClient {
     },
 
     sweepPhase1: async (repo, opts) => {
-      const args = ["agent-sweep", "--phase1", "--json", "--repo", repo];
+      const timeout = opts?.timeout ?? 300000;
+      const args = ["agent-sweep", "--phase", "1", "--json", "--timeout", String(timeout), repo];
       if (opts?.dryRun) args.push("--dry-run");
 
       const result = await runRuCommand(
         options.runner,
         args,
-        buildRunOptions(options, { ...opts, timeout: opts?.timeout ?? 300000 }),
+        buildRunOptions(options, { ...opts, timeout }),
       );
 
       try {
@@ -466,13 +467,14 @@ export function createRuClient(options: RuClientOptions): RuClient {
     },
 
     sweepPhase2: async (repo, opts) => {
-      const args = ["agent-sweep", "--phase2", "--json", "--repo", repo];
+      const timeout = opts?.timeout ?? 600000;
+      const args = ["agent-sweep", "--phase", "2", "--json", "--timeout", String(timeout), repo];
       if (opts?.dryRun) args.push("--dry-run");
 
       const result = await runRuCommand(
         options.runner,
         args,
-        buildRunOptions(options, { ...opts, timeout: opts?.timeout ?? 600000 }),
+        buildRunOptions(options, { ...opts, timeout }),
       );
 
       try {
