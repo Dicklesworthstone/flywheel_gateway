@@ -252,4 +252,87 @@ export const METRIC_DEFINITIONS: MetricDefinition[] = [
     type: "gauge",
     description: "Process uptime in seconds",
   },
+
+  // Tool health metrics
+  {
+    name: "flywheel_tool_health_status",
+    type: "gauge",
+    description: "Tool health status (1=healthy, 0=unhealthy)",
+    labels: ["tool"],
+  },
+  {
+    name: "flywheel_tool_installed",
+    type: "gauge",
+    description: "Tool installation status (1=installed, 0=not installed)",
+    labels: ["tool"],
+  },
+  {
+    name: "flywheel_tool_check_duration_ms",
+    type: "histogram",
+    description: "Tool health check duration",
+    unit: "ms",
+    labels: ["tool"],
+  },
+  {
+    name: "flywheel_tool_checksum_age_ms",
+    type: "gauge",
+    description: "Age of tool checksums since last refresh",
+    unit: "ms",
+  },
+  {
+    name: "flywheel_tool_checksum_stale",
+    type: "gauge",
+    description: "Whether tool checksums are stale (1=stale, 0=fresh)",
+  },
+
+  // Snapshot service metrics
+  {
+    name: "flywheel_snapshot_collection_total",
+    type: "counter",
+    description: "Total snapshot collection operations",
+    labels: ["source", "status"],
+  },
+  {
+    name: "flywheel_snapshot_collection_duration_ms",
+    type: "histogram",
+    description: "Snapshot collection duration by source",
+    unit: "ms",
+    labels: ["source"],
+  },
+  {
+    name: "flywheel_snapshot_generation_duration_ms",
+    type: "histogram",
+    description: "Full snapshot generation duration",
+    unit: "ms",
+  },
+
+  // NTM ingest metrics
+  {
+    name: "flywheel_ntm_state_transitions_total",
+    type: "counter",
+    description: "Total NTM agent state transitions",
+    labels: ["from_state", "to_state"],
+  },
+  {
+    name: "flywheel_ntm_agents_tracked",
+    type: "gauge",
+    description: "Number of agents currently tracked by NTM ingest",
+  },
+  {
+    name: "flywheel_ntm_poll_duration_ms",
+    type: "histogram",
+    description: "NTM status poll duration",
+    unit: "ms",
+  },
+  {
+    name: "flywheel_ntm_poll_errors_total",
+    type: "counter",
+    description: "Total NTM poll errors",
+    labels: ["error_type"],
+  },
+  {
+    name: "flywheel_ntm_consecutive_errors",
+    type: "gauge",
+    description: "Current consecutive NTM poll errors",
+  },
 ];

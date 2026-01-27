@@ -23,6 +23,11 @@ import {
 import { getLogger } from "../middleware/correlation";
 import { LifecycleState } from "../models/agent-state";
 import {
+  incrementCounter,
+  setGauge,
+  recordHistogram,
+} from "./metrics";
+import {
   getAgentState,
   initializeAgentState,
   transitionState,
@@ -326,6 +331,7 @@ export class NtmIngestService {
 
   private async poll(): Promise<void> {
     const log = getLogger();
+    const pollStart = performance.now();
 
     try {
       // Check if NTM is available
@@ -379,7 +385,18 @@ export class NtmIngestService {
       }
 
       this.lastPollTime = new Date();
+
+      // Emit success metrics
+      const pollDurationMs = Math.round(performance.now() - pollStart);
+      recordHistogram("flywheel_ntm_poll_duration_ms", pollDurationMs);
+      setGauge("flywheel_ntm_agents_tracked", this.trackedAgents.size);
+      setGauge("flywheel_ntm_consecutive_errors", 0);
     } catch (err) {
+      // Emit error metrics
+      const pollDurationMs = Math.round(performance.now() - pollStart);
+      recordHistogram("flywheel_ntm_poll_duration_ms", pollDurationMs);
+      setGauge("flywheel_ntm_consecutive_errors", this.consecutiveErrors + 1);
+
       this.handleError(err);
     }
   }
@@ -387,6 +404,10 @@ export class NtmIngestService {
   private handleUnavailable(reason: string): void {
     const log = getLogger();
     this.consecutiveErrors++;
+
+    // Emit error metric
+    incrementCounter("flywheel_ntm_poll_errors_total", 1, { error_type: "unavailable" });
+    setGauge("flywheel_ntm_consecutive_errors", this.consecutiveErrors);
 
     // Increase backoff
     if (this.backoffMultiplier < this.config.maxBackoffMultiplier) {
@@ -410,6 +431,10 @@ export class NtmIngestService {
   private handleError(err: unknown): void {
     const log = getLogger();
     this.consecutiveErrors++;
+
+    // Emit error metric
+    incrementCounter("flywheel_ntm_poll_errors_total", 1, { error_type: "poll_error" });
+    setGauge("flywheel_ntm_consecutive_errors", this.consecutiveErrors);
 
     // Increase backoff on repeated errors
     if (
@@ -502,6 +527,12 @@ export class NtmIngestService {
           const previousState = tracked.lastState;
           tracked.lastState = newState;
           tracked.lastSeenAt = new Date();
+
+          // Emit state transition metric
+          incrementCounter("flywheel_ntm_state_transitions_total", 1, {
+            from_state: previousState,
+            to_state: newState,
+          });
 
           // Emit event
           this.emitEvent({

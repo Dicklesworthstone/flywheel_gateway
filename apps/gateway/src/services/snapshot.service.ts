@@ -47,6 +47,11 @@ import type {
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { getLogger } from "../middleware/correlation";
+import {
+  incrementCounter,
+  setGauge,
+  recordHistogram,
+} from "./metrics";
 import { getBvTriage, getBvClient } from "./bv.service";
 import { getBrList, getBrSyncStatus, getBrClient } from "./br.service";
 import * as dcgService from "./dcg.service";
@@ -150,8 +155,9 @@ async function collectNtmSnapshot(
   timeoutMs: number,
 ): Promise<CollectionResult<NtmSnapshot>> {
   const log = getLogger();
+  const start = performance.now();
 
-  return withTimeout(
+  const result = await withTimeout(
     async () => {
       // Check availability first
       const available = await client.isAvailable();
@@ -240,6 +246,16 @@ async function collectNtmSnapshot(
     timeoutMs,
     "Failed to collect NTM data",
   );
+
+  // Emit snapshot collection metrics
+  const latencyMs = Math.round(performance.now() - start);
+  recordHistogram("flywheel_snapshot_collection_duration_ms", latencyMs, { source: "ntm" });
+  incrementCounter("flywheel_snapshot_collection_total", 1, {
+    source: "ntm",
+    status: result.success ? "success" : "failure",
+  });
+
+  return result;
 }
 
 /**
@@ -274,8 +290,9 @@ async function collectBeadsSnapshot(
   timeoutMs: number,
 ): Promise<CollectionResult<BeadsSnapshot>> {
   const log = getLogger();
+  const start = performance.now();
 
-  return withTimeout(
+  const result = await withTimeout(
     async () => {
       // Attempt to get triage data (includes counts)
       let triageData: BvTriageResult | null = null;
@@ -422,6 +439,16 @@ async function collectBeadsSnapshot(
     timeoutMs,
     "Failed to collect beads data",
   );
+
+  // Emit snapshot collection metrics
+  const latencyMs = Math.round(performance.now() - start);
+  recordHistogram("flywheel_snapshot_collection_duration_ms", latencyMs, { source: "beads" });
+  incrementCounter("flywheel_snapshot_collection_total", 1, {
+    source: "beads",
+    status: result.success ? "success" : "failure",
+  });
+
+  return result;
 }
 
 /**
@@ -466,7 +493,8 @@ function createEmptyBeadsSnapshot(): BeadsSnapshot {
 async function collectToolHealthSnapshot(
   timeoutMs: number,
 ): Promise<CollectionResult<ToolHealthSnapshot>> {
-  return withTimeout(
+  const start = performance.now();
+  const result = await withTimeout(
     async () => {
       // Collect tool statuses in parallel
       const [dcgResult, slbResult, ubsResult] = await Promise.all([
@@ -534,6 +562,16 @@ async function collectToolHealthSnapshot(
     timeoutMs,
     "Failed to collect tool health data",
   );
+
+  // Emit snapshot collection metrics
+  const latencyMs = Math.round(performance.now() - start);
+  recordHistogram("flywheel_snapshot_collection_duration_ms", latencyMs, { source: "tools" });
+  incrementCounter("flywheel_snapshot_collection_total", 1, {
+    source: "tools",
+    status: result.success ? "success" : "failure",
+  });
+
+  return result;
 }
 
 /**
@@ -544,18 +582,32 @@ async function collectDcgStatus(): Promise<ToolHealthStatus> {
   try {
     const available = await dcgService.isDcgAvailable();
     const version = available ? await dcgService.getDcgVersion() : null;
+    const latencyMs = Math.round(performance.now() - start);
+
+    // Emit metrics
+    setGauge("flywheel_tool_installed", available ? 1 : 0, { tool: "dcg" });
+    setGauge("flywheel_tool_health_status", available ? 1 : 0, { tool: "dcg" });
+    recordHistogram("flywheel_tool_check_duration_ms", latencyMs, { tool: "dcg" });
+
     return {
       installed: available,
       version,
       healthy: available,
-      latencyMs: Math.round(performance.now() - start),
+      latencyMs,
     };
   } catch {
+    const latencyMs = Math.round(performance.now() - start);
+
+    // Emit metrics for failure case
+    setGauge("flywheel_tool_installed", 0, { tool: "dcg" });
+    setGauge("flywheel_tool_health_status", 0, { tool: "dcg" });
+    recordHistogram("flywheel_tool_check_duration_ms", latencyMs, { tool: "dcg" });
+
     return {
       installed: false,
       version: null,
       healthy: false,
-      latencyMs: Math.round(performance.now() - start),
+      latencyMs,
     };
   }
 }
@@ -568,18 +620,32 @@ async function collectSlbStatus(): Promise<ToolHealthStatus> {
   try {
     const available = await slbService.isSlbAvailable();
     const versionInfo = available ? await slbService.getSlbVersion() : null;
+    const latencyMs = Math.round(performance.now() - start);
+
+    // Emit metrics
+    setGauge("flywheel_tool_installed", available ? 1 : 0, { tool: "slb" });
+    setGauge("flywheel_tool_health_status", available ? 1 : 0, { tool: "slb" });
+    recordHistogram("flywheel_tool_check_duration_ms", latencyMs, { tool: "slb" });
+
     return {
       installed: available,
       version: versionInfo?.version ?? null,
       healthy: available,
-      latencyMs: Math.round(performance.now() - start),
+      latencyMs,
     };
   } catch {
+    const latencyMs = Math.round(performance.now() - start);
+
+    // Emit metrics for failure case
+    setGauge("flywheel_tool_installed", 0, { tool: "slb" });
+    setGauge("flywheel_tool_health_status", 0, { tool: "slb" });
+    recordHistogram("flywheel_tool_check_duration_ms", latencyMs, { tool: "slb" });
+
     return {
       installed: false,
       version: null,
       healthy: false,
-      latencyMs: Math.round(performance.now() - start),
+      latencyMs,
     };
   }
 }
@@ -592,18 +658,32 @@ async function collectUbsStatus(): Promise<ToolHealthStatus> {
   try {
     const ubsService = getUBSService();
     const health = await ubsService.checkHealth();
+    const latencyMs = Math.round(performance.now() - start);
+
+    // Emit metrics
+    setGauge("flywheel_tool_installed", health.available ? 1 : 0, { tool: "ubs" });
+    setGauge("flywheel_tool_health_status", health.available ? 1 : 0, { tool: "ubs" });
+    recordHistogram("flywheel_tool_check_duration_ms", latencyMs, { tool: "ubs" });
+
     return {
       installed: health.available,
       version: health.version ?? null,
       healthy: health.available,
-      latencyMs: Math.round(performance.now() - start),
+      latencyMs,
     };
   } catch {
+    const latencyMs = Math.round(performance.now() - start);
+
+    // Emit metrics for failure case
+    setGauge("flywheel_tool_installed", 0, { tool: "ubs" });
+    setGauge("flywheel_tool_health_status", 0, { tool: "ubs" });
+    recordHistogram("flywheel_tool_check_duration_ms", latencyMs, { tool: "ubs" });
+
     return {
       installed: false,
       version: null,
       healthy: false,
-      latencyMs: Math.round(performance.now() - start),
+      latencyMs,
     };
   }
 }
@@ -658,6 +738,12 @@ async function collectChecksumInfo(): Promise<{
       }
     }
 
+    // Emit checksum metrics
+    if (registryAgeMs !== null) {
+      setGauge("flywheel_tool_checksum_age_ms", registryAgeMs);
+    }
+    setGauge("flywheel_tool_checksum_stale", isStale ? 1 : 0);
+
     return {
       registryGeneratedAt,
       registryAgeMs,
@@ -666,6 +752,9 @@ async function collectChecksumInfo(): Promise<{
       tools,
     };
   } catch {
+    // Emit metrics for failure case
+    setGauge("flywheel_tool_checksum_stale", 0);
+
     return {
       registryGeneratedAt: null,
       registryAgeMs: null,
@@ -739,8 +828,9 @@ async function collectAgentMailSnapshot(
   timeoutMs: number,
 ): Promise<CollectionResult<AgentMailSnapshot>> {
   const log = getLogger();
+  const start = performance.now();
 
-  return withTimeout(
+  const result = await withTimeout(
     async () => {
       const agentMailDir = path.join(cwd, ".agentmail");
 
@@ -809,7 +899,7 @@ async function collectAgentMailSnapshot(
         // messages.jsonl doesn't exist or can't be read
       }
 
-      return {
+      const agentMailResult: AgentMailSnapshot = {
         capturedAt: new Date().toISOString(),
         available: true,
         status: agents.length > 0 ? "healthy" : "degraded",
@@ -817,10 +907,21 @@ async function collectAgentMailSnapshot(
         reservations: [], // Reservations are managed by MCP, not local files
         messages,
       };
+      return agentMailResult;
     },
     timeoutMs,
     "Failed to collect Agent Mail data",
   );
+
+  // Emit snapshot collection metrics
+  const latencyMs = Math.round(performance.now() - start);
+  recordHistogram("flywheel_snapshot_collection_duration_ms", latencyMs, { source: "agentmail" });
+  incrementCounter("flywheel_snapshot_collection_total", 1, {
+    source: "agentmail",
+    status: result.success ? "success" : "failure",
+  });
+
+  return result;
 }
 
 /**
@@ -958,6 +1059,9 @@ export class SnapshotService {
     );
 
     const generationDurationMs = Math.round(performance.now() - startTime);
+
+    // Emit snapshot generation duration metric
+    recordHistogram("flywheel_snapshot_generation_duration_ms", generationDurationMs);
 
     // Build metadata
     const meta: SystemSnapshotMeta = {
