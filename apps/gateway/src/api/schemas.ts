@@ -2385,3 +2385,571 @@ export const CacheClearedResultResponseSchema = createApiResponseSchema(
   CacheClearedResultSchema,
   "cache_cleared",
 );
+
+// ============================================================================
+// System Snapshot Schemas
+// ============================================================================
+
+export const SystemHealthStatusSchema = z
+  .enum(["healthy", "degraded", "unhealthy", "unknown"])
+  .openapi({
+    description: "Overall system health status",
+  });
+
+registry.register("SystemHealthStatus", SystemHealthStatusSchema);
+
+// NTM Snapshot Schemas
+
+export const NtmAgentSnapshotSchema = z
+  .object({
+    pane: z.string().openapi({
+      description: 'Pane identifier (e.g., "%1")',
+    }),
+    type: z.string().openapi({
+      description: 'Agent type (e.g., "claude", "codex", "gemini")',
+    }),
+    variant: z.string().optional().openapi({
+      description: 'Agent variant (e.g., "opus", "sonnet")',
+    }),
+    typeConfidence: z.number().optional().openapi({
+      description: "Confidence in type detection (0-1)",
+    }),
+    typeMethod: z.string().optional().openapi({
+      description: "Method used for type detection",
+    }),
+    state: z.string().openapi({
+      description: 'Current state (e.g., "idle", "working", "error")',
+    }),
+    lastOutputAgeSec: z.number().optional().openapi({
+      description: "Seconds since last output",
+    }),
+    outputTailLines: z.number().optional().openapi({
+      description: "Number of tail lines captured",
+    }),
+    currentBead: z.string().nullable().optional().openapi({
+      description: "Current bead being worked on",
+    }),
+    pendingMail: z.number().optional().openapi({
+      description: "Number of pending mail messages",
+    }),
+    isActive: z.boolean().optional().openapi({
+      description: "Whether the agent is currently active",
+    }),
+    window: z.number().optional().openapi({
+      description: "Window index",
+    }),
+    paneIdx: z.number().optional().openapi({
+      description: "Pane index within window",
+    }),
+  })
+  .openapi("NtmAgentSnapshot");
+
+registry.register("NtmAgentSnapshot", NtmAgentSnapshotSchema);
+
+export const NtmSessionSnapshotSchema = z
+  .object({
+    name: z.string().openapi({
+      description: "Session name",
+    }),
+    attached: z.boolean().openapi({
+      description: "Whether the session is attached",
+    }),
+    windows: z.number().optional().openapi({
+      description: "Number of windows",
+    }),
+    panes: z.number().optional().openapi({
+      description: "Number of panes",
+    }),
+    createdAt: z.string().optional().openapi({
+      description: "Session creation time",
+    }),
+    agents: z.array(NtmAgentSnapshotSchema).openapi({
+      description: "Agents in this session",
+    }),
+  })
+  .openapi("NtmSessionSnapshot");
+
+registry.register("NtmSessionSnapshot", NtmSessionSnapshotSchema);
+
+export const NtmStatusSummarySchema = z
+  .object({
+    totalSessions: z.number().openapi({
+      description: "Total number of sessions",
+    }),
+    totalAgents: z.number().openapi({
+      description: "Total number of agents",
+    }),
+    attachedCount: z.number().openapi({
+      description: "Number of attached sessions",
+    }),
+    byAgentType: z.record(z.string(), z.number()).openapi({
+      description: "Count by agent type",
+    }),
+  })
+  .openapi("NtmStatusSummary");
+
+registry.register("NtmStatusSummary", NtmStatusSummarySchema);
+
+export const NtmSnapshotSchema = z
+  .object({
+    capturedAt: z.string().openapi({
+      description: "Timestamp of snapshot capture",
+    }),
+    available: z.boolean().openapi({
+      description: "Whether NTM is available",
+    }),
+    version: z.string().optional().openapi({
+      description: "NTM version",
+    }),
+    sessions: z.array(NtmSessionSnapshotSchema).openapi({
+      description: "Session snapshots",
+    }),
+    summary: NtmStatusSummarySchema,
+    alerts: z.array(z.string()).openapi({
+      description: "Active alerts",
+    }),
+  })
+  .openapi("NtmSnapshot");
+
+registry.register("NtmSnapshot", NtmSnapshotSchema);
+
+// Agent Mail Snapshot Schemas
+
+export const AgentMailAgentSnapshotSchema = z
+  .object({
+    agentId: z.string().openapi({
+      description: "Agent identifier",
+    }),
+    mailboxId: z.string().optional().openapi({
+      description: "Mailbox identifier",
+    }),
+    capabilities: z.array(z.string()).openapi({
+      description: "Agent capabilities",
+    }),
+    metadata: z.record(z.string(), z.unknown()).optional().openapi({
+      description: "Custom metadata",
+    }),
+    registeredAt: z.string().optional().openapi({
+      description: "Registration timestamp",
+    }),
+  })
+  .openapi("AgentMailAgentSnapshot");
+
+registry.register("AgentMailAgentSnapshot", AgentMailAgentSnapshotSchema);
+
+export const AgentMailReservationSnapshotSchema = z
+  .object({
+    reservationId: z.string().openapi({
+      description: "Reservation identifier",
+    }),
+    requesterId: z.string().openapi({
+      description: "Requester agent ID",
+    }),
+    patterns: z.array(z.string()).openapi({
+      description: "Reserved file patterns",
+    }),
+    exclusive: z.boolean().openapi({
+      description: "Whether exclusive",
+    }),
+    expiresAt: z.string().openapi({
+      description: "Expiration timestamp",
+    }),
+  })
+  .openapi("AgentMailReservationSnapshot");
+
+registry.register(
+  "AgentMailReservationSnapshot",
+  AgentMailReservationSnapshotSchema,
+);
+
+export const AgentMailMessageSummarySchema = z
+  .object({
+    total: z.number().openapi({
+      description: "Total message count",
+    }),
+    unread: z.number().openapi({
+      description: "Unread message count",
+    }),
+    byPriority: z
+      .object({
+        low: z.number(),
+        normal: z.number(),
+        high: z.number(),
+        urgent: z.number(),
+      })
+      .openapi({
+        description: "Messages by priority",
+      }),
+  })
+  .openapi("AgentMailMessageSummary");
+
+registry.register("AgentMailMessageSummary", AgentMailMessageSummarySchema);
+
+export const AgentMailSnapshotSchema = z
+  .object({
+    capturedAt: z.string().openapi({
+      description: "Timestamp of snapshot capture",
+    }),
+    available: z.boolean().openapi({
+      description: "Whether Agent Mail server is available",
+    }),
+    status: z
+      .enum(["healthy", "degraded", "unhealthy"])
+      .optional()
+      .openapi({
+        description: "Server status",
+      }),
+    projectId: z.string().optional().openapi({
+      description: "Project identifier",
+    }),
+    agents: z.array(AgentMailAgentSnapshotSchema).openapi({
+      description: "Registered agents",
+    }),
+    reservations: z.array(AgentMailReservationSnapshotSchema).openapi({
+      description: "Active reservations",
+    }),
+    messages: AgentMailMessageSummarySchema,
+  })
+  .openapi("AgentMailSnapshot");
+
+registry.register("AgentMailSnapshot", AgentMailSnapshotSchema);
+
+// Beads Snapshot Schemas
+
+export const BeadsStatusCountsSchema = z
+  .object({
+    open: z.number(),
+    inProgress: z.number(),
+    blocked: z.number(),
+    closed: z.number(),
+    total: z.number(),
+  })
+  .openapi("BeadsStatusCounts");
+
+registry.register("BeadsStatusCounts", BeadsStatusCountsSchema);
+
+export const BeadsTypeCountsSchema = z
+  .object({
+    bug: z.number(),
+    feature: z.number(),
+    task: z.number(),
+    epic: z.number(),
+    chore: z.number(),
+  })
+  .passthrough()
+  .openapi("BeadsTypeCounts");
+
+registry.register("BeadsTypeCounts", BeadsTypeCountsSchema);
+
+export const BeadsPriorityCountsSchema = z
+  .object({
+    p0: z.number(),
+    p1: z.number(),
+    p2: z.number(),
+    p3: z.number(),
+    p4: z.number(),
+  })
+  .openapi("BeadsPriorityCounts");
+
+registry.register("BeadsPriorityCounts", BeadsPriorityCountsSchema);
+
+export const BeadsTriageRecommendationSchema = z
+  .object({
+    id: z.string().openapi({
+      description: "Issue ID",
+    }),
+    title: z.string().openapi({
+      description: "Issue title",
+    }),
+    score: z.number().openapi({
+      description: "Triage score",
+    }),
+    unblocks: z.number().optional().openapi({
+      description: "Number of issues this unblocks",
+    }),
+    unblocksIds: z.array(z.string()).optional().openapi({
+      description: "IDs of issues this unblocks",
+    }),
+    reasons: z.array(z.string()).optional().openapi({
+      description: "Reasons for recommendation",
+    }),
+    action: z.string().optional().openapi({
+      description: "Suggested action",
+    }),
+  })
+  .openapi("BeadsTriageRecommendation");
+
+registry.register("BeadsTriageRecommendation", BeadsTriageRecommendationSchema);
+
+export const BeadsSyncStatusSchema = z
+  .object({
+    dirtyCount: z.number().openapi({
+      description: "Number of dirty (uncommitted) changes",
+    }),
+    lastExportTime: z.string().optional().openapi({
+      description: "Last export timestamp",
+    }),
+    lastImportTime: z.string().optional().openapi({
+      description: "Last import timestamp",
+    }),
+    jsonlExists: z.boolean().openapi({
+      description: "Whether JSONL file exists",
+    }),
+    jsonlNewer: z.boolean().openapi({
+      description: "Whether JSONL is newer than DB",
+    }),
+    dbNewer: z.boolean().openapi({
+      description: "Whether DB is newer than JSONL",
+    }),
+  })
+  .openapi("BeadsSyncStatusSnapshot");
+
+registry.register("BeadsSyncStatusSnapshot", BeadsSyncStatusSchema);
+
+export const BeadsSnapshotSchema = z
+  .object({
+    capturedAt: z.string().openapi({
+      description: "Timestamp of snapshot capture",
+    }),
+    brAvailable: z.boolean().openapi({
+      description: "Whether br CLI is available",
+    }),
+    bvAvailable: z.boolean().openapi({
+      description: "Whether bv CLI is available",
+    }),
+    statusCounts: BeadsStatusCountsSchema,
+    typeCounts: BeadsTypeCountsSchema,
+    priorityCounts: BeadsPriorityCountsSchema,
+    actionableCount: z.number().openapi({
+      description: "Number of actionable (ready to work) issues",
+    }),
+    syncStatus: BeadsSyncStatusSchema.optional(),
+    topRecommendations: z.array(BeadsTriageRecommendationSchema).openapi({
+      description: "Top triage recommendations",
+    }),
+    quickWins: z.array(BeadsTriageRecommendationSchema).openapi({
+      description: "Quick wins",
+    }),
+    blockersToClean: z.array(BeadsTriageRecommendationSchema).openapi({
+      description: "High-impact blockers to clear",
+    }),
+  })
+  .openapi("BeadsSnapshot");
+
+registry.register("BeadsSnapshot", BeadsSnapshotSchema);
+
+// Tool Health Snapshot Schemas
+
+export const ToolHealthStatusSnapshotSchema = z
+  .object({
+    installed: z.boolean().openapi({
+      description: "Whether the tool is installed",
+    }),
+    version: z.string().nullable().openapi({
+      description: "Tool version",
+    }),
+    healthy: z.boolean().openapi({
+      description: "Whether the tool is healthy/responding",
+    }),
+    latencyMs: z.number().optional().openapi({
+      description: "Health check latency in milliseconds",
+    }),
+  })
+  .openapi("ToolHealthStatusSnapshot");
+
+registry.register("ToolHealthStatusSnapshot", ToolHealthStatusSnapshotSchema);
+
+export const ToolChecksumStatusSnapshotSchema = z
+  .object({
+    toolId: z.string().openapi({
+      description: "Tool identifier",
+    }),
+    hasChecksums: z.boolean().openapi({
+      description: "Whether checksums are available",
+    }),
+    checksumCount: z.number().openapi({
+      description: "Number of checksums",
+    }),
+    registryGeneratedAt: z.string().nullable().openapi({
+      description: "When the registry was generated",
+    }),
+    ageMs: z.number().nullable().openapi({
+      description: "Age of checksums in milliseconds",
+    }),
+    stale: z.boolean().openapi({
+      description: "Whether checksums are stale",
+    }),
+  })
+  .openapi("ToolChecksumStatusSnapshot");
+
+registry.register(
+  "ToolChecksumStatusSnapshot",
+  ToolChecksumStatusSnapshotSchema,
+);
+
+export const ToolHealthSnapshotSchema = z
+  .object({
+    capturedAt: z.string().openapi({
+      description: "Timestamp of snapshot capture",
+    }),
+    dcg: ToolHealthStatusSnapshotSchema.openapi({
+      description: "DCG (Destructive Command Guard) status",
+    }),
+    slb: ToolHealthStatusSnapshotSchema.openapi({
+      description: "SLB (Simultaneous Launch Button) status",
+    }),
+    ubs: ToolHealthStatusSnapshotSchema.openapi({
+      description: "UBS (Ultimate Bug Scanner) status",
+    }),
+    status: z.enum(["healthy", "degraded", "unhealthy"]).openapi({
+      description: "Overall health status",
+    }),
+    registryGeneratedAt: z.string().nullable().openapi({
+      description: "Registry generation timestamp",
+    }),
+    registryAgeMs: z.number().nullable().openapi({
+      description: "Registry age in milliseconds",
+    }),
+    toolsWithChecksums: z.number().openapi({
+      description: "Number of tools with checksums",
+    }),
+    checksumsStale: z.boolean().openapi({
+      description: "Whether checksums are stale",
+    }),
+    checksumStatuses: z.array(ToolChecksumStatusSnapshotSchema).openapi({
+      description: "Tool checksum statuses",
+    }),
+    issues: z.array(z.string()).openapi({
+      description: "Current issues",
+    }),
+    recommendations: z.array(z.string()).openapi({
+      description: "Recommendations",
+    }),
+  })
+  .openapi("ToolHealthSnapshot");
+
+registry.register("ToolHealthSnapshot", ToolHealthSnapshotSchema);
+
+// System Snapshot Unified Schema
+
+export const SystemSnapshotMetaSchema = z
+  .object({
+    schemaVersion: z.literal("1.0.0").openapi({
+      description: "Schema version for forward compatibility",
+    }),
+    generatedAt: z.string().openapi({
+      description: "Timestamp when snapshot was generated",
+    }),
+    generationDurationMs: z.number().openapi({
+      description: "Generation duration in milliseconds",
+    }),
+    correlationId: z.string().optional().openapi({
+      description: "Correlation ID for tracing",
+    }),
+    gatewayVersion: z.string().optional().openapi({
+      description: "Gateway version",
+    }),
+  })
+  .openapi("SystemSnapshotMeta");
+
+registry.register("SystemSnapshotMeta", SystemSnapshotMetaSchema);
+
+export const SystemHealthSummarySchema = z
+  .object({
+    status: SystemHealthStatusSchema.openapi({
+      description: "Overall system status",
+    }),
+    ntm: SystemHealthStatusSchema.openapi({
+      description: "NTM health status",
+    }),
+    agentMail: SystemHealthStatusSchema.openapi({
+      description: "Agent Mail health status",
+    }),
+    beads: SystemHealthStatusSchema.openapi({
+      description: "Beads health status",
+    }),
+    tools: SystemHealthStatusSchema.openapi({
+      description: "Tool health status",
+    }),
+    healthyCount: z.number().openapi({
+      description: "Number of healthy components",
+    }),
+    degradedCount: z.number().openapi({
+      description: "Number of degraded components",
+    }),
+    unhealthyCount: z.number().openapi({
+      description: "Number of unhealthy components",
+    }),
+    unknownCount: z.number().openapi({
+      description: "Number of unknown status components",
+    }),
+    issues: z.array(z.string()).openapi({
+      description: "High-level issues requiring attention",
+    }),
+  })
+  .openapi("SystemHealthSummary");
+
+registry.register("SystemHealthSummary", SystemHealthSummarySchema);
+
+export const SystemSnapshotDataSchema = z
+  .object({
+    meta: SystemSnapshotMetaSchema,
+    summary: SystemHealthSummarySchema,
+    ntm: NtmSnapshotSchema,
+    agentMail: AgentMailSnapshotSchema,
+    beads: BeadsSnapshotSchema,
+    tools: ToolHealthSnapshotSchema,
+  })
+  .openapi("SystemSnapshotData");
+
+registry.register("SystemSnapshotData", SystemSnapshotDataSchema);
+
+export const SystemSnapshotResponseSchema = createApiResponseSchema(
+  "SystemSnapshotResponse",
+  SystemSnapshotDataSchema,
+  "system_snapshot",
+);
+
+// Snapshot Cache Schemas
+
+export const SnapshotCacheStatusSchema = z
+  .object({
+    cached: z.boolean().openapi({
+      description: "Whether a snapshot is currently cached",
+    }),
+    ageMs: z.number().nullable().openapi({
+      description: "Age of cached snapshot in milliseconds",
+    }),
+    ttlMs: z.number().openapi({
+      description: "Time-to-live in milliseconds",
+    }),
+    expiresInMs: z.number().nullable().openapi({
+      description: "Time until cache expires in milliseconds",
+    }),
+  })
+  .openapi("SnapshotCacheStatus");
+
+registry.register("SnapshotCacheStatus", SnapshotCacheStatusSchema);
+
+export const SnapshotCacheStatusResponseSchema = createApiResponseSchema(
+  "SnapshotCacheStatusResponse",
+  SnapshotCacheStatusSchema,
+  "snapshot_cache_status",
+);
+
+export const SnapshotCacheClearedSchema = z
+  .object({
+    message: z.string().openapi({
+      description: "Success message",
+    }),
+    timestamp: TimestampSchema,
+  })
+  .openapi("SnapshotCacheCleared");
+
+registry.register("SnapshotCacheCleared", SnapshotCacheClearedSchema);
+
+export const SnapshotCacheClearedResponseSchema = createApiResponseSchema(
+  "SnapshotCacheClearedResponse",
+  SnapshotCacheClearedSchema,
+  "snapshot_cache_cleared",
+);

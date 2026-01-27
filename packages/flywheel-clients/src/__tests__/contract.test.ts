@@ -11,39 +11,56 @@
  * based on command/argument patterns.
  */
 
-import { describe, expect, test, beforeEach } from "bun:test";
-
+import { beforeEach, describe, expect, test } from "bun:test";
+import {
+  AprClientError,
+  type AprCommandResult,
+  type AprCommandRunner,
+  createAprClient,
+} from "../apr";
 // Import all clients
 import {
-  createBrClient,
-  type BrCommandRunner,
-  type BrCommandResult,
   BrClientError,
+  type BrCommandResult,
+  type BrCommandRunner,
+  createBrClient,
 } from "../br";
 import {
-  createBvClient,
-  type BvCommandRunner,
-  type BvCommandResult,
   BvClientError,
+  type BvCommandResult,
+  type BvCommandRunner,
+  createBvClient,
 } from "../bv";
 import {
-  createCaamClient,
-  type CaamCommandRunner,
-  type CaamCommandResult,
   CaamClientError,
+  type CaamCommandResult,
+  type CaamCommandRunner,
+  createCaamClient,
 } from "../caam";
 import {
-  createAprClient,
-  type AprCommandRunner,
-  type AprCommandResult,
-  AprClientError,
-} from "../apr";
+  createJfpClient,
+  JfpClientError,
+  type JfpCommandResult,
+  type JfpCommandRunner,
+} from "../jfp";
+import {
+  createMsClient,
+  MsClientError,
+  type MsCommandResult,
+  type MsCommandRunner,
+} from "../ms";
 import {
   createNtmClient,
-  type NtmCommandRunner,
-  type NtmCommandResult,
   NtmClientError,
+  type NtmCommandResult,
+  type NtmCommandRunner,
 } from "../ntm";
+import {
+  createPtClient,
+  PtClientError,
+  type PtCommandResult,
+  type PtCommandRunner,
+} from "../pt";
 
 // ============================================================================
 // Invocation Logger
@@ -115,7 +132,9 @@ interface StubMatcher {
   response: StubResponse;
 }
 
-function createStubRunner<T extends { stdout: string; stderr: string; exitCode: number }>(
+function createStubRunner<
+  T extends { stdout: string; stderr: string; exitCode: number },
+>(
   matchers: StubMatcher[],
   logger: InvocationLogger,
   defaultResponse?: StubResponse,
@@ -396,47 +415,362 @@ const FIXTURES = {
   // ntm (Named Tmux Manager) fixtures
   ntm: {
     status: JSON.stringify({
+      generated_at: "2025-01-15T12:00:00Z",
+      system: {
+        version: "0.5.0",
+        commit: "abc123",
+        build_date: "2025-01-01",
+        go_version: "1.21",
+        os: "linux",
+        arch: "amd64",
+        tmux_available: true,
+      },
       sessions: [
         {
           name: "agent-1",
-          windows: 2,
+          exists: true,
           attached: true,
-          created: "2025-01-15T08:00:00Z",
+          windows: 2,
+          panes: 3,
+          created_at: "2025-01-15T08:00:00Z",
         },
         {
           name: "agent-2",
-          windows: 1,
+          exists: true,
           attached: false,
-          created: "2025-01-15T09:00:00Z",
+          windows: 1,
+          panes: 1,
+          created_at: "2025-01-15T09:00:00Z",
         },
       ],
-      total_sessions: 2,
-      tmux_version: "3.4",
+      summary: {
+        total_sessions: 2,
+        total_agents: 3,
+        attached_count: 1,
+        claude_count: 2,
+        codex_count: 1,
+        gemini_count: 0,
+        cursor_count: 0,
+        windsurf_count: 0,
+        aider_count: 0,
+      },
     }),
     context: JSON.stringify({
+      success: true,
+      timestamp: "2025-01-15T12:00:00Z",
       session: "agent-1",
-      window: "main",
-      pane: 0,
-      cwd: "/project",
-      shell: "zsh",
+      captured_at: "2025-01-15T12:00:00Z",
+      agents: [
+        {
+          pane: "%0",
+          pane_idx: 0,
+          agent_type: "claude",
+          model: "opus-4",
+          estimated_tokens: 50000,
+          with_overhead: 55000,
+          context_limit: 200000,
+          usage_percent: 27.5,
+          usage_level: "low",
+          confidence: "high",
+          state: "idle",
+        },
+      ],
+      summary: {
+        total_agents: 1,
+        high_usage_count: 0,
+        avg_usage: 27.5,
+      },
     }),
     health: JSON.stringify({
-      healthy: true,
-      tmux_available: true,
-      tmux_version: "3.4",
-      server_running: true,
+      success: true,
+      session: "agent-1",
+      checked_at: "2025-01-15T12:00:00Z",
+      agents: [
+        {
+          pane: 0,
+          agent_type: "claude",
+          health: "healthy",
+          idle_since_seconds: 30,
+          restarts: 0,
+          rate_limit_count: 0,
+          backoff_remaining: 0,
+          confidence: 0.95,
+        },
+      ],
+      summary: {
+        total: 1,
+        healthy: 1,
+        degraded: 0,
+        unhealthy: 0,
+        rate_limited: 0,
+      },
     }),
     snapshot: JSON.stringify({
-      captured_at: "2025-01-15T12:00:00Z",
+      ts: "2025-01-15T12:00:00Z",
       sessions: [
         {
           name: "agent-1",
-          windows: [
+          attached: true,
+          agents: [
             {
-              name: "main",
-              panes: [{ index: 0, active: true, cwd: "/project" }],
+              pane: "%0",
+              type: "claude",
+              variant: "opus-4",
+              type_confidence: 0.95,
+              type_method: "pattern_match",
+              state: "idle",
+              last_output_age_sec: 30,
+              output_tail_lines: 50,
+              current_bead: null,
+              pending_mail: 0,
             },
           ],
+        },
+      ],
+      alerts: [],
+    }),
+  },
+
+  // ms (Meta Skill) fixtures
+  ms: {
+    doctor: JSON.stringify({
+      ok: true,
+      code: "success",
+      data: {
+        status: "healthy",
+        checks: [
+          { name: "database", status: "ok", message: "SQLite connected" },
+          { name: "embeddings", status: "ok", message: "Model loaded" },
+        ],
+        embedding_service: {
+          available: true,
+          model: "all-MiniLM-L6-v2",
+          latency_ms: 50,
+        },
+        storage: {
+          data_dir: "/home/user/.ms",
+          size_bytes: 1048576,
+          index_count: 5,
+        },
+      },
+      meta: { v: "1.2.0", ts: "2025-01-15T12:00:00Z" },
+    }),
+    list: JSON.stringify({
+      ok: true,
+      code: "success",
+      data: {
+        knowledge_bases: [
+          {
+            name: "skills",
+            description: "Agent skills documentation",
+            entry_count: 150,
+            created_at: "2025-01-01T00:00:00Z",
+            updated_at: "2025-01-14T10:00:00Z",
+          },
+          {
+            name: "prompts",
+            description: "Curated prompts collection",
+            entry_count: 75,
+            created_at: "2025-01-05T00:00:00Z",
+          },
+        ],
+      },
+      meta: { v: "1.2.0", ts: "2025-01-15T12:00:00Z" },
+    }),
+    search: JSON.stringify({
+      ok: true,
+      code: "success",
+      data: {
+        query: "authentication",
+        results: [
+          {
+            id: "skill-auth-001",
+            title: "OAuth 2.0 Authentication",
+            snippet: "Implement OAuth 2.0 flows for secure authentication...",
+            score: 0.92,
+            knowledge_base: "skills",
+            source: "auth.md",
+          },
+          {
+            id: "skill-auth-002",
+            title: "JWT Token Management",
+            snippet: "Best practices for JWT token handling...",
+            score: 0.85,
+            knowledge_base: "skills",
+            source: "tokens.md",
+          },
+        ],
+        total: 2,
+        took_ms: 45,
+        semantic_enabled: true,
+      },
+      meta: { v: "1.2.0", ts: "2025-01-15T12:00:00Z" },
+    }),
+  },
+
+  // pt (Process Triage) fixtures
+  pt: {
+    doctor: JSON.stringify({
+      ok: true,
+      code: "success",
+      data: {
+        status: "healthy",
+        checks: [
+          { name: "procfs", status: "ok", message: "/proc accessible" },
+          { name: "permissions", status: "ok", message: "Can read processes" },
+        ],
+        permissions: {
+          can_list_processes: true,
+          can_kill_processes: true,
+        },
+      },
+      meta: { v: "0.3.0", ts: "2025-01-15T12:00:00Z" },
+    }),
+    scan: JSON.stringify({
+      ok: true,
+      code: "success",
+      data: {
+        processes: [
+          {
+            pid: 12345,
+            ppid: 1,
+            name: "node",
+            cmdline: "node server.js",
+            user: "ubuntu",
+            state: "S",
+            cpu_percent: 85.5,
+            memory_percent: 12.3,
+            memory_rss_mb: 512,
+            started_at: "2025-01-15T08:00:00Z",
+            runtime_seconds: 14400,
+            score: 75,
+            score_breakdown: {
+              cpu_score: 40,
+              memory_score: 15,
+              runtime_score: 10,
+              state_score: 10,
+            },
+            flags: ["high_cpu", "long_running"],
+          },
+          {
+            pid: 67890,
+            ppid: 12345,
+            name: "zombie_worker",
+            cmdline: "[zombie_worker] <defunct>",
+            user: "ubuntu",
+            state: "Z",
+            cpu_percent: 0,
+            memory_percent: 0,
+            memory_rss_mb: 0,
+            score: 90,
+            flags: ["zombie"],
+          },
+        ],
+        total_scanned: 150,
+        suspicious_count: 2,
+        scan_time_ms: 125,
+        timestamp: "2025-01-15T12:00:00Z",
+        thresholds: {
+          min_score: 50,
+          min_runtime_seconds: 0,
+          min_memory_mb: 0,
+          min_cpu_percent: 0,
+        },
+      },
+      meta: { v: "0.3.0", ts: "2025-01-15T12:00:00Z" },
+    }),
+  },
+
+  // jfp (Jeffrey's Prompts) fixtures
+  jfp: {
+    list: JSON.stringify({
+      prompts: [
+        {
+          id: "code-review-001",
+          title: "Comprehensive Code Review",
+          description: "Thorough code review focusing on quality and security",
+          category: "development",
+          tags: ["code-review", "security", "quality"],
+          author: "Jeffrey",
+          version: "1.0.0",
+          featured: true,
+          difficulty: "intermediate",
+          estimatedTokens: 500,
+          created: "2025-01-01T00:00:00Z",
+          content: "Review the following code for...",
+          whenToUse: ["PR reviews", "Code audits"],
+          tips: ["Focus on security first"],
+        },
+        {
+          id: "debug-helper-002",
+          title: "Debug Assistant",
+          description: "Systematic debugging approach",
+          category: "debugging",
+          tags: ["debugging", "troubleshooting"],
+          author: "Jeffrey",
+          version: "1.0.0",
+          featured: false,
+          difficulty: "beginner",
+          estimatedTokens: 300,
+          created: "2025-01-05T00:00:00Z",
+          content: "Help me debug this issue...",
+        },
+      ],
+    }),
+    show: JSON.stringify({
+      id: "code-review-001",
+      title: "Comprehensive Code Review",
+      description: "Thorough code review focusing on quality and security",
+      category: "development",
+      tags: ["code-review", "security", "quality"],
+      author: "Jeffrey",
+      version: "1.0.0",
+      featured: true,
+      difficulty: "intermediate",
+      estimatedTokens: 500,
+      created: "2025-01-01T00:00:00Z",
+      content: "Review the following code for quality...",
+      whenToUse: ["PR reviews", "Code audits"],
+      tips: ["Focus on security first", "Check edge cases"],
+    }),
+    categories: JSON.stringify([
+      { name: "development", count: 25 },
+      { name: "debugging", count: 15 },
+      { name: "writing", count: 10 },
+    ]),
+    search: JSON.stringify({
+      results: [
+        {
+          id: "code-review-001",
+          title: "Comprehensive Code Review",
+          description: "Thorough code review focusing on quality and security",
+          category: "development",
+          tags: ["code-review", "security"],
+          author: "Jeffrey",
+          version: "1.0.0",
+          featured: true,
+          difficulty: "intermediate",
+          estimatedTokens: 500,
+          created: "2025-01-01T00:00:00Z",
+          content: "Review the following code for...",
+        },
+      ],
+    }),
+    suggest: JSON.stringify({
+      suggestions: [
+        {
+          id: "debug-helper-002",
+          title: "Debug Assistant",
+          description: "Systematic debugging approach",
+          category: "debugging",
+          tags: ["debugging"],
+          author: "Jeffrey",
+          version: "1.0.0",
+          featured: false,
+          difficulty: "beginner",
+          estimatedTokens: 300,
+          created: "2025-01-05T00:00:00Z",
+          content: "Help me debug this issue...",
         },
       ],
     }),
@@ -1075,7 +1409,8 @@ describe("ntm Client Contract Tests", () => {
       expect(result.sessions).toHaveLength(2);
       expect(result.sessions[0].name).toBe("agent-1");
       expect(result.sessions[0].attached).toBe(true);
-      expect(result.total_sessions).toBe(2);
+      expect(result.summary.total_sessions).toBe(2);
+      expect(result.system.tmux_available).toBe(true);
 
       const inv = logger.getLast();
       expect(inv?.command).toBe("ntm");
@@ -1101,7 +1436,9 @@ describe("ntm Client Contract Tests", () => {
       const result = await client.context("agent-1");
 
       expect(result.session).toBe("agent-1");
-      expect(result.cwd).toBe("/project");
+      expect(result.success).toBe(true);
+      expect(result.agents).toHaveLength(1);
+      expect(result.summary.total_agents).toBe(1);
 
       const inv = logger.getLast();
       expect(inv?.args.some((a) => a.includes("--robot-context=agent-1"))).toBe(
@@ -1127,9 +1464,10 @@ describe("ntm Client Contract Tests", () => {
       // health() requires a session parameter
       const result = await client.health("agent-1");
 
-      expect(result.healthy).toBe(true);
-      expect(result.tmux_available).toBe(true);
-      expect(result.tmux_version).toBe("3.4");
+      expect(result.success).toBe(true);
+      expect(result.session).toBe("agent-1");
+      expect(result.summary.healthy).toBe(1);
+      expect(result.agents).toHaveLength(1);
 
       const inv = logger.getLast();
       expect(inv?.args.some((a) => a.includes("--robot-health=agent-1"))).toBe(
@@ -1154,9 +1492,10 @@ describe("ntm Client Contract Tests", () => {
       const client = createNtmClient({ runner });
       const result = await client.snapshot();
 
-      expect(result.captured_at).toBeDefined();
+      expect(result.ts).toBeDefined();
       expect(result.sessions).toHaveLength(1);
-      expect(result.sessions[0].windows).toHaveLength(1);
+      expect(result.sessions[0].name).toBe("agent-1");
+      expect(result.sessions[0].agents).toHaveLength(1);
     });
   });
 
@@ -1234,6 +1573,604 @@ describe("ntm Client Contract Tests", () => {
       const client = createNtmClient({ runner });
 
       await expect(client.status()).rejects.toThrow(NtmClientError);
+    });
+  });
+});
+
+// ============================================================================
+// ms (Meta Skill) Client Contract Tests
+// ============================================================================
+
+describe("ms Client Contract Tests", () => {
+  let logger: InvocationLogger;
+
+  beforeEach(() => {
+    logger = new InvocationLogger();
+  });
+
+  describe("doctor", () => {
+    test("parses doctor output with checks and services", async () => {
+      const runner = createStubRunner<MsCommandResult>(
+        [
+          {
+            command: "ms",
+            argsContain: ["doctor", "--json"],
+            response: { stdout: FIXTURES.ms.doctor },
+          },
+        ],
+        logger,
+      );
+
+      const client = createMsClient({ runner });
+      const result = await client.doctor();
+
+      expect(result.status).toBe("healthy");
+      expect(result.checks).toHaveLength(2);
+      expect(result.checks[0].name).toBe("database");
+      expect(result.embedding_service.available).toBe(true);
+      expect(result.embedding_service.model).toBe("all-MiniLM-L6-v2");
+      expect(result.storage.index_count).toBe(5);
+
+      const inv = logger.getLast();
+      expect(inv?.command).toBe("ms");
+      expect(inv?.args).toContain("doctor");
+      expect(inv?.args).toContain("--json");
+    });
+  });
+
+  describe("listKnowledgeBases", () => {
+    test("parses knowledge bases list", async () => {
+      const runner = createStubRunner<MsCommandResult>(
+        [
+          {
+            command: "ms",
+            argsContain: ["list", "--json"],
+            response: { stdout: FIXTURES.ms.list },
+          },
+        ],
+        logger,
+      );
+
+      const client = createMsClient({ runner });
+      const result = await client.listKnowledgeBases();
+
+      expect(result).toHaveLength(2);
+      expect(result[0].name).toBe("skills");
+      expect(result[0].entry_count).toBe(150);
+      expect(result[1].name).toBe("prompts");
+    });
+  });
+
+  describe("search", () => {
+    test("parses search results with scores", async () => {
+      const runner = createStubRunner<MsCommandResult>(
+        [
+          {
+            command: "ms",
+            argsContain: ["search", "--json"],
+            response: { stdout: FIXTURES.ms.search },
+          },
+        ],
+        logger,
+      );
+
+      const client = createMsClient({ runner });
+      const result = await client.search("authentication");
+
+      expect(result.query).toBe("authentication");
+      expect(result.results).toHaveLength(2);
+      expect(result.results[0].score).toBe(0.92);
+      expect(result.semantic_enabled).toBe(true);
+      expect(result.took_ms).toBe(45);
+
+      const inv = logger.getLast();
+      expect(inv?.args).toContain("search");
+      expect(inv?.args).toContain("authentication");
+    });
+
+    test("includes optional search parameters", async () => {
+      const runner = createStubRunner<MsCommandResult>(
+        [{ command: "ms", response: { stdout: FIXTURES.ms.search } }],
+        logger,
+      );
+
+      const client = createMsClient({ runner });
+      await client.search("auth", {
+        knowledgeBase: "skills",
+        limit: 5,
+        threshold: 0.7,
+      });
+
+      const inv = logger.getLast();
+      expect(inv?.args).toContain("-kb");
+      expect(inv?.args).toContain("skills");
+      expect(inv?.args).toContain("-n");
+      expect(inv?.args).toContain("5");
+      expect(inv?.args).toContain("-t");
+      expect(inv?.args).toContain("0.7");
+    });
+  });
+
+  describe("isAvailable", () => {
+    test("returns true when doctor succeeds", async () => {
+      const runner = createStubRunner<MsCommandResult>(
+        [{ command: "ms", response: { stdout: FIXTURES.ms.doctor } }],
+        logger,
+      );
+
+      const client = createMsClient({ runner });
+      const result = await client.isAvailable();
+
+      expect(result).toBe(true);
+    });
+
+    test("returns false when doctor fails", async () => {
+      const runner = createStubRunner<MsCommandResult>(
+        [{ command: "ms", response: { stdout: "", exitCode: 1 } }],
+        logger,
+      );
+
+      const client = createMsClient({ runner });
+      const result = await client.isAvailable();
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe("error handling", () => {
+    test("throws on envelope ok=false", async () => {
+      const errorResponse = JSON.stringify({
+        ok: false,
+        code: "not_found",
+        data: null,
+        hint: "Knowledge base not found",
+        meta: { v: "1.2.0", ts: "2025-01-15T12:00:00Z" },
+      });
+
+      const runner = createStubRunner<MsCommandResult>(
+        [{ command: "ms", response: { stdout: errorResponse } }],
+        logger,
+      );
+
+      const client = createMsClient({ runner });
+
+      await expect(client.doctor()).rejects.toThrow(MsClientError);
+    });
+
+    test("throws on invalid JSON", async () => {
+      const runner = createStubRunner<MsCommandResult>(
+        [{ command: "ms", response: { stdout: "not json" } }],
+        logger,
+      );
+
+      const client = createMsClient({ runner });
+
+      await expect(client.doctor()).rejects.toThrow(MsClientError);
+    });
+  });
+});
+
+// ============================================================================
+// pt (Process Triage) Client Contract Tests
+// ============================================================================
+
+describe("pt Client Contract Tests", () => {
+  let logger: InvocationLogger;
+
+  beforeEach(() => {
+    logger = new InvocationLogger();
+  });
+
+  describe("doctor", () => {
+    test("parses doctor output with permissions", async () => {
+      const runner = createStubRunner<PtCommandResult>(
+        [
+          {
+            command: "pt",
+            argsContain: ["doctor", "--json"],
+            response: { stdout: FIXTURES.pt.doctor },
+          },
+        ],
+        logger,
+      );
+
+      const client = createPtClient({ runner });
+      const result = await client.doctor();
+
+      expect(result.status).toBe("healthy");
+      expect(result.checks).toHaveLength(2);
+      expect(result.permissions.can_list_processes).toBe(true);
+      expect(result.permissions.can_kill_processes).toBe(true);
+
+      const inv = logger.getLast();
+      expect(inv?.command).toBe("pt");
+      expect(inv?.args).toContain("doctor");
+    });
+  });
+
+  describe("scan", () => {
+    test("parses scan results with processes", async () => {
+      const runner = createStubRunner<PtCommandResult>(
+        [
+          {
+            command: "pt",
+            argsContain: ["scan", "--json"],
+            response: { stdout: FIXTURES.pt.scan },
+          },
+        ],
+        logger,
+      );
+
+      const client = createPtClient({ runner });
+      const result = await client.scan();
+
+      expect(result.processes).toHaveLength(2);
+      expect(result.processes[0].pid).toBe(12345);
+      expect(result.processes[0].cpu_percent).toBe(85.5);
+      expect(result.processes[0].flags).toContain("high_cpu");
+      expect(result.processes[1].flags).toContain("zombie");
+      expect(result.suspicious_count).toBe(2);
+      expect(result.total_scanned).toBe(150);
+
+      const inv = logger.getLast();
+      expect(inv?.args).toContain("scan");
+    });
+
+    test("includes scan filter parameters", async () => {
+      const runner = createStubRunner<PtCommandResult>(
+        [{ command: "pt", response: { stdout: FIXTURES.pt.scan } }],
+        logger,
+      );
+
+      const client = createPtClient({ runner });
+      await client.scan({
+        minScore: 60,
+        minRuntimeSeconds: 3600,
+        minMemoryMb: 100,
+        minCpuPercent: 50,
+        namePattern: "node",
+        excludePattern: "systemd",
+        limit: 10,
+      });
+
+      const inv = logger.getLast();
+      expect(inv?.args).toContain("--min-score");
+      expect(inv?.args).toContain("60");
+      expect(inv?.args).toContain("--min-runtime");
+      expect(inv?.args).toContain("3600");
+      expect(inv?.args).toContain("--min-memory");
+      expect(inv?.args).toContain("100");
+      expect(inv?.args).toContain("--min-cpu");
+      expect(inv?.args).toContain("50");
+      expect(inv?.args).toContain("--name");
+      expect(inv?.args).toContain("node");
+      expect(inv?.args).toContain("--exclude");
+      expect(inv?.args).toContain("systemd");
+      expect(inv?.args).toContain("--limit");
+      expect(inv?.args).toContain("10");
+    });
+  });
+
+  describe("status", () => {
+    test("returns status with permissions", async () => {
+      const runner = createStubRunner<PtCommandResult>(
+        [
+          {
+            command: "pt",
+            argsContain: ["doctor"],
+            response: { stdout: FIXTURES.pt.doctor },
+          },
+          {
+            command: "pt",
+            argsContain: ["--version"],
+            response: { stdout: "pt v0.3.0" },
+          },
+        ],
+        logger,
+      );
+
+      const client = createPtClient({ runner });
+      const result = await client.status();
+
+      expect(result.available).toBe(true);
+      expect(result.canListProcesses).toBe(true);
+      expect(result.canKillProcesses).toBe(true);
+    });
+  });
+
+  describe("isAvailable", () => {
+    test("returns true when doctor succeeds", async () => {
+      const runner = createStubRunner<PtCommandResult>(
+        [{ command: "pt", response: { stdout: FIXTURES.pt.doctor } }],
+        logger,
+      );
+
+      const client = createPtClient({ runner });
+      const result = await client.isAvailable();
+
+      expect(result).toBe(true);
+    });
+
+    test("returns false when doctor fails", async () => {
+      const runner = createStubRunner<PtCommandResult>(
+        [{ command: "pt", response: { stdout: "", exitCode: 1 } }],
+        logger,
+      );
+
+      const client = createPtClient({ runner });
+      const result = await client.isAvailable();
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe("error handling", () => {
+    test("throws on command failure", async () => {
+      const runner = createStubRunner<PtCommandResult>(
+        [
+          {
+            command: "pt",
+            response: {
+              stdout: "",
+              stderr: "Permission denied",
+              exitCode: 1,
+            },
+          },
+        ],
+        logger,
+      );
+
+      const client = createPtClient({ runner });
+
+      await expect(client.doctor()).rejects.toThrow(PtClientError);
+    });
+  });
+});
+
+// ============================================================================
+// jfp (Jeffrey's Prompts) Client Contract Tests
+// ============================================================================
+
+describe("jfp Client Contract Tests", () => {
+  let logger: InvocationLogger;
+
+  beforeEach(() => {
+    logger = new InvocationLogger();
+  });
+
+  describe("list", () => {
+    test("parses prompts list", async () => {
+      const runner = createStubRunner<JfpCommandResult>(
+        [
+          {
+            command: "jfp",
+            argsContain: ["list", "--json"],
+            response: { stdout: FIXTURES.jfp.list },
+          },
+        ],
+        logger,
+      );
+
+      const client = createJfpClient({ runner });
+      const result = await client.list();
+
+      expect(result.prompts).toHaveLength(2);
+      expect(result.total).toBe(2);
+      expect(result.prompts[0].id).toBe("code-review-001");
+      expect(result.prompts[0].category).toBe("development");
+      expect(result.prompts[0].featured).toBe(true);
+      expect(result.prompts[0].difficulty).toBe("intermediate");
+
+      const inv = logger.getLast();
+      expect(inv?.command).toBe("jfp");
+      expect(inv?.args).toContain("list");
+      expect(inv?.args).toContain("--json");
+    });
+  });
+
+  describe("get", () => {
+    test("parses single prompt", async () => {
+      const runner = createStubRunner<JfpCommandResult>(
+        [
+          {
+            command: "jfp",
+            argsContain: ["show", "code-review-001"],
+            response: { stdout: FIXTURES.jfp.show },
+          },
+        ],
+        logger,
+      );
+
+      const client = createJfpClient({ runner });
+      const result = await client.get("code-review-001");
+
+      expect(result).not.toBeNull();
+      expect(result?.id).toBe("code-review-001");
+      expect(result?.title).toBe("Comprehensive Code Review");
+      expect(result?.tags).toContain("security");
+      expect(result?.whenToUse).toHaveLength(2);
+      expect(result?.tips).toHaveLength(2);
+
+      const inv = logger.getLast();
+      expect(inv?.args).toContain("show");
+      expect(inv?.args).toContain("code-review-001");
+    });
+
+    test("returns null for not found", async () => {
+      const runner = createStubRunner<JfpCommandResult>(
+        [
+          {
+            command: "jfp",
+            argsContain: ["show"],
+            response: {
+              stdout: "",
+              stderr: "Prompt not found",
+              exitCode: 1,
+            },
+          },
+        ],
+        logger,
+      );
+
+      const client = createJfpClient({ runner });
+      const result = await client.get("nonexistent");
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("listCategories", () => {
+    test("parses categories with counts", async () => {
+      const runner = createStubRunner<JfpCommandResult>(
+        [
+          {
+            command: "jfp",
+            argsContain: ["categories", "--json"],
+            response: { stdout: FIXTURES.jfp.categories },
+          },
+        ],
+        logger,
+      );
+
+      const client = createJfpClient({ runner });
+      const result = await client.listCategories();
+
+      expect(result).toHaveLength(3);
+      expect(result[0].name).toBe("development");
+      expect(result[0].count).toBe(25);
+    });
+  });
+
+  describe("search", () => {
+    test("parses search results", async () => {
+      const runner = createStubRunner<JfpCommandResult>(
+        [
+          {
+            command: "jfp",
+            argsContain: ["search", "--json"],
+            response: { stdout: FIXTURES.jfp.search },
+          },
+        ],
+        logger,
+      );
+
+      const client = createJfpClient({ runner });
+      const result = await client.search("code review");
+
+      expect(result.query).toBe("code review");
+      expect(result.prompts).toHaveLength(1);
+      expect(result.prompts[0].id).toBe("code-review-001");
+
+      const inv = logger.getLast();
+      expect(inv?.args).toContain("search");
+      expect(inv?.args).toContain("code review");
+    });
+
+    test("includes search options", async () => {
+      const runner = createStubRunner<JfpCommandResult>(
+        [{ command: "jfp", response: { stdout: FIXTURES.jfp.search } }],
+        logger,
+      );
+
+      const client = createJfpClient({ runner });
+      await client.search("testing", { limit: 5 });
+
+      const inv = logger.getLast();
+      expect(inv?.args).toContain("--limit");
+      expect(inv?.args).toContain("5");
+    });
+  });
+
+  describe("suggest", () => {
+    test("parses suggestions for task", async () => {
+      const runner = createStubRunner<JfpCommandResult>(
+        [
+          {
+            command: "jfp",
+            argsContain: ["suggest", "--json"],
+            response: { stdout: FIXTURES.jfp.suggest },
+          },
+        ],
+        logger,
+      );
+
+      const client = createJfpClient({ runner });
+      const result = await client.suggest("debug a memory leak");
+
+      expect(result.task).toBe("debug a memory leak");
+      expect(result.suggestions).toHaveLength(1);
+      expect(result.suggestions[0].id).toBe("debug-helper-002");
+
+      const inv = logger.getLast();
+      expect(inv?.args).toContain("suggest");
+      expect(inv?.args).toContain("debug a memory leak");
+    });
+  });
+
+  describe("isAvailable", () => {
+    test("returns true when version check passes", async () => {
+      const runner = createStubRunner<JfpCommandResult>(
+        [
+          {
+            command: "jfp",
+            argsContain: ["--version"],
+            response: { stdout: "jfp/1.0.0" },
+          },
+        ],
+        logger,
+      );
+
+      const client = createJfpClient({ runner });
+      const result = await client.isAvailable();
+
+      expect(result).toBe(true);
+    });
+
+    test("returns false when version check fails", async () => {
+      const runner = createStubRunner<JfpCommandResult>(
+        [
+          {
+            command: "jfp",
+            argsContain: ["--version"],
+            response: { stdout: "", exitCode: 1 },
+          },
+        ],
+        logger,
+      );
+
+      const client = createJfpClient({ runner });
+      const result = await client.isAvailable();
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe("error handling", () => {
+    test("throws on command failure", async () => {
+      const runner = createStubRunner<JfpCommandResult>(
+        [
+          {
+            command: "jfp",
+            response: { stdout: "", stderr: "Connection error", exitCode: 1 },
+          },
+        ],
+        logger,
+      );
+
+      const client = createJfpClient({ runner });
+
+      await expect(client.list()).rejects.toThrow(JfpClientError);
+    });
+
+    test("throws on invalid JSON", async () => {
+      const runner = createStubRunner<JfpCommandResult>(
+        [{ command: "jfp", response: { stdout: "not json" } }],
+        logger,
+      );
+
+      const client = createJfpClient({ runner });
+
+      await expect(client.list()).rejects.toThrow(JfpClientError);
     });
   });
 });

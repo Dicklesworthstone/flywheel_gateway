@@ -79,7 +79,10 @@ import {
   SetupBatchInstallResultResponseSchema,
   SetupInstallRequestSchema,
   SetupInstallResultResponseSchema,
+  SnapshotCacheClearedResponseSchema,
+  SnapshotCacheStatusResponseSchema,
   SpawnAgentRequestSchema,
+  SystemSnapshotResponseSchema,
   ToolInfoListResponseSchema,
   ToolInfoWithStatusResponseSchema,
   TopSpendingAgentSchema,
@@ -117,6 +120,86 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: HealthCheckResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// System Snapshot endpoints
+registry.registerPath({
+  method: "get",
+  path: "/system/snapshot",
+  summary: "Get system snapshot",
+  description: `Returns a unified system snapshot aggregating all subsystem states:
+- NTM (Named Tmux Manager) session and agent state
+- Agent Mail messaging and coordination state
+- br/bv issue tracking and triage state
+- Tool health status (DCG, SLB, UBS, checksums)
+
+The response includes a health summary indicating overall system status. Uses caching (10s default) to reduce load on underlying services.`,
+  tags: ["System"],
+  request: {
+    query: z.object({
+      bypass_cache: z
+        .enum(["true", "false"])
+        .optional()
+        .openapi({
+          description: "Set to 'true' to force fresh data collection",
+        }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "System snapshot (all components healthy or degraded)",
+      content: {
+        "application/json": {
+          schema: SystemSnapshotResponseSchema,
+        },
+      },
+    },
+    503: {
+      description: "System snapshot (one or more components unhealthy)",
+      content: {
+        "application/json": {
+          schema: SystemSnapshotResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/system/snapshot/cache",
+  summary: "Get snapshot cache status",
+  description: "Returns cache statistics for the snapshot service.",
+  tags: ["System"],
+  responses: {
+    200: {
+      description: "Cache status",
+      content: {
+        "application/json": {
+          schema: SnapshotCacheStatusResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/system/snapshot/cache",
+  summary: "Clear snapshot cache",
+  description:
+    "Clears the snapshot cache, forcing the next snapshot request to collect fresh data.",
+  tags: ["System"],
+  responses: {
+    200: {
+      description: "Cache cleared successfully",
+      content: {
+        "application/json": {
+          schema: SnapshotCacheClearedResponseSchema,
         },
       },
     },
