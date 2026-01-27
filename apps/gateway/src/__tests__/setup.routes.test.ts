@@ -419,6 +419,35 @@ describe("Setup Routes", () => {
         body.data.metadata.registrySource,
       );
     });
+
+    test("tools include robotMode and mcp metadata when present", async () => {
+      const res = await app.request("/setup/registry");
+      const body = (await res.json()) as Envelope<ToolRegistryData>;
+
+      // Find a tool that should have robotMode (e.g., dcg from fallback)
+      const dcg = body.data.tools.find((t) => t.name === "dcg");
+      expect(dcg).toBeDefined();
+
+      // Check robotMode structure
+      const toolWithRobot = dcg as ToolDefinitionData & {
+        robotMode?: {
+          flag: string;
+          outputFormats: string[];
+          envelopeCompliant?: boolean;
+        };
+        mcp?: { available: boolean };
+      };
+
+      if (toolWithRobot.robotMode) {
+        expect(typeof toolWithRobot.robotMode.flag).toBe("string");
+        expect(Array.isArray(toolWithRobot.robotMode.outputFormats)).toBe(true);
+      }
+
+      // Check mcp structure
+      if (toolWithRobot.mcp) {
+        expect(typeof toolWithRobot.mcp.available).toBe("boolean");
+      }
+    });
   });
 
   describe("DELETE /setup/registry/cache", () => {

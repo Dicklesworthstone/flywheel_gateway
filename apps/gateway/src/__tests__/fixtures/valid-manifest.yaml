@@ -39,6 +39,13 @@ tools:
     installedCheck:
       command: ["command", "-v", "dcg"]
     installCommand: "cargo install destructive_command_guard"
+    robotMode:
+      flag: "--format json"
+      outputFormats: ["json"]
+      envelopeCompliant: false
+      notes: "JSON output for hook integration"
+    mcp:
+      available: false
 
   - id: "tools.slb"
     name: "slb"
@@ -71,6 +78,14 @@ tools:
       expectedExitCodes: [0]
     installedCheck:
       command: ["command", "-v", "ubs"]
+    robotMode:
+      flag: "--format json"
+      altFlags: ["--format jsonl", "--format sarif"]
+      outputFormats: ["json", "jsonl", "sarif"]
+      envelopeCompliant: false
+      notes: "Multiple output formats for security tool integration"
+    mcp:
+      available: false
 
   # Phase 1 - Issue Tracking
   - id: "tools.br"
@@ -105,6 +120,15 @@ tools:
       expectedExitCodes: [0]
     installedCheck:
       command: ["command", "-v", "bv"]
+    robotMode:
+      flag: "--robot-triage"
+      altFlags: ["--robot-list", "--robot-next"]
+      outputFormats: ["json"]
+      subcommands: ["triage", "list", "next"]
+      envelopeCompliant: true
+      notes: "Multiple robot subcommands for different triage operations"
+    mcp:
+      available: false
 
   # Phase 2 - Agent Infrastructure
   - id: "tools.cass"

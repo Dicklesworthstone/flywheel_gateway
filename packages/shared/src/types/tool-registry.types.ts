@@ -54,6 +54,71 @@ export interface InstalledCheckSpec {
   outputCapBytes?: number | undefined;
 }
 
+// ============================================================================
+// Robot Mode / Machine-Readable Output Types
+// ============================================================================
+
+/** Output format produced by a tool's robot/machine-readable mode */
+export type OutputFormat = "json" | "jsonl" | "toon" | "sarif" | "csv";
+
+/**
+ * Specifies how to enable a tool's robot/machine-readable output mode.
+ *
+ * Robot mode patterns observed in the tooling ecosystem:
+ * - `--json` : br, cm, ru, ms, pt, apr, slb, xf
+ * - `--robot` : cass
+ * - `--robot-*` : bv (--robot-triage), ntm (--robot-list)
+ * - `--format json` : dcg, ubs
+ * - `--format jsonl` : ubs, xf
+ * - `--format sarif` : ubs
+ * - `robot` subcommand : caam
+ */
+export interface RobotModeSpec {
+  /** Primary flag to enable robot output (e.g., "--json", "--robot", "--format json") */
+  flag: string;
+  /** Alternative flags that also enable robot output */
+  altFlags?: string[] | undefined;
+  /** Output formats this mode can produce */
+  outputFormats: OutputFormat[];
+  /** Named robot subcommands if tool has multiple (e.g., ["triage", "list", "next"]) */
+  subcommands?: string[] | undefined;
+  /** Whether output conforms to the standard JSON envelope { object, data, error? } */
+  envelopeCompliant?: boolean | undefined;
+  /** Additional notes about robot mode behavior */
+  notes?: string | undefined;
+}
+
+// ============================================================================
+// MCP Server Types
+// ============================================================================
+
+/** Level of MCP capability exposed by a tool */
+export type McpCapabilityLevel = "none" | "tools" | "resources" | "full";
+
+/**
+ * Specifies a tool's MCP (Model Context Protocol) server capabilities.
+ *
+ * MCP servers observed in the ecosystem:
+ * - agentmail: Full MCP server with 30+ tools for multi-agent coordination
+ * - cm: MCP tools and resources for context retrieval and playbook management
+ */
+export interface McpSpec {
+  /** Whether the tool exposes an MCP server */
+  available: boolean;
+  /** Capability level (tools only, resources only, or full MCP server) */
+  capabilities?: McpCapabilityLevel | undefined;
+  /** URI pattern to connect to the MCP server (if non-standard) */
+  serverUri?: string | undefined;
+  /** Estimated count of available MCP tools */
+  toolCount?: number | undefined;
+  /** Sample list of notable MCP tools (not exhaustive) */
+  sampleTools?: string[] | undefined;
+  /** Sample list of notable MCP resources (not exhaustive) */
+  sampleResources?: string[] | undefined;
+  /** Additional notes about MCP functionality */
+  notes?: string | undefined;
+}
+
 /**
  * Verified installer specification from ACFS manifest.
  * Preferred over generic InstallSpec when present.
@@ -101,6 +166,10 @@ export interface ToolDefinition {
   installedCheck?: InstalledCheckSpec | undefined;
   /** Checksums for install artifacts (public-safe) */
   checksums?: Record<string, string> | undefined;
+  /** Robot/machine-readable output mode specification */
+  robotMode?: RobotModeSpec | undefined;
+  /** MCP server capabilities */
+  mcp?: McpSpec | undefined;
 }
 
 export interface ToolRegistry {

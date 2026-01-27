@@ -98,6 +98,13 @@ const FALLBACK_REGISTRY: ToolRegistry = {
       installedCheck: {
         command: ["command", "-v", "dcg"],
       },
+      robotMode: {
+        flag: "--format json",
+        outputFormats: ["json"],
+        envelopeCompliant: false,
+        notes: "JSON output for hook integration",
+      },
+      mcp: { available: false },
     },
     // Two-person authorization
     {
@@ -125,6 +132,14 @@ const FALLBACK_REGISTRY: ToolRegistry = {
       installedCheck: {
         command: ["command", "-v", "slb"],
       },
+      robotMode: {
+        flag: "--json",
+        altFlags: ["--jsonl"],
+        outputFormats: ["json", "jsonl"],
+        envelopeCompliant: false,
+        notes: "JSON/JSONL output for approval workflow integration",
+      },
+      mcp: { available: false },
     },
     // Code security scanning
     {
@@ -151,6 +166,14 @@ const FALLBACK_REGISTRY: ToolRegistry = {
       installedCheck: {
         command: ["command", "-v", "ubs"],
       },
+      robotMode: {
+        flag: "--format json",
+        altFlags: ["--format jsonl", "--format sarif"],
+        outputFormats: ["json", "jsonl", "sarif"],
+        envelopeCompliant: false,
+        notes: "Multiple output formats: JSON, streaming JSONL, and SARIF for security tools",
+      },
+      mcp: { available: false },
     },
     // Issue tracking
     {
@@ -182,6 +205,13 @@ const FALLBACK_REGISTRY: ToolRegistry = {
       installedCheck: {
         command: ["command", "-v", "br"],
       },
+      robotMode: {
+        flag: "--json",
+        outputFormats: ["json"],
+        envelopeCompliant: true,
+        notes: "JSON output for programmatic issue management",
+      },
+      mcp: { available: false },
     },
     // Graph-aware triage
     {
@@ -213,6 +243,15 @@ const FALLBACK_REGISTRY: ToolRegistry = {
       installedCheck: {
         command: ["command", "-v", "bv"],
       },
+      robotMode: {
+        flag: "--robot-triage",
+        altFlags: ["--robot-list", "--robot-next"],
+        outputFormats: ["json"],
+        subcommands: ["triage", "list", "next"],
+        envelopeCompliant: true,
+        notes: "Multiple robot subcommands for different triage operations",
+      },
+      mcp: { available: false },
     },
   ],
 };
@@ -274,6 +313,29 @@ const VerifiedInstallerSpecSchema = z.object({
   run_in_tmux: z.boolean().optional(),
 });
 
+const OutputFormatSchema = z.enum(["json", "jsonl", "toon", "sarif", "csv"]);
+
+const RobotModeSpecSchema = z.object({
+  flag: z.string(),
+  altFlags: z.array(z.string()).optional(),
+  outputFormats: z.array(OutputFormatSchema),
+  subcommands: z.array(z.string()).optional(),
+  envelopeCompliant: z.boolean().optional(),
+  notes: z.string().optional(),
+});
+
+const McpCapabilityLevelSchema = z.enum(["none", "tools", "resources", "full"]);
+
+const McpSpecSchema = z.object({
+  available: z.boolean(),
+  capabilities: McpCapabilityLevelSchema.optional(),
+  serverUri: z.string().optional(),
+  toolCount: z.number().int().nonnegative().optional(),
+  sampleTools: z.array(z.string()).optional(),
+  sampleResources: z.array(z.string()).optional(),
+  notes: z.string().optional(),
+});
+
 const ToolDefinitionSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -290,6 +352,8 @@ const ToolDefinitionSchema = z.object({
   verify: VerificationSpecSchema.optional(),
   installedCheck: InstalledCheckSpecSchema.optional(),
   checksums: z.record(z.string(), z.string()).optional(),
+  robotMode: RobotModeSpecSchema.optional(),
+  mcp: McpSpecSchema.optional(),
 });
 
 const ToolRegistrySchema = z.object({
