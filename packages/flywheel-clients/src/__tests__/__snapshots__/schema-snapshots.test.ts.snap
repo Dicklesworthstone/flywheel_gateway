@@ -1,0 +1,1191 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`br Schema Snapshots issue shape matches snapshot 1`] = `
+{
+  "assignee": "agent:MagentaHeron",
+  "compaction_level": 0,
+  "created_at": "2026-01-15T08:00:00Z",
+  "created_by": "agent:BlueLake",
+  "dependencies": [
+    {
+      "id": "bd-dep01",
+      "priority": 1,
+      "status": "closed",
+      "title": "Setup database",
+    },
+    {
+      "dep_type": "blocks",
+      "id": "bd-dep02",
+      "priority": 2,
+      "status": "open",
+      "title": "Define API spec",
+    },
+  ],
+  "dependency_count": 2,
+  "dependent_count": 1,
+  "dependents": [
+    {
+      "id": "bd-child1",
+      "status": "open",
+      "title": "Write tests",
+    },
+  ],
+  "description": "Detailed description of the feature",
+  "due_at": "2026-02-01T00:00:00Z",
+  "external_ref": "GH#123",
+  "id": "bd-abc12",
+  "issue_type": "task",
+  "labels": [
+    "api",
+    "backend",
+    "priority-high",
+  ],
+  "original_size": 1500,
+  "owner": "human:jeffrey",
+  "parent": "bd-epic1",
+  "priority": 2,
+  "status": "in_progress",
+  "title": "Implement feature X",
+  "updated_at": "2026-01-27T12:00:00Z",
+}
+`;
+
+exports[`br Schema Snapshots issue list shape matches snapshot 1`] = `
+[
+  {
+    "id": "bd-test1",
+    "issue_type": "bug",
+    "labels": [
+      "urgent",
+    ],
+    "priority": 1,
+    "status": "open",
+    "title": "First bead",
+  },
+  {
+    "closed_at": "2026-01-26T10:00:00Z",
+    "id": "bd-test2",
+    "issue_type": "feature",
+    "priority": 3,
+    "status": "closed",
+    "title": "Second bead",
+  },
+]
+`;
+
+exports[`br Schema Snapshots sync status shape matches snapshot 1`] = `
+{
+  "db_newer": true,
+  "dirty_count": 3,
+  "jsonl_content_hash": "sha256:abc123def456",
+  "jsonl_exists": true,
+  "jsonl_newer": false,
+  "last_export_time": "2026-01-27T11:00:00Z",
+  "last_import_time": "2026-01-27T10:00:00Z",
+}
+`;
+
+exports[`bv Schema Snapshots triage shape matches snapshot 1`] = `
+{
+  "data_hash": "hash123abc",
+  "generated_at": "2026-01-27T12:00:00Z",
+  "triage": {
+    "blockers_to_clear": [
+      {
+        "blocked_count": 3,
+        "id": "bd-blocker1",
+        "priority": 1,
+        "score": 0.88,
+        "title": "Database migration",
+      },
+    ],
+    "quick_wins": [
+      {
+        "estimated_minutes": 5,
+        "id": "bd-qw1",
+        "score": 0.9,
+        "title": "Fix typo in README",
+        "type": "docs",
+      },
+    ],
+    "recommendations": [
+      {
+        "id": "bd-rec1",
+        "priority": 1,
+        "reasons": [
+          "No blockers",
+          "High priority",
+          "Clear scope",
+        ],
+        "score": 0.95,
+        "status": "open",
+        "title": "High-priority unblocked task",
+      },
+      {
+        "id": "bd-rec2",
+        "reasons": [
+          "Small scope",
+          "No dependencies",
+        ],
+        "score": 0.82,
+        "title": "Quick documentation fix",
+        "type": "docs",
+      },
+    ],
+  },
+}
+`;
+
+exports[`bv Schema Snapshots graph shape matches snapshot 1`] = `
+{
+  "data_hash": "graph123hash",
+  "edges": [
+    {
+      "source": "bd-1",
+      "target": "bd-2",
+      "type": "blocks",
+    },
+    {
+      "source": "bd-2",
+      "target": "bd-3",
+      "type": "depends_on",
+    },
+  ],
+  "format": "json",
+  "nodes": [
+    {
+      "id": "bd-1",
+      "priority": 1,
+      "status": "open",
+      "title": "Root task",
+    },
+    {
+      "id": "bd-2",
+      "priority": 2,
+      "status": "in_progress",
+      "title": "Child task",
+    },
+    {
+      "id": "bd-3",
+      "priority": 3,
+      "status": "closed",
+      "title": "Completed task",
+    },
+  ],
+}
+`;
+
+exports[`caam Schema Snapshots status shape matches snapshot 1`] = `
+{
+  "recommendations": [
+    "Consider switching to backup profile for codex",
+  ],
+  "tools": [
+    {
+      "active_profile": "default",
+      "health": {
+        "error_count": 0,
+        "last_check": "2026-01-27T12:00:00Z",
+        "status": "healthy",
+      },
+      "identity": {
+        "email": "user@example.com",
+        "plan_type": "max",
+        "usage_percent": 45,
+      },
+      "logged_in": true,
+      "tool": "claude-code",
+    },
+    {
+      "active_profile": "work",
+      "health": {
+        "error_count": 2,
+        "last_error": "Rate limit exceeded",
+        "status": "degraded",
+      },
+      "identity": {
+        "email": "work@company.com",
+        "plan_type": "pro",
+      },
+      "logged_in": true,
+      "tool": "codex",
+    },
+    {
+      "error": "No credentials found",
+      "logged_in": false,
+      "tool": "gemini",
+    },
+  ],
+  "warnings": [
+    "Codex rate limit count elevated",
+  ],
+}
+`;
+
+exports[`caam Schema Snapshots activate shape matches snapshot 1`] = `
+{
+  "message": "Profile switched successfully",
+  "previous_profile": "default",
+  "profile": "backup",
+  "refreshed": true,
+  "success": true,
+  "tool": "claude-code",
+}
+`;
+
+exports[`apr Schema Snapshots status shape matches snapshot 1`] = `
+{
+  "apr_home": "/home/user/.apr",
+  "config_dir": "/home/user/.apr",
+  "configured": true,
+  "default_workflow": "main",
+  "oracle_available": true,
+  "oracle_method": "claude",
+  "workflow_count": 3,
+  "workflows": [
+    "main",
+    "feature",
+    "hotfix",
+  ],
+}
+`;
+
+exports[`apr Schema Snapshots workflows shape matches snapshot 1`] = `
+[
+  {
+    "description": "Primary development workflow",
+    "last_run": "2026-01-27T10:00:00Z",
+    "name": "main",
+    "path": "/project/.apr/main",
+    "rounds": 5,
+    "status": "active",
+  },
+  {
+    "description": "Feature branch workflow",
+    "name": "feature",
+    "path": "/project/.apr/feature",
+    "rounds": 2,
+    "status": "idle",
+  },
+]
+`;
+
+exports[`apr Schema Snapshots round shape matches snapshot 1`] = `
+{
+  "completed_at": "2026-01-27T08:45:00Z",
+  "created_at": "2026-01-27T08:00:00Z",
+  "metrics": {
+    "code_block_count": 5,
+    "convergence_score": 0.92,
+    "diff_lines_added": 150,
+    "diff_lines_removed": 45,
+    "section_count": 8,
+    "word_count": 2500,
+  },
+  "round": 3,
+  "status": "completed",
+  "workflow": "main",
+}
+`;
+
+exports[`apr Schema Snapshots history shape matches snapshot 1`] = `
+{
+  "rounds": [
+    {
+      "created_at": "2026-01-25T10:00:00Z",
+      "round": 1,
+      "status": "completed",
+      "workflow": "main",
+    },
+    {
+      "created_at": "2026-01-26T10:00:00Z",
+      "round": 2,
+      "status": "completed",
+      "workflow": "main",
+    },
+    {
+      "created_at": "2026-01-27T08:00:00Z",
+      "round": 3,
+      "status": "completed",
+      "workflow": "main",
+    },
+  ],
+  "total": 3,
+  "workflow": "main",
+}
+`;
+
+exports[`ntm Schema Snapshots status shape matches snapshot 1`] = `
+{
+  "generated_at": "2026-01-27T12:00:00Z",
+  "sessions": [
+    {
+      "agents": [
+        {
+          "is_active": true,
+          "pane": "%0",
+          "pane_idx": 0,
+          "type": "claude",
+          "variant": "opus-4.5",
+          "window": 0,
+        },
+        {
+          "is_active": false,
+          "pane": "%1",
+          "pane_idx": 1,
+          "type": "codex",
+          "variant": "o3",
+          "window": 0,
+        },
+      ],
+      "attached": true,
+      "created_at": "2026-01-27T08:00:00Z",
+      "exists": true,
+      "name": "flywheel",
+      "panes": 6,
+      "windows": 3,
+    },
+    {
+      "attached": false,
+      "created_at": "2026-01-26T14:00:00Z",
+      "exists": true,
+      "name": "smartedgar",
+      "panes": 4,
+      "windows": 2,
+    },
+  ],
+  "summary": {
+    "aider_count": 0,
+    "attached_count": 1,
+    "claude_count": 2,
+    "codex_count": 1,
+    "cursor_count": 0,
+    "gemini_count": 1,
+    "total_agents": 4,
+    "total_sessions": 2,
+    "windsurf_count": 0,
+  },
+  "system": {
+    "arch": "amd64",
+    "build_date": "2026-01-15",
+    "commit": "abc123def",
+    "go_version": "1.22",
+    "os": "linux",
+    "tmux_available": true,
+    "version": "0.8.0",
+  },
+}
+`;
+
+exports[`ntm Schema Snapshots snapshot shape matches snapshot 1`] = `
+{
+  "alert_summary": {
+    "by_severity": {
+      "warning": 1,
+    },
+    "by_type": {
+      "context_high": 1,
+    },
+    "total_active": 1,
+  },
+  "alerts": [
+    {
+      "context": {
+        "threshold": 70,
+        "usage_percent": 75,
+      },
+      "count": 1,
+      "created_at": "2026-01-27T11:55:00Z",
+      "duration_ms": 300000,
+      "id": "alert-001",
+      "message": "Agent claude/%0 context usage at 75%",
+      "pane": "%0",
+      "session": "flywheel",
+      "severity": "warning",
+      "type": "context_high",
+    },
+  ],
+  "sessions": [
+    {
+      "agents": [
+        {
+          "current_bead": "bd-20sm",
+          "last_output_age_sec": 5,
+          "output_tail_lines": 100,
+          "pane": "%0",
+          "pending_mail": 0,
+          "state": "working",
+          "type": "claude",
+          "type_confidence": 0.98,
+          "type_method": "prompt_analysis",
+          "variant": "opus-4.5",
+        },
+        {
+          "current_bead": null,
+          "last_output_age_sec": 120,
+          "output_tail_lines": 50,
+          "pane": "%1",
+          "pending_mail": 2,
+          "state": "idle",
+          "type": "codex",
+          "type_confidence": 0.95,
+          "type_method": "pattern_match",
+          "variant": "o3",
+        },
+      ],
+      "attached": true,
+      "name": "flywheel",
+    },
+  ],
+  "ts": "2026-01-27T12:00:00Z",
+}
+`;
+
+exports[`ntm Schema Snapshots health shape matches snapshot 1`] = `
+{
+  "agents": [
+    {
+      "agent_type": "claude",
+      "backoff_remaining": 0,
+      "confidence": 0.98,
+      "health": "healthy",
+      "idle_since_seconds": 5,
+      "pane": 0,
+      "rate_limit_count": 0,
+      "restarts": 0,
+    },
+    {
+      "agent_type": "codex",
+      "backoff_remaining": 30,
+      "confidence": 0.95,
+      "health": "degraded",
+      "idle_since_seconds": 120,
+      "last_error": "Temporary rate limit",
+      "pane": 1,
+      "rate_limit_count": 2,
+      "restarts": 1,
+    },
+  ],
+  "checked_at": "2026-01-27T12:00:00Z",
+  "session": "flywheel",
+  "success": true,
+  "summary": {
+    "degraded": 1,
+    "healthy": 1,
+    "rate_limited": 1,
+    "total": 2,
+    "unhealthy": 0,
+  },
+}
+`;
+
+exports[`ntm Schema Snapshots context shape matches snapshot 1`] = `
+{
+  "agents": [
+    {
+      "agent_type": "claude",
+      "confidence": "high",
+      "context_limit": 200000,
+      "estimated_tokens": 75000,
+      "model": "opus-4.5",
+      "pane": "%0",
+      "pane_idx": 0,
+      "state": "working",
+      "usage_level": "medium",
+      "usage_percent": 41.25,
+      "with_overhead": 82500,
+    },
+  ],
+  "captured_at": "2026-01-27T12:00:00Z",
+  "session": "flywheel",
+  "success": true,
+  "summary": {
+    "avg_usage": 41.25,
+    "high_usage_count": 0,
+    "total_agents": 1,
+  },
+  "timestamp": "2026-01-27T12:00:00Z",
+}
+`;
+
+exports[`ms Schema Snapshots doctor shape matches snapshot 1`] = `
+{
+  "checks": [
+    {
+      "message": "SQLite connected",
+      "name": "database",
+      "status": "ok",
+    },
+    {
+      "message": "Model loaded (all-MiniLM-L6-v2)",
+      "name": "embeddings",
+      "status": "ok",
+    },
+    {
+      "message": "Index up to date",
+      "name": "index",
+      "status": "ok",
+    },
+  ],
+  "embedding_service": {
+    "available": true,
+    "latency_ms": 45,
+    "model": "all-MiniLM-L6-v2",
+  },
+  "status": "healthy",
+  "storage": {
+    "data_dir": "/home/user/.ms",
+    "index_count": 12,
+    "size_bytes": 2097152,
+  },
+}
+`;
+
+exports[`ms Schema Snapshots list shape matches snapshot 1`] = `
+[
+  {
+    "created_at": "2026-01-01T00:00:00Z",
+    "description": "Agent skills and capabilities documentation",
+    "entry_count": 200,
+    "name": "skills",
+    "updated_at": "2026-01-27T10:00:00Z",
+  },
+  {
+    "created_at": "2026-01-10T00:00:00Z",
+    "description": "Curated prompt templates",
+    "entry_count": 85,
+    "name": "prompts",
+    "updated_at": "2026-01-26T15:00:00Z",
+  },
+]
+`;
+
+exports[`ms Schema Snapshots search shape matches snapshot 1`] = `
+{
+  "query": "git workflow",
+  "results": [
+    {
+      "id": "skill-git-001",
+      "knowledge_base": "skills",
+      "score": 0.94,
+      "snippet": "Best practices for managing git branches in multi-agent workflows...",
+      "source": "git-workflow.md",
+      "title": "Git Branch Management",
+    },
+    {
+      "id": "skill-git-002",
+      "knowledge_base": "skills",
+      "score": 0.87,
+      "snippet": "Standardized commit message format for automated agents...",
+      "source": "commit-standards.md",
+      "title": "Commit Message Standards",
+    },
+  ],
+  "semantic_enabled": true,
+  "took_ms": 38,
+  "total": 2,
+}
+`;
+
+exports[`pt Schema Snapshots doctor shape matches snapshot 1`] = `
+{
+  "checks": [
+    {
+      "message": "/proc accessible",
+      "name": "procfs",
+      "status": "ok",
+    },
+    {
+      "message": "Can read process info",
+      "name": "permissions",
+      "status": "ok",
+    },
+    {
+      "message": "cgroups v2 available",
+      "name": "cgroups",
+      "status": "ok",
+    },
+  ],
+  "permissions": {
+    "can_kill_processes": true,
+    "can_list_processes": true,
+  },
+  "status": "healthy",
+}
+`;
+
+exports[`pt Schema Snapshots scan shape matches snapshot 1`] = `
+{
+  "processes": [
+    {
+      "cmdline": "node /app/server.js",
+      "cpu_percent": 92.5,
+      "flags": [
+        "high_cpu",
+        "long_running",
+        "high_memory",
+      ],
+      "memory_percent": 18.3,
+      "memory_rss_mb": 756,
+      "name": "node",
+      "pid": 12345,
+      "ppid": 1,
+      "runtime_seconds": 21600,
+      "score": 85,
+      "score_breakdown": {
+        "cpu_score": 45,
+        "memory_score": 20,
+        "runtime_score": 10,
+        "state_score": 10,
+      },
+      "started_at": "2026-01-27T06:00:00Z",
+      "state": "S",
+      "user": "ubuntu",
+    },
+    {
+      "cmdline": "[defunct_worker] <defunct>",
+      "cpu_percent": 0,
+      "flags": [
+        "zombie",
+      ],
+      "memory_percent": 0,
+      "memory_rss_mb": 0,
+      "name": "defunct_worker",
+      "pid": 67890,
+      "ppid": 12345,
+      "score": 95,
+      "score_breakdown": {
+        "cpu_score": 0,
+        "memory_score": 0,
+        "runtime_score": 0,
+        "state_score": 95,
+      },
+      "state": "Z",
+      "user": "ubuntu",
+    },
+  ],
+  "scan_time_ms": 142,
+  "suspicious_count": 2,
+  "thresholds": {
+    "min_cpu_percent": 0,
+    "min_memory_mb": 0,
+    "min_runtime_seconds": 0,
+    "min_score": 50,
+  },
+  "timestamp": "2026-01-27T12:00:00Z",
+  "total_scanned": 185,
+}
+`;
+
+exports[`jfp Schema Snapshots list shape matches snapshot 1`] = `
+{
+  "prompts": [
+    {
+      "author": "Jeffrey",
+      "category": "development",
+      "content": "Review the following code for quality, security, and maintainability...",
+      "created": "2026-01-01T00:00:00Z",
+      "description": "Thorough code review focusing on quality, security, and maintainability",
+      "difficulty": "intermediate",
+      "estimatedTokens": 600,
+      "featured": true,
+      "id": "code-review-001",
+      "tags": [
+        "code-review",
+        "security",
+        "quality",
+        "best-practices",
+      ],
+      "tips": [
+        "Focus on security first",
+        "Check for edge cases",
+        "Verify error handling",
+      ],
+      "title": "Comprehensive Code Review",
+      "version": "2.0.0",
+      "whenToUse": [
+        "PR reviews",
+        "Code audits",
+        "Pre-merge checks",
+      ],
+    },
+    {
+      "author": "Jeffrey",
+      "category": "debugging",
+      "content": "Apply systematic debugging methodology...",
+      "created": "2026-01-10T00:00:00Z",
+      "description": "Step-by-step debugging methodology for complex issues",
+      "difficulty": "advanced",
+      "estimatedTokens": 450,
+      "featured": false,
+      "id": "debug-systematic-002",
+      "tags": [
+        "debugging",
+        "troubleshooting",
+        "methodology",
+      ],
+      "title": "Systematic Debugging",
+      "version": "1.5.0",
+    },
+  ],
+  "total": 2,
+}
+`;
+
+exports[`jfp Schema Snapshots show shape matches snapshot 1`] = `
+{
+  "author": "Jeffrey",
+  "category": "development",
+  "content": "Review the following code for quality, security, and maintainability...",
+  "created": "2026-01-01T00:00:00Z",
+  "description": "Thorough code review focusing on quality, security, and maintainability",
+  "difficulty": "intermediate",
+  "estimatedTokens": 600,
+  "featured": true,
+  "id": "code-review-001",
+  "tags": [
+    "code-review",
+    "security",
+    "quality",
+    "best-practices",
+  ],
+  "tips": [
+    "Focus on security first",
+    "Check for edge cases",
+    "Verify error handling",
+  ],
+  "title": "Comprehensive Code Review",
+  "version": "2.0.0",
+  "whenToUse": [
+    "PR reviews",
+    "Code audits",
+    "Pre-merge checks",
+  ],
+}
+`;
+
+exports[`jfp Schema Snapshots categories shape matches snapshot 1`] = `
+[
+  {
+    "count": 30,
+    "name": "development",
+  },
+  {
+    "count": 18,
+    "name": "debugging",
+  },
+  {
+    "count": 12,
+    "name": "writing",
+  },
+  {
+    "count": 8,
+    "name": "analysis",
+  },
+]
+`;
+
+exports[`jfp Schema Snapshots search shape matches snapshot 1`] = `
+{
+  "prompts": [
+    {
+      "author": "Jeffrey",
+      "category": "development",
+      "content": "Review the following code...",
+      "created": "2026-01-01T00:00:00Z",
+      "description": "Thorough code review focusing on quality and security",
+      "difficulty": "intermediate",
+      "estimatedTokens": 600,
+      "featured": true,
+      "id": "code-review-001",
+      "tags": [
+        "code-review",
+        "security",
+      ],
+      "title": "Comprehensive Code Review",
+      "version": "2.0.0",
+    },
+  ],
+  "query": "code review",
+  "total": 1,
+}
+`;
+
+exports[`jfp Schema Snapshots suggest shape matches snapshot 1`] = `
+{
+  "suggestions": [
+    {
+      "author": "Jeffrey",
+      "category": "debugging",
+      "content": "Apply systematic debugging methodology...",
+      "created": "2026-01-10T00:00:00Z",
+      "description": "Step-by-step debugging methodology",
+      "difficulty": "advanced",
+      "estimatedTokens": 450,
+      "featured": false,
+      "id": "debug-systematic-002",
+      "tags": [
+        "debugging",
+        "troubleshooting",
+      ],
+      "title": "Systematic Debugging",
+      "version": "1.5.0",
+    },
+  ],
+  "task": "debug memory leak",
+}
+`;
+
+exports[`cass Schema Snapshots health shape matches snapshot 1`] = `
+{
+  "_meta": {
+    "data_dir": "/home/user/.cass",
+    "db_path": "/home/user/.cass/index.db",
+    "elapsed_ms": 15,
+    "index_freshness_seconds": 300,
+  },
+  "healthy": true,
+  "latency_ms": 12,
+}
+`;
+
+exports[`cass Schema Snapshots search shape matches snapshot 1`] = `
+{
+  "_meta": {
+    "elapsed_ms": 85,
+    "wildcard_fallback": false,
+  },
+  "count": 3,
+  "cursor": "cursor_abc123",
+  "hits": [
+    {
+      "agent": "claude-code",
+      "content": "Implemented the authentication flow using JWT tokens...",
+      "created_at": 1706356800,
+      "line_number": 245,
+      "match_type": "semantic",
+      "origin_kind": "session",
+      "score": 0.94,
+      "snippet": "...using JWT tokens for secure authentication...",
+      "source_id": "session-001",
+      "source_path": "/home/user/.claude/sessions/abc123.jsonl",
+      "title": "Authentication Implementation",
+      "workspace": "/data/projects/backend",
+    },
+    {
+      "agent": "codex",
+      "content": "Added OAuth2 support with refresh token handling...",
+      "created_at": 1706270400,
+      "line_number": 189,
+      "match_type": "lexical",
+      "origin_kind": "session",
+      "score": 0.87,
+      "snippet": "...OAuth2 support with refresh tokens...",
+      "source_path": "/home/user/.codex/sessions/def456.jsonl",
+      "workspace": "/data/projects/backend",
+    },
+    {
+      "agent": "claude-code",
+      "line_number": 512,
+      "score": 0.72,
+      "source_path": "/home/user/.claude/sessions/ghi789.jsonl",
+    },
+  ],
+  "hits_clamped": false,
+  "limit": 10,
+  "max_tokens": 4000,
+  "offset": 0,
+  "query": "authentication JWT",
+  "request_id": "req-xyz789",
+  "total_matches": 3,
+}
+`;
+
+exports[`cass Schema Snapshots view shape matches snapshot 1`] = `
+{
+  "agent": "claude-code",
+  "content": "Implemented the authentication flow using JWT tokens with proper expiration handling.",
+  "context_after": [
+    "The token includes user ID, role, and expiration timestamp.",
+    "Refresh tokens are stored securely in httpOnly cookies.",
+  ],
+  "context_before": [
+    "User: Can you help implement authentication?",
+    "Assistant: I'll implement JWT-based authentication.",
+  ],
+  "line_number": 245,
+  "path": "/home/user/.claude/sessions/abc123.jsonl",
+  "role": "assistant",
+}
+`;
+
+exports[`cass Schema Snapshots expand shape matches snapshot 1`] = `
+{
+  "messages": [
+    {
+      "content": "Can you help implement authentication?",
+      "line_number": 240,
+      "role": "user",
+      "timestamp": 1706356700,
+    },
+    {
+      "content": "I'll implement JWT-based authentication. Here's the plan...",
+      "line_number": 242,
+      "role": "assistant",
+      "timestamp": 1706356750,
+    },
+    {
+      "content": "Implemented the authentication flow using JWT tokens...",
+      "line_number": 245,
+      "role": "assistant",
+      "timestamp": 1706356800,
+    },
+  ],
+  "path": "/home/user/.claude/sessions/abc123.jsonl",
+  "target_line": 245,
+  "total_messages": 3,
+}
+`;
+
+exports[`cm Schema Snapshots context shape matches snapshot 1`] = `
+{
+  "antiPatterns": [
+    {
+      "category": "security",
+      "confidence": 0.99,
+      "id": "anti-auth-001",
+      "kind": "anti-pattern",
+      "scope": "authentication",
+      "score": 0.98,
+      "state": "active",
+      "text": "Never store plaintext passwords or use MD5/SHA1 for password hashing",
+    },
+  ],
+  "deprecatedWarnings": [],
+  "historySnippets": [
+    {
+      "agent": "claude-code",
+      "created_at": 1706356800,
+      "line_number": 245,
+      "origin": {
+        "kind": "local",
+      },
+      "score": 0.91,
+      "snippet": "Used jsonwebtoken library with RS256 signing...",
+      "source_path": "/home/user/.claude/sessions/abc123.jsonl",
+      "title": "JWT Implementation",
+      "workspace": "/data/projects/backend",
+    },
+  ],
+  "relevantBullets": [
+    {
+      "category": "security",
+      "confidence": 0.95,
+      "harmfulCount": 0,
+      "helpfulCount": 12,
+      "id": "rule-auth-001",
+      "kind": "rule",
+      "lastApplied": "2026-01-26T10:00:00Z",
+      "scope": "authentication",
+      "score": 0.92,
+      "sourceCount": 15,
+      "state": "active",
+      "text": "Always use bcrypt with cost factor >= 12 for password hashing",
+    },
+    {
+      "category": "security",
+      "confidence": 0.88,
+      "id": "rule-auth-002",
+      "kind": "rule",
+      "scope": "authentication",
+      "score": 0.85,
+      "sourceCount": 8,
+      "state": "active",
+      "text": "Set JWT expiration to 15 minutes for access tokens, 7 days for refresh tokens",
+    },
+  ],
+  "success": true,
+  "suggestedCassQueries": [
+    "JWT token implementation",
+    "bcrypt password hashing",
+    "OAuth2 refresh token",
+  ],
+  "task": "implement authentication",
+}
+`;
+
+exports[`cm Schema Snapshots quickstart shape matches snapshot 1`] = `
+{
+  "doNotDo": [
+    "Don't skip reading returned rules before starting work",
+    "Don't ignore anti-patterns",
+    "Don't forget to record outcomes for feedback",
+  ],
+  "examples": [
+    "cm context "implement user authentication" --json",
+    "cm context "refactor database queries" --workspace /project --json",
+  ],
+  "expectations": {
+    "input": "A task description string",
+    "output": "Relevant rules, anti-patterns, and history snippets",
+  },
+  "inlineFeedbackFormat": {
+    "harmful": "[CM-HARMFUL: rule-id reason]",
+    "helpful": "[CM-HELPFUL: rule-id]",
+  },
+  "oneCommand": "cm context "your task description" --json",
+  "operatorNote": {
+    "automation": "Can be integrated into agent startup scripts",
+    "health": "Use cm doctor --json to check system health",
+  },
+  "protocol": {
+    "during": "Follow returned rules",
+    "end": "cm outcome success/failure rule-ids --json",
+    "start": "cm context "task" --json",
+  },
+  "soloUser": {
+    "description": "For individual developers without agent swarms",
+    "manualReflection": [
+      "Review rules weekly",
+      "Add new learnings manually",
+    ],
+    "onboarding": [
+      "Start with cm quickstart",
+      "Run cm stats to see coverage",
+    ],
+  },
+  "success": true,
+  "summary": "CM provides procedural memory for coding agents",
+  "whatItReturns": [
+    "relevantBullets - Rules applicable to your task",
+    "antiPatterns - Things to avoid",
+    "historySnippets - Past relevant session excerpts",
+  ],
+}
+`;
+
+exports[`cm Schema Snapshots stats shape matches snapshot 1`] = `
+{
+  "atRiskCount": 10,
+  "byKind": {
+    "anti-pattern": 30,
+    "procedure": 20,
+    "rule": 100,
+  },
+  "byScope": {
+    "api": 35,
+    "authentication": 25,
+    "database": 40,
+    "general": 20,
+    "testing": 30,
+  },
+  "byState": {
+    "active": 130,
+    "deprecated": 15,
+    "pending": 5,
+  },
+  "mostHelpful": [
+    {
+      "helpfulCount": 45,
+      "id": "rule-api-001",
+      "score": 0.95,
+      "text": "Return appropriate HTTP status codes",
+    },
+  ],
+  "scoreDistribution": {
+    "atRisk": 10,
+    "excellent": 45,
+    "good": 60,
+    "neutral": 35,
+  },
+  "staleCount": 5,
+  "success": true,
+  "topPerformers": [
+    {
+      "helpfulCount": 50,
+      "id": "rule-db-001",
+      "score": 0.99,
+      "text": "Always use parameterized queries",
+    },
+  ],
+  "total": 150,
+}
+`;
+
+exports[`cm Schema Snapshots doctor shape matches snapshot 1`] = `
+{
+  "checks": [
+    {
+      "category": "database",
+      "details": {
+        "path": "/home/user/.cm/playbook.db",
+        "size_mb": 2.5,
+      },
+      "item": "SQLite connection",
+      "message": "Database connected successfully",
+      "status": "pass",
+    },
+    {
+      "category": "cass",
+      "details": {
+        "latency_ms": 12,
+      },
+      "item": "CASS integration",
+      "message": "CASS available for history search",
+      "status": "pass",
+    },
+    {
+      "category": "playbook",
+      "details": {
+        "low_coverage": [
+          "testing",
+        ],
+      },
+      "fix": "Add more rules for testing category",
+      "item": "Rule coverage",
+      "message": "Some categories have low coverage",
+      "status": "warn",
+    },
+  ],
+  "generatedAt": "2026-01-27T12:00:00Z",
+  "overallStatus": "healthy",
+  "success": true,
+  "version": "0.4.0",
+}
+`;
+
+exports[`cm Schema Snapshots playbook list shape matches snapshot 1`] = `
+{
+  "bullets": [
+    {
+      "category": "code-quality",
+      "confidence": 0.9,
+      "id": "rule-001",
+      "kind": "rule",
+      "scope": "general",
+      "score": 0.88,
+      "state": "active",
+      "text": "Use meaningful variable names",
+    },
+    {
+      "category": "testing",
+      "confidence": 0.85,
+      "id": "rule-002",
+      "kind": "procedure",
+      "scope": "general",
+      "score": 0.82,
+      "state": "active",
+      "text": "Write tests before implementation",
+    },
+  ],
+  "success": true,
+}
+`;
+
+exports[`cm Schema Snapshots outcome shape matches snapshot 1`] = `
+{
+  "message": "Outcome recorded successfully",
+  "recorded": 3,
+  "success": true,
+}
+`;
