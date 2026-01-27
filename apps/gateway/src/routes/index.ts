@@ -24,12 +24,15 @@ import { knowledge } from "./knowledge";
 import { mail } from "./mail";
 import { memory } from "./memory";
 import { metrics } from "./metrics";
+import { ms } from "./ms";
 import { notifications } from "./notifications";
 import openapi from "./openapi";
 import { pipelines } from "./pipelines";
 import { plans } from "./plans";
 import { processes } from "./processes";
 import { prompts } from "./prompts";
+import { pt } from "./pt";
+import { rch } from "./rch";
 import { reservations } from "./reservations";
 import { ru } from "./ru";
 import { safety } from "./safety";
@@ -39,6 +42,7 @@ import { slb } from "./slb";
 import { supervisor } from "./supervisor";
 import { system } from "./system";
 import { utilities } from "./utilities";
+import { xf } from "./xf";
 
 const routes = new Hono();
 
@@ -62,11 +66,14 @@ routes.route("/knowledge", knowledge);
 routes.route("/mail", mail);
 routes.route("/memory", memory);
 routes.route("/metrics", metrics);
+routes.route("/ms", ms);
 routes.route("/notifications", notifications);
 routes.route("/pipelines", pipelines);
+routes.route("/pt", pt);
 routes.route("/plans", plans);
 routes.route("/processes", processes);
 routes.route("/prompts", prompts);
+routes.route("/rch", rch);
 routes.route("/reservations", reservations);
 routes.route("/sessions", checkpoints);
 routes.route("/sessions", context);
@@ -78,6 +85,7 @@ routes.route("/slb", slb);
 routes.route("/supervisor", supervisor);
 routes.route("/system", system);
 routes.route("/utilities", utilities);
+routes.route("/xf", xf);
 
 // Mount OpenAPI routes at root level
 routes.route("/", openapi);
