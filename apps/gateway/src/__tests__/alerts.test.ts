@@ -388,6 +388,310 @@ describe("Alert Service", () => {
     });
   });
 
+  describe("Safety Posture Alerting Rules (bd-3lki)", () => {
+    /**
+     * Helper to create base alert context
+     */
+    function createBaseContext(): AlertContext {
+      return {
+        metrics: {
+          agents: { total: 0, byStatus: {} },
+          tokens: { last24h: 0, quotaUsedPercent: 0 },
+          performance: { avgResponseMs: 0, successRate: 100, errorCount: 0 },
+          system: { memoryUsageMb: 0, cpuPercent: 0, wsConnections: 0 },
+        },
+        correlationId: "test-safety-correlation",
+        timestamp: new Date(),
+      };
+    }
+
+    /**
+     * Helper to create safety posture context
+     */
+    function createSafetyContext(overrides: {
+      dcgInstalled?: boolean;
+      slbInstalled?: boolean;
+      ubsInstalled?: boolean;
+      checksumsStale?: boolean;
+      registryAgeMs?: number | null;
+    }): AlertContext["safety"] {
+      const dcgInstalled = overrides.dcgInstalled ?? true;
+      const slbInstalled = overrides.slbInstalled ?? true;
+      const ubsInstalled = overrides.ubsInstalled ?? true;
+      const checksumsStale = overrides.checksumsStale ?? false;
+
+      const issues: string[] = [];
+      if (!dcgInstalled) issues.push("DCG not installed");
+      if (!slbInstalled) issues.push("SLB not installed");
+      if (!ubsInstalled) issues.push("UBS not installed");
+      if (checksumsStale) issues.push("Checksums are stale");
+
+      const allToolsInstalled = dcgInstalled && slbInstalled && ubsInstalled;
+
+      return {
+        status: allToolsInstalled && !checksumsStale ? "healthy" : "unhealthy",
+        tools: {
+          dcg: { installed: dcgInstalled, version: dcgInstalled ? "1.0.0" : null, healthy: dcgInstalled },
+          slb: { installed: slbInstalled, version: slbInstalled ? "0.9.0" : null, healthy: slbInstalled },
+          ubs: { installed: ubsInstalled, version: ubsInstalled ? "2.0.0" : null, healthy: ubsInstalled },
+        },
+        checksums: {
+          registryGeneratedAt: checksumsStale ? "2025-01-01T00:00:00Z" : new Date().toISOString(),
+          registryAgeMs: overrides.registryAgeMs ?? (checksumsStale ? 30 * 24 * 60 * 60 * 1000 : 1000),
+          isStale: checksumsStale,
+          staleThresholdMs: 7 * 24 * 60 * 60 * 1000,
+        },
+        summary: {
+          allToolsInstalled,
+          allToolsHealthy: allToolsInstalled,
+          checksumsAvailable: true,
+          checksumsStale,
+          overallHealthy: allToolsInstalled && !checksumsStale,
+          issues,
+        },
+      };
+    }
+
+    beforeEach(() => {
+      initializeDefaultAlertRules();
+    });
+
+    describe("DCG Missing Rule (safety_dcg_missing)", () => {
+      test("rule is registered after initialization", () => {
+        const rule = getAlertRule("safety_dcg_missing");
+        expect(rule).toBeDefined();
+        expect(rule?.severity).toBe("error"); // DCG is critical
+        expect(rule?.type).toBe("safety_dcg_missing");
+      });
+
+      test("condition returns true when DCG is not installed", () => {
+        const rule = getAlertRule("safety_dcg_missing");
+        const context: AlertContext = {
+          ...createBaseContext(),
+          safety: createSafetyContext({ dcgInstalled: false }),
+        };
+
+        expect(rule?.condition(context)).toBe(true);
+      });
+
+      test("condition returns false when DCG is installed", () => {
+        const rule = getAlertRule("safety_dcg_missing");
+        const context: AlertContext = {
+          ...createBaseContext(),
+          safety: createSafetyContext({ dcgInstalled: true }),
+        };
+
+        expect(rule?.condition(context)).toBe(false);
+      });
+
+      test("condition returns false when safety context is missing", () => {
+        const rule = getAlertRule("safety_dcg_missing");
+        const context = createBaseContext();
+
+        expect(rule?.condition(context)).toBe(false);
+      });
+
+      test("alert metadata includes tool and safety status", () => {
+        const rule = getAlertRule("safety_dcg_missing");
+        const context: AlertContext = {
+          ...createBaseContext(),
+          safety: createSafetyContext({ dcgInstalled: false }),
+        };
+
+        const alert = fireAlert(rule!, context);
+
+        expect(alert.metadata?.tool).toBe("dcg");
+        expect(alert.metadata?.safetyStatus).toBe("unhealthy");
+        expect(alert.metadata?.issues).toContain("DCG not installed");
+      });
+    });
+
+    describe("SLB Missing Rule (safety_slb_missing)", () => {
+      test("rule is registered after initialization", () => {
+        const rule = getAlertRule("safety_slb_missing");
+        expect(rule).toBeDefined();
+        expect(rule?.severity).toBe("warning"); // SLB is important but not critical
+        expect(rule?.type).toBe("safety_slb_missing");
+      });
+
+      test("condition returns true when SLB is not installed", () => {
+        const rule = getAlertRule("safety_slb_missing");
+        const context: AlertContext = {
+          ...createBaseContext(),
+          safety: createSafetyContext({ slbInstalled: false }),
+        };
+
+        expect(rule?.condition(context)).toBe(true);
+      });
+
+      test("condition returns false when SLB is installed", () => {
+        const rule = getAlertRule("safety_slb_missing");
+        const context: AlertContext = {
+          ...createBaseContext(),
+          safety: createSafetyContext({ slbInstalled: true }),
+        };
+
+        expect(rule?.condition(context)).toBe(false);
+      });
+
+      test("alert metadata includes tool and safety status", () => {
+        const rule = getAlertRule("safety_slb_missing");
+        const context: AlertContext = {
+          ...createBaseContext(),
+          safety: createSafetyContext({ slbInstalled: false }),
+        };
+
+        const alert = fireAlert(rule!, context);
+
+        expect(alert.metadata?.tool).toBe("slb");
+        expect(alert.metadata?.safetyStatus).toBe("unhealthy");
+      });
+    });
+
+    describe("UBS Missing Rule (safety_ubs_missing)", () => {
+      test("rule is registered after initialization", () => {
+        const rule = getAlertRule("safety_ubs_missing");
+        expect(rule).toBeDefined();
+        expect(rule?.severity).toBe("warning");
+        expect(rule?.type).toBe("safety_ubs_missing");
+      });
+
+      test("condition returns true when UBS is not installed", () => {
+        const rule = getAlertRule("safety_ubs_missing");
+        const context: AlertContext = {
+          ...createBaseContext(),
+          safety: createSafetyContext({ ubsInstalled: false }),
+        };
+
+        expect(rule?.condition(context)).toBe(true);
+      });
+
+      test("condition returns false when UBS is installed", () => {
+        const rule = getAlertRule("safety_ubs_missing");
+        const context: AlertContext = {
+          ...createBaseContext(),
+          safety: createSafetyContext({ ubsInstalled: true }),
+        };
+
+        expect(rule?.condition(context)).toBe(false);
+      });
+
+      test("alert metadata includes tool and safety status", () => {
+        const rule = getAlertRule("safety_ubs_missing");
+        const context: AlertContext = {
+          ...createBaseContext(),
+          safety: createSafetyContext({ ubsInstalled: false }),
+        };
+
+        const alert = fireAlert(rule!, context);
+
+        expect(alert.metadata?.tool).toBe("ubs");
+        expect(alert.metadata?.safetyStatus).toBe("unhealthy");
+      });
+    });
+
+    describe("Checksums Stale Rule (safety_checksums_stale)", () => {
+      test("rule is registered after initialization", () => {
+        const rule = getAlertRule("safety_checksums_stale");
+        expect(rule).toBeDefined();
+        expect(rule?.severity).toBe("warning");
+        expect(rule?.type).toBe("safety_checksums_stale");
+      });
+
+      test("condition returns true when checksums are stale", () => {
+        const rule = getAlertRule("safety_checksums_stale");
+        const context: AlertContext = {
+          ...createBaseContext(),
+          safety: createSafetyContext({ checksumsStale: true }),
+        };
+
+        expect(rule?.condition(context)).toBe(true);
+      });
+
+      test("condition returns false when checksums are fresh", () => {
+        const rule = getAlertRule("safety_checksums_stale");
+        const context: AlertContext = {
+          ...createBaseContext(),
+          safety: createSafetyContext({ checksumsStale: false }),
+        };
+
+        expect(rule?.condition(context)).toBe(false);
+      });
+
+      test("alert message includes age in days", () => {
+        const rule = getAlertRule("safety_checksums_stale");
+        const ageMs = 10 * 24 * 60 * 60 * 1000; // 10 days
+        const context: AlertContext = {
+          ...createBaseContext(),
+          safety: createSafetyContext({ checksumsStale: true, registryAgeMs: ageMs }),
+        };
+
+        const alert = fireAlert(rule!, context);
+
+        expect(alert.message).toContain("10 days old");
+        expect(alert.message).toContain("threshold: 7 days");
+      });
+
+      test("alert metadata includes registry age and threshold", () => {
+        const rule = getAlertRule("safety_checksums_stale");
+        const ageMs = 14 * 24 * 60 * 60 * 1000; // 14 days
+        const context: AlertContext = {
+          ...createBaseContext(),
+          safety: createSafetyContext({ checksumsStale: true, registryAgeMs: ageMs }),
+        };
+
+        const alert = fireAlert(rule!, context);
+
+        expect(alert.metadata?.registryAgeMs).toBe(ageMs);
+        expect(alert.metadata?.staleThresholdMs).toBe(7 * 24 * 60 * 60 * 1000);
+        expect(alert.metadata?.safetyStatus).toBe("unhealthy");
+      });
+    });
+
+    describe("Multiple Safety Issues", () => {
+      test("multiple rules fire when multiple tools are missing", () => {
+        const context: AlertContext = {
+          ...createBaseContext(),
+          safety: createSafetyContext({
+            dcgInstalled: false,
+            slbInstalled: false,
+            ubsInstalled: true,
+          }),
+        };
+
+        const dcgRule = getAlertRule("safety_dcg_missing");
+        const slbRule = getAlertRule("safety_slb_missing");
+        const ubsRule = getAlertRule("safety_ubs_missing");
+
+        expect(dcgRule?.condition(context)).toBe(true);
+        expect(slbRule?.condition(context)).toBe(true);
+        expect(ubsRule?.condition(context)).toBe(false);
+      });
+
+      test("all healthy returns no alerts", () => {
+        const context: AlertContext = {
+          ...createBaseContext(),
+          safety: createSafetyContext({
+            dcgInstalled: true,
+            slbInstalled: true,
+            ubsInstalled: true,
+            checksumsStale: false,
+          }),
+        };
+
+        const dcgRule = getAlertRule("safety_dcg_missing");
+        const slbRule = getAlertRule("safety_slb_missing");
+        const ubsRule = getAlertRule("safety_ubs_missing");
+        const checksumRule = getAlertRule("safety_checksums_stale");
+
+        expect(dcgRule?.condition(context)).toBe(false);
+        expect(slbRule?.condition(context)).toBe(false);
+        expect(ubsRule?.condition(context)).toBe(false);
+        expect(checksumRule?.condition(context)).toBe(false);
+      });
+    });
+  });
+
   describe("Alert History", () => {
     test("getAlertHistory includes all fired alerts", () => {
       const rule: AlertRule = {

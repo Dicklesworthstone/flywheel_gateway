@@ -319,4 +319,132 @@ describe("Safety Routes", () => {
       }
     });
   });
+
+  describe("Safety Posture Output Validation", () => {
+    test("issues and recommendations are parallel arrays for missing tools", async () => {
+      const res = await app.request("/safety/posture");
+      const body = (await res.json()) as SafetyPostureEnvelope;
+
+      // For each missing tool, there should be both an issue and a recommendation
+      const { issues, recommendations } = body.data.summary;
+      const { dcg, slb, ubs } = body.data.tools;
+
+      // Count missing required tools
+      const missingTools = [
+        !dcg.installed && "DCG",
+        !slb.installed && "SLB",
+        !ubs.installed && "UBS",
+      ].filter(Boolean);
+
+      // Issues should mention each missing tool
+      for (const tool of missingTools) {
+        if (typeof tool === "string") {
+          const hasIssue = issues.some((i) =>
+            i.toUpperCase().includes(tool.toUpperCase()),
+          );
+          expect(hasIssue).toBe(true);
+        }
+      }
+    });
+
+    test("manifest metadata is included in response", async () => {
+      const res = await app.request("/safety/posture");
+      const body = (await res.json()) as SafetyPostureEnvelope;
+
+      // Response should include manifest metadata for provenance
+      const data = body.data as unknown as {
+        manifest?: {
+          source: string;
+          schemaVersion: string | null;
+          manifestPath: string | null;
+          manifestHash: string | null;
+          errorCategory: string | null;
+        };
+      };
+
+      // Manifest metadata should be present
+      expect(data.manifest).toBeDefined();
+      if (data.manifest) {
+        expect(["manifest", "fallback"]).toContain(data.manifest.source);
+        // schemaVersion can be null for fallback
+        expect(
+          data.manifest.schemaVersion === null ||
+            typeof data.manifest.schemaVersion === "string",
+        ).toBe(true);
+      }
+    });
+
+    test("requiredSafetyTools list is included in summary", async () => {
+      const res = await app.request("/safety/posture");
+      const body = (await res.json()) as SafetyPostureEnvelope;
+
+      // Summary should list which tools are required
+      const summary = body.data.summary as unknown as {
+        requiredSafetyTools?: string[];
+      };
+
+      expect(summary.requiredSafetyTools).toBeDefined();
+      if (summary.requiredSafetyTools) {
+        expect(Array.isArray(summary.requiredSafetyTools)).toBe(true);
+        // Required tools should be from the known safety tools
+        for (const tool of summary.requiredSafetyTools) {
+          expect(["dcg", "slb", "ubs"]).toContain(tool);
+        }
+      }
+    });
+
+    test("recommendations include install commands for missing tools", async () => {
+      const res = await app.request("/safety/posture");
+      const body = (await res.json()) as SafetyPostureEnvelope;
+
+      const { recommendations } = body.data.summary;
+
+      // Recommendations for missing tools should include actionable install info
+      for (const rec of recommendations) {
+        // Each recommendation should be a non-empty string
+        expect(typeof rec).toBe("string");
+        expect(rec.length).toBeGreaterThan(0);
+
+        // Recommendations about tools should include the tool name
+        const toolMentions = ["DCG", "SLB", "UBS", "dcg", "slb", "ubs"];
+        const mentionsTool = toolMentions.some((t) => rec.includes(t));
+
+        // If it's a tool recommendation, it should be actionable
+        if (mentionsTool) {
+          // Should contain install keyword or command indicator
+          const hasAction =
+            rec.toLowerCase().includes("install") ||
+            rec.includes("cargo") ||
+            rec.includes("go") ||
+            rec.includes("--version");
+          expect(hasAction).toBe(true);
+        }
+      }
+    });
+
+    test("latency is measured for each tool check", async () => {
+      const res = await app.request("/safety/posture");
+      const body = (await res.json()) as SafetyPostureEnvelope;
+
+      // Each tool status should include latency measurement
+      const { dcg, slb, ubs } = body.data.tools;
+
+      expect(typeof dcg.latencyMs).toBe("number");
+      expect(dcg.latencyMs).toBeGreaterThanOrEqual(0);
+
+      expect(typeof slb.latencyMs).toBe("number");
+      expect(slb.latencyMs).toBeGreaterThanOrEqual(0);
+
+      expect(typeof ubs.latencyMs).toBe("number");
+      expect(ubs.latencyMs).toBeGreaterThanOrEqual(0);
+    });
+
+    test("stale threshold is 7 days in milliseconds", async () => {
+      const res = await app.request("/safety/posture");
+      const body = (await res.json()) as SafetyPostureEnvelope;
+
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+      expect(body.data.checksums.staleThresholdMs).toBe(sevenDaysMs);
+    });
+  });
 });

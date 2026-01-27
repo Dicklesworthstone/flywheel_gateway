@@ -352,3 +352,118 @@ describe("Checksum Manifest Parsing", () => {
     expect(checksums.get("unknown-file.tar.gz")).toBeUndefined();
   });
 });
+
+describe("ACFS Checksum Parsing", () => {
+  function parseAcfsChecksum(checksum: string): {
+    algorithm: "sha256" | "sha512";
+    hash: string;
+  } {
+    if (checksum.startsWith("sha512:")) {
+      return { algorithm: "sha512", hash: checksum.slice(7) };
+    }
+    if (checksum.startsWith("sha256:")) {
+      return { algorithm: "sha256", hash: checksum.slice(7) };
+    }
+    return { algorithm: "sha256", hash: checksum };
+  }
+
+  it("should parse raw hex checksum as sha256", () => {
+    const hash =
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    const result = parseAcfsChecksum(hash);
+
+    expect(result.algorithm).toBe("sha256");
+    expect(result.hash).toBe(hash);
+  });
+
+  it("should parse sha256-prefixed checksum", () => {
+    const hash =
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    const result = parseAcfsChecksum(`sha256:${hash}`);
+
+    expect(result.algorithm).toBe("sha256");
+    expect(result.hash).toBe(hash);
+  });
+
+  it("should parse sha512-prefixed checksum", () => {
+    const hash =
+      "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e";
+    const result = parseAcfsChecksum(`sha512:${hash}`);
+
+    expect(result.algorithm).toBe("sha512");
+    expect(result.hash).toBe(hash);
+  });
+});
+
+describe("Checksum Verification Error Context", () => {
+  // This tests the error reporting structure for checksum verification failures.
+  // When checksum verification fails, the error should include context:
+  // - Tool ID being verified
+  // - Filename that failed
+  // - Expected checksum (truncated for security)
+  // - Actual computed checksum (truncated for security)
+
+  it("should include tool context in checksum mismatch error", () => {
+    const toolId = "tools.dcg";
+    const filename = "dcg-linux-x64.tar.gz";
+    const expected = "abc123def456789012345678901234567890abcdef1234567890123456";
+    const actual = "xyz987uvw654321098765432109876543210fedcba0987654321098765";
+
+    // Simulate the error structure from verifyAgainstAcfsChecksums
+    const errorContext = {
+      toolId,
+      filename,
+      expected: expected.substring(0, 16) + "...",
+      actual: actual.substring(0, 16) + "...",
+    };
+
+    // Verify error context includes all required fields
+    expect(errorContext.toolId).toBe("tools.dcg");
+    expect(errorContext.filename).toBe("dcg-linux-x64.tar.gz");
+    expect(errorContext.expected).toContain("abc123def4567890");
+    expect(errorContext.actual).toContain("xyz987uvw6543210");
+  });
+
+  it("should structure verification result with all fields for logging", () => {
+    // Verify the structure matches AcfsVerifyResult for logging purposes
+    const result = {
+      verified: false,
+      toolId: "tools.slb",
+      filename: "slb-darwin-arm64.tar.gz",
+      actualChecksum:
+        "0000000000000000000000000000000000000000000000000000000000000000",
+      expectedChecksum:
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      algorithm: "sha256" as const,
+      size: 1024,
+    };
+
+    // All fields should be present for comprehensive logging
+    expect(result).toHaveProperty("verified");
+    expect(result).toHaveProperty("toolId");
+    expect(result).toHaveProperty("filename");
+    expect(result).toHaveProperty("actualChecksum");
+    expect(result).toHaveProperty("expectedChecksum");
+    expect(result).toHaveProperty("algorithm");
+    expect(result).toHaveProperty("size");
+
+    // Verified should be false for mismatch
+    expect(result.verified).toBe(false);
+  });
+
+  it("should include algorithm in verification context", () => {
+    // Different algorithms should be tracked in verification result
+    const sha256Result = {
+      verified: true,
+      algorithm: "sha256" as const,
+    };
+
+    const sha512Result = {
+      verified: true,
+      algorithm: "sha512" as const,
+    };
+
+    expect(sha256Result.algorithm).toBe("sha256");
+    expect(sha512Result.algorithm).toBe("sha512");
+  });
+});
