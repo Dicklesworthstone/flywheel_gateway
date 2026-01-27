@@ -487,7 +487,7 @@ describe("mock runner patterns", () => {
 
     const result = await runner.run("test", []);
     expect(result.stdoutTruncated).toBe(true);
-    expect(result.stderrTruncated).toBeUndefined(); // false becomes undefined
+    expect(result.stderrTruncated).toBe(false);
   });
 
   test("mock runner with timeout flag", async () => {
