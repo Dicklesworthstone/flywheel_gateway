@@ -76,6 +76,11 @@ import {
   type CMCommandRunner,
   type CMCommandResult,
 } from "../cm";
+import {
+  createRuClient,
+  type RuCommandRunner,
+  type RuCommandResult,
+} from "../ru";
 
 // ============================================================================
 // Fixture Factory: Creates a stub runner that returns predefined JSON
@@ -1098,6 +1103,91 @@ const SCHEMA_FIXTURES = {
       recorded: 3,
     }),
   },
+
+  // -------------------------------------------------------------------------
+  // ru (Repo Updater)
+  // -------------------------------------------------------------------------
+  ru: {
+    version: JSON.stringify({
+      version: "0.12.0",
+      commit: "abc123def",
+      date: "2026-01-15",
+    }),
+    status: JSON.stringify({
+      repos: 25,
+      cloned: 22,
+      dirty: 3,
+      synced: 19,
+      last_sync: "2026-01-27T10:00:00Z",
+    }),
+    list: JSON.stringify([
+      {
+        name: "flywheel_gateway",
+        fullName: "owner/flywheel_gateway",
+        path: "/data/projects/flywheel_gateway",
+        remote: "git@github.com:owner/flywheel_gateway.git",
+        branch: "main",
+        commit: "abc123",
+        dirty: false,
+        cloned: true,
+        group: "primary",
+        lastSync: "2026-01-27T10:00:00Z",
+      },
+      {
+        name: "smartedgar_mcp",
+        fullName: "owner/smartedgar_mcp",
+        path: "/data/projects/smartedgar_mcp",
+        remote: "git@github.com:owner/smartedgar_mcp.git",
+        branch: "main",
+        commit: "def456",
+        dirty: true,
+        cloned: true,
+        group: "secondary",
+        lastSync: "2026-01-26T15:00:00Z",
+      },
+    ]),
+    sync: JSON.stringify({
+      success: true,
+      repo: "owner/flywheel_gateway",
+      commit: "abc123def456",
+      commits: 3,
+      files: 12,
+      message: "Sync completed successfully",
+    }),
+    sweepPhase1: JSON.stringify({
+      phase: "phase1",
+      success: true,
+      repo: "owner/flywheel_gateway",
+      message: "Analysis complete",
+      actions: [
+        { type: "update_deps", count: 5 },
+        { type: "fix_lint", count: 12 },
+      ],
+      duration_ms: 45000,
+    }),
+    sweepPhase2: JSON.stringify({
+      phase: "phase2",
+      success: true,
+      repo: "owner/flywheel_gateway",
+      message: "Plan generated",
+      plan: {
+        actions: [
+          { type: "commit", message: "Update dependencies" },
+          { type: "pr", title: "Automated maintenance" },
+        ],
+        estimated_duration_ms: 30000,
+        risk_level: "low",
+      },
+      duration_ms: 120000,
+    }),
+    sweepPhase3: JSON.stringify({
+      phase: "phase3",
+      success: true,
+      repo: "owner/flywheel_gateway",
+      message: "Execution complete",
+      duration_ms: 25000,
+    }),
+  },
 };
 
 // ============================================================================
@@ -1401,6 +1491,61 @@ describe("cm Schema Snapshots", () => {
     const runner = createFixtureRunner<CMCommandResult>(SCHEMA_FIXTURES.cm.outcome);
     const client = createCMClient({ runner: runner as CMCommandRunner });
     const result = await client.outcome("success", ["rule-001", "rule-002"]);
+    expect(result).toMatchSnapshot();
+  });
+});
+
+// ============================================================================
+// ru (Repo Updater) Schema Snapshot Tests
+// ============================================================================
+
+describe("ru Schema Snapshots", () => {
+  test("version shape matches snapshot", async () => {
+    const runner = createFixtureRunner<RuCommandResult>(SCHEMA_FIXTURES.ru.version);
+    const client = createRuClient({ runner: runner as RuCommandRunner });
+    const result = await client.version();
+    expect(result).toMatchSnapshot();
+  });
+
+  test("status shape matches snapshot", async () => {
+    const runner = createFixtureRunner<RuCommandResult>(SCHEMA_FIXTURES.ru.status);
+    const client = createRuClient({ runner: runner as RuCommandRunner });
+    const result = await client.status();
+    expect(result).toMatchSnapshot();
+  });
+
+  test("list shape matches snapshot", async () => {
+    const runner = createFixtureRunner<RuCommandResult>(SCHEMA_FIXTURES.ru.list);
+    const client = createRuClient({ runner: runner as RuCommandRunner });
+    const result = await client.list();
+    expect(result).toMatchSnapshot();
+  });
+
+  test("sync shape matches snapshot", async () => {
+    const runner = createFixtureRunner<RuCommandResult>(SCHEMA_FIXTURES.ru.sync);
+    const client = createRuClient({ runner: runner as RuCommandRunner });
+    const result = await client.sync("owner/flywheel_gateway");
+    expect(result).toMatchSnapshot();
+  });
+
+  test("sweep phase1 shape matches snapshot", async () => {
+    const runner = createFixtureRunner<RuCommandResult>(SCHEMA_FIXTURES.ru.sweepPhase1);
+    const client = createRuClient({ runner: runner as RuCommandRunner });
+    const result = await client.sweepPhase1("owner/flywheel_gateway");
+    expect(result).toMatchSnapshot();
+  });
+
+  test("sweep phase2 shape matches snapshot", async () => {
+    const runner = createFixtureRunner<RuCommandResult>(SCHEMA_FIXTURES.ru.sweepPhase2);
+    const client = createRuClient({ runner: runner as RuCommandRunner });
+    const result = await client.sweepPhase2("owner/flywheel_gateway");
+    expect(result).toMatchSnapshot();
+  });
+
+  test("sweep phase3 shape matches snapshot", async () => {
+    const runner = createFixtureRunner<RuCommandResult>(SCHEMA_FIXTURES.ru.sweepPhase3);
+    const client = createRuClient({ runner: runner as RuCommandRunner });
+    const result = await client.sweepPhase3("owner/flywheel_gateway", "/path/to/plan.json");
     expect(result).toMatchSnapshot();
   });
 });

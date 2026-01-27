@@ -1189,3 +1189,115 @@ exports[`cm Schema Snapshots outcome shape matches snapshot 1`] = `
   "success": true,
 }
 `;
+
+exports[`ru Schema Snapshots version shape matches snapshot 1`] = `
+{
+  "commit": "abc123def",
+  "date": "2026-01-15",
+  "version": "0.12.0",
+}
+`;
+
+exports[`ru Schema Snapshots status shape matches snapshot 1`] = `
+{
+  "cloned": 22,
+  "dirty": 3,
+  "last_sync": "2026-01-27T10:00:00Z",
+  "repos": 25,
+  "synced": 19,
+}
+`;
+
+exports[`ru Schema Snapshots list shape matches snapshot 1`] = `
+[
+  {
+    "branch": "main",
+    "cloned": true,
+    "commit": "abc123",
+    "dirty": false,
+    "fullName": "owner/flywheel_gateway",
+    "group": "primary",
+    "lastSync": "2026-01-27T10:00:00Z",
+    "name": "flywheel_gateway",
+    "path": "/data/projects/flywheel_gateway",
+    "remote": "git@github.com:owner/flywheel_gateway.git",
+  },
+  {
+    "branch": "main",
+    "cloned": true,
+    "commit": "def456",
+    "dirty": true,
+    "fullName": "owner/smartedgar_mcp",
+    "group": "secondary",
+    "lastSync": "2026-01-26T15:00:00Z",
+    "name": "smartedgar_mcp",
+    "path": "/data/projects/smartedgar_mcp",
+    "remote": "git@github.com:owner/smartedgar_mcp.git",
+  },
+]
+`;
+
+exports[`ru Schema Snapshots sync shape matches snapshot 1`] = `
+{
+  "commit": "abc123def456",
+  "commits": 3,
+  "files": 12,
+  "message": "Sync completed successfully",
+  "repo": "owner/flywheel_gateway",
+  "success": true,
+}
+`;
+
+exports[`ru Schema Snapshots sweep phase1 shape matches snapshot 1`] = `
+{
+  "actions": [
+    {
+      "count": 5,
+      "type": "update_deps",
+    },
+    {
+      "count": 12,
+      "type": "fix_lint",
+    },
+  ],
+  "duration_ms": 45000,
+  "message": "Analysis complete",
+  "phase": "phase1",
+  "repo": "owner/flywheel_gateway",
+  "success": true,
+}
+`;
+
+exports[`ru Schema Snapshots sweep phase2 shape matches snapshot 1`] = `
+{
+  "duration_ms": 120000,
+  "message": "Plan generated",
+  "phase": "phase2",
+  "plan": {
+    "actions": [
+      {
+        "message": "Update dependencies",
+        "type": "commit",
+      },
+      {
+        "title": "Automated maintenance",
+        "type": "pr",
+      },
+    ],
+    "estimated_duration_ms": 30000,
+    "risk_level": "low",
+  },
+  "repo": "owner/flywheel_gateway",
+  "success": true,
+}
+`;
+
+exports[`ru Schema Snapshots sweep phase3 shape matches snapshot 1`] = `
+{
+  "duration_ms": 25000,
+  "message": "Execution complete",
+  "phase": "phase3",
+  "repo": "owner/flywheel_gateway",
+  "success": true,
+}
+`;
