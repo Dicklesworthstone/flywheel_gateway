@@ -687,6 +687,50 @@ async function getRegistryDefinitions(): Promise<{
 // Default limits for safe execution
 const DEFAULT_CHECK_TIMEOUT_MS = 5000;
 const DEFAULT_OUTPUT_CAP_BYTES = 4096;
+const MAX_SAFE_OUTPUT_BYTES = 1024 * 1024; // 1MB limit for internal checks
+
+async function readStreamSafe(
+  stream: ReadableStream<Uint8Array>,
+  maxBytes: number,
+): Promise<string> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let content = "";
+  let totalBytes = 0;
+  const drainLimit = maxBytes * 5;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      totalBytes += value.length;
+
+      if (content.length < maxBytes) {
+        content += decoder.decode(value, { stream: true });
+      }
+
+      if (totalBytes > drainLimit) {
+        await reader.cancel();
+        break;
+      }
+    }
+  } catch {
+    // Ignore errors
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (content.length < maxBytes) {
+    content += decoder.decode();
+  }
+
+  if (content.length > maxBytes) {
+    content = content.slice(0, maxBytes);
+  }
+
+  return content;
+}
 
 /**
  * Environment variables considered safe to pass to spawned processes.
