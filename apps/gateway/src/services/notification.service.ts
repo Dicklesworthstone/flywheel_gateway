@@ -194,9 +194,9 @@ async function sendEmailNotification(
   }
 
   // TODO: Integrate with Resend or other email provider
-  log.info(
+  log.warn(
     { notificationId: notification.id, email, title: notification.title },
-    "[NOTIFY] Email channel: would send email",
+    "[NOTIFY] Email channel: SIMULATION - would send email (provider not configured)",
   );
   return true;
 }
@@ -220,9 +220,9 @@ async function sendSlackNotification(
   }
 
   // TODO: Send to Slack webhook
-  log.info(
+  log.warn(
     { notificationId: notification.id, title: notification.title },
-    "[NOTIFY] Slack channel: would send to Slack",
+    "[NOTIFY] Slack channel: SIMULATION - would send to Slack (provider not configured)",
   );
   return true;
 }
@@ -246,13 +246,13 @@ async function sendWebhookNotification(
   }
 
   // TODO: Send to webhook with HMAC signature
-  log.info(
+  log.warn(
     {
       notificationId: notification.id,
       url: webhookUrl,
       title: notification.title,
     },
-    "[NOTIFY] Webhook channel: would POST to webhook",
+    "[NOTIFY] Webhook channel: SIMULATION - would POST to webhook",
   );
   return true;
 }
