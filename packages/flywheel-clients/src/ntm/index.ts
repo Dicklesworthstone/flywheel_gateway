@@ -777,6 +777,7 @@ export function createNtmClient(options: NtmClientOptions): NtmClient {
     isAvailable: async () => {
       try {
         const runOpts = buildRunOptions(5000);
+        // --version is a standard flag that should exit 0
         const result = await options.runner.run("ntm", ["--version"], runOpts);
         return result.exitCode === 0;
       } catch {

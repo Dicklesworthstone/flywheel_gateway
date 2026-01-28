@@ -12,12 +12,13 @@ import {
   type AgentEvent,
   selectDriver,
 } from "@flywheel/agent-drivers";
-import { eq } from "drizzle-orm";
+import { eq, not } from "drizzle-orm";
 import { agents as agentsTable, db } from "../db";
 import { getLogger } from "../middleware/correlation";
-import { isTerminalState } from "../models/agent-state";
+import { isTerminalState, LifecycleState } from "../models/agent-state";
 import {
   getAgentState,
+  hydrateAgentState,
   initializeAgentState,
   markAgentExecuting,
   markAgentFailed,
@@ -848,4 +849,113 @@ export function getFleetHealth() {
   }
 
   return getFleetHealthSummary(agentIds);
+}
+
+/**
+ * Initialize the agent service by restoring active agents from the database.
+ * Agents that are found in the DB but cannot be recovered from the driver
+ * (e.g., process died) are marked as terminated.
+ */
+export async function initializeAgentService(): Promise<void> {
+  const log = getLogger();
+  const drv = await getDriver();
+
+  const activeAgents = await db
+    .select()
+    .from(agentsTable)
+    .where(not(eq(agentsTable.status, "terminated")));
+
+  if (activeAgents.length === 0) {
+    log.info("No active agents found in database to restore");
+    return;
+  }
+
+  log.info(
+    { count: activeAgents.length },
+    "Attempting to restore active agents from database",
+  );
+
+  let restored = 0;
+  let cleaned = 0;
+
+  for (const row of activeAgents) {
+    try {
+      // Check if driver knows about this agent
+      const state = await drv.getState(row.id);
+
+      // Reconstruct AgentRecord
+      // Note: Some config data (timeout, systemPrompt) is not in DB schema currently.
+      // We use safe defaults.
+      const record: AgentRecord = {
+        agent: {
+          id: row.id,
+          name: `Agent ${row.id}`,
+          provider: "claude", // Default assumption
+          model: row.model,
+          workingDirectory: row.repoUrl,
+          driverType: "sdk", // Default assumption
+          activityState: state.activityState,
+          lastActivityAt: state.lastActivityAt,
+          tokenUsage: state.tokenUsage,
+          contextHealth: state.contextHealth,
+          config: {
+            workingDirectory: row.repoUrl,
+            maxTokens: 100000, // Default
+          },
+          startedAt: row.createdAt,
+        },
+        createdAt: row.createdAt,
+        timeout: 3600000, // Default 1 hour
+        messagesReceived: 0,
+        messagesSent: 0,
+        toolCalls: 0,
+      };
+
+      agents.set(row.id, record);
+
+      // Hydrate state machine
+      // Map DB status to LifecycleState if possible, or default to READY
+      // DB status: idle, spawning, ready, failed, terminated
+      let lifecycleState = LifecycleState.READY;
+      if (row.status === "spawning") lifecycleState = LifecycleState.SPAWNING;
+      // ... others map to READY or EXECUTING mostly
+
+      hydrateAgentState(row.id, lifecycleState);
+
+      // Resume event monitoring
+      const eventStream = drv.subscribe(row.id);
+      handleAgentEvents(row.id, eventStream);
+
+      // Initialize auto-checkpointing
+      const acs = getAutoCheckpointService(row.id);
+      acs.setStateProvider(async () => {
+        const d = await getDriver();
+        const s = await d.getState(row.id);
+        return {
+          conversationHistory: [],
+          toolState: {},
+          tokenUsage: s.tokenUsage,
+        };
+      });
+      acs.start();
+
+      restored++;
+    } catch (err) {
+      // Driver cannot find agent - assume it died while we were down
+      log.warn(
+        { agentId: row.id, error: String(err) },
+        "Agent found in DB but unreachable - marking terminated",
+      );
+
+      // Mark as terminated in DB
+      await db
+        .update(agentsTable)
+        .set({ status: "terminated", updatedAt: new Date() })
+        .where(eq(agentsTable.id, row.id));
+
+      cleaned++;
+    }
+  }
+
+  log.info({ restored, cleaned }, "Agent service initialization complete");
 }

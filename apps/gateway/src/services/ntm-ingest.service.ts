@@ -661,13 +661,13 @@ export class NtmIngestService {
     const log = getLogger();
 
     try {
-      const agentRecord = getAgentState(agentId);
+      let agentRecord = getAgentState(agentId);
       if (!agentRecord) {
         // Agent not in state machine - initialize it
-        initializeAgentState(agentId);
+        agentRecord = initializeAgentState(agentId);
       }
 
-      const currentState = agentRecord?.currentState;
+      const currentState = agentRecord.currentState;
       const targetState = mapNtmStateToLifecycle(newNtmState, currentState);
 
       if (targetState && targetState !== currentState) {

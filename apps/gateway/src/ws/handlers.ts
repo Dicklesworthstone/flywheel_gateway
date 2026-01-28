@@ -55,6 +55,17 @@ export function handleWSOpen(ws: ServerWebSocket<ConnectionData>): void {
     for (const [channelStr, cursor] of initialSubs) {
       const channel = parseChannel(channelStr);
       if (channel) {
+        // Enforce authorization even for system-assigned subscriptions
+        // This prevents unauthorized access via URL parameters (e.g. /agents/:id/ws)
+        const authResult = canSubscribe(ws.data.auth, channel);
+        if (!authResult.allowed) {
+          logger.warn(
+            { connectionId, channel: channelStr, reason: authResult.reason },
+            "Skipping unauthorized initial subscription",
+          );
+          continue;
+        }
+
         const result = hub.subscribe(connectionId, channel, cursor);
 
         // Send missed messages immediately

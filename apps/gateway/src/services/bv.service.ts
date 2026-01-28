@@ -79,6 +79,11 @@ async function readStreamSafe(
     reader.releaseLock();
   }
 
+  // Flush any remaining bytes
+  if (content.length < maxBytes) {
+    content += decoder.decode();
+  }
+
   return content.length > maxBytes ? content.slice(0, maxBytes) : content;
 }
 

@@ -231,8 +231,8 @@ export interface NtmWsBridgeConfig {
  * Tracks output state for an agent to avoid duplicate streaming.
  */
 interface OutputState {
-  /** Last line count seen */
-  lastLineCount: number;
+  /** Last lines seen (for overlap detection) */
+  lastLines: string[];
   /** Hash of last content to detect changes */
   lastContentHash: string;
 }
@@ -656,20 +656,62 @@ export class NtmWsBridgeService {
         continue;
       }
 
-      // Calculate new content (delta if we have previous state)
-      let newContent: string;
-      if (outputState && paneOutput.lines.length > outputState.lastLineCount) {
-        // Get only the new lines
-        const newLines = paneOutput.lines.slice(outputState.lastLineCount);
-        newContent = newLines.join("\n");
+      // Calculate new content using overlap detection
+      let newContent = "";
+
+      if (outputState) {
+        const oldLines = outputState.lastLines;
+        const newLines = paneOutput.lines;
+
+        // Check for overlap to find new lines
+        // 1. Simple case: new lines appended (buffer not full)
+        if (
+          newLines.length > oldLines.length &&
+          newLines.slice(0, oldLines.length).every((l, i) => l === oldLines[i])
+        ) {
+          newContent = newLines.slice(oldLines.length).join("\n");
+        } else {
+          // 2. Rolling buffer case: find suffix of old that matches prefix of new
+          let overlapSize = 0;
+          const maxOverlap = Math.min(oldLines.length, newLines.length);
+
+          // Optimization: start checking from 1 line overlap up to max?
+          // Or max down to 1? Max down to 1 prefers largest overlap (safest against repeating patterns)
+          for (let i = maxOverlap; i > 0; i--) {
+            // Check if suffix of old matches prefix of new
+            const oldSuffix = oldLines.slice(oldLines.length - i);
+            const newPrefix = newLines.slice(0, i);
+
+            // Array equality check
+            let match = true;
+            for (let k = 0; k < i; k++) {
+              if (oldSuffix[k] !== newPrefix[k]) {
+                match = false;
+                break;
+              }
+            }
+
+            if (match) {
+              overlapSize = i;
+              break;
+            }
+          }
+
+          if (overlapSize > 0) {
+            newContent = newLines.slice(overlapSize).join("\n");
+          } else {
+            // No overlap - completely new content or disjoint buffer
+            newContent = content;
+          }
+        }
       } else {
-        // First time seeing this agent or lines were truncated - send all
+        // First time seeing this agent
         newContent = content;
       }
 
       // Update state
       this.outputStates.set(agent.pane, {
-        lastLineCount: paneOutput.lines.length,
+        lastLines: paneOutput.lines,
         lastContentHash: contentHash,
       });
 

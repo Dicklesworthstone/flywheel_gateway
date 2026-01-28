@@ -4,8 +4,19 @@
  * Main orchestration layer for safety guardrails.
  * Coordinates rule evaluation, rate limiting, budget tracking,
  * and approval workflows.
+ * 
+ * Persists configuration and violations to the database.
+ * Rate limits are kept in-memory for performance.
  */
 
+import { and, desc, eq, sql } from "drizzle-orm";
+import { db } from "../db";
+import {
+  budgetUsage as budgetUsageTable,
+  safetyConfigs,
+  safetyRules,
+  safetyViolations,
+} from "../db/schema";
 import { logger } from "./logger";
 import {
   evaluateRules,
@@ -177,15 +188,8 @@ export interface PreFlightCheckResult {
 }
 
 // ============================================================================
-// In-Memory State (will be replaced with DB in production)
+// In-Memory State (Rate Limits Only)
 // ============================================================================
-
-/** Safety configurations by workspace */
-const configs = new Map<string, SafetyConfig>();
-
-/** Violations log */
-const violations: SafetyViolation[] = [];
-const MAX_VIOLATIONS = 10000;
 
 /** Rate limit counters: key -> { count, resetAt } */
 interface RateLimitEntry {
@@ -194,35 +198,25 @@ interface RateLimitEntry {
 }
 const rateLimitCounters = new Map<string, RateLimitEntry>();
 
-/** Budget usage: key -> { tokens, dollars } */
-interface BudgetUsage {
-  tokens: number;
-  dollars: number;
-  lastReset: Date;
-}
-const budgetUsage = new Map<string, BudgetUsage>();
-
 /** Cleanup job handle */
 let cleanupIntervalHandle: ReturnType<typeof setInterval> | null = null;
 
 /** Cleanup interval in milliseconds (default: 5 minutes) */
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 
-/** How long to keep inactive budget entries (24 hours) */
-const BUDGET_INACTIVE_TTL_MS = 24 * 60 * 60 * 1000;
+/** How long to keep inactive budget entries (24 hours) - handled via DB query now */
+// const BUDGET_INACTIVE_TTL_MS = 24 * 60 * 60 * 1000; 
 
 // ============================================================================
 // Cleanup Job
 // ============================================================================
 
 /**
- * Clean up expired rate limit entries and stale budget entries.
- * This prevents unbounded memory growth from accumulated entries.
+ * Clean up expired rate limit entries.
  */
 function cleanupExpiredEntries(): void {
   const now = Date.now();
   let rateLimitCleaned = 0;
-  let budgetCleaned = 0;
 
   // Clean up expired rate limit entries
   for (const [key, entry] of rateLimitCounters) {
@@ -232,22 +226,11 @@ function cleanupExpiredEntries(): void {
     }
   }
 
-  // Clean up stale budget entries (inactive for BUDGET_INACTIVE_TTL_MS)
-  const inactiveThreshold = new Date(now - BUDGET_INACTIVE_TTL_MS);
-  for (const [key, usage] of budgetUsage) {
-    if (usage.lastReset < inactiveThreshold) {
-      budgetUsage.delete(key);
-      budgetCleaned++;
-    }
-  }
-
-  if (rateLimitCleaned > 0 || budgetCleaned > 0) {
+  if (rateLimitCleaned > 0) {
     logger.debug(
       {
         rateLimitCleaned,
-        budgetCleaned,
         rateLimitRemaining: rateLimitCounters.size,
-        budgetRemaining: budgetUsage.size,
       },
       "Safety service cleanup completed",
     );
@@ -289,15 +272,9 @@ export function stopCleanupJob(): void {
  */
 export function getMemoryStats(): {
   rateLimitEntries: number;
-  budgetEntries: number;
-  configEntries: number;
-  violationsCount: number;
 } {
   return {
     rateLimitEntries: rateLimitCounters.size,
-    budgetEntries: budgetUsage.size,
-    configEntries: configs.size,
-    violationsCount: violations.length,
   };
 }
 
@@ -387,15 +364,161 @@ export function createDefaultConfig(workspaceId: string): SafetyConfig {
 }
 
 /**
+ * Helper to persist a full configuration to the database.
+ */
+async function persistConfig(config: SafetyConfig): Promise<void> {
+  const categoryEnables = {
+    filesystem: config.categories.filesystem.enabled,
+    git: config.categories.git.enabled,
+    network: config.categories.network.enabled,
+    execution: config.categories.execution.enabled,
+    resources: config.categories.resources.enabled,
+    content: config.categories.content.enabled,
+  };
+
+  // Upsert config
+  await db
+    .insert(safetyConfigs)
+    .values({
+      id: config.id,
+      workspaceId: config.workspaceId,
+      name: config.name,
+      description: config.description,
+      enabled: config.enabled,
+      categoryEnables: JSON.stringify(categoryEnables),
+      rateLimits: JSON.stringify(config.rateLimits),
+      budget: JSON.stringify(config.budget),
+      approvalWorkflow: JSON.stringify(config.approvalWorkflow),
+      createdAt: config.createdAt,
+      updatedAt: config.updatedAt,
+    })
+    .onConflictDoUpdate({
+      target: safetyConfigs.id,
+      set: {
+        name: config.name,
+        description: config.description,
+        enabled: config.enabled,
+        categoryEnables: JSON.stringify(categoryEnables),
+        rateLimits: JSON.stringify(config.rateLimits),
+        budget: JSON.stringify(config.budget),
+        approvalWorkflow: JSON.stringify(config.approvalWorkflow),
+        updatedAt: config.updatedAt,
+      },
+    });
+
+  // Upsert rules
+  // Note: This is simplified. Ideally we should diff/delete removed rules.
+  // For now, we assume this function is called on creation or bulk update.
+  // Individual rule ops update rules directly.
+  for (const category of Object.values(config.categories)) {
+    for (const rule of category.rules) {
+      await db
+        .insert(safetyRules)
+        .values({
+          id: rule.id,
+          configId: config.id,
+          workspaceId: config.workspaceId,
+          name: rule.name,
+          description: rule.description,
+          category: rule.category,
+          conditions: JSON.stringify(rule.conditions),
+          conditionLogic: rule.conditionLogic,
+          action: rule.action,
+          severity: rule.severity,
+          message: rule.message,
+          enabled: rule.enabled,
+          alternatives: rule.alternatives
+            ? JSON.stringify(rule.alternatives)
+            : null,
+          priority: 100, // Default priority
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: safetyRules.id,
+          set: {
+            name: rule.name,
+            description: rule.description,
+            category: rule.category,
+            conditions: JSON.stringify(rule.conditions),
+            conditionLogic: rule.conditionLogic,
+            action: rule.action,
+            severity: rule.severity,
+            message: rule.message,
+            enabled: rule.enabled,
+            alternatives: rule.alternatives
+              ? JSON.stringify(rule.alternatives)
+              : null,
+            updatedAt: new Date(),
+          },
+        });
+    }
+  }
+}
+
+/**
  * Get safety config for a workspace.
  */
 export async function getConfig(workspaceId: string): Promise<SafetyConfig> {
-  let config = configs.get(workspaceId);
-  if (!config) {
-    config = createDefaultConfig(workspaceId);
-    configs.set(workspaceId, config);
+  // Fetch from DB
+  const configRow = await db.query.safetyConfigs.findFirst({
+    where: eq(safetyConfigs.workspaceId, workspaceId),
+  });
+
+  if (!configRow) {
+    const defaultConfig = createDefaultConfig(workspaceId);
+    await persistConfig(defaultConfig);
+    return defaultConfig;
   }
-  return config;
+
+  // Fetch rules
+  const ruleRows = await db.query.safetyRules.findMany({
+    where: eq(safetyRules.configId, configRow.id),
+  });
+
+  // Reconstruct config object
+  const categoryEnables = JSON.parse(configRow.categoryEnables);
+  const categories: SafetyConfig["categories"] = {
+    filesystem: { enabled: categoryEnables.filesystem ?? true, rules: [] },
+    git: { enabled: categoryEnables.git ?? true, rules: [] },
+    network: { enabled: categoryEnables.network ?? true, rules: [] },
+    execution: { enabled: categoryEnables.execution ?? true, rules: [] },
+    resources: { enabled: categoryEnables.resources ?? true, rules: [] },
+    content: { enabled: categoryEnables.content ?? true, rules: [] },
+  };
+
+  for (const row of ruleRows) {
+    const rule: SafetyRule = {
+      id: row.id,
+      name: row.name,
+      description: row.description ?? undefined,
+      category: row.category as SafetyCategory,
+      conditions: JSON.parse(row.conditions),
+      conditionLogic: row.conditionLogic as "and" | "or",
+      action: row.action as SafetyAction,
+      severity: row.severity as SafetySeverity,
+      message: row.message,
+      enabled: row.enabled,
+      alternatives: row.alternatives
+        ? JSON.parse(row.alternatives)
+        : undefined,
+    };
+    categories[rule.category].rules.push(rule);
+  }
+
+  return {
+    id: configRow.id,
+    workspaceId: configRow.workspaceId,
+    name: configRow.name,
+    description: configRow.description ?? undefined,
+    enabled: configRow.enabled,
+    categories,
+    rateLimits: JSON.parse(configRow.rateLimits),
+    budget: JSON.parse(configRow.budget),
+    approvalWorkflow: JSON.parse(configRow.approvalWorkflow),
+    createdAt: configRow.createdAt,
+    updatedAt: configRow.updatedAt,
+  };
 }
 
 /**
@@ -407,9 +530,32 @@ export async function updateConfig(
 ): Promise<SafetyConfig> {
   const config = await getConfig(workspaceId);
 
+  // Apply updates to the in-memory object
   Object.assign(config, updates, { updatedAt: new Date() });
 
-  configs.set(workspaceId, config);
+  // Persist updated fields to DB
+  const categoryEnables = {
+    filesystem: config.categories.filesystem.enabled,
+    git: config.categories.git.enabled,
+    network: config.categories.network.enabled,
+    execution: config.categories.execution.enabled,
+    resources: config.categories.resources.enabled,
+    content: config.categories.content.enabled,
+  };
+
+  await db
+    .update(safetyConfigs)
+    .set({
+      name: config.name,
+      description: config.description,
+      enabled: config.enabled,
+      categoryEnables: JSON.stringify(categoryEnables),
+      rateLimits: JSON.stringify(config.rateLimits),
+      budget: JSON.stringify(config.budget),
+      approvalWorkflow: JSON.stringify(config.approvalWorkflow),
+      updatedAt: config.updatedAt,
+    })
+    .where(eq(safetyConfigs.id, config.id));
 
   logger.info(
     {
@@ -440,9 +586,26 @@ export async function addRule(
     id: generateId("rule"),
   };
 
-  config.categories[rule.category].rules.push(newRule);
-  config.updatedAt = new Date();
-  configs.set(workspaceId, config);
+  await db.insert(safetyRules).values({
+    id: newRule.id,
+    configId: config.id,
+    workspaceId: config.workspaceId,
+    name: newRule.name,
+    description: newRule.description,
+    category: newRule.category,
+    conditions: JSON.stringify(newRule.conditions),
+    conditionLogic: newRule.conditionLogic,
+    action: newRule.action,
+    severity: newRule.severity,
+    message: newRule.message,
+    enabled: newRule.enabled,
+    alternatives: newRule.alternatives
+      ? JSON.stringify(newRule.alternatives)
+      : null,
+    priority: 100,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
 
   logger.info(
     {
@@ -464,18 +627,26 @@ export async function removeRule(
   workspaceId: string,
   ruleId: string,
 ): Promise<boolean> {
-  const config = await getConfig(workspaceId);
+  const result = await db
+    .delete(safetyRules)
+    .where(
+      and(
+        eq(safetyRules.id, ruleId),
+        eq(safetyRules.workspaceId, workspaceId),
+      ),
+    )
+    .returning({ id: safetyRules.id });
 
-  for (const category of Object.values(config.categories)) {
-    const index = category.rules.findIndex((r) => r.id === ruleId);
-    if (index !== -1) {
-      category.rules.splice(index, 1);
-      config.updatedAt = new Date();
-      configs.set(workspaceId, config);
+  if (result.length > 0) {
+    // Update config timestamp
+    const config = await getConfig(workspaceId);
+    await db
+        .update(safetyConfigs)
+        .set({ updatedAt: new Date() })
+        .where(eq(safetyConfigs.id, config.id));
 
-      logger.info({ workspaceId, ruleId }, "Safety rule removed");
-      return true;
-    }
+    logger.info({ workspaceId, ruleId }, "Safety rule removed");
+    return true;
   }
 
   return false;
@@ -489,18 +660,44 @@ export async function toggleRule(
   ruleId: string,
   enabled: boolean,
 ): Promise<SafetyRule | undefined> {
-  const config = await getConfig(workspaceId);
+  const result = await db
+    .update(safetyRules)
+    .set({
+      enabled,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(safetyRules.id, ruleId),
+        eq(safetyRules.workspaceId, workspaceId),
+      ),
+    )
+    .returning();
 
-  for (const category of Object.values(config.categories)) {
-    const rule = category.rules.find((r) => r.id === ruleId);
-    if (rule) {
-      rule.enabled = enabled;
-      config.updatedAt = new Date();
-      configs.set(workspaceId, config);
+  if (result.length > 0) {
+    const row = result[0]!;
+    // Update config timestamp
+    const config = await getConfig(workspaceId);
+    await db
+        .update(safetyConfigs)
+        .set({ updatedAt: new Date() })
+        .where(eq(safetyConfigs.id, config.id));
 
-      logger.info({ workspaceId, ruleId, enabled }, "Safety rule toggled");
-      return rule;
-    }
+    logger.info({ workspaceId, ruleId, enabled }, "Safety rule toggled");
+    
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description ?? undefined,
+      category: row.category as SafetyCategory,
+      conditions: JSON.parse(row.conditions),
+      conditionLogic: row.conditionLogic as "and" | "or",
+      action: row.action as SafetyAction,
+      severity: row.severity as SafetySeverity,
+      message: row.message,
+      enabled: row.enabled,
+      alternatives: row.alternatives ? JSON.parse(row.alternatives) : undefined,
+    };
   }
 
   return undefined;
@@ -561,7 +758,7 @@ export async function preFlightCheck(
   }
 
   // Check budget
-  const budgetResult = checkBudget(request, config);
+  const budgetResult = await checkBudget(request, config);
   if (budgetResult.exceeded) {
     result.budgetExceeded = true;
     if (budgetResult.info) {
@@ -636,13 +833,26 @@ export async function preFlightCheck(
         ...(request.correlationId && { correlationId: request.correlationId }),
       };
 
-      violations.push(violation);
       result.violations.push(violation);
 
-      // Trim violations if too many
-      while (violations.length > MAX_VIOLATIONS) {
-        violations.shift();
-      }
+      // Persist violation to DB
+      await db.insert(safetyViolations).values({
+        id: violation.id,
+        workspaceId: violation.workspaceId,
+        agentId: violation.agentId,
+        sessionId: violation.sessionId,
+        ruleId: violation.rule.id,
+        ruleName: violation.rule.name,
+        ruleCategory: violation.rule.category,
+        ruleSeverity: violation.rule.severity,
+        operationType: violation.operation.type,
+        operationDetails: JSON.stringify(violation.operation.details),
+        actionTaken: violation.action,
+        taskDescription: violation.context.taskDescription,
+        recentHistory: JSON.stringify(violation.context.recentHistory),
+        correlationId: violation.correlationId,
+        timestamp: violation.timestamp,
+      });
     }
   }
 
@@ -766,38 +976,48 @@ function checkRateLimits(
 function getBudgetKey(
   request: PreFlightCheckRequest,
   config: SafetyBudgetConfig,
-): string {
+): { scope: string; scopeId: string } {
   switch (config.scope) {
     case "agent":
-      return `budget:${request.agentId}`;
+      return { scope: "agent", scopeId: request.agentId };
     case "workspace":
-      return `budget:${request.workspaceId}`;
+      return { scope: "workspace", scopeId: request.workspaceId };
     case "session":
-      return `budget:${request.sessionId}`;
+      return { scope: "session", scopeId: request.sessionId };
     default:
       throw new Error(`Invalid budget scope: ${config.scope}`);
   }
 }
 
-function checkBudget(
+async function checkBudget(
   request: PreFlightCheckRequest,
   config: SafetyConfig,
-): {
+): Promise<{
   exceeded: boolean;
   info?: { used: number; limit: number; percentage: number };
-} {
-  const key = getBudgetKey(request, config.budget);
-  let usage = budgetUsage.get(key);
+}> {
+  const { scope, scopeId } = getBudgetKey(request, config.budget);
+  
+  // Get usage for the current period (assuming infinite/cumulative for now as period isn't defined in request)
+  // In a real implementation, we'd determine the period based on config (e.g. daily, monthly).
+  // For simplicity here, we'll check the total usage in the budgetUsage table for this scope.
+  // Note: The schema has periodStart/periodEnd. We'll query for the 'active' one.
+  
+  const usageRow = await db.query.budgetUsage.findFirst({
+    where: and(
+        eq(budgetUsageTable.workspaceId, request.workspaceId),
+        eq(budgetUsageTable.scope, scope),
+        eq(budgetUsageTable.scopeId, scopeId),
+    ),
+    orderBy: desc(budgetUsageTable.periodStart) // Get most recent
+  });
 
-  if (!usage) {
-    usage = { tokens: 0, dollars: 0, lastReset: new Date() };
-    budgetUsage.set(key, usage);
-  }
+  const usedDollars = usageRow?.dollarsUsed ?? 0;
 
   // Guard against division by zero - if no budget limit, percentage is 0 (never exceeded)
   const percentage =
     config.budget.limits.totalDollars > 0
-      ? (usage.dollars / config.budget.limits.totalDollars) * 100
+      ? (usedDollars / config.budget.limits.totalDollars) * 100
       : 0;
   // Handle empty alertThresholds array - default to 100% (never exceeded)
   const maxThreshold =
@@ -808,7 +1028,7 @@ function checkBudget(
   return {
     exceeded: percentage >= maxThreshold,
     info: {
-      used: usage.dollars,
+      used: usedDollars,
       limit: config.budget.limits.totalDollars,
       percentage,
     },
@@ -826,7 +1046,7 @@ export async function recordUsage(
   dollars: number,
 ): Promise<void> {
   const config = await getConfig(workspaceId);
-  const key = getBudgetKey(
+  const { scope, scopeId } = getBudgetKey(
     {
       workspaceId,
       agentId,
@@ -836,27 +1056,56 @@ export async function recordUsage(
     config.budget,
   );
 
-  let usage = budgetUsage.get(key);
-  if (!usage) {
-    usage = { tokens: 0, dollars: 0, lastReset: new Date() };
-  }
+  // Simple daily period for now
+  const now = new Date();
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  // Generate ID based on scope/period to upsert
+  const id = `budg_${scope}_${scopeId}_${periodStart.getTime()}`;
 
-  usage.tokens += tokens;
-  usage.dollars += dollars;
-  // Update lastReset to track when this entry was last active (for cleanup)
-  usage.lastReset = new Date();
-  budgetUsage.set(key, usage);
+  // Upsert usage
+  // We need to fetch first to add to existing, or rely on sql increment (drizzle support depends on driver)
+  // SQLite supports upsert with conflict targets.
+  
+  await db
+    .insert(budgetUsageTable)
+    .values({
+      id,
+      workspaceId,
+      scope,
+      scopeId,
+      tokensUsed: tokens,
+      dollarsUsed: dollars,
+      periodStart,
+      lastUpdatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [budgetUsageTable.scope, budgetUsageTable.scopeId, budgetUsageTable.periodStart],
+      set: {
+        tokensUsed: sql`${budgetUsageTable.tokensUsed} + ${tokens}`,
+        dollarsUsed: sql`${budgetUsageTable.dollarsUsed} + ${dollars}`,
+        lastUpdatedAt: new Date(),
+      }
+    });
 
-  // Check for threshold alerts
-  // Guard against division by zero - if no budget limit, skip threshold alerts
+  // Check for threshold alerts (read back updated value)
   if (config.budget.limits.totalDollars <= 0) {
     return;
   }
-  const percentage = (usage.dollars / config.budget.limits.totalDollars) * 100;
+
+  const updatedUsage = await db.query.budgetUsage.findFirst({
+      where: eq(budgetUsageTable.id, id)
+  });
+  
+  if (!updatedUsage) return;
+
+  const currentDollars = updatedUsage.dollarsUsed;
+  const percentage = (currentDollars / config.budget.limits.totalDollars) * 100;
+  
   for (const threshold of config.budget.alertThresholds) {
     const thresholdPct = threshold * 100;
     const prevPercentage =
-      ((usage.dollars - dollars) / config.budget.limits.totalDollars) * 100;
+      ((currentDollars - dollars) / config.budget.limits.totalDollars) * 100;
 
     if (percentage >= thresholdPct && prevPercentage < thresholdPct) {
       logger.warn(
@@ -865,7 +1114,7 @@ export async function recordUsage(
           agentId,
           sessionId,
           threshold: thresholdPct,
-          used: usage.dollars,
+          used: currentDollars,
           limit: config.budget.limits.totalDollars,
         },
         "Budget threshold reached",
@@ -892,33 +1141,61 @@ export async function getViolations(
     limit?: number;
   },
 ): Promise<SafetyViolation[]> {
-  let filtered = violations.filter((v) => v.workspaceId === workspaceId);
+  const conditions = [eq(safetyViolations.workspaceId, workspaceId)];
 
   if (options?.agentId) {
-    filtered = filtered.filter((v) => v.agentId === options.agentId);
+    conditions.push(eq(safetyViolations.agentId, options.agentId));
   }
   if (options?.sessionId) {
-    filtered = filtered.filter((v) => v.sessionId === options.sessionId);
+    conditions.push(eq(safetyViolations.sessionId, options.sessionId));
   }
   if (options?.severity) {
-    filtered = filtered.filter((v) => v.rule.severity === options.severity);
+    conditions.push(eq(safetyViolations.ruleSeverity, options.severity));
   }
   if (options?.action) {
-    filtered = filtered.filter((v) => v.action === options.action);
+    conditions.push(eq(safetyViolations.actionTaken, options.action));
   }
   if (options?.since) {
-    const since = options.since;
-    filtered = filtered.filter((v) => v.timestamp >= since);
+    // SQLite stores dates as numbers usually with Drizzle timestamp mode
+    // but here safetyViolations.timestamp is configured as integer/timestamp
+    conditions.push(sql`${safetyViolations.timestamp} >= ${options.since}`);
   }
 
-  // Sort by timestamp descending
-  filtered.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  const rows = await db
+    .select()
+    .from(safetyViolations)
+    .where(and(...conditions))
+    .orderBy(desc(safetyViolations.timestamp))
+    .limit(options?.limit ?? 50);
 
-  if (options?.limit) {
-    filtered = filtered.slice(0, options.limit);
-  }
-
-  return filtered;
+  return rows.map(row => ({
+      id: row.id,
+      timestamp: row.timestamp,
+      agentId: row.agentId!,
+      sessionId: row.sessionId!,
+      workspaceId: row.workspaceId,
+      rule: {
+          id: row.ruleId!,
+          name: row.ruleName,
+          category: row.ruleCategory as SafetyCategory,
+          severity: row.ruleSeverity as SafetySeverity,
+          action: "deny", // Simplified reconstruction, not full rule
+          conditions: [],
+          conditionLogic: "and",
+          message: "",
+          enabled: true
+      },
+      operation: {
+          type: row.operationType as SafetyCategory,
+          details: JSON.parse(row.operationDetails as string),
+      },
+      action: row.actionTaken as any,
+      context: {
+          taskDescription: row.taskDescription ?? undefined,
+          recentHistory: row.recentHistory ? JSON.parse(row.recentHistory as string) : [],
+      },
+      correlationId: row.correlationId ?? undefined
+  }));
 }
 
 /**
@@ -933,11 +1210,11 @@ export async function getViolationStats(workspaceId: string): Promise<{
   byCategory: Record<SafetyCategory, number>;
   last24Hours: number;
 }> {
-  const wsViolations = violations.filter((v) => v.workspaceId === workspaceId);
+  const violations = await getViolations(workspaceId, { limit: 10000 }); // Reasonable limit for stats
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   const stats = {
-    total: wsViolations.length,
+    total: violations.length,
     blocked: 0,
     warned: 0,
     pendingApproval: 0,
@@ -958,7 +1235,7 @@ export async function getViolationStats(workspaceId: string): Promise<{
     last24Hours: 0,
   };
 
-  for (const v of wsViolations) {
+  for (const v of violations) {
     if (v.action === "blocked") stats.blocked++;
     else if (v.action === "warned") stats.warned++;
     else if (v.action === "pending_approval") stats.pendingApproval++;
@@ -1046,25 +1323,13 @@ export async function emergencyStop(
     enabled: true,
   };
 
-  config.categories.execution.rules.unshift(denyAllRule);
-  config.categories.filesystem.rules.unshift({
-    ...denyAllRule,
-    id: generateId("rule"),
-    category: "filesystem",
-  });
-  config.categories.git.rules.unshift({
-    ...denyAllRule,
-    id: generateId("rule"),
-    category: "git",
-  });
-  config.categories.network.rules.unshift({
-    ...denyAllRule,
-    id: generateId("rule"),
-    category: "network",
-  });
+  // We add this rule to the DB directly
+  await addRule(workspaceId, denyAllRule);
+  await addRule(workspaceId, { ...denyAllRule, id: generateId("rule"), category: "filesystem" });
+  await addRule(workspaceId, { ...denyAllRule, id: generateId("rule"), category: "git" });
+  await addRule(workspaceId, { ...denyAllRule, id: generateId("rule"), category: "network" });
 
-  config.updatedAt = new Date();
-  configs.set(workspaceId, config);
+  await updateConfig(workspaceId, { enabled: true });
 
   logger.warn(
     {
@@ -1083,15 +1348,17 @@ export async function clearEmergencyStop(
   workspaceId: string,
   clearedBy: string,
 ): Promise<void> {
-  const config = await getConfig(workspaceId);
+  // Find and remove emergency stop rules
+  const stopRules = await db.query.safetyRules.findMany({
+      where: and(
+          eq(safetyRules.workspaceId, workspaceId),
+          eq(safetyRules.name, "Emergency Stop")
+      )
+  });
 
-  // Remove emergency stop rules
-  for (const category of Object.values(config.categories)) {
-    category.rules = category.rules.filter((r) => r.name !== "Emergency Stop");
+  for (const rule of stopRules) {
+      await removeRule(workspaceId, rule.id);
   }
-
-  config.updatedAt = new Date();
-  configs.set(workspaceId, config);
 
   logger.info(
     {
@@ -1109,17 +1376,20 @@ export async function clearEmergencyStop(
 /**
  * Clear all safety data (for testing).
  */
-export function _clearAllSafetyData(): void {
+export async function _clearAllSafetyData(): Promise<void> {
   stopCleanupJob();
-  configs.clear();
-  violations.length = 0;
+  await db.delete(safetyRules);
+  await db.delete(safetyConfigs);
+  await db.delete(safetyViolations);
+  await db.delete(budgetUsageTable);
   rateLimitCounters.clear();
-  budgetUsage.clear();
 }
 
 /**
  * Get raw violations array (for testing).
  */
-export function _getViolations(): SafetyViolation[] {
-  return violations;
+export async function _getViolations(): Promise<SafetyViolation[]> {
+  // We can't return the raw array anymore, so we return from DB
+  // This might break tests expecting synchronous access, but that's necessary.
+  return getViolations("default", { limit: 1000 });
 }

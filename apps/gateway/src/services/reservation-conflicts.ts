@@ -58,12 +58,22 @@ export interface ConflictCheckResult {
 }
 
 /**
+ * LRU Cache for regex compilation.
+ */
+const regexCache = new Map<string, RegExp>();
+const MAX_REGEX_CACHE = 1000;
+
+/**
  * Convert a glob pattern to a regex for matching.
  *
  * @param pattern - Glob pattern (supports *, **, ?)
  * @returns RegExp for matching
  */
 export function globToRegex(pattern: string): RegExp {
+  // Check cache
+  const cached = regexCache.get(pattern);
+  if (cached) return cached;
+
   // Use placeholder to avoid ** replacement affecting later * replacement
   const GLOBSTAR_PLACEHOLDER = "\x00GLOBSTAR\x00";
 
@@ -91,7 +101,16 @@ export function globToRegex(pattern: string): RegExp {
     // Replace standalone placeholder with .* - matches anything
     .replace(new RegExp(GLOBSTAR_PLACEHOLDER, "g"), ".*");
 
-  return new RegExp(`^${regex}$`);
+  const result = new RegExp(`^${regex}$`);
+
+  // Update cache
+  if (regexCache.size >= MAX_REGEX_CACHE) {
+    const firstKey = regexCache.keys().next().value;
+    if (firstKey) regexCache.delete(firstKey);
+  }
+  regexCache.set(pattern, result);
+
+  return result;
 }
 
 /**

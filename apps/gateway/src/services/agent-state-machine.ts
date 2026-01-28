@@ -91,6 +91,40 @@ export function initializeAgentState(agentId: string): AgentStateRecord {
 }
 
 /**
+ * Hydrate agent state from persistence.
+ * Skips transition validation and logging.
+ */
+export function hydrateAgentState(
+  agentId: string,
+  state: LifecycleState,
+  history: StateTransition[] = [],
+): AgentStateRecord {
+  const log = getLogger();
+  const now = new Date();
+
+  const record: AgentStateRecord = {
+    agentId,
+    currentState: state,
+    stateEnteredAt: now, // We don't have the exact time, so use now
+    createdAt: now,
+    history,
+  };
+
+  agentStates.set(agentId, record);
+
+  log.debug(
+    {
+      type: "lifecycle",
+      agentId,
+      state,
+    },
+    `[LIFECYCLE] Agent ${agentId} hydrated in ${state} state`,
+  );
+
+  return record;
+}
+
+/**
  * Cleanup states for agents that have been in a terminal state
  * for longer than the specified TTL.
  */

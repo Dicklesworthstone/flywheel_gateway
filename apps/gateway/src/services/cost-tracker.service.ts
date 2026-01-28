@@ -10,7 +10,7 @@ import {
   DEFAULT_PAGINATION,
   decodeCursor,
 } from "@flywheel/shared/api/pagination";
-import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { db } from "../db/connection";
 import { costAggregates, costRecords, modelRateCards } from "../db/schema";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
@@ -62,7 +62,8 @@ async function refreshRateCardCache(): Promise<void> {
           lte(modelRateCards.effectiveDate, new Date()),
           sql`(${modelRateCards.expiresAt} IS NULL OR ${modelRateCards.expiresAt} > ${new Date()})`,
         ),
-      );
+      )
+      .orderBy(asc(modelRateCards.effectiveDate));
 
     const newCache = new Map<string, ModelRateCard>();
     for (const card of cards) {

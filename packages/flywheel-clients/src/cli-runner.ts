@@ -95,6 +95,11 @@ async function readStreamSafe(
     reader.releaseLock();
   }
 
+  // Flush any remaining bytes from the decoder
+  if (!truncated && content.length < maxBytes) {
+    content += decoder.decode();
+  }
+
   if (content.length > maxBytes) {
     truncated = true;
     content = content.slice(0, maxBytes);

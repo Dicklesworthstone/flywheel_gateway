@@ -7,6 +7,7 @@ import { apiSecurityHeaders } from "./middleware/security-headers";
 import { routes } from "./routes";
 import { startAgentEvents } from "./services/agent-events";
 import { startStateCleanupJob } from "./services/agent-state-machine";
+import { initializeAgentService } from "./services/agent";
 import { initCassService } from "./services/cass.service";
 import { getConfig, loadConfig } from "./services/config.service";
 import {
@@ -61,6 +62,7 @@ if (import.meta.main) {
   startStateCleanupJob();
   startHeartbeat();
   startAgentEvents(getHub());
+  await initializeAgentService();
 
   // Initialize CASS service
   initCassService({ cwd: process.cwd() });
