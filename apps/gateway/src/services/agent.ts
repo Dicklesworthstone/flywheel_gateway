@@ -109,19 +109,23 @@ async function handleAgentEvents(
 
       // 2. Handle State Changes
       else if (event.type === "state_change") {
+        if (!agents.has(agentId)) continue; // Race condition: Agent deleted
+
         const { newState } = event;
         // Map ActivityState to LifecycleState actions
         if (["working", "thinking", "tool_calling"].includes(newState)) {
           try {
             markAgentExecuting(agentId);
-          } catch {
-            // Ignore if already executing
+          } catch (err) {
+            // Ignore invalid transitions (e.g. if already executing) but log
+            log.warn({ err, agentId }, "Failed to mark agent executing");
           }
         } else if (["idle", "waiting_input"].includes(newState)) {
           try {
             markAgentIdle(agentId);
-          } catch {
-            // Ignore if already ready
+          } catch (err) {
+            // Ignore invalid transitions
+            log.warn({ err, agentId }, "Failed to mark agent idle");
           }
         }
       }

@@ -217,7 +217,7 @@ dashboards.get("/", async (c) => {
   const offset = Number.parseInt(c.req.query("offset") ?? "0", 10);
 
   try {
-    const { items, total } = listDashboards({
+    const { items, total } = await listDashboards({
       userId,
       limit,
       offset,
@@ -245,7 +245,7 @@ dashboards.get("/favorites", async (c) => {
   const userId = c.req.query("userId") ?? "default";
 
   try {
-    const favorites = listFavorites(userId);
+    const favorites = await listFavorites(userId);
 
     return sendList(c, favorites, {
       total: favorites.length,
@@ -265,7 +265,7 @@ dashboards.get("/stats", async (c) => {
   const log = getLogger();
 
   try {
-    const stats = getDashboardStats();
+    const stats = await getDashboardStats();
     return sendResource(c, "stats", stats);
   } catch (error) {
     log.error({ error }, "Failed to get dashboard stats");
@@ -283,7 +283,7 @@ dashboards.get("/public/:slug", async (c) => {
   const slug = c.req.param("slug");
 
   try {
-    const dashboard = getDashboardBySlug(slug);
+    const dashboard = await getDashboardBySlug(slug);
 
     if (!dashboard) {
       return sendNotFound(c, "Dashboard", slug);
@@ -315,13 +315,13 @@ dashboards.get("/:id", async (c) => {
   const userId = c.req.query("userId") ?? "default";
 
   try {
-    const dashboard = getDashboard(id);
+    const dashboard = await getDashboard(id);
 
     if (!dashboard) {
       return sendNotFound(c, "Dashboard", id);
     }
 
-    if (!canUserAccess(dashboard, userId)) {
+    if (!(await canUserAccess(dashboard, userId))) {
       return sendError(
         c,
         "FORBIDDEN",
@@ -353,7 +353,7 @@ dashboards.post("/", async (c) => {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const dashboard = createDashboard(
+    const dashboard = await createDashboard(
       parsed.data as CreateDashboardInput,
       userId,
     );
@@ -376,13 +376,13 @@ dashboards.put("/:id", async (c) => {
   const userId = c.req.query("userId") ?? "default";
 
   try {
-    const existingDashboard = getDashboard(id);
+    const existingDashboard = await getDashboard(id);
 
     if (!existingDashboard) {
       return sendNotFound(c, "Dashboard", id);
     }
 
-    if (!canUserEdit(existingDashboard, userId)) {
+    if (!(await canUserEdit(existingDashboard, userId))) {
       return sendError(
         c,
         "FORBIDDEN",
@@ -398,7 +398,7 @@ dashboards.put("/:id", async (c) => {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const dashboard = updateDashboard(id, parsed.data as UpdateDashboardInput);
+    const dashboard = await updateDashboard(id, parsed.data as UpdateDashboardInput);
 
     if (!dashboard) {
       return sendNotFound(c, "Dashboard", id);
@@ -422,7 +422,7 @@ dashboards.delete("/:id", async (c) => {
   const userId = c.req.query("userId") ?? "default";
 
   try {
-    const dashboard = getDashboard(id);
+    const dashboard = await getDashboard(id);
 
     if (!dashboard) {
       return sendNotFound(c, "Dashboard", id);
@@ -437,7 +437,7 @@ dashboards.delete("/:id", async (c) => {
       );
     }
 
-    const deleted = deleteDashboard(id);
+    const deleted = await deleteDashboard(id);
 
     if (!deleted) {
       return sendNotFound(c, "Dashboard", id);
@@ -461,13 +461,13 @@ dashboards.post("/:id/duplicate", async (c) => {
   const userId = c.req.query("userId") ?? "default";
 
   try {
-    const existingDashboard = getDashboard(id);
+    const existingDashboard = await getDashboard(id);
 
     if (!existingDashboard) {
       return sendNotFound(c, "Dashboard", id);
     }
 
-    if (!canUserAccess(existingDashboard, userId)) {
+    if (!(await canUserAccess(existingDashboard, userId))) {
       return sendError(
         c,
         "FORBIDDEN",
@@ -479,7 +479,7 @@ dashboards.post("/:id/duplicate", async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const newName = body.name as string | undefined;
 
-    const dashboard = duplicateDashboard(id, userId, newName);
+    const dashboard = await duplicateDashboard(id, userId, newName);
 
     if (!dashboard) {
       return sendNotFound(c, "Dashboard", id);
@@ -507,13 +507,13 @@ dashboards.post("/:id/widgets", async (c) => {
   const userId = c.req.query("userId") ?? "default";
 
   try {
-    const dashboard = getDashboard(id);
+    const dashboard = await getDashboard(id);
 
     if (!dashboard) {
       return sendNotFound(c, "Dashboard", id);
     }
 
-    if (!canUserEdit(dashboard, userId)) {
+    if (!(await canUserEdit(dashboard, userId))) {
       return sendError(
         c,
         "FORBIDDEN",
@@ -529,7 +529,7 @@ dashboards.post("/:id/widgets", async (c) => {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const updated = addWidget(id, parsed.data as Widget);
+    const updated = await addWidget(id, parsed.data as Widget);
 
     if (!updated) {
       return sendNotFound(c, "Dashboard", id);
@@ -554,13 +554,13 @@ dashboards.put("/:id/widgets/:widgetId", async (c) => {
   const userId = c.req.query("userId") ?? "default";
 
   try {
-    const dashboard = getDashboard(id);
+    const dashboard = await getDashboard(id);
 
     if (!dashboard) {
       return sendNotFound(c, "Dashboard", id);
     }
 
-    if (!canUserEdit(dashboard, userId)) {
+    if (!(await canUserEdit(dashboard, userId))) {
       return sendError(
         c,
         "FORBIDDEN",
@@ -576,7 +576,7 @@ dashboards.put("/:id/widgets/:widgetId", async (c) => {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const updated = updateWidget(id, widgetId, parsed.data as Partial<Widget>);
+    const updated = await updateWidget(id, widgetId, parsed.data as Partial<Widget>);
 
     if (!updated) {
       return sendNotFound(c, "Widget", widgetId);
@@ -601,13 +601,13 @@ dashboards.delete("/:id/widgets/:widgetId", async (c) => {
   const userId = c.req.query("userId") ?? "default";
 
   try {
-    const dashboard = getDashboard(id);
+    const dashboard = await getDashboard(id);
 
     if (!dashboard) {
       return sendNotFound(c, "Dashboard", id);
     }
 
-    if (!canUserEdit(dashboard, userId)) {
+    if (!(await canUserEdit(dashboard, userId))) {
       return sendError(
         c,
         "FORBIDDEN",
@@ -616,7 +616,7 @@ dashboards.delete("/:id/widgets/:widgetId", async (c) => {
       );
     }
 
-    const updated = removeWidget(id, widgetId);
+    const updated = await removeWidget(id, widgetId);
 
     if (!updated) {
       return sendNotFound(c, "Widget", widgetId);
@@ -641,13 +641,13 @@ dashboards.get("/:id/widgets/:widgetId/data", async (c) => {
   const userId = c.req.query("userId") ?? "default";
 
   try {
-    const dashboard = getDashboard(id);
+    const dashboard = await getDashboard(id);
 
     if (!dashboard) {
       return sendNotFound(c, "Dashboard", id);
     }
 
-    if (!canUserAccess(dashboard, userId)) {
+    if (!(await canUserAccess(dashboard, userId))) {
       return sendError(
         c,
         "FORBIDDEN",
@@ -682,7 +682,7 @@ dashboards.put("/:id/sharing", async (c) => {
   const userId = c.req.query("userId") ?? "default";
 
   try {
-    const dashboard = getDashboard(id);
+    const dashboard = await getDashboard(id);
 
     if (!dashboard) {
       return sendNotFound(c, "Dashboard", id);
@@ -704,7 +704,7 @@ dashboards.put("/:id/sharing", async (c) => {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const updated = updateSharing(id, parsed.data as Partial<DashboardSharing>);
+    const updated = await updateSharing(id, parsed.data as Partial<DashboardSharing>);
 
     if (!updated) {
       return sendNotFound(c, "Dashboard", id);
@@ -728,7 +728,7 @@ dashboards.get("/:id/permissions", async (c) => {
   const userId = c.req.query("userId") ?? "default";
 
   try {
-    const dashboard = getDashboard(id);
+    const dashboard = await getDashboard(id);
 
     if (!dashboard) {
       return sendNotFound(c, "Dashboard", id);
@@ -743,7 +743,7 @@ dashboards.get("/:id/permissions", async (c) => {
       );
     }
 
-    const permissions = listPermissions(id);
+    const permissions = await listPermissions(id);
 
     return sendList(c, permissions, {
       total: permissions.length,
@@ -764,7 +764,7 @@ dashboards.post("/:id/permissions", async (c) => {
   const userId = c.req.query("userId") ?? "default";
 
   try {
-    const dashboard = getDashboard(id);
+    const dashboard = await getDashboard(id);
 
     if (!dashboard) {
       return sendNotFound(c, "Dashboard", id);
@@ -797,7 +797,7 @@ dashboards.post("/:id/permissions", async (c) => {
       ]);
     }
 
-    const entry = grantPermission(id, targetUserId, permission, userId);
+    const entry = await grantPermission(id, targetUserId, permission, userId);
 
     if (!entry) {
       return sendNotFound(c, "Dashboard", id);
@@ -825,7 +825,7 @@ dashboards.delete("/:id/permissions/:targetUserId", async (c) => {
   const userId = c.req.query("userId") ?? "default";
 
   try {
-    const dashboard = getDashboard(id);
+    const dashboard = await getDashboard(id);
 
     if (!dashboard) {
       return sendNotFound(c, "Dashboard", id);
@@ -840,7 +840,7 @@ dashboards.delete("/:id/permissions/:targetUserId", async (c) => {
       );
     }
 
-    const revoked = revokePermission(id, targetUserId);
+    const revoked = await revokePermission(id, targetUserId);
 
     if (!revoked) {
       return sendNotFound(c, "Permission", targetUserId);
@@ -871,13 +871,13 @@ dashboards.post("/:id/favorite", async (c) => {
   const userId = c.req.query("userId") ?? "default";
 
   try {
-    const dashboard = getDashboard(id);
+    const dashboard = await getDashboard(id);
 
     if (!dashboard) {
       return sendNotFound(c, "Dashboard", id);
     }
 
-    if (!canUserAccess(dashboard, userId)) {
+    if (!(await canUserAccess(dashboard, userId))) {
       return sendError(
         c,
         "FORBIDDEN",
@@ -886,7 +886,7 @@ dashboards.post("/:id/favorite", async (c) => {
       );
     }
 
-    const added = addFavorite(userId, id);
+    const added = await addFavorite(userId, id);
 
     if (!added) {
       return sendNotFound(c, "Dashboard", id);
@@ -910,7 +910,7 @@ dashboards.delete("/:id/favorite", async (c) => {
   const userId = c.req.query("userId") ?? "default";
 
   try {
-    const removed = removeFavorite(userId, id);
+    const removed = await removeFavorite(userId, id);
 
     if (!removed) {
       return sendNotFound(c, "Favorite", id);

@@ -56,10 +56,21 @@ type StateChangeListener = (event: StateChangeEvent) => void;
 const listeners: StateChangeListener[] = [];
 
 /**
+ * Check if an agent state exists.
+ */
+export function hasAgentState(agentId: string): boolean {
+  return agentStates.has(agentId);
+}
+
+/**
  * Initialize state tracking for a new agent.
  * Starts in SPAWNING state.
  */
 export function initializeAgentState(agentId: string): AgentStateRecord {
+  if (agentStates.has(agentId)) {
+    throw new Error(`Agent state already exists for ${agentId}`);
+  }
+
   const correlationId = getCorrelationId();
   const log = getLogger();
   const now = new Date();

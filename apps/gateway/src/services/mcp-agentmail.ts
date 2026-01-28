@@ -66,13 +66,8 @@ function normalizeToolResult(result: unknown): unknown {
     return result;
   }
 
-  if (
-    "isError" in result &&
-    typeof (result as { isError?: unknown }).isError === "boolean" &&
-    (result as { isError?: boolean }).isError
-  ) {
-    throw new Error("MCP tool returned error");
-  }
+  // We do NOT check isError here because if the tool failed, we want to return
+  // the error details (which are in the content) to the agent so it can handle it.
 
   const content = (result as { content?: unknown }).content;
   if (!Array.isArray(content) || content.length === 0) {
@@ -89,11 +84,19 @@ function normalizeToolResult(result: unknown): unknown {
   }
 
   if (first.type === "text" && typeof first.text === "string") {
-    try {
-      return JSON.parse(first.text);
-    } catch {
-      return first.text;
+    const text = first.text.trim();
+    // Only attempt to parse if it looks like a JSON object or array
+    if (
+      (text.startsWith("{") && text.endsWith("}")) ||
+      (text.startsWith("[") && text.endsWith("]"))
+    ) {
+      try {
+        return JSON.parse(text);
+      } catch {
+        return first.text;
+      }
     }
+    return first.text;
   }
 
   return result;

@@ -17,6 +17,7 @@ import { getCorrelationId, getLogger } from "../middleware/correlation";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
 import type { MessageType } from "../ws/messages";
+import * as checkpointService from "./checkpoint";
 import * as reservationService from "./reservation.service";
 
 // ============================================================================
@@ -462,14 +463,27 @@ async function transferCheckpointOwnership(
     correlationId: getCorrelationId(),
   });
 
-  // Note: In a full implementation, this would update the checkpoint's
-  // agent ownership in the database. For now, we log the transfer.
-  // The checkpoint service would need to support ownership transfer.
+  try {
+    const checkpoint = await checkpointService.getCheckpoint(checkpointId);
+    if (!checkpoint) {
+      return { success: false, error: "Checkpoint not found" };
+    }
 
-  log.info("Checkpoint ownership transferred (stub implementation)");
+    if (checkpoint.agentId !== sourceAgentId) {
+      return {
+        success: false,
+        error: `Source agent does not own checkpoint (owned by ${checkpoint.agentId})`,
+      };
+    }
 
-  // Simulate successful transfer
-  return { success: true };
+    await checkpointService.transferCheckpoint(checkpointId, targetAgentId);
+
+    log.info("Checkpoint ownership transferred");
+    return { success: true };
+  } catch (error) {
+    log.error({ error }, "Failed to transfer checkpoint");
+    return { success: false, error: String(error) };
+  }
 }
 
 /**

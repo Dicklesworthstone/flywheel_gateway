@@ -1013,6 +1013,34 @@ export async function deleteCheckpoint(checkpointId: string): Promise<void> {
 }
 
 /**
+ * Transfer a checkpoint to a new agent.
+ */
+export async function transferCheckpoint(
+  checkpointId: string,
+  targetAgentId: string,
+): Promise<void> {
+  const log = getLogger();
+
+  const result = await db
+    .update(checkpointsTable)
+    .set({ agentId: targetAgentId })
+    .where(eq(checkpointsTable.id, checkpointId))
+    .returning({ id: checkpointsTable.id });
+
+  if (result.length === 0) {
+    throw new CheckpointError(
+      "CHECKPOINT_NOT_FOUND",
+      `Checkpoint ${checkpointId} not found`,
+    );
+  }
+
+  log.info(
+    { type: "checkpoint", action: "transfer", checkpointId, targetAgentId },
+    `[CHECKPOINT] Transferred checkpoint ${checkpointId} to agent ${targetAgentId}`,
+  );
+}
+
+/**
  * Clean up old checkpoints for an agent, keeping only the most recent N.
  */
 export async function pruneCheckpoints(

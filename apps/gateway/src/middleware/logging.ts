@@ -38,7 +38,7 @@ export function loggingMiddleware() {
           duration,
           error:
             error instanceof Error
-              ? { message: error.message, name: error.name }
+              ? { message: error.message, name: error.name, stack: error.stack }
               : String(error),
         },
         `✗ ${c.req.method} ${c.req.path} - Error`,
