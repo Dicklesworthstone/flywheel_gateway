@@ -98,10 +98,14 @@ export class ClaudeSDKDriver extends BaseDriver {
       );
     }
 
+    const history =
+      (config.providerOptions?.conversationHistory as ConversationMessage[]) ??
+      [];
+
     // Create session
     const session: ClaudeAgentSession = {
       config,
-      conversationHistory: [],
+      conversationHistory: history,
       currentRequestController: undefined,
       checkpoints: new Map(),
     };
@@ -362,47 +366,83 @@ export class ClaudeSDKDriver extends BaseDriver {
         content: msg.content,
       }));
 
-      // TODO: Replace with actual Claude Agent SDK call
-      // For now, simulate a response for testing purposes
-      // In production, this would use @anthropic-ai/claude-agent-sdk
-
-      // Simulate thinking state
       this.updateState(agentId, { activityState: "thinking" });
-      await this.delay(100, signal);
 
-      // Simulate streaming output
-      this.updateState(agentId, { activityState: "working" });
+      if (this.apiKey) {
+        // Real API Call
+        const response = await fetch(`${this.baseUrl}/v1/messages`, {
+          method: "POST",
+          headers: {
+            "x-api-key": this.apiKey,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            model: session.config.model,
+            max_tokens: this.defaultMaxTokens,
+            messages: messages,
+          }),
+          signal,
+        });
 
-      // Add simulated response output
-      const lastMessage = messages[messages.length - 1];
-      const messagePreview =
-        lastMessage?.content?.slice(0, 50) ?? "(no message)";
-      const responseText = `[Simulated Claude response to: "${messagePreview}..."]`;
+        if (!response.ok) {
+          throw new Error(`Anthropic API error: ${response.status} ${await response.text()}`);
+        }
 
-      this.addOutput(agentId, {
-        timestamp: new Date(),
-        type: "text",
-        content: responseText,
-      });
+        this.updateState(agentId, { activityState: "working" });
 
-      // Add assistant message to history
-      session.conversationHistory.push({
-        role: "assistant",
-        content: responseText,
-        timestamp: new Date(),
-        tokenUsage: {
-          promptTokens: 100,
-          completionTokens: 50,
-          totalTokens: 150,
-        },
-      });
+        const data = await response.json();
+        const content = data.content?.[0]?.text ?? "";
+        
+        this.addOutput(agentId, {
+          timestamp: new Date(),
+          type: "text",
+          content: content,
+        });
 
-      // Update token usage
-      this.updateTokenUsage(agentId, {
-        promptTokens: 100,
-        completionTokens: 50,
-        totalTokens: 150,
-      });
+        // Add assistant message to history
+        session.conversationHistory.push({
+          role: "assistant",
+          content: content,
+          timestamp: new Date(),
+          tokenUsage: {
+            promptTokens: data.usage?.input_tokens ?? 0,
+            completionTokens: data.usage?.output_tokens ?? 0,
+            totalTokens: (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0),
+          },
+        });
+
+        // Update token usage
+        this.updateTokenUsage(agentId, {
+          promptTokens: data.usage?.input_tokens ?? 0,
+          completionTokens: data.usage?.output_tokens ?? 0,
+          totalTokens: (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0),
+        });
+
+      } else {
+        // Fallback: Simulation for testing/dev without API key
+        await this.delay(100, signal);
+        this.updateState(agentId, { activityState: "working" });
+
+        const lastMessage = messages[messages.length - 1];
+        const messagePreview = lastMessage?.content?.slice(0, 50) ?? "(no message)";
+        const responseText = `[Simulated Claude response to: "${messagePreview}..."]`;
+
+        this.addOutput(agentId, {
+          timestamp: new Date(),
+          type: "text",
+          content: responseText,
+        });
+
+        session.conversationHistory.push({
+          role: "assistant",
+          content: responseText,
+          timestamp: new Date(),
+          tokenUsage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+        });
+
+        this.updateTokenUsage(agentId, { promptTokens: 100, completionTokens: 50, totalTokens: 150 });
+      }
 
       // Return to idle
       this.updateState(agentId, { activityState: "idle" });

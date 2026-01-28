@@ -202,6 +202,8 @@ export async function spawnAgent(config: {
   systemPrompt?: string;
   timeout?: number;
   maxTokens?: number;
+  conversationHistory?: unknown[];
+  toolState?: Record<string, unknown>;
 }): Promise<{
   agentId: string;
   state: "spawning" | "ready";
@@ -237,6 +239,10 @@ export async function spawnAgent(config: {
     workingDirectory: config.workingDirectory,
     ...(config.systemPrompt && { systemPrompt: config.systemPrompt }),
     ...(config.maxTokens && { maxTokens: config.maxTokens }),
+    providerOptions: {
+      conversationHistory: config.conversationHistory,
+      toolState: config.toolState,
+    },
   };
 
   try {
