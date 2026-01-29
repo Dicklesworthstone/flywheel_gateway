@@ -646,10 +646,17 @@ async function resolveDeltaCheckpoint(
   }
 
   // Iterative resolution to prevent stack overflow
+  const MAX_CHAIN_DEPTH = 100;
   const chain: DeltaCheckpoint[] = [checkpoint];
   let current = checkpoint;
 
   while (current.isDelta && current.parentCheckpointId) {
+    if (chain.length >= MAX_CHAIN_DEPTH) {
+      throw new CheckpointError(
+        "CHAIN_TOO_DEEP",
+        `Delta checkpoint chain exceeded maximum depth of ${MAX_CHAIN_DEPTH}`,
+      );
+    }
     // If current has full state, we can stop resolving parents
     if (
       current.conversationHistory &&

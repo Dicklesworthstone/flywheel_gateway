@@ -1077,16 +1077,20 @@ export async function recordSyncResult(
 
   // Clear related caches
   if (result.success && result.operation.type === "push") {
+    const branch = result.operation.branch;
+    // Use delimiter-aware matching to avoid "main" matching "maintain-feature"
+    const branchPattern = new RegExp(`(^|:)${branch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(:|$)`);
+
     // Invalidate conflict predictions involving this branch
     for (const key of predictionCache.keys()) {
-      if (key.includes(result.operation.branch)) {
+      if (branchPattern.test(key)) {
         predictionCache.delete(key);
       }
     }
 
     // Invalidate merge base cache
     for (const key of mergeBaseCache.keys()) {
-      if (key.includes(result.operation.branch)) {
+      if (branchPattern.test(key)) {
         mergeBaseCache.delete(key);
       }
     }

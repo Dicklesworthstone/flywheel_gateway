@@ -141,6 +141,14 @@ async function handleAgentEvents(
           cleanupOutputBuffer(agentId);
           clearAgentHealth(agentId);
           agents.delete(agentId);
+
+          // Update DB to reflect terminated status (prevents stale "ready"/"executing" rows)
+          db.update(agentsTable)
+            .set({ status: "terminated", updatedAt: new Date() })
+            .where(eq(agentsTable.id, agentId))
+            .catch((dbErr: unknown) => {
+              log.error({ dbErr, agentId }, "Failed to update DB on agent termination event");
+            });
         } catch (err) {
           log.error({ err, agentId }, "Error handling agent termination event");
         }

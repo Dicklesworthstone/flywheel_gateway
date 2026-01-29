@@ -839,6 +839,10 @@ async function executeTransform(
     "[PIPELINE] Starting transform step",
   );
 
+  // Validate expressions used in map/filter/reduce to block dangerous globals
+  const BLOCKED_EXPR_PATTERN =
+    /\b(process|require|import|eval|Function|globalThis|Bun|Deno|__dirname|__filename|fetch|XMLHttpRequest)\b/;
+
   for (const operation of config.operations) {
     switch (operation.op) {
       case "set": {
@@ -872,11 +876,13 @@ async function executeTransform(
       case "map": {
         const sourceArray = getValueByPath(context, operation.source);
         if (Array.isArray(sourceArray)) {
+          if (BLOCKED_EXPR_PATTERN.test(operation.expression)) {
+            throw new Error(
+              `Transform map expression contains blocked keyword: ${operation.expression}`,
+            );
+          }
           const mapped = sourceArray.map((item, index) => {
-            // SECURITY: Use Function constructor with arguments to prevent injection from data values.
-            // The expression itself must be trusted (from pipeline config).
             try {
-              // Create function(item, index) { return expression; }
               const fn = new Function(
                 "$item",
                 "$index",
@@ -896,8 +902,12 @@ async function executeTransform(
       case "filter": {
         const filterSource = getValueByPath(context, operation.source);
         if (Array.isArray(filterSource)) {
+          if (BLOCKED_EXPR_PATTERN.test(operation.condition)) {
+            throw new Error(
+              `Transform filter condition contains blocked keyword: ${operation.condition}`,
+            );
+          }
           const filtered = filterSource.filter((item, index) => {
-            // SECURITY: Use Function constructor with arguments
             try {
               const fn = new Function(
                 "$item",
@@ -918,8 +928,12 @@ async function executeTransform(
       case "reduce": {
         const reduceSource = getValueByPath(context, operation.source);
         if (Array.isArray(reduceSource)) {
+          if (BLOCKED_EXPR_PATTERN.test(operation.expression)) {
+            throw new Error(
+              `Transform reduce expression contains blocked keyword: ${operation.expression}`,
+            );
+          }
           const reduced = reduceSource.reduce((acc, item, index) => {
-            // SECURITY: Use Function constructor with arguments
             try {
               const fn = new Function(
                 "$acc",

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { agents, db } from "../db";
 import {
   _clearAllSafetyData,
   addRule,
@@ -8,20 +9,43 @@ import {
   getSafetyStats,
   getViolationStats,
   getViolations,
-  preFlightCheck,
+  preFlightCheck as rawPreFlightCheck,
   recordUsage,
   removeRule,
   toggleRule,
   updateConfig,
 } from "../services/safety.service";
 
+async function ensureAgent(agentId: string) {
+  try {
+    await db.insert(agents).values({
+      id: agentId,
+      repoUrl: "/test",
+      task: "test",
+      status: "idle",
+      model: "test-model",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  } catch {
+    // Ignore duplicates / races (primary key constraint).
+  }
+}
+
+async function preFlightCheck(
+  request: Parameters<typeof rawPreFlightCheck>[0],
+) {
+  await ensureAgent(request.agentId);
+  return rawPreFlightCheck(request);
+}
+
 describe("Safety Service", () => {
-  beforeEach(() => {
-    _clearAllSafetyData();
+  beforeEach(async () => {
+    await _clearAllSafetyData();
   });
 
-  afterEach(() => {
-    _clearAllSafetyData();
+  afterEach(async () => {
+    await _clearAllSafetyData();
   });
 
   describe("Configuration", () => {

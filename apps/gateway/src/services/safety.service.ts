@@ -1378,9 +1378,9 @@ export async function clearEmergencyStop(
  */
 export async function _clearAllSafetyData(): Promise<void> {
   stopCleanupJob();
+  await db.delete(safetyViolations);
   await db.delete(safetyRules);
   await db.delete(safetyConfigs);
-  await db.delete(safetyViolations);
   await db.delete(budgetUsageTable);
   rateLimitCounters.clear();
 }
