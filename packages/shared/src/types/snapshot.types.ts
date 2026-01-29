@@ -318,7 +318,49 @@ export interface ToolChecksumStatus {
 }
 
 /**
- * Tool health snapshot data (DCG, SLB, UBS).
+ * Detected tool/agent summary for snapshot.
+ */
+export interface DetectedToolSummary {
+  /** Tool/agent identifier */
+  name: string;
+  /** Whether the tool is available */
+  available: boolean;
+  /** Tool version (if detected) */
+  version?: string;
+  /** Resolved binary path */
+  path?: string;
+  /** Whether the tool is authenticated (agents only) */
+  authenticated?: boolean;
+  /** Auth error message (if auth failed) */
+  authError?: string;
+  /** Canonical unavailability reason (when available=false) */
+  unavailabilityReason?: string;
+  /** Detection latency in milliseconds */
+  detectionMs: number;
+}
+
+/**
+ * Ecosystem-wide detection summary.
+ */
+export interface ToolEcosystemSummary {
+  /** Total agents detected */
+  agentsAvailable: number;
+  /** Total agents checked */
+  agentsTotal: number;
+  /** Total tools detected */
+  toolsAvailable: number;
+  /** Total tools checked */
+  toolsTotal: number;
+  /** Tools with authentication issues */
+  authIssues: string[];
+  /** All detected agents */
+  agents: DetectedToolSummary[];
+  /** All detected tools */
+  tools: DetectedToolSummary[];
+}
+
+/**
+ * Tool health snapshot data (DCG, SLB, UBS + ecosystem detection).
  */
 export interface ToolHealthSnapshot {
   /** Timestamp of snapshot capture */
@@ -341,6 +383,8 @@ export interface ToolHealthSnapshot {
   checksumsStale: boolean;
   /** Tool checksum statuses */
   checksumStatuses: ToolChecksumStatus[];
+  /** Full ecosystem detection results (all agents + tools) */
+  ecosystem?: ToolEcosystemSummary;
   /** Current issues */
   issues: string[];
   /** Recommendations */

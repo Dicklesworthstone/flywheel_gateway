@@ -58,6 +58,8 @@ import {
   listToolsWithChecksums,
 } from "./update-checker.service";
 import { loadToolRegistry } from "./tool-registry.service";
+import { detectAllCLIs } from "./agent-detection.service";
+import type { DetectedToolSummary, ToolEcosystemSummary } from "@flywheel/shared";
 
 // ============================================================================
 // Constants
@@ -503,8 +505,11 @@ async function collectToolHealthSnapshot(
         collectUbsStatus(),
       ]);
 
-      // Collect checksum information
-      const checksumInfo = await collectChecksumInfo();
+      // Collect checksum information and ecosystem detection in parallel
+      const [checksumInfo, ecosystem] = await Promise.all([
+        collectChecksumInfo(),
+        collectEcosystemDetection(),
+      ]);
 
       // Determine overall status
       const allInstalled =
@@ -544,6 +549,20 @@ async function collectToolHealthSnapshot(
         recommendations.push("Refresh the ACFS manifest");
       }
 
+      // Emit ecosystem metrics
+      if (ecosystem) {
+        for (const tool of [...ecosystem.agents, ...ecosystem.tools]) {
+          setGauge("flywheel_tool_installed", tool.available ? 1 : 0, {
+            tool: tool.name,
+          });
+          recordHistogram("flywheel_tool_check_duration_ms", tool.detectionMs, {
+            tool: tool.name,
+          });
+        }
+        setGauge("flywheel_ecosystem_agents_available", ecosystem.agentsAvailable);
+        setGauge("flywheel_ecosystem_tools_available", ecosystem.toolsAvailable);
+      }
+
       return {
         capturedAt: new Date().toISOString(),
         dcg: dcgResult,
@@ -555,6 +574,7 @@ async function collectToolHealthSnapshot(
         toolsWithChecksums: checksumInfo.toolsWithChecksums,
         checksumsStale: checksumInfo.isStale,
         checksumStatuses: checksumInfo.tools,
+        ecosystem: ecosystem ?? undefined,
         issues,
         recommendations,
       };
@@ -703,6 +723,44 @@ async function collectUbsStatus(): Promise<ToolHealthStatus> {
       healthy: false,
       latencyMs,
     };
+  }
+}
+
+/**
+ * Collect ecosystem-wide tool detection results.
+ * Uses the cached detection results from agent-detection service.
+ */
+async function collectEcosystemDetection(): Promise<ToolEcosystemSummary | null> {
+  try {
+    const result = await detectAllCLIs();
+
+    const mapTool = (cli: { name: string; available: boolean; version?: string; path?: string; authenticated?: boolean; authError?: string; unavailabilityReason?: string; durationMs: number }): DetectedToolSummary => {
+      const summary: DetectedToolSummary = {
+        name: cli.name,
+        available: cli.available,
+        detectionMs: cli.durationMs,
+      };
+      if (cli.version != null) summary.version = cli.version;
+      if (cli.path != null) summary.path = cli.path;
+      if (cli.authenticated != null) summary.authenticated = cli.authenticated;
+      if (cli.authError != null) summary.authError = cli.authError;
+      if (cli.unavailabilityReason != null) summary.unavailabilityReason = cli.unavailabilityReason;
+      return summary;
+    };
+
+    return {
+      agentsAvailable: result.summary.agentsAvailable,
+      agentsTotal: result.summary.agentsTotal,
+      toolsAvailable: result.summary.toolsAvailable,
+      toolsTotal: result.summary.toolsTotal,
+      authIssues: result.summary.authIssues,
+      agents: result.agents.map(mapTool),
+      tools: result.tools.map(mapTool),
+    };
+  } catch {
+    const log = getLogger();
+    log.warn("Failed to collect ecosystem detection for snapshot");
+    return null;
   }
 }
 
