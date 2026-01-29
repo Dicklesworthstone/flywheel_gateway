@@ -93,6 +93,51 @@ const HealthSchema = z.object({
   probe: z.enum(["liveness", "readiness"]).optional(),
 });
 
+const MarkReadSchema = z.object({
+  project_key: z.string().min(1),
+  agent_name: z.string().min(1),
+});
+
+const AcknowledgeSchema = z.object({
+  project_key: z.string().min(1),
+  agent_name: z.string().min(1),
+});
+
+const SearchMessagesSchema = z.object({
+  project_key: z.string().min(1),
+  query: z.string().min(1),
+  limit: z.coerce.number().int().positive().optional(),
+});
+
+const SummarizeThreadSchema = z.object({
+  project_key: z.string().min(1),
+  thread_id: z.string().min(1),
+  include_examples: z.coerce.boolean().optional(),
+  llm_mode: z.coerce.boolean().optional(),
+});
+
+const ReleaseReservationsSchema = z.object({
+  project_key: z.string().min(1),
+  agent_name: z.string().min(1),
+  paths: z.array(z.string()).optional(),
+  file_reservation_ids: z.array(z.number()).optional(),
+});
+
+const RenewReservationsSchema = z.object({
+  project_key: z.string().min(1),
+  agent_name: z.string().min(1),
+  extend_seconds: z.number().int().min(60).optional(),
+  paths: z.array(z.string()).optional(),
+  file_reservation_ids: z.array(z.number()).optional(),
+});
+
+const WhoisSchema = z.object({
+  project_key: z.string().min(1),
+  agent_name: z.string().min(1),
+  include_recent_commits: z.coerce.boolean().optional(),
+  commit_limit: z.coerce.number().int().optional(),
+});
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -572,6 +617,155 @@ function createMailRoutes(
         },
         `/mail/sessions/${result.registration?.["agentId"] || "unknown"}`,
       );
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  // ============================================================================
+  // Message State Routes
+  // ============================================================================
+
+  /**
+   * POST /mail/messages/:messageId/read - Mark a message as read
+   */
+  mail.post("/messages/:messageId/read", async (c) => {
+    try {
+      const body = await c.req.json();
+      const validated = MarkReadSchema.parse(body);
+      const messageId = parseInt(c.req.param("messageId"), 10);
+      const service = c.get("agentMail");
+
+      const result = await service.client.markMessageRead({
+        ...validated,
+        message_id: messageId,
+      });
+
+      return sendResource(c, "message_read", result);
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  /**
+   * POST /mail/messages/:messageId/acknowledge - Acknowledge a message
+   */
+  mail.post("/messages/:messageId/acknowledge", async (c) => {
+    try {
+      const body = await c.req.json();
+      const validated = AcknowledgeSchema.parse(body);
+      const messageId = parseInt(c.req.param("messageId"), 10);
+      const service = c.get("agentMail");
+
+      const result = await service.client.acknowledgeMessage({
+        ...validated,
+        message_id: messageId,
+      });
+
+      return sendResource(c, "message_acknowledged", result);
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  // ============================================================================
+  // Search & Thread Routes
+  // ============================================================================
+
+  /**
+   * GET /mail/messages/search - Full-text search over messages
+   */
+  mail.get("/messages/search", async (c) => {
+    try {
+      const validated = SearchMessagesSchema.parse({
+        project_key: c.req.query("project_key"),
+        query: c.req.query("query"),
+        limit: c.req.query("limit"),
+      });
+      const service = c.get("agentMail");
+
+      const results = await service.client.searchMessages(validated);
+      return sendList(c, "search_results", results);
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  /**
+   * GET /mail/threads/:threadId/summary - Summarize a thread
+   */
+  mail.get("/threads/:threadId/summary", async (c) => {
+    try {
+      const validated = SummarizeThreadSchema.parse({
+        project_key: c.req.query("project_key"),
+        thread_id: c.req.param("threadId"),
+        include_examples: c.req.query("include_examples"),
+        llm_mode: c.req.query("llm_mode"),
+      });
+      const service = c.get("agentMail");
+
+      const result = await service.client.summarizeThread(validated);
+      return sendResource(c, "thread_summary", result);
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  // ============================================================================
+  // Reservation Management Routes
+  // ============================================================================
+
+  /**
+   * DELETE /mail/reservations/release - Release file reservations
+   */
+  mail.post("/reservations/release", async (c) => {
+    try {
+      const body = await c.req.json();
+      const validated = ReleaseReservationsSchema.parse(body);
+      const service = c.get("agentMail");
+
+      const result = await service.client.releaseFileReservations(validated);
+      return sendResource(c, "reservations_released", result);
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  /**
+   * POST /mail/reservations/renew - Renew file reservations
+   */
+  mail.post("/reservations/renew", async (c) => {
+    try {
+      const body = await c.req.json();
+      const validated = RenewReservationsSchema.parse(body);
+      const service = c.get("agentMail");
+
+      const result = await service.client.renewFileReservations(validated);
+      return sendResource(c, "reservations_renewed", result);
+    } catch (error) {
+      return handleError(error, c);
+    }
+  });
+
+  // ============================================================================
+  // Agent Lookup Routes
+  // ============================================================================
+
+  /**
+   * GET /mail/agents/:agentName/whois - Get agent profile
+   */
+  mail.get("/agents/:agentName/whois", async (c) => {
+    try {
+      const validated = WhoisSchema.parse({
+        project_key: c.req.query("project_key"),
+        agent_name: c.req.param("agentName"),
+        include_recent_commits: c.req.query("include_recent_commits"),
+        commit_limit: c.req.query("commit_limit"),
+      });
+      const service = c.get("agentMail");
+
+      const result = await service.client.whois(validated);
+      return sendResource(c, "agent_profile", result);
     } catch (error) {
       return handleError(error, c);
     }

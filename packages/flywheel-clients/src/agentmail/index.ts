@@ -137,6 +137,130 @@ const ReplyOutputSchema = z
   })
   .passthrough();
 
+const MarkReadInputSchema = z.object({
+  project_key: z.string().min(1),
+  agent_name: z.string().min(1),
+  message_id: z.number().int(),
+});
+
+const MarkReadOutputSchema = z
+  .object({
+    message_id: z.number(),
+    read: z.boolean(),
+    read_at: z.string().nullable(),
+  })
+  .passthrough();
+
+const AcknowledgeInputSchema = z.object({
+  project_key: z.string().min(1),
+  agent_name: z.string().min(1),
+  message_id: z.number().int(),
+});
+
+const AcknowledgeOutputSchema = z
+  .object({
+    message_id: z.number(),
+    acknowledged: z.boolean(),
+    acknowledged_at: z.string().nullable(),
+    read_at: z.string().nullable(),
+  })
+  .passthrough();
+
+const SearchMessagesInputSchema = z.object({
+  project_key: z.string().min(1),
+  query: z.string().min(1),
+  limit: z.number().int().positive().optional(),
+});
+
+const SearchMessagesOutputSchema = z.array(
+  z
+    .object({
+      id: z.number(),
+      subject: z.string(),
+      importance: z.string(),
+      ack_required: z.boolean(),
+      created_ts: z.string(),
+      thread_id: z.string().nullable().optional(),
+      from: z.string(),
+    })
+    .passthrough(),
+);
+
+const SummarizeThreadInputSchema = z.object({
+  project_key: z.string().min(1),
+  thread_id: z.string().min(1),
+  include_examples: z.boolean().optional(),
+  llm_mode: z.boolean().optional(),
+});
+
+const SummarizeThreadOutputSchema = z
+  .object({
+    thread_id: z.string(),
+    summary: z
+      .object({
+        participants: z.array(z.string()),
+        key_points: z.array(z.string()),
+        action_items: z.array(z.string()),
+      })
+      .passthrough(),
+  })
+  .passthrough();
+
+const ReleaseReservationsInputSchema = z.object({
+  project_key: z.string().min(1),
+  agent_name: z.string().min(1),
+  paths: z.array(z.string()).optional(),
+  file_reservation_ids: z.array(z.number()).optional(),
+});
+
+const ReleaseReservationsOutputSchema = z
+  .object({
+    released: z.number(),
+    released_at: z.string(),
+  })
+  .passthrough();
+
+const RenewReservationsInputSchema = z.object({
+  project_key: z.string().min(1),
+  agent_name: z.string().min(1),
+  extend_seconds: z.number().int().min(60).optional(),
+  paths: z.array(z.string()).optional(),
+  file_reservation_ids: z.array(z.number()).optional(),
+});
+
+const RenewReservationsOutputSchema = z
+  .object({
+    renewed: z.number(),
+    file_reservations: z.array(
+      z
+        .object({
+          id: z.number(),
+          path_pattern: z.string(),
+          old_expires_ts: z.string(),
+          new_expires_ts: z.string(),
+        })
+        .passthrough(),
+    ),
+  })
+  .passthrough();
+
+const WhoisInputSchema = z.object({
+  project_key: z.string().min(1),
+  agent_name: z.string().min(1),
+  include_recent_commits: z.boolean().optional(),
+  commit_limit: z.number().int().optional(),
+});
+
+const WhoisOutputSchema = z
+  .object({
+    id: z.number(),
+    name: z.string(),
+    program: z.string(),
+    model: z.string(),
+    task_description: z.string().optional(),
+  })
+  .passthrough();
+
 const HealthInputSchema = z.object({
   probe: z.enum(["liveness", "readiness"]).optional(),
 });
@@ -216,6 +340,34 @@ export interface AgentMailClient {
     input: StartSessionInput,
     options?: AgentMailToolCallOptions,
   ) => Promise<StartSessionOutput>;
+  markMessageRead: (
+    input: MarkReadInput,
+    options?: AgentMailToolCallOptions,
+  ) => Promise<MarkReadOutput>;
+  acknowledgeMessage: (
+    input: AcknowledgeInput,
+    options?: AgentMailToolCallOptions,
+  ) => Promise<AcknowledgeOutput>;
+  searchMessages: (
+    input: SearchMessagesInput,
+    options?: AgentMailToolCallOptions,
+  ) => Promise<SearchMessagesOutput>;
+  summarizeThread: (
+    input: SummarizeThreadInput,
+    options?: AgentMailToolCallOptions,
+  ) => Promise<SummarizeThreadOutput>;
+  releaseFileReservations: (
+    input: ReleaseReservationsInput,
+    options?: AgentMailToolCallOptions,
+  ) => Promise<ReleaseReservationsOutput>;
+  renewFileReservations: (
+    input: RenewReservationsInput,
+    options?: AgentMailToolCallOptions,
+  ) => Promise<RenewReservationsOutput>;
+  whois: (
+    input: WhoisInput,
+    options?: AgentMailToolCallOptions,
+  ) => Promise<WhoisOutput>;
 }
 
 export type EnsureProjectInput = z.infer<typeof EnsureProjectInputSchema>;
@@ -248,6 +400,20 @@ export type StartSessionOutput = {
   project: z.infer<typeof EnsureProjectOutputSchema>;
   registration: z.infer<typeof RegisterAgentOutputSchema>;
 };
+export type MarkReadInput = z.infer<typeof MarkReadInputSchema>;
+export type MarkReadOutput = z.infer<typeof MarkReadOutputSchema>;
+export type AcknowledgeInput = z.infer<typeof AcknowledgeInputSchema>;
+export type AcknowledgeOutput = z.infer<typeof AcknowledgeOutputSchema>;
+export type SearchMessagesInput = z.infer<typeof SearchMessagesInputSchema>;
+export type SearchMessagesOutput = z.infer<typeof SearchMessagesOutputSchema>;
+export type SummarizeThreadInput = z.infer<typeof SummarizeThreadInputSchema>;
+export type SummarizeThreadOutput = z.infer<typeof SummarizeThreadOutputSchema>;
+export type ReleaseReservationsInput = z.infer<typeof ReleaseReservationsInputSchema>;
+export type ReleaseReservationsOutput = z.infer<typeof ReleaseReservationsOutputSchema>;
+export type RenewReservationsInput = z.infer<typeof RenewReservationsInputSchema>;
+export type RenewReservationsOutput = z.infer<typeof RenewReservationsOutputSchema>;
+export type WhoisInput = z.infer<typeof WhoisInputSchema>;
+export type WhoisOutput = z.infer<typeof WhoisOutputSchema>;
 
 function zodIssuesToFields(issues: z.ZodIssue[]): ValidationFieldError[] {
   return issues.map((issue) => ({
@@ -463,6 +629,69 @@ export function createAgentMailClient(
 
       return { project, registration };
     },
+    markMessageRead: (input, callOptions) =>
+      callToolWithSchema(
+        options.callTool,
+        toolName(prefix, "mark_message_read"),
+        input,
+        MarkReadInputSchema,
+        MarkReadOutputSchema,
+        callOptions,
+      ),
+    acknowledgeMessage: (input, callOptions) =>
+      callToolWithSchema(
+        options.callTool,
+        toolName(prefix, "acknowledge_message"),
+        input,
+        AcknowledgeInputSchema,
+        AcknowledgeOutputSchema,
+        callOptions,
+      ),
+    searchMessages: (input, callOptions) =>
+      callToolWithSchema(
+        options.callTool,
+        toolName(prefix, "search_messages"),
+        input,
+        SearchMessagesInputSchema,
+        SearchMessagesOutputSchema,
+        callOptions,
+      ),
+    summarizeThread: (input, callOptions) =>
+      callToolWithSchema(
+        options.callTool,
+        toolName(prefix, "summarize_thread"),
+        input,
+        SummarizeThreadInputSchema,
+        SummarizeThreadOutputSchema,
+        callOptions,
+      ),
+    releaseFileReservations: (input, callOptions) =>
+      callToolWithSchema(
+        options.callTool,
+        toolName(prefix, "release_file_reservations"),
+        input,
+        ReleaseReservationsInputSchema,
+        ReleaseReservationsOutputSchema,
+        callOptions,
+      ),
+    renewFileReservations: (input, callOptions) =>
+      callToolWithSchema(
+        options.callTool,
+        toolName(prefix, "renew_file_reservations"),
+        input,
+        RenewReservationsInputSchema,
+        RenewReservationsOutputSchema,
+        callOptions,
+      ),
+    whois: (input, callOptions) =>
+      callToolWithSchema(
+        options.callTool,
+        toolName(prefix, "whois"),
+        input,
+        WhoisInputSchema,
+        WhoisOutputSchema,
+        callOptions,
+      ),
   };
 }
 
@@ -483,4 +712,18 @@ export const AgentMailSchemas = {
   FetchInboxOutputSchema,
   RequestFileReservationInputSchema,
   RequestFileReservationOutputSchema,
+  MarkReadInputSchema,
+  MarkReadOutputSchema,
+  AcknowledgeInputSchema,
+  AcknowledgeOutputSchema,
+  SearchMessagesInputSchema,
+  SearchMessagesOutputSchema,
+  SummarizeThreadInputSchema,
+  SummarizeThreadOutputSchema,
+  ReleaseReservationsInputSchema,
+  ReleaseReservationsOutputSchema,
+  RenewReservationsInputSchema,
+  RenewReservationsOutputSchema,
+  WhoisInputSchema,
+  WhoisOutputSchema,
 };
