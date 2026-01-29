@@ -129,18 +129,7 @@ export class InMemoryRateLimiter {
     this.counters.set(key, newEntry);
 
     // Enforce max items
-    // Using while loop to be safe, though strict size management should only need one delete
-    while (this.counters.size > this.maxItems) {
-      // Get the first key (insertion order)
-      const iterator = this.counters.keys();
-      const oldestKey = iterator.next().value;
-
-      if (oldestKey !== undefined) {
-        this.counters.delete(oldestKey);
-      } else {
-        break;
-      }
-    }
+    this.enforceMaxItems();
 
     const remaining = Math.max(0, config.limit - entry.count);
     const exceeded = entry.count > config.limit;
@@ -189,6 +178,96 @@ export class InMemoryRateLimiter {
     const entry = this.counters.get(key);
     if (!entry || entry.resetAt <= now) return false;
     return entry.count >= config.limit;
+  }
+
+  /**
+   * Atomically try to consume a request slot.
+   * This combines check and increment in a single operation to prevent race conditions.
+   *
+   * Returns { allowed: true } if the request should proceed (slot was consumed),
+   * or { allowed: false } if the limit has been reached.
+   *
+   * Unlike the check() method which always increments, this method only increments
+   * if the request is allowed, making it safe for use in rate limiting middleware.
+   */
+  tryConsume(
+    key: string,
+    config: RateLimitConfig,
+  ): { allowed: boolean; info: RateLimitInfo } {
+    const now = Date.now();
+    let entry = this.counters.get(key);
+
+    // Reset if window expired
+    if (!entry || entry.resetAt <= now) {
+      entry = {
+        count: 1, // Consume the slot
+        resetAt: now + config.windowMs,
+      };
+      this.counters.set(key, entry);
+
+      // Enforce max items
+      this.enforceMaxItems();
+
+      return {
+        allowed: true,
+        info: {
+          limit: config.limit,
+          remaining: config.limit - 1,
+          reset: Math.ceil(entry.resetAt / 1000),
+          exceeded: false,
+        },
+      };
+    }
+
+    // Check if we're already at or over the limit
+    if (entry.count >= config.limit) {
+      return {
+        allowed: false,
+        info: {
+          limit: config.limit,
+          remaining: 0,
+          reset: Math.ceil(entry.resetAt / 1000),
+          exceeded: true,
+        },
+      };
+    }
+
+    // Atomically increment - we're under the limit
+    entry.count++;
+
+    // Update insertion order for LRU-like behavior
+    this.counters.delete(key);
+    this.counters.set(key, entry);
+
+    // Enforce max items
+    this.enforceMaxItems();
+
+    const remaining = Math.max(0, config.limit - entry.count);
+    return {
+      allowed: true,
+      info: {
+        limit: config.limit,
+        remaining,
+        reset: Math.ceil(entry.resetAt / 1000),
+        exceeded: false,
+      },
+    };
+  }
+
+  /**
+   * Enforce the maximum number of tracked keys.
+   * Removes oldest entries (by insertion order) when limit is exceeded.
+   */
+  private enforceMaxItems(): void {
+    while (this.counters.size > this.maxItems) {
+      const iterator = this.counters.keys();
+      const oldestKey = iterator.next().value;
+      if (oldestKey !== undefined) {
+        this.counters.delete(oldestKey);
+      } else {
+        break;
+      }
+    }
   }
 
   /**
@@ -361,18 +440,20 @@ export function rateLimitMiddleware(
 
     const key = keyGenerator(c);
 
-    // Check if already limited (before incrementing)
-    if (limiter.isLimited(key, config)) {
-      const info = limiter.peek(key, config);
+    // Atomically try to consume a request slot
+    // This prevents the race condition where concurrent requests could all pass
+    // the isLimited() check before any of them increment the counter.
+    const { allowed, info } = limiter.tryConsume(key, config);
+
+    if (!allowed) {
       return sendRateLimitResponse(c, info, config);
     }
 
-    // Process request and increment counter
-    await next();
-
-    // Add rate limit headers to response
-    const info = limiter.check(key, config);
+    // Set rate limit headers before processing
     setRateLimitHeaders(c, info);
+
+    // Process request (slot already consumed atomically)
+    await next();
   };
 }
 

@@ -137,6 +137,98 @@ describe("Rate Limit Middleware", () => {
       expect(info.reset).toBeGreaterThan(nowSeconds);
       expect(info.reset).toBeLessThanOrEqual(nowSeconds + 61);
     });
+
+    test("tryConsume atomically checks and increments", () => {
+      const limiter = new InMemoryRateLimiter();
+      const config: RateLimitConfig = { limit: 3, windowMs: 60_000 };
+
+      // First request - should be allowed
+      const result1 = limiter.tryConsume("test-key", config);
+      expect(result1.allowed).toBe(true);
+      expect(result1.info.remaining).toBe(2);
+      expect(result1.info.exceeded).toBe(false);
+
+      // Second request - should be allowed
+      const result2 = limiter.tryConsume("test-key", config);
+      expect(result2.allowed).toBe(true);
+      expect(result2.info.remaining).toBe(1);
+      expect(result2.info.exceeded).toBe(false);
+
+      // Third request - should be allowed (at limit)
+      const result3 = limiter.tryConsume("test-key", config);
+      expect(result3.allowed).toBe(true);
+      expect(result3.info.remaining).toBe(0);
+      expect(result3.info.exceeded).toBe(false);
+
+      // Fourth request - should be rejected
+      const result4 = limiter.tryConsume("test-key", config);
+      expect(result4.allowed).toBe(false);
+      expect(result4.info.remaining).toBe(0);
+      expect(result4.info.exceeded).toBe(true);
+    });
+
+    test("tryConsume does not increment counter when rejected", () => {
+      const limiter = new InMemoryRateLimiter();
+      const config: RateLimitConfig = { limit: 2, windowMs: 60_000 };
+
+      // Consume all slots
+      limiter.tryConsume("test-key", config); // 1
+      limiter.tryConsume("test-key", config); // 2
+
+      // Try to consume more - should be rejected
+      const result1 = limiter.tryConsume("test-key", config);
+      expect(result1.allowed).toBe(false);
+
+      // Counter should still be at 2, not incremented
+      const peek = limiter.peek("test-key", config);
+      expect(peek.remaining).toBe(0);
+
+      // Multiple rejections should not increment
+      limiter.tryConsume("test-key", config);
+      limiter.tryConsume("test-key", config);
+      limiter.tryConsume("test-key", config);
+
+      // Still at same count
+      const peek2 = limiter.peek("test-key", config);
+      expect(peek2.remaining).toBe(0);
+    });
+
+    test("tryConsume resets on window expiry", () => {
+      const limiter = new InMemoryRateLimiter();
+      // Very short window for testing
+      const config: RateLimitConfig = { limit: 1, windowMs: 1 };
+
+      const result1 = limiter.tryConsume("test-key", config);
+      expect(result1.allowed).toBe(true);
+
+      const result2 = limiter.tryConsume("test-key", config);
+      expect(result2.allowed).toBe(false);
+
+      // Wait for window to expire
+      return new Promise<void>((resolve) => {
+        setTimeout(() => {
+          const result3 = limiter.tryConsume("test-key", config);
+          expect(result3.allowed).toBe(true);
+          resolve();
+        }, 10);
+      });
+    });
+
+    test("tryConsume handles different keys independently", () => {
+      const limiter = new InMemoryRateLimiter();
+      const config: RateLimitConfig = { limit: 1, windowMs: 60_000 };
+
+      const resultA = limiter.tryConsume("key-a", config);
+      expect(resultA.allowed).toBe(true);
+
+      // key-a is now limited
+      const resultA2 = limiter.tryConsume("key-a", config);
+      expect(resultA2.allowed).toBe(false);
+
+      // key-b should still be allowed
+      const resultB = limiter.tryConsume("key-b", config);
+      expect(resultB.allowed).toBe(true);
+    });
   });
 
   describe("Key Generators", () => {
@@ -465,6 +557,116 @@ describe("Rate Limit Middleware", () => {
     test("RELAXED_RATE_LIMIT has correct values", () => {
       expect(RELAXED_RATE_LIMIT.limit).toBe(300);
       expect(RELAXED_RATE_LIMIT.windowMs).toBe(60_000);
+    });
+  });
+
+  describe("Concurrent access (race condition fix)", () => {
+    test("concurrent requests are properly rate limited with tryConsume", async () => {
+      const limiter = new InMemoryRateLimiter();
+      const config: RateLimitConfig = { limit: 5, windowMs: 60_000 };
+
+      // Simulate 20 concurrent requests
+      const concurrentRequests = 20;
+      const results = await Promise.all(
+        Array.from({ length: concurrentRequests }, () =>
+          Promise.resolve(limiter.tryConsume("concurrent-key", config)),
+        ),
+      );
+
+      // Exactly 5 should be allowed (the limit)
+      const allowedCount = results.filter((r) => r.allowed).length;
+      const rejectedCount = results.filter((r) => !r.allowed).length;
+
+      expect(allowedCount).toBe(5);
+      expect(rejectedCount).toBe(15);
+    });
+
+    test("middleware properly limits concurrent requests", async () => {
+      let handlerCallCount = 0;
+      const app = new Hono();
+      app.use(
+        "*",
+        rateLimitMiddleware({
+          limit: 3,
+          windowMs: 60_000,
+        }),
+      );
+      app.get("/test", (c) => {
+        handlerCallCount++;
+        return c.json({ ok: true });
+      });
+
+      const headers = { "X-Real-IP": "concurrent-client" };
+
+      // Fire 10 concurrent requests
+      const responses = await Promise.all(
+        Array.from({ length: 10 }, () => app.request("/test", { headers })),
+      );
+
+      // Exactly 3 should succeed (200), 7 should be rate limited (429)
+      const successCount = responses.filter((r) => r.status === 200).length;
+      const limitedCount = responses.filter((r) => r.status === 429).length;
+
+      expect(successCount).toBe(3);
+      expect(limitedCount).toBe(7);
+      expect(handlerCallCount).toBe(3); // Handler should only be called 3 times
+    });
+
+    test("strictRateLimitMiddleware also properly limits concurrent requests", async () => {
+      let handlerCallCount = 0;
+      const app = new Hono();
+      app.use(
+        "*",
+        strictRateLimitMiddleware({
+          limit: 3,
+          windowMs: 60_000,
+        }),
+      );
+      app.get("/test", (c) => {
+        handlerCallCount++;
+        return c.json({ ok: true });
+      });
+
+      const headers = { "X-Real-IP": "strict-concurrent-client" };
+
+      // Fire 10 concurrent requests
+      const responses = await Promise.all(
+        Array.from({ length: 10 }, () => app.request("/test", { headers })),
+      );
+
+      // Exactly 3 should succeed (200), 7 should be rate limited (429)
+      const successCount = responses.filter((r) => r.status === 200).length;
+      const limitedCount = responses.filter((r) => r.status === 429).length;
+
+      expect(successCount).toBe(3);
+      expect(limitedCount).toBe(7);
+      expect(handlerCallCount).toBe(3);
+    });
+
+    test("high concurrency burst is properly limited", async () => {
+      const app = new Hono();
+      app.use(
+        "*",
+        rateLimitMiddleware({
+          limit: 10,
+          windowMs: 60_000,
+        }),
+      );
+      app.get("/test", (c) => c.json({ ok: true }));
+
+      const headers = { "X-Real-IP": "burst-client" };
+
+      // Fire 100 concurrent requests (high burst)
+      const responses = await Promise.all(
+        Array.from({ length: 100 }, () => app.request("/test", { headers })),
+      );
+
+      // Exactly 10 should succeed
+      const successCount = responses.filter((r) => r.status === 200).length;
+      const limitedCount = responses.filter((r) => r.status === 429).length;
+
+      expect(successCount).toBe(10);
+      expect(limitedCount).toBe(90);
     });
   });
 
