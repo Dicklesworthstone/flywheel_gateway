@@ -15,4 +15,5 @@ export * from "./rch";
 export * from "./ru";
 export * from "./scanner";
 export * from "./slb";
+export * from "./toon";
 export * from "./xf";
