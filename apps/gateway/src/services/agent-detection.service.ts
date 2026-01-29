@@ -855,9 +855,10 @@ async function runInstalledCheck(
     });
 
     // Set up timeout
-    const timeoutPromise = new Promise<"timeout">((resolve) =>
-      setTimeout(() => resolve("timeout"), timeoutMs),
-    );
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<"timeout">((resolve) => {
+      timeoutId = setTimeout(() => resolve("timeout"), timeoutMs);
+    });
 
     // Wait for exit or timeout
     const raceResult = await Promise.race([proc.exited, timeoutPromise]);
@@ -871,6 +872,7 @@ async function runInstalledCheck(
       return { success: false, output: "" };
     }
 
+    clearTimeout(timeoutId);
     const exitCode = raceResult;
 
     // Read output with cap

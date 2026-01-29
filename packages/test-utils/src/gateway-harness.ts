@@ -219,6 +219,7 @@ export async function createGatewayHarness(
   let baseUrl: string | undefined;
   let server: ReturnType<typeof Bun.serve> | undefined;
   let fetchFn: ((path: string, init?: RequestInit) => Promise<Response>) | undefined;
+  let restoreEnv: (() => void) | undefined;
 
   if (startServer) {
     // Set env so the gateway's connection.ts picks up our temp DB
@@ -231,6 +232,16 @@ export async function createGatewayHarness(
       savedEnv[k] = process.env[k];
       process.env[k] = v;
     }
+
+    restoreEnv = () => {
+      for (const [key, value] of Object.entries(savedEnv)) {
+        if (value === undefined) {
+          delete process.env[key];
+          continue;
+        }
+        process.env[key] = value;
+      }
+    };
 
     // Dynamic import to get the Hono app (it will use the env we just set)
     const { default: app } = await import(
@@ -248,6 +259,11 @@ export async function createGatewayHarness(
   }
 
   function close(): void {
+    try {
+      restoreEnv?.();
+    } catch {
+      // ignore
+    }
     try {
       server?.stop(true);
     } catch {

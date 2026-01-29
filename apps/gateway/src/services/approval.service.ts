@@ -671,6 +671,10 @@ export function startExpirationTimer(intervalMs = 60000): void {
       logger.error({ err }, "Error processing expired approvals");
     });
   }, intervalMs);
+
+  if (expirationTimer.unref) {
+    expirationTimer.unref();
+  }
 }
 
 /**

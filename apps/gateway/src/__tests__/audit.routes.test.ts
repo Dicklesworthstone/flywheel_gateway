@@ -2,148 +2,100 @@
  * Tests for audit routes.
  */
 
-import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { Hono } from "hono";
-import audit from "../routes/audit";
 import {
   restoreCorrelation,
-  restoreDrizzleOrm,
   restoreRealDb,
-  restoreResponseUtils,
 } from "./test-utils/db-mock-restore";
 
-// Mock the correlation middleware
-mock.module("../middleware/correlation", () => ({
-  getCorrelationId: () => "test-correlation-id",
-  getLogger: () => ({
+let auditRoutes: typeof import("../routes/audit").default;
+
+beforeAll(async () => {
+  // NOTE: These mocks must run before importing routes/services so they don't
+  // pollute other test files via Bun's persistent mock.module behavior.
+
+  // Mock the correlation middleware
+  const mockLogger = {
     info: () => {},
     error: () => {},
     warn: () => {},
     debug: () => {},
-  }),
-}));
+    child: () => mockLogger,
+  };
+  mock.module("../middleware/correlation", () => ({
+    getCorrelationId: () => "test-correlation-id",
+    getLogger: () => mockLogger,
+  }));
 
-// Mock the utils/response module
-mock.module("../utils/response", () => ({
-  sendError: (c: any, status: number, code: string, message: string) =>
-    c.json({ error: { code, message } }, status),
-  sendInternalError: (c: any) =>
-    c.json(
-      { error: { code: "INTERNAL_ERROR", message: "Internal server error" } },
-      500,
-    ),
-  sendNotFound: (c: any, type: string, id: string) =>
-    c.json(
-      { error: { code: "NOT_FOUND", message: `${type} not found: ${id}` } },
-      404,
-    ),
-  sendResource: (c: any, data: any) => c.json(data),
-  sendValidationError: (c: any, errors: any) =>
-    c.json({ error: { code: "VALIDATION_ERROR", details: errors } }, 400),
-}));
+  // Mock the database
+  const mockEvents = [
+    {
+      id: "event-1",
+      correlationId: "corr-1",
+      accountId: "user-1",
+      action: "agent.spawn",
+      resource: "agent-123",
+      resourceType: "agent",
+      outcome: "success",
+      metadata: { foo: "bar" },
+      createdAt: new Date("2026-01-10T10:00:00Z"),
+    },
+    {
+      id: "event-2",
+      correlationId: "corr-1",
+      accountId: "user-1",
+      action: "agent.terminate",
+      resource: "agent-123",
+      resourceType: "agent",
+      outcome: "success",
+      metadata: null,
+      createdAt: new Date("2026-01-10T11:00:00Z"),
+    },
+  ];
 
-// Mock the utils/validation module
-mock.module("../utils/validation", () => ({
-  transformZodError: (error: any) =>
-    error.errors?.map((e: any) => ({
-      path: e.path.join("."),
-      message: e.message,
-    })) ?? [],
-}));
-
-// Mock the database
-const mockEvents = [
-  {
-    id: "event-1",
-    correlationId: "corr-1",
-    accountId: "user-1",
-    action: "agent.spawn",
-    resource: "agent-123",
-    resourceType: "agent",
-    outcome: "success",
-    metadata: { foo: "bar" },
-    createdAt: new Date("2026-01-10T10:00:00Z"),
-  },
-  {
-    id: "event-2",
-    correlationId: "corr-1",
-    accountId: "user-1",
-    action: "agent.terminate",
-    resource: "agent-123",
-    resourceType: "agent",
-    outcome: "success",
-    metadata: null,
-    createdAt: new Date("2026-01-10T11:00:00Z"),
-  },
-];
-
-mock.module("../db", () => ({
-  db: {
-    select: () => ({
-      from: () => {
-        // Create a chainable mock that supports multiple query patterns
-        const chain: any = {
-          where: (_cond: any) => ({
-            orderBy: () => {
-              // For correlated events route - returns a thenable
-              const orderByChain: any = {
-                limit: (n: number) => ({
-                  offset: () => Promise.resolve(mockEvents.slice(0, n)),
-                }),
-                then: (resolve: any) => resolve(mockEvents),
-              };
-              return orderByChain;
-            },
+  mock.module("../db", () => ({
+    db: {
+      select: () => ({
+        from: () => {
+          // Create a chainable mock that supports multiple query patterns
+          const chain: any = {
+            where: (_cond: any) => ({
+              orderBy: () => {
+                // For correlated events route - returns a thenable
+                const orderByChain: any = {
+                  limit: (n: number) => ({
+                    offset: () => Promise.resolve(mockEvents.slice(0, n)),
+                  }),
+                  then: (resolve: any) => resolve(mockEvents),
+                };
+                return orderByChain;
+              },
+              groupBy: () =>
+                Promise.resolve([{ action: "agent.spawn", count: 5 }]),
+              limit: (n: number) => Promise.resolve(mockEvents.slice(0, n)),
+            }),
+            orderBy: () => ({
+              limit: (n: number) => Promise.resolve(mockEvents.slice(0, n)),
+            }),
             groupBy: () =>
               Promise.resolve([{ action: "agent.spawn", count: 5 }]),
             limit: (n: number) => Promise.resolve(mockEvents.slice(0, n)),
-          }),
-          orderBy: () => ({
-            limit: (n: number) => Promise.resolve(mockEvents.slice(0, n)),
-          }),
-          groupBy: () => Promise.resolve([{ action: "agent.spawn", count: 5 }]),
-          limit: (n: number) => Promise.resolve(mockEvents.slice(0, n)),
-        };
-        return chain;
-      },
-    }),
-  },
-}));
+          };
+          return chain;
+        },
+      }),
+    },
+  }));
 
-// Mock drizzle-orm operators
-// IMPORTANT: Must include all sql methods that drizzle-orm uses internally
-const mockSql = Object.assign(
-  (strings: TemplateStringsArray, ..._values: unknown[]) => strings.join(""),
-  {
-    identifier: (name: string) => name,
-    raw: (value: string) => value,
-    placeholder: (name: string) => `$${name}`,
-    empty: "",
-    fromList: (list: unknown[]) => list.join(", "),
-    join: (items: unknown[], separator: string) =>
-      items.map(String).join(separator),
-  },
-);
-
-mock.module("drizzle-orm", () => ({
-  and: (...args: unknown[]) => args,
-  desc: (col: unknown) => col,
-  eq: (col: unknown, val: unknown) => ({ col, val }),
-  gte: (col: unknown, val: unknown) => ({ col, val }),
-  lte: (col: unknown, val: unknown) => ({ col, val }),
-  like: (col: unknown, val: unknown) => ({ col, val }),
-  inArray: (col: unknown, vals: unknown) => ({ col, vals }),
-  sql: mockSql,
-  count: () => "count",
-}));
+  auditRoutes = (await import("../routes/audit")).default;
+});
 
 afterAll(() => {
   mock.restore();
   // Restore real modules for other test files (mock.restore doesn't restore mock.module)
-  restoreRealDb();
-  restoreDrizzleOrm();
-  restoreResponseUtils();
   restoreCorrelation();
+  restoreRealDb();
 });
 
 describe("Audit Routes", () => {
@@ -151,7 +103,7 @@ describe("Audit Routes", () => {
 
   beforeEach(() => {
     app = new Hono();
-    app.route("/audit", audit);
+    app.route("/audit", auditRoutes);
   });
 
   describe("GET /audit - Search", () => {

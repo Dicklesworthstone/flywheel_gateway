@@ -99,6 +99,7 @@ const mockLogger = {
   error: (context: Record<string, unknown>, message: string) => {
     logCalls.push({ level: "error", context, message });
   },
+  child: () => mockLogger,
 };
 
 // Mock the correlation middleware to return our mock logger

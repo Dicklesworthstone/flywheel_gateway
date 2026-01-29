@@ -148,7 +148,7 @@ describe("beads routes", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     // Canonical envelope format
-    expect(data.object).toBe("ready");
+    expect(data.object).toBe("quick_wins");
     expect(data.data.beads[0].id).toBe("bead-2");
     expect(data.requestId).toBeDefined();
   });
@@ -177,7 +177,7 @@ describe("beads routes", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     // Canonical envelope format
-    expect(data.object).toBe("ready");
+    expect(data.object).toBe("quick_wins");
     expect(data.data.beads).toHaveLength(1);
     expect(data.requestId).toBeDefined();
   });
@@ -205,7 +205,7 @@ describe("beads routes", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     // Canonical envelope format
-    expect(data.object).toBe("blocked");
+    expect(data.object).toBe("blockers");
     expect(data.data.beads[0].id).toBe("bead-3");
     expect(data.requestId).toBeDefined();
   });
@@ -234,7 +234,7 @@ describe("beads routes", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     // Canonical envelope format
-    expect(data.object).toBe("blocked");
+    expect(data.object).toBe("blockers");
     expect(data.data.beads).toHaveLength(1);
     expect(data.requestId).toBeDefined();
   });

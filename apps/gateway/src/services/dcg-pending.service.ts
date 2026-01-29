@@ -572,6 +572,10 @@ export function startDCGCleanupJob(): void {
     });
   }, CLEANUP_INTERVAL_MS);
 
+  if (cleanupInterval.unref) {
+    cleanupInterval.unref();
+  }
+
   logger.info(
     { intervalMs: CLEANUP_INTERVAL_MS },
     "DCG pending exceptions cleanup job started",

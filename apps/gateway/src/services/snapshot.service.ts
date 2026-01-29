@@ -109,20 +109,23 @@ async function withTimeout<T>(
 ): Promise<CollectionResult<T>> {
   const start = performance.now();
 
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const result = await Promise.race([
       fn(),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout")), timeoutMs),
-      ),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("Timeout")), timeoutMs);
+      }),
     ]);
 
+    clearTimeout(timer);
     return {
       success: true,
       data: result,
       latencyMs: Math.round(performance.now() - start),
     };
   } catch (error) {
+    clearTimeout(timer);
     return {
       success: false,
       error:

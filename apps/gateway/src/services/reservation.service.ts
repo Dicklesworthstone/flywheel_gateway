@@ -339,6 +339,15 @@ function fileMatchesPatterns(filePath: string, patterns: string[]): boolean {
   return false;
 }
 
+function normalizeCursorSortValue(sortValue: string | number | undefined): number {
+  if (typeof sortValue === "number") return sortValue;
+  if (typeof sortValue === "string") {
+    const parsed = Number(sortValue);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
 // ============================================================================
 // Core Operations
 // ============================================================================
@@ -740,63 +749,82 @@ export async function listReservations(
   }
 
   // Sort by creation time (newest first)
-  reservations.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  reservations.sort(
+    (a, b) =>
+      b.createdAt.getTime() - a.createdAt.getTime() ||
+      b.id.localeCompare(a.id),
+  );
 
-  // Apply pagination
   const limit = Math.min(
     Math.max(1, params.limit ?? DEFAULT_PAGINATION.limit),
     DEFAULT_PAGINATION.maxLimit,
   );
 
-  // Handle cursor-based pagination
-  let paginatedReservations = reservations;
-  
-  if (params.startingAfter) {
-    const cursor = decodeCursor(params.startingAfter);
-    if (cursor) {
-      const cursorTime = cursor.value ?? 0;
-      paginatedReservations = reservations.filter(r => 
-        r.createdAt.getTime() < cursorTime || 
-        (r.createdAt.getTime() === cursorTime && r.id < cursor.id)
-      );
+  const direction = params.endingBefore ? "backward" : "forward";
+
+  let resultItems: FileReservation[] = [];
+  let hasMore = false;
+
+  if (direction === "forward") {
+    let afterCursor = reservations;
+    if (params.startingAfter) {
+      const cursor = decodeCursor(params.startingAfter);
+      if (cursor) {
+        const cursorTime = normalizeCursorSortValue(cursor.sortValue);
+        afterCursor = reservations.filter(
+          (r) =>
+            r.createdAt.getTime() < cursorTime ||
+            (r.createdAt.getTime() === cursorTime && r.id < cursor.id),
+        );
+      }
     }
-  } else if (params.endingBefore) {
-    const cursor = decodeCursor(params.endingBefore);
-    if (cursor) {
-      const cursorTime = cursor.value ?? 0;
-      // Get items before cursor (newer), then reverse to get correct page
-      const itemsBefore = reservations.filter(r => 
-        r.createdAt.getTime() > cursorTime || 
-        (r.createdAt.getTime() === cursorTime && r.id > cursor.id)
-      );
-      // We want the *last* 'limit' items from the 'before' set (which are the oldest of the new set)
-      // Since 'itemsBefore' is sorted Descending, the 'last' items are the oldest (closest to cursor)
-      const startIndex = Math.max(0, itemsBefore.length - limit);
-      paginatedReservations = itemsBefore.slice(startIndex);
+
+    hasMore = afterCursor.length > limit;
+    resultItems = hasMore ? afterCursor.slice(0, limit) : afterCursor;
+  } else {
+    let beforeCursor = reservations;
+    if (params.endingBefore) {
+      const cursor = decodeCursor(params.endingBefore);
+      if (cursor) {
+        const cursorTime = normalizeCursorSortValue(cursor.sortValue);
+        beforeCursor = reservations.filter(
+          (r) =>
+            r.createdAt.getTime() > cursorTime ||
+            (r.createdAt.getTime() === cursorTime && r.id > cursor.id),
+        );
+      }
     }
+
+    hasMore = beforeCursor.length > limit;
+    const startIndex = Math.max(0, beforeCursor.length - limit);
+    resultItems = beforeCursor.slice(startIndex);
   }
 
-  // Slice to limit + 1 to check hasMore
-  const resultItems = paginatedReservations.slice(0, limit);
-  const hasMore = paginatedReservations.length > limit;
+  const result: ListReservationsResult = { reservations: resultItems, hasMore };
 
-  // Build cursors
-  const result: ListReservationsResult = {
-    reservations: resultItems,
-    hasMore,
-  };
-
-  if (hasMore && resultItems.length > 0) {
-    const lastItem = resultItems[resultItems.length - 1]!;
-    result.nextCursor = createCursor(lastItem.id, lastItem.createdAt.getTime());
-  }
-
-  if (resultItems.length > 0 && startIndex > 0) {
+  if (resultItems.length > 0) {
     const firstItem = resultItems[0]!;
-    result.prevCursor = createCursor(
-      firstItem.id,
-      firstItem.createdAt.getTime(),
-    );
+    const lastItem = resultItems[resultItems.length - 1]!;
+
+    if (direction === "forward") {
+      if (hasMore) {
+        result.nextCursor = createCursor(
+          lastItem.id,
+          lastItem.createdAt.getTime(),
+        );
+      }
+      if (params.startingAfter) {
+        result.prevCursor = createCursor(
+          firstItem.id,
+          firstItem.createdAt.getTime(),
+        );
+      }
+    } else if (hasMore) {
+      result.prevCursor = createCursor(
+        firstItem.id,
+        firstItem.createdAt.getTime(),
+      );
+    }
   }
 
   return result;
@@ -820,57 +848,79 @@ export async function listConflicts(
   });
 
   // Sort by detection time (newest first)
-  conflicts.sort((a, b) => b.detectedAt.getTime() - a.detectedAt.getTime());
+  conflicts.sort(
+    (a, b) =>
+      b.detectedAt.getTime() - a.detectedAt.getTime() ||
+      b.conflictId.localeCompare(a.conflictId),
+  );
 
-  // Handle cursor-based pagination
-  let paginatedConflicts = conflicts;
+  const direction = params.endingBefore ? "backward" : "forward";
 
-  if (params.startingAfter) {
-    const cursor = decodeCursor(params.startingAfter);
-    if (cursor) {
-      const cursorTime = cursor.value ?? 0;
-      paginatedConflicts = conflicts.filter(c => 
-        c.detectedAt.getTime() < cursorTime || 
-        (c.detectedAt.getTime() === cursorTime && c.conflictId < cursor.id)
-      );
+  let resultItems: ReservationConflictRecord[] = [];
+  let hasMore = false;
+
+  if (direction === "forward") {
+    let afterCursor = conflicts;
+    if (params.startingAfter) {
+      const cursor = decodeCursor(params.startingAfter);
+      if (cursor) {
+        const cursorTime = normalizeCursorSortValue(cursor.sortValue);
+        afterCursor = conflicts.filter(
+          (c) =>
+            c.detectedAt.getTime() < cursorTime ||
+            (c.detectedAt.getTime() === cursorTime &&
+              c.conflictId < cursor.id),
+        );
+      }
     }
-  } else if (params.endingBefore) {
-    const cursor = decodeCursor(params.endingBefore);
-    if (cursor) {
-      const cursorTime = cursor.value ?? 0;
-      const itemsBefore = conflicts.filter(c => 
-        c.detectedAt.getTime() > cursorTime || 
-        (c.detectedAt.getTime() === cursorTime && c.conflictId > cursor.id)
-      );
-      const startIndex = Math.max(0, itemsBefore.length - limit);
-      paginatedConflicts = itemsBefore.slice(startIndex);
+
+    hasMore = afterCursor.length > limit;
+    resultItems = hasMore ? afterCursor.slice(0, limit) : afterCursor;
+  } else {
+    let beforeCursor = conflicts;
+    if (params.endingBefore) {
+      const cursor = decodeCursor(params.endingBefore);
+      if (cursor) {
+        const cursorTime = normalizeCursorSortValue(cursor.sortValue);
+        beforeCursor = conflicts.filter(
+          (c) =>
+            c.detectedAt.getTime() > cursorTime ||
+            (c.detectedAt.getTime() === cursorTime &&
+              c.conflictId > cursor.id),
+        );
+      }
     }
+
+    hasMore = beforeCursor.length > limit;
+    const startIndex = Math.max(0, beforeCursor.length - limit);
+    resultItems = beforeCursor.slice(startIndex);
   }
 
-  // Get limit+1 to check if there are more
-  const resultItems = paginatedConflicts.slice(0, limit);
-  const hasMore = paginatedConflicts.length > limit;
+  const result: ListConflictsResult = { conflicts: resultItems, hasMore };
 
-  // Build result with cursors
-  const result: ListConflictsResult = {
-    conflicts: resultItems,
-    hasMore,
-  };
-
-  if (hasMore && resultItems.length > 0) {
-    const lastItem = resultItems[resultItems.length - 1]!;
-    result.nextCursor = createCursor(
-      lastItem.conflictId,
-      lastItem.detectedAt.getTime(),
-    );
-  }
-
-  if (resultItems.length > 0 && startIndex > 0) {
+  if (resultItems.length > 0) {
     const firstItem = resultItems[0]!;
-    result.prevCursor = createCursor(
-      firstItem.conflictId,
-      firstItem.detectedAt.getTime(),
-    );
+    const lastItem = resultItems[resultItems.length - 1]!;
+
+    if (direction === "forward") {
+      if (hasMore) {
+        result.nextCursor = createCursor(
+          lastItem.conflictId,
+          lastItem.detectedAt.getTime(),
+        );
+      }
+      if (params.startingAfter) {
+        result.prevCursor = createCursor(
+          firstItem.conflictId,
+          firstItem.detectedAt.getTime(),
+        );
+      }
+    } else if (hasMore) {
+      result.prevCursor = createCursor(
+        firstItem.conflictId,
+        firstItem.detectedAt.getTime(),
+      );
+    }
   }
 
   return result;
@@ -1042,6 +1092,10 @@ export function startCleanupJob(): void {
       logger.error({ error: err }, "Error in resolved conflict cleanup job");
     });
   }, CLEANUP_INTERVAL_MS);
+
+  if (cleanupInterval.unref) {
+    cleanupInterval.unref();
+  }
 
   logger.info(
     { intervalMs: CLEANUP_INTERVAL_MS },

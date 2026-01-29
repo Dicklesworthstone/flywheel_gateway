@@ -87,6 +87,7 @@ export function truncateToTokens(
     return ellipsisTokens === maxTokens ? ellipsis : "";
   }
   const targetTokens = maxTokens - ellipsisTokens;
+  if (currentTokens === 0) return ellipsis;
   const targetChars = Math.floor(text.length * (targetTokens / currentTokens));
 
   // Find a good break point (word boundary)

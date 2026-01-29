@@ -341,8 +341,8 @@ async function gatherInputData(
   }
 
   // Gather data in parallel with timeout
-  const _timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const results = await Promise.allSettled([
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const allSettled = Promise.allSettled([
     fetchBvPriority(request.requestingBvId).catch(() => undefined),
     fetchBvPriority(request.holdingBvId).catch(() => undefined),
     options.skipCassLookup
@@ -354,6 +354,24 @@ async function gatherInputData(
       request.contestedResources,
     ).catch(() => undefined),
   ]);
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const results = await Promise.race([
+    allSettled,
+    new Promise<PromiseSettledResult<undefined>[]>((resolve) => {
+      timer = setTimeout(
+        () =>
+          resolve([
+            { status: "fulfilled", value: undefined },
+            { status: "fulfilled", value: undefined },
+            { status: "fulfilled", value: undefined },
+            { status: "fulfilled", value: undefined },
+          ]),
+        timeoutMs,
+      );
+    }),
+  ]);
+  clearTimeout(timer);
 
   // Process results
   if (results[0]?.status === "fulfilled" && results[0].value) {

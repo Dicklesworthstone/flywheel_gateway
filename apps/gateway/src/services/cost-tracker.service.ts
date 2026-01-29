@@ -102,6 +102,8 @@ async function refreshRateCardCache(): Promise<void> {
     );
   } catch (error) {
     logger.error({ error }, "Failed to refresh rate card cache");
+    // Update timestamp even on error to prevent retry storms
+    rateCardCacheLastRefresh = now;
     // Use defaults on error
     if (rateCardCache.size === 0) {
       for (const defaultCard of DEFAULT_RATE_CARDS) {

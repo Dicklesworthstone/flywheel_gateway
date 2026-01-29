@@ -25,18 +25,17 @@ import {
 } from "../services/dashboard.service";
 
 describe("Dashboard Service", () => {
-  beforeEach(() => {
-    // Clear in-memory store before each test
-    clearDashboardStore();
+  beforeEach(async () => {
+    await clearDashboardStore();
   });
 
   describe("createDashboard", () => {
-    it("should create a dashboard with default values", () => {
+    it("should create a dashboard with default values", async () => {
       const input: CreateDashboardInput = {
         name: "Test Dashboard",
       };
 
-      const dashboard = createDashboard(input, "user-1");
+      const dashboard = await createDashboard(input, "user-1");
 
       expect(dashboard.id).toBeDefined();
       expect(dashboard.name).toBe("Test Dashboard");
@@ -46,7 +45,7 @@ describe("Dashboard Service", () => {
       expect(dashboard.sharing.visibility).toBe("private");
     });
 
-    it("should create a dashboard with custom layout", () => {
+    it("should create a dashboard with custom layout", async () => {
       const input: CreateDashboardInput = {
         name: "Custom Layout Dashboard",
         layout: {
@@ -55,13 +54,13 @@ describe("Dashboard Service", () => {
         },
       };
 
-      const dashboard = createDashboard(input, "user-1");
+      const dashboard = await createDashboard(input, "user-1");
 
       expect(dashboard.layout.columns).toBe(24);
       expect(dashboard.layout.rowHeight).toBe(100);
     });
 
-    it("should create a dashboard with initial widgets", () => {
+    it("should create a dashboard with initial widgets", async () => {
       const widget: Widget = {
         id: "widget-1",
         type: "metric-card",
@@ -77,65 +76,65 @@ describe("Dashboard Service", () => {
         widgets: [widget],
       };
 
-      const dashboard = createDashboard(input, "user-1");
+      const dashboard = await createDashboard(input, "user-1");
 
       expect(dashboard.widgets).toHaveLength(1);
       expect(dashboard.widgets[0]?.title).toBe("Test Widget");
     });
 
-    it("should create a dashboard with custom sharing settings", () => {
+    it("should create a dashboard with custom sharing settings", async () => {
       const input: CreateDashboardInput = {
         name: "Public Dashboard",
         sharing: { visibility: "public" },
       };
 
-      const dashboard = createDashboard(input, "user-1");
+      const dashboard = await createDashboard(input, "user-1");
 
       expect(dashboard.sharing.visibility).toBe("public");
     });
   });
 
   describe("getDashboard", () => {
-    it("should return dashboard by id", () => {
-      const created = createDashboard({ name: "Test" }, "user-1");
-      const retrieved = getDashboard(created.id);
+    it("should return dashboard by id", async () => {
+      const created = await createDashboard({ name: "Test" }, "user-1");
+      const retrieved = await getDashboard(created.id);
 
       expect(retrieved).toBeDefined();
       expect(retrieved?.id).toBe(created.id);
     });
 
-    it("should return undefined for non-existent dashboard", () => {
-      const dashboard = getDashboard("non-existent");
+    it("should return undefined for non-existent dashboard", async () => {
+      const dashboard = await getDashboard("non-existent");
       expect(dashboard).toBeUndefined();
     });
   });
 
   describe("updateDashboard", () => {
-    it("should update dashboard properties", () => {
-      const created = createDashboard({ name: "Original" }, "user-1");
-      const updated = updateDashboard(created.id, { name: "Updated" });
+    it("should update dashboard properties", async () => {
+      const created = await createDashboard({ name: "Original" }, "user-1");
+      const updated = await updateDashboard(created.id, { name: "Updated" });
 
       expect(updated).toBeDefined();
       expect(updated?.name).toBe("Updated");
     });
 
-    it("should update dashboard description", () => {
-      const created = createDashboard({ name: "Test" }, "user-1");
-      const updated = updateDashboard(created.id, {
+    it("should update dashboard description", async () => {
+      const created = await createDashboard({ name: "Test" }, "user-1");
+      const updated = await updateDashboard(created.id, {
         description: "New description",
       });
 
       expect(updated?.description).toBe("New description");
     });
 
-    it("should return undefined for non-existent dashboard", () => {
-      const updated = updateDashboard("non-existent", { name: "Updated" });
+    it("should return undefined for non-existent dashboard", async () => {
+      const updated = await updateDashboard("non-existent", { name: "Updated" });
       expect(updated).toBeUndefined();
     });
 
-    it("should update layout settings", () => {
-      const created = createDashboard({ name: "Test" }, "user-1");
-      const updated = updateDashboard(created.id, {
+    it("should update layout settings", async () => {
+      const created = await createDashboard({ name: "Test" }, "user-1");
+      const updated = await updateDashboard(created.id, {
         layout: { columns: 24 },
       });
 
@@ -146,51 +145,51 @@ describe("Dashboard Service", () => {
   });
 
   describe("deleteDashboard", () => {
-    it("should delete dashboard", () => {
-      const created = createDashboard({ name: "To Delete" }, "user-1");
-      const deleted = deleteDashboard(created.id);
+    it("should delete dashboard", async () => {
+      const created = await createDashboard({ name: "To Delete" }, "user-1");
+      const deleted = await deleteDashboard(created.id);
 
       expect(deleted).toBe(true);
-      expect(getDashboard(created.id)).toBeUndefined();
+      expect(await getDashboard(created.id)).toBeUndefined();
     });
 
-    it("should return false for non-existent dashboard", () => {
-      const deleted = deleteDashboard("non-existent");
+    it("should return false for non-existent dashboard", async () => {
+      const deleted = await deleteDashboard("non-existent");
       expect(deleted).toBe(false);
     });
   });
 
   describe("listDashboards", () => {
-    it("should list all dashboards", () => {
-      createDashboard({ name: "Dashboard 1" }, "user-1");
-      createDashboard({ name: "Dashboard 2" }, "user-1");
-      createDashboard({ name: "Dashboard 3" }, "user-2");
+    it("should list all dashboards", async () => {
+      await createDashboard({ name: "Dashboard 1" }, "user-1");
+      await createDashboard({ name: "Dashboard 2" }, "user-1");
+      await createDashboard({ name: "Dashboard 3" }, "user-2");
 
-      const { items, total } = listDashboards({});
+      const { items, total } = await listDashboards({});
 
       expect(items).toHaveLength(3);
       expect(total).toBe(3);
     });
 
-    it("should filter by owner", () => {
-      createDashboard({ name: "Dashboard 1" }, "user-1");
-      createDashboard({ name: "Dashboard 2" }, "user-1");
-      createDashboard({ name: "Dashboard 3" }, "user-2");
+    it("should filter by owner", async () => {
+      await createDashboard({ name: "Dashboard 1" }, "user-1");
+      await createDashboard({ name: "Dashboard 2" }, "user-1");
+      await createDashboard({ name: "Dashboard 3" }, "user-2");
 
-      const { items, total } = listDashboards({ ownerId: "user-1" });
+      const { items, total } = await listDashboards({ ownerId: "user-1" });
 
       expect(items).toHaveLength(2);
       expect(total).toBe(2);
     });
 
-    it("should filter by visibility", () => {
-      createDashboard({ name: "Private" }, "user-1");
-      createDashboard(
+    it("should filter by visibility", async () => {
+      await createDashboard({ name: "Private" }, "user-1");
+      await createDashboard(
         { name: "Public", sharing: { visibility: "public" } },
         "user-2",
       );
 
-      const { items, total } = listDashboards({ visibility: "public" });
+      const { items, total } = await listDashboards({ visibility: "public" });
       expect(items).toHaveLength(1);
       expect(items[0]?.name).toBe("Public");
       expect(total).toBe(1);
@@ -198,8 +197,8 @@ describe("Dashboard Service", () => {
   });
 
   describe("duplicateDashboard", () => {
-    it("should create a copy of the dashboard", () => {
-      const original = createDashboard(
+    it("should create a copy of the dashboard", async () => {
+      const original = await createDashboard(
         {
           name: "Original",
           widgets: [
@@ -215,7 +214,7 @@ describe("Dashboard Service", () => {
         "user-1",
       );
 
-      const duplicate = duplicateDashboard(original.id, "user-1");
+      const duplicate = await duplicateDashboard(original.id, "user-1");
 
       expect(duplicate).toBeDefined();
       expect(duplicate?.id).not.toBe(original.id);
@@ -223,9 +222,9 @@ describe("Dashboard Service", () => {
       expect(duplicate?.widgets).toHaveLength(1);
     });
 
-    it("should allow custom name for duplicate", () => {
-      const original = createDashboard({ name: "Original" }, "user-1");
-      const duplicate = duplicateDashboard(
+    it("should allow custom name for duplicate", async () => {
+      const original = await createDashboard({ name: "Original" }, "user-1");
+      const duplicate = await duplicateDashboard(
         original.id,
         "user-1",
         "Custom Copy Name",
@@ -234,15 +233,15 @@ describe("Dashboard Service", () => {
       expect(duplicate?.name).toBe("Custom Copy Name");
     });
 
-    it("should return undefined for non-existent dashboard", () => {
-      const duplicate = duplicateDashboard("non-existent", "user-1");
+    it("should return undefined for non-existent dashboard", async () => {
+      const duplicate = await duplicateDashboard("non-existent", "user-1");
       expect(duplicate).toBeUndefined();
     });
   });
 
   describe("Widget Operations", () => {
-    it("should add a widget to dashboard", () => {
-      const dashboard = createDashboard({ name: "Test" }, "user-1");
+    it("should add a widget to dashboard", async () => {
+      const dashboard = await createDashboard({ name: "Test" }, "user-1");
       const widget: Widget = {
         id: "new-widget",
         type: "line-chart" as WidgetType,
@@ -251,15 +250,15 @@ describe("Dashboard Service", () => {
         config: { dataSource: { type: "api" } },
       };
 
-      const updated = addWidget(dashboard.id, widget);
+      const updated = await addWidget(dashboard.id, widget);
 
       expect(updated).toBeDefined();
       expect(updated?.widgets).toHaveLength(1);
       expect(updated?.widgets[0]?.title).toBe("New Widget");
     });
 
-    it("should generate widget id if not provided", () => {
-      const dashboard = createDashboard({ name: "Test" }, "user-1");
+    it("should generate widget id if not provided", async () => {
+      const dashboard = await createDashboard({ name: "Test" }, "user-1");
       const widget = {
         id: "",
         type: "metric-card" as WidgetType,
@@ -268,14 +267,14 @@ describe("Dashboard Service", () => {
         config: { dataSource: { type: "api" as const } },
       };
 
-      const updated = addWidget(dashboard.id, widget);
+      const updated = await addWidget(dashboard.id, widget);
 
       expect(updated?.widgets[0]?.id).toBeTruthy();
       expect(updated?.widgets[0]?.id).not.toBe("");
     });
 
-    it("should update a widget", () => {
-      const dashboard = createDashboard(
+    it("should update a widget", async () => {
+      const dashboard = await createDashboard(
         {
           name: "Test",
           widgets: [
@@ -291,7 +290,7 @@ describe("Dashboard Service", () => {
         "user-1",
       );
 
-      const updated = updateWidget(dashboard.id, "w1", {
+      const updated = await updateWidget(dashboard.id, "w1", {
         title: "Updated Title",
       });
 
@@ -299,17 +298,17 @@ describe("Dashboard Service", () => {
       expect(updated?.widgets[0]?.title).toBe("Updated Title");
     });
 
-    it("should return undefined when updating non-existent widget", () => {
-      const dashboard = createDashboard({ name: "Test" }, "user-1");
-      const updated = updateWidget(dashboard.id, "non-existent", {
+    it("should return undefined when updating non-existent widget", async () => {
+      const dashboard = await createDashboard({ name: "Test" }, "user-1");
+      const updated = await updateWidget(dashboard.id, "non-existent", {
         title: "Updated",
       });
 
       expect(updated).toBeUndefined();
     });
 
-    it("should remove a widget", () => {
-      const dashboard = createDashboard(
+    it("should remove a widget", async () => {
+      const dashboard = await createDashboard(
         {
           name: "Test",
           widgets: [
@@ -325,7 +324,7 @@ describe("Dashboard Service", () => {
         "user-1",
       );
 
-      const updated = removeWidget(dashboard.id, "w1");
+      const updated = await removeWidget(dashboard.id, "w1");
 
       expect(updated).toBeDefined();
       expect(updated?.widgets).toHaveLength(0);
@@ -333,54 +332,54 @@ describe("Dashboard Service", () => {
   });
 
   describe("Permissions", () => {
-    it("should grant view permission", () => {
-      const dashboard = createDashboard({ name: "Test" }, "user-1");
-      const permission = grantPermission(dashboard.id, "user-2", "view");
+    it("should grant view permission", async () => {
+      const dashboard = await createDashboard({ name: "Test" }, "user-1");
+      const permission = await grantPermission(dashboard.id, "user-2", "view");
 
       expect(permission).toBeDefined();
       expect(permission?.permission).toBe("view");
       expect(permission?.userId).toBe("user-2");
     });
 
-    it("should grant edit permission", () => {
-      const dashboard = createDashboard({ name: "Test" }, "user-1");
-      const permission = grantPermission(dashboard.id, "user-2", "edit");
+    it("should grant edit permission", async () => {
+      const dashboard = await createDashboard({ name: "Test" }, "user-1");
+      const permission = await grantPermission(dashboard.id, "user-2", "edit");
 
       expect(permission).toBeDefined();
       expect(permission?.permission).toBe("edit");
     });
 
-    it("should revoke permission", () => {
-      const dashboard = createDashboard({ name: "Test" }, "user-1");
-      grantPermission(dashboard.id, "user-2", "view");
-      const revoked = revokePermission(dashboard.id, "user-2");
+    it("should revoke permission", async () => {
+      const dashboard = await createDashboard({ name: "Test" }, "user-1");
+      await grantPermission(dashboard.id, "user-2", "view");
+      const revoked = await revokePermission(dashboard.id, "user-2");
 
       expect(revoked).toBe(true);
     });
 
-    it("should return false when revoking non-existent permission", () => {
-      const dashboard = createDashboard({ name: "Test" }, "user-1");
-      const revoked = revokePermission(dashboard.id, "user-2");
+    it("should return false when revoking non-existent permission", async () => {
+      const dashboard = await createDashboard({ name: "Test" }, "user-1");
+      const revoked = await revokePermission(dashboard.id, "user-2");
 
       expect(revoked).toBe(false);
     });
   });
 
   describe("Favorites", () => {
-    it("should toggle favorite status", () => {
-      const dashboard = createDashboard({ name: "Test" }, "user-1");
+    it("should toggle favorite status", async () => {
+      const dashboard = await createDashboard({ name: "Test" }, "user-1");
 
       // Add to favorites
-      let isFavorite = toggleFavorite(dashboard.id, "user-1");
+      let isFavorite = await toggleFavorite(dashboard.id, "user-1");
       expect(isFavorite).toBe(true);
 
       // Remove from favorites
-      isFavorite = toggleFavorite(dashboard.id, "user-1");
+      isFavorite = await toggleFavorite(dashboard.id, "user-1");
       expect(isFavorite).toBe(false);
     });
 
-    it("should return false when dashboard does not exist", () => {
-      const isFavorite = toggleFavorite("non-existent", "user-1");
+    it("should return false when dashboard does not exist", async () => {
+      const isFavorite = await toggleFavorite("non-existent", "user-1");
       expect(isFavorite).toBe(false);
     });
   });

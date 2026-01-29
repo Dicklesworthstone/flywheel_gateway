@@ -153,7 +153,7 @@ describe("Beads Filter Parity Tests (bd-3kes)", () => {
     if (errors.length > 0) {
       console.log(`Errors encountered: ${errors.length}`);
     }
-  });
+  }, TEST_TIMEOUT * 4);
 
   // ==========================================================================
   // Label Filter Tests

@@ -673,7 +673,8 @@ handoffs.post("/:handoffId/cancel", async (c) => {
 handoffs.get("/source/:agentId", async (c) => {
   const agentId = c.req.param("agentId");
   const phaseParam = c.req.query("phase");
-  const limit = parseInt(c.req.query("limit") ?? "50", 10);
+  const parsedLimit = parseInt(c.req.query("limit") ?? "50", 10);
+  const limit = Number.isNaN(parsedLimit) ? 50 : parsedLimit;
   const phase = parsePhaseParam(phaseParam);
 
   const handoffsList = listHandoffsForSource(
@@ -706,7 +707,8 @@ handoffs.get("/source/:agentId", async (c) => {
 handoffs.get("/target/:agentId", async (c) => {
   const agentId = c.req.param("agentId");
   const phaseParam = c.req.query("phase");
-  const limit = parseInt(c.req.query("limit") ?? "50", 10);
+  const parsedLimit = parseInt(c.req.query("limit") ?? "50", 10);
+  const limit = Number.isNaN(parsedLimit) ? 50 : parsedLimit;
   const phase = parsePhaseParam(phaseParam);
 
   const handoffsList = listHandoffsForTarget(

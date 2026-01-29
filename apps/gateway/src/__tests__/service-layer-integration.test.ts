@@ -16,6 +16,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 // 1. Create temp DB and run migrations BEFORE importing any services
 // ---------------------------------------------------------------------------
 
+const savedDbFile = process.env["DB_FILE_NAME"];
+const savedNodeEnv = process.env["NODE_ENV"];
+
 const dbPath = join(tmpdir(), `flywheel-svc-test-${process.pid}-${Date.now()}.db`);
 const sqliteDb = new Database(dbPath);
 
@@ -125,6 +128,18 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
+  if (savedDbFile === undefined) {
+    delete process.env["DB_FILE_NAME"];
+  } else {
+    process.env["DB_FILE_NAME"] = savedDbFile;
+  }
+
+  if (savedNodeEnv === undefined) {
+    delete process.env["NODE_ENV"];
+  } else {
+    process.env["NODE_ENV"] = savedNodeEnv;
+  }
+
   for (const suffix of ["", "-wal", "-shm"]) {
     try {
       unlinkSync(`${dbPath}${suffix}`);

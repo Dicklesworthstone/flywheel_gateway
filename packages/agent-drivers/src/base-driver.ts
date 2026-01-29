@@ -415,7 +415,7 @@ export abstract class BaseDriver implements AgentDriver {
 
     // Add to buffer with size limit
     state.outputBuffer.push(output);
-    if (state.outputBuffer.length > this.config.outputBufferSize) {
+    if (state.outputBuffer.length >= this.config.outputBufferSize) {
       state.outputBuffer.shift();
     }
 

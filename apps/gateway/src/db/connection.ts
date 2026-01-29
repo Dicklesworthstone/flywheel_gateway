@@ -1,7 +1,9 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { drizzle } from "drizzle-orm/bun-sqlite";
+import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { DefaultLogger, type LogWriter } from "drizzle-orm/logger";
 import { logger } from "../services/logger";
 import * as schema from "./schema";
@@ -38,6 +40,16 @@ sqlite.exec("PRAGMA synchronous = NORMAL");
 sqlite.exec("PRAGMA foreign_keys = ON");
 
 export const db = drizzle(sqlite, { schema, logger: drizzleLogger });
+
+const shouldAutoMigrate =
+  dbFile === ":memory:" ||
+  process.env["DB_AUTO_MIGRATE"] === "1" ||
+  process.env["DB_AUTO_MIGRATE"] === "true";
+
+if (shouldAutoMigrate) {
+  const migrationsFolder = fileURLToPath(new URL("./migrations", import.meta.url));
+  migrate(db, { migrationsFolder });
+}
 
 // Export underlying sqlite client for raw SQL in tests
 export { sqlite };

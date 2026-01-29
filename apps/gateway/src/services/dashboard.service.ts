@@ -940,8 +940,8 @@ export async function toggleFavorite(
     await removeFavorite(userId, dashboardId);
     return false;
   } else {
-    await addFavorite(userId, dashboardId);
-    return true;
+    const added = await addFavorite(userId, dashboardId);
+    return added;
   }
 }
 

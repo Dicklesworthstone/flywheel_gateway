@@ -1181,6 +1181,10 @@ export function startGitCleanupJob(): void {
     });
   }, CLEANUP_INTERVAL_MS);
 
+  if (cleanupInterval.unref) {
+    cleanupInterval.unref();
+  }
+
   logger.info(
     { intervalMs: CLEANUP_INTERVAL_MS },
     "Git assignment cleanup job started",

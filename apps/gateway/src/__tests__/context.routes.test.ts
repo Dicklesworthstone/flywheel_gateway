@@ -40,15 +40,18 @@ mock.module("../services/cass.service", () => ({
   }),
 }));
 
+const mockLogger = {
+  info: () => {},
+  error: () => {},
+  warn: () => {},
+  debug: () => {},
+  child: () => mockLogger,
+};
+
 // Mock correlation middleware
 mock.module("../middleware/correlation", () => ({
   getCorrelationId: () => "test-correlation-id",
-  getLogger: () => ({
-    info: () => {},
-    error: () => {},
-    warn: () => {},
-    debug: () => {},
-  }),
+  getLogger: () => mockLogger,
 }));
 
 import { Hono } from "hono";

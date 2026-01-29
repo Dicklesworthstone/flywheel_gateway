@@ -384,12 +384,7 @@ export async function searchHistory(
 export async function toggleStar(
   entryId: string,
 ): Promise<HistoryEntry | null> {
-  const entry = await getHistoryEntry(entryId);
-  if (!entry) {
-    return null;
-  }
-
-  // Get current row to update
+  // Single read to reduce race window between read and update
   const rows = await db
     .select()
     .from(historyTable)
@@ -414,14 +409,13 @@ export async function toggleStar(
     })
     .where(eq(historyTable.id, entryId));
 
-  entry.starred = !currentStarred;
-
   logger.info(
-    { entryId, starred: entry.starred },
+    { entryId, starred: !currentStarred },
     "History entry star toggled",
   );
 
-  return entry;
+  // Re-read to return consistent state
+  return getHistoryEntry(entryId);
 }
 
 /**

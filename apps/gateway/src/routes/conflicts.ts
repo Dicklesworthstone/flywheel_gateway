@@ -312,7 +312,8 @@ conflicts.patch("/config", async (c) => {
  */
 conflicts.get("/resolution/audit", async (c) => {
   const limitParam = c.req.query("limit");
-  const limit = limitParam ? parseInt(limitParam, 10) : 50;
+  const parsedLimit = limitParam ? parseInt(limitParam, 10) : 50;
+  const limit = Number.isNaN(parsedLimit) ? 50 : parsedLimit;
 
   const records = getAuditRecords(Math.min(limit, 100));
 

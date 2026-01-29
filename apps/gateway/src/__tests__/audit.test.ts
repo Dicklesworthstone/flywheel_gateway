@@ -7,15 +7,18 @@ import type { AuditEventOptions } from "../services/audit";
 import { audit, auditFailure, auditSuccess } from "../services/audit";
 import { restoreRealDb } from "./test-utils/db-mock-restore";
 
+const mockLogger = {
+  info: () => {},
+  error: () => {},
+  warn: () => {},
+  debug: () => {},
+  child: () => mockLogger,
+};
+
 // Mock the correlation middleware
 mock.module("../middleware/correlation", () => ({
   getCorrelationId: () => "test-correlation-id",
-  getLogger: () => ({
-    info: () => {},
-    error: () => {},
-    warn: () => {},
-    debug: () => {},
-  }),
+  getLogger: () => mockLogger,
 }));
 
 // Mock the database to avoid actual writes during tests
