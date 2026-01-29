@@ -335,7 +335,8 @@ costAnalytics.get("/trends/hourly", async (c) => {
       ...(since && !Number.isNaN(new Date(since).getTime()) && { since: new Date(since) }),
       ...(until && !Number.isNaN(new Date(until).getTime()) && { until: new Date(until) }),
     };
-    const hours = hoursParam ? parseInt(hoursParam, 10) : 24;
+    const parsedHours = hoursParam ? parseInt(hoursParam, 10) : 24;
+    const hours = Number.isNaN(parsedHours) ? 24 : parsedHours;
 
     const trend = await getHourlyCostTrend(filter, hours);
 
@@ -371,7 +372,8 @@ costAnalytics.get("/trends/daily", async (c) => {
       ...(since && !Number.isNaN(new Date(since).getTime()) && { since: new Date(since) }),
       ...(until && !Number.isNaN(new Date(until).getTime()) && { until: new Date(until) }),
     };
-    const days = daysParam ? parseInt(daysParam, 10) : 30;
+    const parsedDays = daysParam ? parseInt(daysParam, 10) : 30;
+    const days = Number.isNaN(parsedDays) ? 30 : parsedDays;
 
     const trend = await getDailyCostTrend(filter, days);
 
@@ -407,7 +409,8 @@ costAnalytics.get("/top-agents", async (c) => {
       ...(since && !Number.isNaN(new Date(since).getTime()) && { since: new Date(since) }),
       ...(until && !Number.isNaN(new Date(until).getTime()) && { until: new Date(until) }),
     };
-    const limit = limitParam ? parseInt(limitParam, 10) : 10;
+    const parsedLimit = limitParam ? parseInt(limitParam, 10) : 10;
+    const limit = Number.isNaN(parsedLimit) ? 10 : parsedLimit;
 
     const agents = await getTopSpendingAgents(filter, limit);
 
@@ -920,7 +923,7 @@ costAnalytics.get("/recommendations", async (c) => {
       ...(projectId && { projectId }),
       ...(categoryParam && { category: categoryParam }),
       ...(statusParam && { status: statusParam }),
-      ...(limitParam && { limit: parseInt(limitParam, 10) }),
+      ...(limitParam && !Number.isNaN(parseInt(limitParam, 10)) && { limit: parseInt(limitParam, 10) }),
     };
 
     const recommendations = await getRecommendations(filter);
