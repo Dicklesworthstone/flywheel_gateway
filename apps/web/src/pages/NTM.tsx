@@ -1,51 +1,74 @@
 /**
- * NTM Page - Notification & Telemetry Manager.
+ * NTM Page - Named Tmux Manager session management.
  *
- * Displays notifications with filtering, preferences management,
- * and read/action controls.
+ * Displays NTM-tracked agent sessions with health status, activity state,
+ * work detection, and alerts. Provides session-level drill-down for
+ * agent output, context usage, and file access tracking.
  */
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { StatusPill } from "../components/ui/StatusPill";
 
 // ============================================================================
 // Types
 // ============================================================================
 
-interface Notification {
+interface NtmAgent {
   id: string;
-  category: string;
-  priority: string;
+  driverType: string;
+  activityState: string;
+  startedAt: string;
+  lastActivityAt?: string;
+  config: Record<string, unknown>;
+  pane?: string;
+  agentType?: string;
+  variant?: string;
+  health?: string;
+  isWorking?: boolean;
+  confidence?: number;
+}
+
+interface SystemSnapshot {
+  data: {
+    agents?: NtmAgent[];
+    generatedAt?: string;
+    timestamp?: string;
+    health?: Record<string, unknown>;
+  };
+}
+
+interface HealthDetailed {
   status: string;
-  title: string;
-  message: string;
-  createdAt: string;
-  readAt?: string;
-  actions?: Array<{ id: string; label: string }>;
-}
-
-interface NotificationList {
-  data: Notification[];
-  total: number;
-}
-
-interface NotificationPreferences {
-  channels: string[];
-  quietHoursStart?: string;
-  quietHoursEnd?: string;
-  digestEnabled: boolean;
-  digestInterval?: string;
+  components: Record<string, {
+    status: string;
+    message?: string;
+    detection?: Record<string, unknown>;
+    details?: Record<string, unknown>;
+  }>;
+  diagnostics?: {
+    tools?: Record<string, {
+      available: boolean;
+      reasonLabel?: string;
+      rootCausePath?: string[];
+      rootCauseExplanation?: string;
+    }>;
+    summary?: {
+      totalTools: number;
+      availableTools: number;
+      unavailableTools: number;
+    };
+  };
 }
 
 // ============================================================================
 // API
 // ============================================================================
 
-const API_BASE = "/api";
+const API_BASE = "";
 
-async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${url}`, init);
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${url}`);
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(body.error?.message ?? body.error ?? `HTTP ${res.status}`);
@@ -57,49 +80,56 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 // Components
 // ============================================================================
 
-const priorityTone: Record<string, "positive" | "warning" | "danger" | "muted"> = {
-  low: "muted",
-  normal: "positive",
-  high: "warning",
-  urgent: "danger",
+const stateTone: Record<string, "positive" | "warning" | "danger" | "muted"> = {
+  READY: "positive",
+  EXECUTING: "positive",
+  PAUSED: "warning",
+  FAILED: "danger",
+  TERMINATED: "muted",
+  idle: "muted",
+  working: "positive",
+  stalled: "warning",
+  error: "danger",
 };
 
-const categoryLabels: Record<string, string> = {
-  agents: "Agents",
-  coordination: "Coordination",
-  tasks: "Tasks",
-  costs: "Costs",
-  security: "Security",
-  system: "System",
+const healthTone: Record<string, "positive" | "warning" | "danger" | "muted"> = {
+  healthy: "positive",
+  degraded: "warning",
+  unhealthy: "danger",
 };
 
-function NotificationRow({
-  notification,
-  onMarkRead,
-}: {
-  notification: Notification;
-  onMarkRead: (id: string) => void;
-}) {
+function AgentRow({ agent }: { agent: NtmAgent }) {
   return (
-    <div className={`table__row ${notification.readAt ? "" : "table__row--unread"}`}>
+    <div className="table__row">
+      <span className="mono">{agent.id}</span>
+      <span>{agent.agentType ?? agent.config?.["type"] ?? "unknown"}</span>
+      <span>{agent.variant ?? "—"}</span>
       <span>
-        <StatusPill tone={priorityTone[notification.priority] ?? "muted"}>
-          {notification.priority}
+        <StatusPill tone={stateTone[agent.activityState] ?? "muted"}>
+          {agent.activityState}
         </StatusPill>
       </span>
-      <span>{categoryLabels[notification.category] ?? notification.category}</span>
-      <span>{notification.title}</span>
-      <span className="muted">{new Date(notification.createdAt).toLocaleString()}</span>
       <span>
-        {!notification.readAt && (
-          <button
-            className="ghost-button"
-            type="button"
-            onClick={() => onMarkRead(notification.id)}
-          >
-            Mark read
-          </button>
+        {agent.health && (
+          <StatusPill tone={healthTone[agent.health] ?? "muted"}>
+            {agent.health}
+          </StatusPill>
         )}
+        {!agent.health && "—"}
+      </span>
+      <span>
+        {agent.isWorking != null
+          ? agent.isWorking
+            ? `Working (${((agent.confidence ?? 0) * 100).toFixed(0)}%)`
+            : "Idle"
+          : "—"}
+      </span>
+      <span className="muted">
+        {agent.lastActivityAt
+          ? new Date(agent.lastActivityAt).toLocaleString()
+          : agent.startedAt
+            ? new Date(agent.startedAt).toLocaleString()
+            : "—"}
       </span>
     </div>
   );
@@ -109,159 +139,196 @@ function NotificationRow({
 // Page
 // ============================================================================
 
-type FilterCategory = "all" | "agents" | "coordination" | "tasks" | "costs" | "security" | "system";
-
 export function NTMPage() {
-  const queryClient = useQueryClient();
-  const [category, setCategory] = useState<FilterCategory>("all");
-  const [status, setStatus] = useState<"all" | "unread" | "read">("all");
+  const [tab, setTab] = useState<"sessions" | "health" | "diagnostics">("sessions");
 
-  const params = new URLSearchParams();
-  if (category !== "all") params.set("category", category);
-  if (status === "unread") params.set("status", "unread");
-  if (status === "read") params.set("status", "read");
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["notifications", category, status],
-    queryFn: () =>
-      fetchJson<NotificationList>(`/notifications?${params.toString()}`),
+  const { data: snapshot, isLoading: snapshotLoading, error: snapshotError } = useQuery({
+    queryKey: ["ntm", "snapshot"],
+    queryFn: () => fetchJson<SystemSnapshot>("/system/snapshot"),
     staleTime: 10_000,
   });
 
-  const { data: prefs } = useQuery({
-    queryKey: ["notifications", "preferences"],
-    queryFn: () =>
-      fetchJson<{ data: NotificationPreferences }>("/notifications/preferences"),
-    staleTime: 60_000,
+  const { data: health } = useQuery({
+    queryKey: ["ntm", "health"],
+    queryFn: () => fetchJson<HealthDetailed>("/health/detailed"),
+    staleTime: 10_000,
   });
 
-  const markReadMutation = useMutation({
-    mutationFn: (id: string) =>
-      fetchJson(`/notifications/${id}/read`, { method: "POST" }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
-    },
-  });
+  const agents = snapshot?.data?.agents ?? [];
+  const ntmAgents = agents.filter((a) => a.driverType === "ntm");
+  const otherAgents = agents.filter((a) => a.driverType !== "ntm");
 
-  const markAllReadMutation = useMutation({
-    mutationFn: () =>
-      fetchJson("/notifications/read-all", { method: "POST" }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
-    },
-  });
+  const ntmComponent = health?.components?.["agentCLIs"];
+  const ntmAvailable = ntmComponent?.detection
+    ? Boolean((ntmComponent.detection as Record<string, unknown>)?.["clis"]
+        && ((ntmComponent.detection as Record<string, Record<string, unknown>>)["clis"]?.["ntm"] as Record<string, unknown>)?.["available"])
+    : false;
 
-  const testMutation = useMutation({
-    mutationFn: () =>
-      fetchJson("/notifications/test", { method: "POST" }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
-    },
-  });
+  const diagnostics = health?.diagnostics;
+  const ntmTool = diagnostics?.tools?.["ntm"];
 
-  const notifications = data?.data ?? [];
-  const unreadCount = notifications.filter((n) => !n.readAt).length;
+  const tabs: Array<{ id: typeof tab; label: string; badge?: number }> = [
+    { id: "sessions", label: "Sessions", badge: ntmAgents.length || undefined },
+    { id: "health", label: "Health" },
+    { id: "diagnostics", label: "Diagnostics" },
+  ];
 
   return (
     <div className="page">
       <div className="page__header">
-        <h2>Notifications</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          {unreadCount > 0 && (
-            <StatusPill tone="warning">{unreadCount} unread</StatusPill>
+        <h2>NTM Sessions</h2>
+        <StatusPill tone={ntmAvailable ? "positive" : "warning"}>
+          {ntmAvailable ? "NTM available" : "NTM unavailable"}
+        </StatusPill>
+      </div>
+
+      {/* Summary */}
+      <div className="card card--compact" style={{ marginBottom: 16 }}>
+        <p className="muted">
+          {ntmAgents.length} NTM agent{ntmAgents.length !== 1 ? "s" : ""}
+          {otherAgents.length > 0 && ` | ${otherAgents.length} other agent${otherAgents.length !== 1 ? "s" : ""}`}
+          {snapshot?.data?.generatedAt && (
+            <> | Snapshot: {new Date(snapshot.data.generatedAt).toLocaleString()}</>
           )}
-          <StatusPill tone="muted">{notifications.length} total</StatusPill>
-        </div>
+        </p>
       </div>
 
-      {/* Filters */}
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card__header">
-          <h3>Filters</h3>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              className="ghost-button"
-              type="button"
-              onClick={() => markAllReadMutation.mutate()}
-              disabled={markAllReadMutation.isPending || unreadCount === 0}
-            >
-              {markAllReadMutation.isPending ? "Marking..." : "Mark all read"}
-            </button>
-            <button
-              className="ghost-button"
-              type="button"
-              onClick={() => testMutation.mutate()}
-              disabled={testMutation.isPending}
-            >
-              {testMutation.isPending ? "Sending..." : "Send test"}
-            </button>
-          </div>
-        </div>
-        <div className="form-row">
-          <select
-            className="select-input"
-            value={category}
-            onChange={(e) => setCategory(e.target.value as FilterCategory)}
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            className={tab === t.id ? "tab-button tab-button--active" : "tab-button"}
+            type="button"
+            onClick={() => setTab(t.id)}
           >
-            <option value="all">All categories</option>
-            {Object.entries(categoryLabels).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
-          <select
-            className="select-input"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as "all" | "unread" | "read")}
-          >
-            <option value="all">All status</option>
-            <option value="unread">Unread</option>
-            <option value="read">Read</option>
-          </select>
-        </div>
+            {t.label}
+            {t.badge != null && <span className="nav-badge">{t.badge}</span>}
+          </button>
+        ))}
       </div>
 
-      {/* Preferences summary */}
-      {prefs?.data && (
-        <div className="card card--compact" style={{ marginBottom: 16 }}>
+      {/* Sessions tab */}
+      {tab === "sessions" && (
+        <div className="card">
           <div className="card__header">
-            <h3>Preferences</h3>
+            <h3>NTM-Tracked Agents</h3>
           </div>
-          <p className="muted">
-            Channels: {prefs.data.channels.join(", ") || "none"} |{" "}
-            Digest: {prefs.data.digestEnabled ? `enabled (${prefs.data.digestInterval ?? "daily"})` : "disabled"}
-            {prefs.data.quietHoursStart && (
-              <> | Quiet hours: {prefs.data.quietHoursStart}–{prefs.data.quietHoursEnd}</>
-            )}
-          </p>
+          {snapshotLoading && <p className="muted">Loading sessions...</p>}
+          {snapshotError && <p className="error-text">{(snapshotError as Error).message}</p>}
+          {!snapshotLoading && ntmAgents.length === 0 && (
+            <div>
+              <p className="muted">No NTM agents detected.</p>
+              {!ntmAvailable && (
+                <p className="muted" style={{ marginTop: 8 }}>
+                  NTM is not available. Install NTM and start a tmux session to see agents here.
+                </p>
+              )}
+            </div>
+          )}
+          {ntmAgents.length > 0 && (
+            <div className="table">
+              <div className="table__row table__row--header">
+                <span>ID</span>
+                <span>Type</span>
+                <span>Variant</span>
+                <span>State</span>
+                <span>Health</span>
+                <span>Work Status</span>
+                <span>Last Activity</span>
+              </div>
+              {ntmAgents.map((a) => (
+                <AgentRow key={a.id} agent={a} />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Notification list */}
-      <div className="card">
-        {isLoading && <p className="muted">Loading notifications...</p>}
-        {error && <p className="error-text">{(error as Error).message}</p>}
-        {!isLoading && notifications.length === 0 && (
-          <p className="muted">No notifications found.</p>
-        )}
-        {notifications.length > 0 && (
-          <div className="table">
-            <div className="table__row table__row--header">
-              <span>Priority</span>
-              <span>Category</span>
-              <span>Title</span>
-              <span>Time</span>
-              <span>Actions</span>
-            </div>
-            {notifications.map((n) => (
-              <NotificationRow
-                key={n.id}
-                notification={n}
-                onMarkRead={(id) => markReadMutation.mutate(id)}
-              />
-            ))}
+      {/* Health tab */}
+      {tab === "health" && (
+        <div className="card">
+          <div className="card__header">
+            <h3>System Health</h3>
+            {health?.status && (
+              <StatusPill tone={healthTone[health.status] ?? "muted"}>
+                {health.status}
+              </StatusPill>
+            )}
           </div>
-        )}
-      </div>
+          {health?.components && (
+            <div className="table">
+              <div className="table__row table__row--header">
+                <span>Component</span>
+                <span>Status</span>
+                <span>Message</span>
+              </div>
+              {Object.entries(health.components).map(([name, comp]) => (
+                <div key={name} className="table__row">
+                  <span>{name}</span>
+                  <span>
+                    <StatusPill tone={healthTone[comp.status] ?? "muted"}>
+                      {comp.status}
+                    </StatusPill>
+                  </span>
+                  <span className="muted">{comp.message ?? "—"}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Diagnostics tab */}
+      {tab === "diagnostics" && (
+        <div className="card">
+          <div className="card__header">
+            <h3>Tool Diagnostics</h3>
+          </div>
+          {!diagnostics && (
+            <p className="muted">No diagnostics available.</p>
+          )}
+          {diagnostics?.summary && (
+            <p className="muted" style={{ marginBottom: 12 }}>
+              {diagnostics.summary.availableTools}/{diagnostics.summary.totalTools} tools available
+              {diagnostics.summary.unavailableTools > 0 && (
+                <> | {diagnostics.summary.unavailableTools} unavailable</>
+              )}
+            </p>
+          )}
+          {diagnostics?.tools && (
+            <div className="table">
+              <div className="table__row table__row--header">
+                <span>Tool</span>
+                <span>Available</span>
+                <span>Details</span>
+              </div>
+              {Object.entries(diagnostics.tools).map(([name, tool]) => (
+                <div key={name} className="table__row">
+                  <span>{name}</span>
+                  <span>
+                    <StatusPill tone={tool.available ? "positive" : "danger"}>
+                      {tool.available ? "yes" : "no"}
+                    </StatusPill>
+                  </span>
+                  <span className="muted">
+                    {!tool.available && tool.reasonLabel
+                      ? tool.reasonLabel
+                      : tool.rootCauseExplanation ?? "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {ntmTool && !ntmTool.available && ntmTool.rootCausePath && (
+            <div style={{ marginTop: 12 }}>
+              <p className="muted">
+                Root cause path: {ntmTool.rootCausePath.join(" → ")}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
