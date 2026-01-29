@@ -611,6 +611,27 @@ export function SLBSkeleton() {
 }
 
 // ============================================================================
+// CM Page Skeleton
+// ============================================================================
+
+export function CMSkeleton() {
+  return (
+    <div className="page" role="region" aria-busy="true" aria-label="Loading memory insights">
+      <div className="card card--compact" style={{ marginBottom: 16 }}>
+        <Skeleton variant="text" style={{ width: 200 }} />
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <Skeleton variant="button" style={{ width: 80 }} />
+        <Skeleton variant="button" style={{ width: 80 }} />
+      </div>
+      <div className="card">
+        <SkeletonTable rows={6} columns={5} />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // Generic Page Skeleton (fallback)
 // ============================================================================
 

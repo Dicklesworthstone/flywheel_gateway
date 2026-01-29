@@ -31,6 +31,7 @@ import {
   NTMSkeleton,
   CASSSkeleton,
   SLBSkeleton,
+  CMSkeleton,
 } from "./components/skeletons";
 
 // ============================================================================
@@ -91,6 +92,9 @@ const CASSPage = lazy(() =>
 );
 const SLBPage = lazy(() =>
   import("./pages/SLB").then((m) => ({ default: m.SLBPage })),
+);
+const CMPage = lazy(() =>
+  import("./pages/CM").then((m) => ({ default: m.CMPage })),
 );
 
 // NotFoundPage stays static (small, always needed)
@@ -227,6 +231,12 @@ const slbRoute = createRoute({
   component: withSuspense(SLBPage, SLBSkeleton),
 });
 
+const cmRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/cm",
+  component: withSuspense(CMPage, CMSkeleton),
+});
+
 const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "*",
@@ -255,6 +265,7 @@ const routeTree = rootRoute.addChildren([
   ntmRoute,
   cassRoute,
   slbRoute,
+  cmRoute,
   settingsRoute,
   notFoundRoute,
 ]);
