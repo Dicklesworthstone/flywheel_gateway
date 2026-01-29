@@ -6,7 +6,7 @@
  * - agent:* channels require read access to the specific agent
  * - workspace:* channels require workspace membership
  * - user:* channels require being that user
- * - system:* channels require authenticated connection
+ * - system:* channels require admin access
  */
 
 import type { Channel } from "./channels";
@@ -55,21 +55,26 @@ export function canSubscribe(
     case "agent:state":
     case "agent:tools":
     case "agent:checkpoints": {
-      // If we have an agent access checker, use it
-      if (agentAccess) {
-        const hasAccess = agentAccess(
-          channel.agentId,
-          auth.userId,
-          auth.workspaceIds,
-        );
-        if (!hasAccess) {
-          return {
-            allowed: false,
-            reason: `No access to agent ${channel.agentId}`,
-          };
-        }
+      // Agent access is security-critical and must be explicit.
+      if (!agentAccess) {
+        return {
+          allowed: false,
+          reason: "Agent access check is required for agent channels",
+        };
       }
-      // Without a checker, allow if authenticated (agent-level checks happen elsewhere)
+
+      const hasAccess = agentAccess(
+        channel.agentId,
+        auth.userId,
+        auth.workspaceIds,
+      );
+      if (!hasAccess) {
+        return {
+          allowed: false,
+          reason: `No access to agent ${channel.agentId}`,
+        };
+      }
+
       return { allowed: true };
     }
 

@@ -213,8 +213,10 @@ dashboards.get("/", async (c) => {
   const userId = c.req.query("userId") ?? "default";
   const workspaceId = c.req.query("workspaceId");
   const visibility = c.req.query("visibility");
-  const limit = Number.parseInt(c.req.query("limit") ?? "50", 10);
-  const offset = Number.parseInt(c.req.query("offset") ?? "0", 10);
+  const parsedLimit = Number.parseInt(c.req.query("limit") ?? "50", 10);
+  const limit = Number.isNaN(parsedLimit) ? 50 : parsedLimit;
+  const parsedOffset = Number.parseInt(c.req.query("offset") ?? "0", 10);
+  const offset = Number.isNaN(parsedOffset) ? 0 : parsedOffset;
 
   try {
     const { items, total } = await listDashboards({
@@ -398,7 +400,10 @@ dashboards.put("/:id", async (c) => {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const dashboard = await updateDashboard(id, parsed.data as UpdateDashboardInput);
+    const dashboard = await updateDashboard(
+      id,
+      parsed.data as UpdateDashboardInput,
+    );
 
     if (!dashboard) {
       return sendNotFound(c, "Dashboard", id);
@@ -576,7 +581,11 @@ dashboards.put("/:id/widgets/:widgetId", async (c) => {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const updated = await updateWidget(id, widgetId, parsed.data as Partial<Widget>);
+    const updated = await updateWidget(
+      id,
+      widgetId,
+      parsed.data as Partial<Widget>,
+    );
 
     if (!updated) {
       return sendNotFound(c, "Widget", widgetId);
@@ -704,7 +713,10 @@ dashboards.put("/:id/sharing", async (c) => {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const updated = await updateSharing(id, parsed.data as Partial<DashboardSharing>);
+    const updated = await updateSharing(
+      id,
+      parsed.data as Partial<DashboardSharing>,
+    );
 
     if (!updated) {
       return sendNotFound(c, "Dashboard", id);

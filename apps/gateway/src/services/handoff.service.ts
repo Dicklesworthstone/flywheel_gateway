@@ -1034,6 +1034,10 @@ export function startCleanupJob(): void {
     });
   }, CLEANUP_INTERVAL_MS);
 
+  if (cleanupInterval.unref) {
+    cleanupInterval.unref();
+  }
+
   logger.info(
     { intervalMs: CLEANUP_INTERVAL_MS },
     "Handoff cleanup job started",

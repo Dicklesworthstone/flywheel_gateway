@@ -1,3 +1,7 @@
+import {
+  createBunNtmCommandRunner,
+  createNtmClient,
+} from "@flywheel/flywheel-clients";
 import { Hono } from "hono";
 import { registerDrivers } from "./config/drivers";
 import { correlationMiddleware } from "./middleware/correlation";
@@ -5,25 +9,26 @@ import { idempotencyMiddleware } from "./middleware/idempotency";
 import { loggingMiddleware } from "./middleware/logging";
 import { apiSecurityHeaders } from "./middleware/security-headers";
 import { routes } from "./routes";
+import { initializeAgentService } from "./services/agent";
 import { startAgentEvents } from "./services/agent-events";
 import { startStateCleanupJob } from "./services/agent-state-machine";
-import { initializeAgentService } from "./services/agent";
 import { initCassService } from "./services/cass.service";
 import { getConfig, loadConfig } from "./services/config.service";
+import { startDCGCleanupJob } from "./services/dcg-pending.service";
+import { startCleanupJob as startHandoffCleanupJob } from "./services/handoff.service";
+import { logger } from "./services/logger";
+import { registerAgentMailToolCallerFromEnv } from "./services/mcp-agentmail";
 import {
   getNtmIngestService,
   startNtmIngest,
 } from "./services/ntm-ingest.service";
 import { startNtmWsBridge } from "./services/ntm-ws-bridge.service";
-import {
-  createBunNtmCommandRunner,
-  createNtmClient,
-} from "@flywheel/flywheel-clients";
-import { startDCGCleanupJob } from "./services/dcg-pending.service";
-import { logger } from "./services/logger";
-import { registerAgentMailToolCallerFromEnv } from "./services/mcp-agentmail";
 import { startCleanupJob } from "./services/reservation.service";
-import { createGuestAuthContext, createInternalAuthContext } from "./ws/authorization";
+import { startCleanupJob as startSafetyCleanupJob } from "./services/safety.service";
+import {
+  createGuestAuthContext,
+  createInternalAuthContext,
+} from "./ws/authorization";
 import { handleWSClose, handleWSMessage, handleWSOpen } from "./ws/handlers";
 import { startHeartbeat } from "./ws/heartbeat";
 import { getHub } from "./ws/hub";
@@ -60,6 +65,8 @@ if (import.meta.main) {
   startCleanupJob();
   startDCGCleanupJob();
   startStateCleanupJob();
+  startSafetyCleanupJob();
+  startHandoffCleanupJob();
   startHeartbeat();
   startAgentEvents(getHub());
   await initializeAgentService();
@@ -140,9 +147,9 @@ if (import.meta.main) {
         const authHeader = req.headers.get("Authorization");
         const urlToken = url.searchParams.get("token");
         const token = authHeader?.replace("Bearer ", "") ?? urlToken;
-        
+
         let authContext = createGuestAuthContext();
-        
+
         // Simple admin key check
         const adminKey = process.env["GATEWAY_ADMIN_KEY"];
         if (adminKey && token === adminKey) {

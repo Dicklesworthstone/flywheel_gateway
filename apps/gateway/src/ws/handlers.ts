@@ -47,7 +47,7 @@ export function handleWSOpen(ws: ServerWebSocket<ConnectionData>): void {
   hub.addConnection(ws, ws.data.auth);
 
   // Register pre-existing subscriptions (e.g. from upgrade)
-  // These are considered "system-assigned" so we skip auth checks here
+  // These are considered "system-assigned" but still must pass authorization
   if (ws.data.subscriptions.size > 0) {
     // Clone entries to avoid iterator invalidation issues as hub.subscribe modifies the map
     const initialSubs = Array.from(ws.data.subscriptions.entries());

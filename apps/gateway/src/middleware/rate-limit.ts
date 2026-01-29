@@ -84,6 +84,9 @@ export class InMemoryRateLimiter {
       () => this.cleanup(),
       this.cleanupIntervalMs,
     );
+    if (this.cleanupTimer.unref) {
+      this.cleanupTimer.unref();
+    }
   }
 
   /**
@@ -311,6 +314,7 @@ export function withPath(
  * Shared across all middleware instances by default.
  */
 const globalRateLimiter = new InMemoryRateLimiter();
+globalRateLimiter.startCleanup();
 
 // ============================================================================
 // Middleware
