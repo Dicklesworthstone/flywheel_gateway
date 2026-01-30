@@ -13,6 +13,7 @@ import type {
   CreateDashboardInput,
   DashboardPermission,
   DashboardSharing,
+  DashboardVisibility,
   UpdateDashboardInput,
   Widget,
 } from "@flywheel/shared";
@@ -224,7 +225,7 @@ dashboards.get("/", async (c) => {
       limit,
       offset,
       ...(workspaceId && { workspaceId }),
-      ...(visibility && { visibility }),
+      ...(visibility && { visibility: visibility as DashboardVisibility }),
     });
 
     return sendList(c, items, {

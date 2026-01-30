@@ -7,8 +7,10 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   cloneElement,
+  type FocusEvent,
   type HTMLAttributes,
   isValidElement,
+  type MouseEvent,
   type ReactNode,
   useCallback,
   useId,
@@ -80,19 +82,19 @@ export function Tooltip({
       .join(" ") || undefined;
 
   const trigger = cloneElement(childElement, {
-    onMouseEnter: (event) => {
+    onMouseEnter: (event: MouseEvent<HTMLElement>) => {
       childProps.onMouseEnter?.(event);
       showTooltip();
     },
-    onMouseLeave: (event) => {
+    onMouseLeave: (event: MouseEvent<HTMLElement>) => {
       childProps.onMouseLeave?.(event);
       hideTooltip();
     },
-    onFocus: (event) => {
+    onFocus: (event: FocusEvent<HTMLElement>) => {
       childProps.onFocus?.(event);
       showTooltip();
     },
-    onBlur: (event) => {
+    onBlur: (event: FocusEvent<HTMLElement>) => {
       childProps.onBlur?.(event);
       hideTooltip();
     },
