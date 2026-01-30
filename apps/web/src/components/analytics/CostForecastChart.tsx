@@ -210,7 +210,8 @@ export function CostForecastChart({
           />
           {/* Data points */}
           {dailyForecasts.map((d, i) => {
-            const x = (i / (dailyForecasts.length - 1)) * 100;
+            const denominator = dailyForecasts.length > 1 ? dailyForecasts.length - 1 : 1;
+            const x = (i / denominator) * 100;
             const valueRange =
               chartMetrics.maxValue - chartMetrics.minValue || 1;
             const y =
@@ -242,7 +243,7 @@ export function CostForecastChart({
           <div
             className="cost-forecast__tooltip"
             style={{
-              left: `${(hoveredIndex / (dailyForecasts.length - 1)) * 100}%`,
+              left: `${(hoveredIndex / (dailyForecasts.length > 1 ? dailyForecasts.length - 1 : 1)) * 100}%`,
             }}
           >
             <span className="cost-forecast__tooltip-date">

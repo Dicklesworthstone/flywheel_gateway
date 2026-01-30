@@ -168,7 +168,8 @@ export function CostTrendChart({
           />
           {/* Data points */}
           {filteredData.map((d, i) => {
-            const x = (i / (filteredData.length - 1)) * 100;
+            const denominator = filteredData.length > 1 ? filteredData.length - 1 : 1;
+            const x = (i / denominator) * 100;
             const maxCost = chartMetrics.maxCost || 1;
             const y = 5 + 140 * (1 - d.costUnits / maxCost);
             return (
@@ -196,7 +197,7 @@ export function CostTrendChart({
           <div
             className="cost-trend-chart__tooltip"
             style={{
-              left: `${(hoveredIndex / (filteredData.length - 1)) * 100}%`,
+              left: `${(hoveredIndex / (filteredData.length > 1 ? filteredData.length - 1 : 1)) * 100}%`,
             }}
           >
             <span className="cost-trend-chart__tooltip-date">

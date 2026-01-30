@@ -136,7 +136,7 @@ export function pruneExpiredRecords(): number {
   const now = new Date();
   let count = 0;
   for (const [key, record] of idempotencyStore) {
-    if (record.expiresAt < now) {
+    if (record.expiresAt <= now) {
       idempotencyStore.delete(key);
       count++;
     }
