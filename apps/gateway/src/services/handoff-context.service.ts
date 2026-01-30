@@ -443,18 +443,36 @@ export function extractUncommittedChanges(
   const lines = gitStatus.split("\n");
 
   for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("?? ")) {
+    // Git status --porcelain format: XY PATH
+    // X = staged status, Y = working tree status
+    // Don't trim - we need the original format to detect status chars
+    if (line.startsWith("?? ")) {
       // Untracked file: ?? filename
-      const path = trimmed.slice(3).trim();
+      const path = line.slice(3).trim();
       changes.push({
         path,
         diff: "",
         reason: "New file",
       });
-    } else if (trimmed.startsWith("M ") || trimmed.startsWith("A ")) {
-      // Modified or Added: M filename or A filename
-      const path = trimmed.slice(2).trim();
+    } else if (line.startsWith("M ") || line.startsWith("A ")) {
+      // Staged modification or addition: "M " or "A " (X=M/A, Y=space)
+      const path = line.slice(3).trim();
+      changes.push({
+        path,
+        diff: "",
+        reason: "Modified",
+      });
+    } else if (line.startsWith(" M ") || line.startsWith(" D ")) {
+      // Working tree only modification or deletion: " M" or " D" (X=space, Y=M/D)
+      const path = line.slice(3).trim();
+      changes.push({
+        path,
+        diff: "",
+        reason: "Modified",
+      });
+    } else if (line.startsWith("MM ") || line.startsWith("AM ")) {
+      // Both staged and working tree modified: "MM" or "AM" (X=M/A, Y=M)
+      const path = line.slice(3).trim();
       changes.push({
         path,
         diff: "",

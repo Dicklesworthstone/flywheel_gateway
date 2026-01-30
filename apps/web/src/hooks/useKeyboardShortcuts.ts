@@ -148,8 +148,11 @@ export function useKeyboardShortcuts(
 
       for (const shortcut of allShortcuts) {
         const ctrlOrMeta = shortcut.ctrl || shortcut.meta;
+        // Match modifiers exactly: if required, must be pressed; if not, must NOT be pressed
         const modifierMatch =
-          (ctrlOrMeta ? event.ctrlKey || event.metaKey : true) &&
+          (ctrlOrMeta
+            ? event.ctrlKey || event.metaKey
+            : !event.ctrlKey && !event.metaKey) &&
           (shortcut.shift ? event.shiftKey : !event.shiftKey) &&
           (shortcut.alt ? event.altKey : !event.altKey);
 
