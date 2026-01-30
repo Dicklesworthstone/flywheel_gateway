@@ -175,8 +175,83 @@ function generateRecommendationId(): string {
 }
 
 /**
+ * Categorize a command into a task type for analytics.
+ * Uses pattern matching to group similar operations together.
+ * Patterns are checked in order of specificity.
+ */
+function categorizeCommand(command: string): string {
+  const cmd = command.toLowerCase();
+
+  // Git operations (check early - "git push" shouldn't match shell patterns)
+  if (cmd.startsWith("git ") || cmd.includes(" git ")) {
+    return "git";
+  }
+
+  // Build/test operations
+  if (
+    cmd.includes("test") ||
+    cmd.includes("build") ||
+    cmd.includes("compile") ||
+    cmd.startsWith("npm ") ||
+    cmd.includes(" npm ") ||
+    cmd.startsWith("bun ") ||
+    cmd.includes(" bun ")
+  ) {
+    return "build_test";
+  }
+
+  // Search operations
+  if (
+    cmd.includes("grep") ||
+    cmd.startsWith("rg ") ||
+    cmd.includes(" rg ") ||
+    cmd.startsWith("find ") ||
+    cmd.includes(" find ") ||
+    cmd.includes("search") ||
+    cmd.includes("glob")
+  ) {
+    return "search";
+  }
+
+  // File read operations
+  if (
+    cmd.includes("read") ||
+    cmd.startsWith("cat ") ||
+    cmd.includes(" cat ") ||
+    cmd.startsWith("head ") ||
+    cmd.includes(" head ")
+  ) {
+    return "read";
+  }
+
+  // File write operations
+  if (
+    cmd.includes("write") ||
+    cmd.includes("edit") ||
+    cmd.startsWith("sed ") ||
+    cmd.includes(" sed ") ||
+    cmd.includes("patch")
+  ) {
+    return "write";
+  }
+
+  // Shell execution (check last - use word boundaries to avoid false positives)
+  if (
+    cmd.includes("bash") ||
+    cmd.startsWith("sh ") ||
+    cmd.includes(" sh ") ||
+    /\bexec\b/.test(cmd)
+  ) {
+    return "execute";
+  }
+
+  return "other";
+}
+
+/**
  * Calculate percentile rank of a value in a distribution.
- * Returns 0-100 indicating what percentage of values are <= the given value.
+ * Returns 0-100 indicating what percentage of values are strictly below the given value.
+ * An agent at the 90th percentile outperforms 90% of the fleet.
  */
 function calculatePercentileRankInDistribution(
   value: number,
@@ -185,15 +260,13 @@ function calculatePercentileRankInDistribution(
   if (allValues.length === 0) return 50; // Default to median if no data
   if (allValues.length === 1) return 50; // Single agent is at median
 
-  const sorted = [...allValues].sort((a, b) => a - b);
   let countBelow = 0;
-
-  for (const v of sorted) {
+  for (const v of allValues) {
     if (v < value) countBelow++;
   }
 
   // Percentile rank = (count below / total) * 100
-  return Math.round((countBelow / sorted.length) * 100);
+  return Math.round((countBelow / allValues.length) * 100);
 }
 
 /**
@@ -221,10 +294,7 @@ async function getFleetSuccessRates(
       );
 
     // Aggregate by agent
-    const agentStats = new Map<
-      string,
-      { successful: number; total: number }
-    >();
+    const agentStats = new Map<string, { successful: number; total: number }>();
 
     for (const row of allHistory) {
       if (!agentStats.has(row.agentId)) {
@@ -784,7 +854,13 @@ export async function getModelComparisonReport(
       }
     >();
 
-    // Process all history rows, grouping by model
+    // Track task type performance per model: Map<taskType, Map<model, {tasks, successful}>>
+    const taskTypeStats = new Map<
+      string,
+      Map<string, { tasks: number; successful: number }>
+    >();
+
+    // Process all history rows, grouping by model and task type
     for (const row of allHistory) {
       const model = agentModelMap.get(row.agentId) ?? "unknown";
       if (!modelStats.has(model)) {
@@ -808,6 +884,19 @@ export async function getModelComparisonReport(
         stats.totalTokens +=
           ((input?.["promptTokens"] as number) ?? 0) +
           ((output?.["responseTokens"] as number) ?? 0);
+
+        // Track by task type
+        const taskType = categorizeCommand(row.command);
+        if (!taskTypeStats.has(taskType)) {
+          taskTypeStats.set(taskType, new Map());
+        }
+        const typeModelStats = taskTypeStats.get(taskType)!;
+        if (!typeModelStats.has(model)) {
+          typeModelStats.set(model, { tasks: 0, successful: 0 });
+        }
+        const modelTaskStats = typeModelStats.get(model)!;
+        modelTaskStats.tasks++;
+        if (outcome === "success") modelTaskStats.successful++;
       }
     }
 
@@ -846,10 +935,31 @@ export async function getModelComparisonReport(
       }
     }
 
+    // Build task type breakdown
+    const taskTypeBreakdown: Array<{
+      taskType: string;
+      modelPerformance: Record<string, number>;
+    }> = [];
+
+    for (const [taskType, modelStatsForType] of taskTypeStats) {
+      const modelPerformance: Record<string, number> = {};
+      for (const [model, stats] of modelStatsForType) {
+        // Success rate as the performance metric
+        modelPerformance[model] =
+          stats.tasks > 0
+            ? Math.round((stats.successful / stats.tasks) * 100)
+            : 0;
+      }
+      taskTypeBreakdown.push({ taskType, modelPerformance });
+    }
+
+    // Sort by task type name for consistent output
+    taskTypeBreakdown.sort((a, b) => a.taskType.localeCompare(b.taskType));
+
     return {
       period: { start, end },
       models,
-      taskTypeBreakdown: [], // TODO: Implement task type tracking
+      taskTypeBreakdown,
       recommendations,
     };
   }) as Promise<ModelComparisonReport>;
