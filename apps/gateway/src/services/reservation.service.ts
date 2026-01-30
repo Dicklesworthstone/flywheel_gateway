@@ -1201,6 +1201,9 @@ export function getReservationStats(): {
 /**
  * Get conflict statistics for a specific agent.
  * Useful for agent analytics and performance tracking.
+ *
+ * @returns conflictRate - Percentage of conflicts relative to successful reservations.
+ *   A rate > 100% means the agent caused more conflicts than successful reservations.
  */
 export function getAgentConflictStats(agentId: string): {
   totalReservations: number;
@@ -1229,12 +1232,15 @@ export function getAgentConflictStats(agentId: string): {
     (c) => c.status === "resolved" && c.resolvedBy === agentId,
   ).length;
 
-  // Calculate conflict rate (conflicts caused / total reservations attempted)
-  // Note: reservationStore only contains successful reservations, so we estimate
-  // total attempts as reservations + conflicts caused
-  const totalAttempts = agentReservations.length + conflictsCaused;
+  // Calculate conflict rate as a ratio of conflicts to successful reservations.
+  // Note: This is "conflicts per reservation" rather than "failed attempt rate"
+  // because one failed attempt can cause multiple conflict records if it
+  // overlaps with multiple existing reservations. A rate > 100% is possible
+  // if conflicts outnumber successful reservations.
   const conflictRate =
-    totalAttempts > 0 ? (conflictsCaused / totalAttempts) * 100 : 0;
+    agentReservations.length > 0
+      ? (conflictsCaused / agentReservations.length) * 100
+      : 0;
 
   return {
     totalReservations: agentReservations.length,
