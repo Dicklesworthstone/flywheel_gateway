@@ -5,7 +5,7 @@
  * and channel delivery behaviors per bead flywheel_gateway-59c requirements.
  */
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import type {
   CreateNotificationRequest,
   Notification,
@@ -542,6 +542,88 @@ describe("Test Notification", () => {
     const notification = await sendTestNotification("user_001", "email");
 
     expect(notification.channels).toEqual(["email"]);
+  });
+});
+
+// ============================================================================
+// Slack Payload Tests
+// ============================================================================
+
+describe("Slack Payload", () => {
+  let originalFetch: typeof fetch;
+  let fetchMock: ReturnType<typeof mock>;
+  let capturedBody: unknown;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+    capturedBody = undefined;
+
+    fetchMock = mock((_input: string | URL, init?: RequestInit) => {
+      if (typeof init?.body === "string") {
+        capturedBody = JSON.parse(init.body);
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve("ok"),
+      } as Response);
+    });
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test("truncates long headers and falls back to source type", async () => {
+    updatePreferences("user_001", {
+      channelConfig: {
+        slack: { webhookUrl: "https://hooks.slack.com/services/secret" },
+      },
+    });
+
+    await createNotification({
+      type: "test",
+      category: "system",
+      priority: "normal",
+      title: "A".repeat(300),
+      body: "body",
+      recipientId: "user_001",
+      source: { type: "system" },
+      forceChannels: ["slack"],
+    });
+
+    // allow fire-and-forget delivery to execute
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(capturedBody).toBeDefined();
+
+    const payload = capturedBody as { blocks?: unknown[] };
+    const blocks = payload.blocks ?? [];
+    expect(blocks.length).toBeGreaterThanOrEqual(3);
+
+    const headerBlock = blocks[0] as {
+      type?: unknown;
+      text?: { text?: unknown };
+    };
+    expect(headerBlock.type).toBe("header");
+
+    const headerText = headerBlock.text?.text;
+    expect(typeof headerText).toBe("string");
+    expect(Array.from(headerText as string).length).toBeLessThanOrEqual(150);
+    expect((headerText as string).endsWith("…")).toBe(true);
+
+    const contextBlock = blocks[2] as {
+      type?: unknown;
+      elements?: Array<{ text?: unknown }>;
+    };
+    expect(contextBlock.type).toBe("context");
+    const contextText = contextBlock.elements?.[0]?.text;
+    expect(typeof contextText).toBe("string");
+    expect(contextText as string).toContain("*Source:* system");
+    expect(contextText as string).not.toContain("undefined");
   });
 });
 

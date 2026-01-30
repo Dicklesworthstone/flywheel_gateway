@@ -21,6 +21,7 @@ import {
   type NotificationFilter,
   type NotificationListResponse,
   type NotificationPreferences,
+  type NotificationPriority,
   PRIORITY_ORDER,
   type PreferencesUpdateRequest,
 } from "../models/notification";
@@ -239,19 +240,23 @@ function buildSlackPayload(notification: Notification): {
   text: string;
   blocks: Array<Record<string, unknown>>;
 } {
-  const priorityEmoji: Record<string, string> = {
+  const priorityEmoji: Record<NotificationPriority, string> = {
     urgent: "🚨",
     high: "🔴",
-    medium: "🟡",
+    normal: "🟡",
     low: "🟢",
   };
 
-  const emoji = priorityEmoji[notification.priority] ?? "📢";
+  const emoji = priorityEmoji[notification.priority];
   const headerText = truncateText(
     `${emoji} ${notification.title}`,
     SLACK_HEADER_MAX_LENGTH,
   );
   const fallbackText = `${emoji} ${notification.title}: ${notification.body}`;
+  const sourceLabel =
+    notification.source.name ??
+    notification.source.id ??
+    notification.source.type;
 
   const blocks: Array<Record<string, unknown>> = [
     {
@@ -274,7 +279,7 @@ function buildSlackPayload(notification: Notification): {
       elements: [
         {
           type: "mrkdwn",
-          text: `*Category:* ${notification.category} | *Priority:* ${notification.priority} | *Source:* ${notification.source.name}`,
+          text: `*Category:* ${notification.category} | *Priority:* ${notification.priority} | *Source:* ${sourceLabel}`,
         },
       ],
     },

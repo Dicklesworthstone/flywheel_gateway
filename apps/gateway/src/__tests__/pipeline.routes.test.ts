@@ -361,6 +361,39 @@ describe("Pipeline Service", () => {
       expect(finished?.status).toBe("failed");
       expect(finished?.error?.message).toContain("Unsafe path");
     });
+
+    test("handles null intermediate values in transform paths", async () => {
+      const input: CreatePipelineInput = {
+        name: "Null Path Pipeline",
+        trigger: {
+          type: "manual",
+          config: { type: "manual", config: {} },
+          enabled: true,
+        },
+        contextDefaults: { foo: null },
+        steps: [
+          {
+            id: "transform",
+            name: "Transform",
+            type: "transform",
+            config: {
+              type: "transform",
+              config: {
+                operations: [{ op: "set", path: "foo.bar", value: 123 }],
+                outputVariable: "out",
+              },
+            },
+          },
+        ],
+      };
+
+      const pipeline = createPipeline(input);
+      const run = await runPipeline(pipeline.id);
+
+      const finished = await waitForRunToFinish(run.id);
+      expect(finished?.status).toBe("completed");
+      expect(finished?.context["foo"]).toEqual({ bar: 123 });
+    });
   });
 
   describe("pauseRun", () => {
