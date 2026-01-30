@@ -98,11 +98,153 @@ function generateEmbedToken(): string {
 /**
  * Convert DB row to Dashboard object.
  */
-function rowToDashboard(row: typeof dashboards.$inferSelect): Dashboard {
+function splitPermissions(
+  permissions: DashboardPermissionEntry[],
+): { viewers: string[]; editors: string[] } {
+  const viewers = new Set<string>();
+  const editors = new Set<string>();
+
+  for (const permission of permissions) {
+    if (permission.permission === "edit") {
+      editors.add(permission.userId);
+    } else if (permission.permission === "view") {
+      viewers.add(permission.userId);
+    }
+  }
+
+  return { viewers: [...viewers], editors: [...editors] };
+}
+
+function normalizeUserList(list?: string[]): string[] | undefined {
+  if (!list) return undefined;
+  const unique = new Set<string>();
+  for (const raw of list) {
+    const value = raw.trim();
+    if (value.length > 0) unique.add(value);
+  }
+  return [...unique];
+}
+
+async function syncDashboardPermissions(options: {
+  dashboardId: string;
+  viewers?: string[];
+  editors?: string[];
+  grantedBy?: string;
+}): Promise<void> {
+  const { dashboardId, viewers, editors, grantedBy } = options;
+
+  if (viewers === undefined && editors === undefined) return;
+
+  const normalizedViewers = normalizeUserList(viewers);
+  const normalizedEditors = normalizeUserList(editors);
+  const existing = await db
+    .select()
+    .from(dashboardPermissions)
+    .where(eq(dashboardPermissions.dashboardId, dashboardId));
+  const existingByUser = new Map(
+    existing.map((row) => [row.userId, row.permission]),
+  );
+  const now = new Date();
+
+  const upsertBatch = async (
+    userIds: string[] | undefined,
+    permission: DashboardPermission,
+  ) => {
+    if (!userIds || userIds.length === 0) return;
+    await db
+      .insert(dashboardPermissions)
+      .values(
+        userIds.map((userId) => ({
+          id: `perm_${ulid()}`,
+          dashboardId,
+          userId,
+          permission,
+          grantedBy,
+          grantedAt: now,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [dashboardPermissions.dashboardId, dashboardPermissions.userId],
+        set: { permission, grantedBy, grantedAt: now },
+      });
+  };
+
+  const deletePermission = async (userId: string) => {
+    await db
+      .delete(dashboardPermissions)
+      .where(
+        and(
+          eq(dashboardPermissions.dashboardId, dashboardId),
+          eq(dashboardPermissions.userId, userId),
+        ),
+      );
+  };
+
+  if (normalizedViewers && normalizedEditors) {
+    const desired = new Map<string, DashboardPermission>();
+    for (const userId of normalizedViewers) {
+      desired.set(userId, "view");
+    }
+    for (const userId of normalizedEditors) {
+      desired.set(userId, "edit");
+    }
+
+    for (const row of existing) {
+      if (!desired.has(row.userId)) {
+        await deletePermission(row.userId);
+      }
+    }
+
+    const desiredViewers: string[] = [];
+    const desiredEditors: string[] = [];
+    for (const [userId, permission] of desired) {
+      if (permission === "edit") {
+        desiredEditors.push(userId);
+      } else {
+        desiredViewers.push(userId);
+      }
+    }
+
+    await upsertBatch(desiredViewers, "view");
+    await upsertBatch(desiredEditors, "edit");
+    return;
+  }
+
+  if (normalizedViewers) {
+    const viewersSet = new Set(normalizedViewers);
+    for (const row of existing) {
+      if (row.permission === "view" && !viewersSet.has(row.userId)) {
+        await deletePermission(row.userId);
+      }
+    }
+
+    const viewerUpserts = normalizedViewers.filter(
+      (userId) => existingByUser.get(userId) !== "edit",
+    );
+    await upsertBatch(viewerUpserts, "view");
+  }
+
+  if (normalizedEditors) {
+    const editorsSet = new Set(normalizedEditors);
+    for (const row of existing) {
+      if (row.permission === "edit" && !editorsSet.has(row.userId)) {
+        await deletePermission(row.userId);
+      }
+    }
+
+    await upsertBatch(normalizedEditors, "edit");
+  }
+}
+
+function rowToDashboard(
+  row: typeof dashboards.$inferSelect,
+  permissions: DashboardPermissionEntry[] = [],
+): Dashboard {
+  const { viewers, editors } = splitPermissions(permissions);
   const sharing: DashboardSharing = {
     visibility: row.visibility as "private" | "team" | "public",
-    viewers: [], // TODO: Store these or join? Schema doesn't have them separately yet except in permissions
-    editors: [], // For now we rely on permissions table for granular access
+    viewers,
+    editors,
     requireAuth: row.requireAuth ?? true,
     embedEnabled: row.embedEnabled ?? false,
     ...(row.teamId != null ? { teamId: row.teamId } : {}),
@@ -171,13 +313,19 @@ export async function createDashboard(
 
   await db.insert(dashboards).values(newDashboard);
 
-  // Note: viewers/editors from input.sharing are lost here if not handled.
-  // In a real implementation we would add them to dashboardPermissions table.
-  // For simplicity, we'll ignore them for now or assume they are added separately.
+  if (input.sharing?.viewers !== undefined || input.sharing?.editors !== undefined) {
+    await syncDashboardPermissions({
+      dashboardId: id,
+      viewers: sharing.viewers,
+      editors: sharing.editors,
+      grantedBy: ownerId,
+    });
+  }
 
   log.info({ dashboardId: id, name: input.name }, "Dashboard created");
 
-  return rowToDashboard(newDashboard as typeof dashboards.$inferSelect);
+  const created = await getDashboard(id);
+  return created ?? rowToDashboard(newDashboard as typeof dashboards.$inferSelect);
 }
 
 /**
@@ -190,7 +338,8 @@ export async function getDashboard(id: string): Promise<Dashboard | undefined> {
     .where(eq(dashboards.id, id))
     .get();
   if (!row) return undefined;
-  return rowToDashboard(row);
+  const permissions = await listPermissions(row.id);
+  return rowToDashboard(row, permissions);
 }
 
 /**
@@ -205,7 +354,8 @@ export async function getDashboardBySlug(
     .where(eq(dashboards.publicSlug, slug))
     .get();
   if (!row) return undefined;
-  return rowToDashboard(row);
+  const permissions = await listPermissions(row.id);
+  return rowToDashboard(row, permissions);
 }
 
 /**
@@ -250,6 +400,17 @@ export async function updateDashboard(
   }
 
   await db.update(dashboards).set(updates).where(eq(dashboards.id, id));
+
+  if (
+    input.sharing?.viewers !== undefined ||
+    input.sharing?.editors !== undefined
+  ) {
+    await syncDashboardPermissions({
+      dashboardId: id,
+      viewers: input.sharing.viewers,
+      editors: input.sharing.editors,
+    });
+  }
 
   log.info({ dashboardId: id }, "Dashboard updated");
 
@@ -764,6 +925,15 @@ export async function updateSharing(
     .update(dashboards)
     .set(updates)
     .where(eq(dashboards.id, dashboardId));
+
+  if (sharing.viewers !== undefined || sharing.editors !== undefined) {
+    await syncDashboardPermissions({
+      dashboardId,
+      viewers: sharing.viewers,
+      editors: sharing.editors,
+      grantedBy: dashboard.ownerId,
+    });
+  }
 
   return getDashboard(dashboardId);
 }

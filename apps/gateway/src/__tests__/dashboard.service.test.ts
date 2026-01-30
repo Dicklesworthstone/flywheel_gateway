@@ -21,6 +21,7 @@ import {
   revokePermission,
   toggleFavorite,
   updateDashboard,
+  updateSharing,
   updateWidget,
 } from "../services/dashboard.service";
 
@@ -92,6 +93,25 @@ describe("Dashboard Service", () => {
 
       expect(dashboard.sharing.visibility).toBe("public");
     });
+
+    it("should persist sharing viewers/editors", async () => {
+      const input: CreateDashboardInput = {
+        name: "Shared Dashboard",
+        sharing: {
+          visibility: "team",
+          viewers: ["user-2", "user-3"],
+          editors: ["user-4"],
+        },
+      };
+
+      const dashboard = await createDashboard(input, "user-1");
+
+      expect(dashboard.sharing.visibility).toBe("team");
+      expect([...dashboard.sharing.viewers].sort()).toEqual(
+        ["user-2", "user-3"].sort(),
+      );
+      expect([...dashboard.sharing.editors].sort()).toEqual(["user-4"]);
+    });
   });
 
   describe("getDashboard", () => {
@@ -143,6 +163,45 @@ describe("Dashboard Service", () => {
       expect(updated?.layout.columns).toBe(24);
       // Original values should be preserved
       expect(updated?.layout.rowHeight).toBe(80);
+    });
+  });
+
+  describe("updateSharing", () => {
+    it("should update viewers without removing editors", async () => {
+      const created = await createDashboard(
+        {
+          name: "Test",
+          sharing: { viewers: ["user-2"], editors: ["user-3"] },
+        },
+        "user-1",
+      );
+
+      const updated = await updateSharing(created.id, {
+        viewers: ["user-4"],
+      });
+
+      expect(updated).toBeDefined();
+      expect([...updated!.sharing.viewers].sort()).toEqual(["user-4"]);
+      expect([...updated!.sharing.editors].sort()).toEqual(["user-3"]);
+    });
+
+    it("should replace viewers and editors when both provided", async () => {
+      const created = await createDashboard(
+        {
+          name: "Test",
+          sharing: { viewers: ["user-2"], editors: ["user-3"] },
+        },
+        "user-1",
+      );
+
+      const updated = await updateSharing(created.id, {
+        viewers: ["user-5"],
+        editors: ["user-6"],
+      });
+
+      expect(updated).toBeDefined();
+      expect([...updated!.sharing.viewers].sort()).toEqual(["user-5"]);
+      expect([...updated!.sharing.editors].sort()).toEqual(["user-6"]);
     });
   });
 

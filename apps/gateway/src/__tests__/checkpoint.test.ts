@@ -4,6 +4,7 @@
 
 import { beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
+import { randomUUID } from "node:crypto";
 import { agents, db } from "../db";
 import {
   CheckpointError,
@@ -40,8 +41,11 @@ async function ensureAgent(agentId: string) {
   }
 }
 
+// Helper to generate unique test IDs that won't collide across parallel test runs
+const uniqueId = () => `${Date.now()}-${randomUUID().slice(0, 8)}`;
+
 describe("Checkpoint Service", () => {
-  const testAgentId = `test-agent-${Date.now()}`;
+  const testAgentId = `test-agent-${uniqueId()}`;
   const testTokenUsage = {
     promptTokens: 1000,
     completionTokens: 500,
@@ -147,7 +151,7 @@ describe("Checkpoint Service", () => {
 
   describe("getAgentCheckpoints", () => {
     test("returns all checkpoints for an agent", async () => {
-      const uniqueAgentId = `agent-list-${Date.now()}`;
+      const uniqueAgentId = `agent-list-${uniqueId()}`;
       await ensureAgent(uniqueAgentId);
 
       await createCheckpoint(uniqueAgentId, {
@@ -176,7 +180,7 @@ describe("Checkpoint Service", () => {
 
   describe("getLatestCheckpoint", () => {
     test("returns most recent checkpoint", async () => {
-      const uniqueAgentId = `agent-latest-${Date.now()}`;
+      const uniqueAgentId = `agent-latest-${uniqueId()}`;
       await ensureAgent(uniqueAgentId);
 
       await createCheckpoint(uniqueAgentId, {
@@ -304,7 +308,7 @@ describe("Checkpoint Service", () => {
 
   describe("importCheckpoint", () => {
     test("imports exported checkpoint", async () => {
-      const originalAgentId = `original-${Date.now()}`;
+      const originalAgentId = `original-${uniqueId()}`;
       await ensureAgent(originalAgentId);
       const metadata = await createCheckpoint(originalAgentId, {
         conversationHistory: [{ role: "user", content: "Import test" }],
@@ -325,8 +329,8 @@ describe("Checkpoint Service", () => {
     });
 
     test("imports to different agent when specified", async () => {
-      const originalAgentId = `original-${Date.now()}`;
-      const targetAgentId = `target-${Date.now()}`;
+      const originalAgentId = `original-${uniqueId()}`;
+      const targetAgentId = `target-${uniqueId()}`;
       await ensureAgent(originalAgentId);
       await ensureAgent(targetAgentId);
 
@@ -376,7 +380,7 @@ describe("Checkpoint Service", () => {
     });
 
     test("throws when checkpoint has dependents", async () => {
-      const uniqueAgentId = `agent-delete-${Date.now()}`;
+      const uniqueAgentId = `agent-delete-${uniqueId()}`;
       await ensureAgent(uniqueAgentId);
 
       // Create first checkpoint
@@ -404,7 +408,7 @@ describe("Checkpoint Service", () => {
 
   describe("pruneCheckpoints", () => {
     test("prunes old checkpoints keeping most recent", async () => {
-      const uniqueAgentId = `agent-prune-${Date.now()}`;
+      const uniqueAgentId = `agent-prune-${uniqueId()}`;
       await ensureAgent(uniqueAgentId);
 
       // Create 5 checkpoints
@@ -428,7 +432,7 @@ describe("Checkpoint Service", () => {
     });
 
     test("does not delete delta chain parents needed by remaining checkpoints", async () => {
-      const uniqueAgentId = `agent-prune-delta-${Date.now()}`;
+      const uniqueAgentId = `agent-prune-delta-${uniqueId()}`;
       await ensureAgent(uniqueAgentId);
 
       await createCheckpoint(uniqueAgentId, {
@@ -471,7 +475,7 @@ describe("Checkpoint Service", () => {
     });
 
     test("returns 0 when nothing to prune", async () => {
-      const uniqueAgentId = `agent-noprune-${Date.now()}`;
+      const uniqueAgentId = `agent-noprune-${uniqueId()}`;
       await ensureAgent(uniqueAgentId);
 
       await createCheckpoint(uniqueAgentId, {
@@ -532,7 +536,7 @@ describe("Checkpoint Service", () => {
     });
 
     test("createCheckpoint with compression stores compressed data", async () => {
-      const uniqueAgentId = `agent-compress-${Date.now()}`;
+      const uniqueAgentId = `agent-compress-${uniqueId()}`;
       await ensureAgent(uniqueAgentId);
 
       const largeHistory = Array.from({ length: 20 }, (_, i) => ({
@@ -561,7 +565,7 @@ describe("Checkpoint Service", () => {
     });
 
     test("createCheckpoint without compression stores uncompressed data", async () => {
-      const uniqueAgentId = `agent-nocompress-${Date.now()}`;
+      const uniqueAgentId = `agent-nocompress-${uniqueId()}`;
       await ensureAgent(uniqueAgentId);
 
       const metadata = await createCheckpoint(
@@ -585,7 +589,7 @@ describe("Checkpoint Service", () => {
 
   describe("error checkpoints", () => {
     test("createErrorCheckpoint captures error context", async () => {
-      const uniqueAgentId = `agent-error-${Date.now()}`;
+      const uniqueAgentId = `agent-error-${uniqueId()}`;
       await ensureAgent(uniqueAgentId);
 
       const metadata = await createErrorCheckpoint(
@@ -642,7 +646,7 @@ describe("Checkpoint Service", () => {
     });
 
     test("withErrorCheckpoint captures state on failure", async () => {
-      const uniqueAgentId = `agent-with-error-${Date.now()}`;
+      const uniqueAgentId = `agent-with-error-${uniqueId()}`;
       await ensureAgent(uniqueAgentId);
 
       const testState = {
