@@ -131,4 +131,66 @@ describe("WebSocketProvider", () => {
     expect(ws2.sent.map((m) => JSON.parse(m))).toContainEqual({ type: "ping" });
     unmount();
   });
+
+  it("routes hub envelope messages to subscribers and acknowledges when required", () => {
+    let api: ReturnType<typeof useWebSocket> | null = null;
+    let lastPayload: unknown = null;
+
+    function Probe() {
+      api = useWebSocket();
+      return null;
+    }
+
+    const { unmount } = render(
+      <WebSocketProvider>
+        <Probe />
+      </WebSocketProvider>,
+    );
+
+    expect(MockWebSocket.instances).toHaveLength(1);
+    const ws = MockWebSocket.instances[0]!;
+
+    act(() => {
+      api?.subscribe("system:dcg", (payload) => {
+        lastPayload = payload;
+      });
+    });
+
+    ws.readyState = MockWebSocket.OPEN;
+    act(() => {
+      ws.onopen?.();
+    });
+
+    // Ensure the subscribe command was sent.
+    expect(ws.sent.map((m) => JSON.parse(m))).toContainEqual({
+      type: "subscribe",
+      channel: "system:dcg",
+    });
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: "message",
+          ackRequired: true,
+          message: {
+            id: "msg_123",
+            channel: "system:dcg",
+            payload: { ok: true },
+            type: "dcg.warn",
+            timestamp: new Date().toISOString(),
+          },
+        }),
+      });
+    });
+
+    expect(lastPayload).toEqual({ ok: true });
+    expect(ws.sent.map((m) => JSON.parse(m))).toContainEqual({
+      type: "ack",
+      messageIds: ["msg_123"],
+    });
+
+    // Sanity check: API exists and reconnect is callable.
+    expect(typeof api?.reconnect).toBe("function");
+    unmount();
+  });
 });
