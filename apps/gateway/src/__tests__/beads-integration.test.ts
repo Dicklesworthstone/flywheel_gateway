@@ -107,7 +107,7 @@ describe.skipIf(!BR_AVAILABLE || !runSlowTests)("BR Endpoints Integration Tests"
       // This prevents test pollution if previous runs were interrupted
       logTest({ test: "setup", action: "cleaning_orphaned_test_beads" });
       try {
-        const allIssues = await service.list({ status: "open" });
+        const allIssues = await service.list({ statuses: ["open"] });
         const orphanedTestBeads = allIssues
           .filter((issue) => issue.title.startsWith("test-bead-"))
           .map((issue) => issue.id);
