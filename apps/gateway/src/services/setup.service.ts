@@ -25,6 +25,16 @@ import {
 } from "./tool-registry.service";
 
 // ============================================================================
+// Configuration
+// ============================================================================
+
+/**
+ * Timeout for installer script execution in milliseconds.
+ * Defaults to 5 minutes (300000ms). Configure via INSTALL_TIMEOUT_MS env var.
+ */
+const INSTALL_TIMEOUT_MS = Number(process.env["INSTALL_TIMEOUT_MS"]) || 300_000;
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -742,9 +752,71 @@ export async function installTool(
       },
     });
 
-    const _stdout = await new Response(proc.stdout).text();
-    const stderr = await new Response(proc.stderr).text();
-    const exitCode = await proc.exited;
+    // Set up timeout with cleanup
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let timedOut = false;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        timedOut = true;
+        try {
+          proc.kill();
+        } catch {
+          // Process may have already exited
+        }
+        reject(
+          new Error(`Installation timed out after ${INSTALL_TIMEOUT_MS}ms`),
+        );
+      }, INSTALL_TIMEOUT_MS);
+    });
+
+    // Wait for command or timeout
+    let _stdout: string;
+    let stderr: string;
+    let exitCode: number;
+
+    try {
+      const resultPromise = (async () => {
+        const stdout = await new Response(proc.stdout).text();
+        const stderrOutput = await new Response(proc.stderr).text();
+        const code = await proc.exited;
+        return { stdout, stderr: stderrOutput, exitCode: code };
+      })();
+
+      const result = await Promise.race([resultPromise, timeoutPromise]);
+      _stdout = result.stdout;
+      stderr = result.stderr;
+      exitCode = result.exitCode;
+    } catch (error) {
+      if (timedOut) {
+        log.error(
+          {
+            tool: request.tool,
+            timeoutMs: INSTALL_TIMEOUT_MS,
+          },
+          "Installation timed out",
+        );
+
+        emitProgress({
+          tool: request.tool,
+          status: "failed",
+          progress: 0,
+          message: `Installation timed out after ${Math.round(INSTALL_TIMEOUT_MS / 1000)}s`,
+          timestamp: new Date().toISOString(),
+        });
+
+        return {
+          tool: request.tool,
+          success: false,
+          error: `Installation timed out after ${Math.round(INSTALL_TIMEOUT_MS / 1000)} seconds`,
+          durationMs: Math.round(performance.now() - startTime),
+        };
+      }
+      throw error;
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    }
 
     if (exitCode !== 0) {
       log.error(
