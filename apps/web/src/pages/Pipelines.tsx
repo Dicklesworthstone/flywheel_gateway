@@ -131,9 +131,17 @@ function PipelineCard({
 
   return (
     <div className={`card ${!pipeline.enabled ? "card--muted" : ""}`}>
-      <div
+      <button
+        type="button"
         className="card__header"
-        style={{ cursor: "pointer" }}
+        style={{
+          cursor: "pointer",
+          background: "transparent",
+          border: "none",
+          padding: 0,
+          width: "100%",
+          textAlign: "left",
+        }}
         onClick={onToggleExpand}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -162,7 +170,7 @@ function PipelineCard({
             {successRate}% success
           </StatusPill>
         </div>
-      </div>
+      </button>
 
       {isExpanded && (
         <div className="card__body">

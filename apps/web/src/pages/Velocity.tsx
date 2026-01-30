@@ -434,9 +434,9 @@ function StageCard({ name, icon, metrics, color }: StageCardProps) {
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-        {metrics.map((m, i) => (
+        {metrics.map((m) => (
           <div
-            key={i}
+            key={m.label}
             style={{ display: "flex", justifyContent: "space-between" }}
           >
             <span className="muted">{m.label}</span>
@@ -950,9 +950,9 @@ function TrendsTab() {
             <h3 style={{ color: "var(--positive)" }}>Acceleration Factors</h3>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {trendData.acceleration_factors.map((factor, i) => (
+            {trendData.acceleration_factors.map((factor) => (
               <div
-                key={i}
+                key={factor}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -974,9 +974,9 @@ function TrendsTab() {
             <h3 style={{ color: "var(--danger)" }}>Deceleration Factors</h3>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {trendData.deceleration_factors.map((factor, i) => (
+            {trendData.deceleration_factors.map((factor) => (
               <div
-                key={i}
+                key={factor}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -1110,9 +1110,9 @@ function HistoryTab() {
             padding: "16px 0",
           }}
         >
-          {history.points.map((point, i) => (
+          {history.points.map((point) => (
             <div
-              key={i}
+              key={`${point.timestamp}-${point.score}`}
               style={{
                 flex: 1,
                 display: "flex",

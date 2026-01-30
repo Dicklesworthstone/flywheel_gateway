@@ -197,7 +197,6 @@ interface ToolCardProps {
   cli: DetectedCLI;
   onInstall?: () => void;
   installing?: boolean;
-  index?: number;
   priority?: ToolPriority;
   // Allow undefined for exactOptionalPropertyTypes compatibility
   phase?: number | undefined;
@@ -208,7 +207,6 @@ function ToolCard({
   cli,
   onInstall,
   installing,
-  index = 0,
   priority,
   phase,
   registryTool,
@@ -393,9 +391,9 @@ function RecommendationsPanel({
         <StatusPill tone="warning">{recommendations.length} items</StatusPill>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-        {recommendations.map((rec, i) => (
+        {recommendations.map((rec) => (
           <div
-            key={i}
+            key={rec}
             style={{
               display: "flex",
               alignItems: "flex-start",
@@ -560,11 +558,10 @@ function DetectStepContent({
           initial="hidden"
           animate="visible"
         >
-          {agents.map((agent, i) => (
+          {agents.map((agent) => (
             <ToolCard
               key={agent.name}
               cli={agent}
-              index={i}
               priority={getToolPriority(agent.name, toolCategories)}
               phase={getToolPhase(agent.name, installOrder)}
               registryTool={toolMap?.get(agent.name)}
@@ -592,11 +589,10 @@ function DetectStepContent({
           initial="hidden"
           animate="visible"
         >
-          {tools.map((tool, i) => (
+          {tools.map((tool) => (
             <ToolCard
               key={tool.name}
               cli={tool}
-              index={i}
               priority={getToolPriority(tool.name, toolCategories)}
               phase={getToolPhase(tool.name, installOrder)}
               registryTool={toolMap?.get(tool.name)}
