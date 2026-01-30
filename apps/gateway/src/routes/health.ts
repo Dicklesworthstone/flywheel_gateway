@@ -235,10 +235,19 @@ async function checkCLI(
       env: { ...process.env, NO_COLOR: "1" },
     });
 
-    // Set up timeout with cleanup
+    // Set up timeout with cleanup + kill on timeout
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let timedOut = false;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error("Timeout")), timeoutMs);
+      timeoutId = setTimeout(() => {
+        timedOut = true;
+        try {
+          proc.kill();
+        } catch {
+          // Ignore kill errors; process may have already exited
+        }
+        reject(new Error("Timeout"));
+      }, timeoutMs);
     });
 
     // Race between command and timeout
@@ -251,6 +260,12 @@ async function checkCLI(
     let result: { stdout: string; exitCode: number };
     try {
       result = await Promise.race([resultPromise, timeoutPromise]);
+    } catch (error) {
+      // Prevent unhandled rejection if the process exits after timeout
+      if (timedOut) {
+        void resultPromise.catch(() => undefined);
+      }
+      throw error;
     } finally {
       if (timeoutId !== undefined) {
         clearTimeout(timeoutId);
