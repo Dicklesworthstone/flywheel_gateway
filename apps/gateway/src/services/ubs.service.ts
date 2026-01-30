@@ -124,6 +124,25 @@ const store: ScanStore = {
   dismissals: new Map(),
 };
 
+// Cap in-memory storage to prevent unbounded growth in long-running gateway processes.
+const MAX_STORED_SCANS = 50;
+
+function pruneOldScans(): void {
+  while (store.scans.size > MAX_STORED_SCANS) {
+    const oldestScanId = store.scans.keys().next().value as string | undefined;
+    if (!oldestScanId) break;
+
+    const oldestScan = store.scans.get(oldestScanId);
+    store.scans.delete(oldestScanId);
+
+    if (oldestScan) {
+      for (const finding of oldestScan.findings) {
+        store.findings.delete(finding.id);
+      }
+    }
+  }
+}
+
 // ============================================================================
 // UBS CLI Interface
 // ============================================================================
@@ -325,6 +344,7 @@ export function createUBSService(projectRoot?: string): UBSService {
             error: stderr || "Failed to parse UBS output",
           };
           store.scans.set(scanId, errorResult);
+          pruneOldScans();
           return errorResult;
         }
 
@@ -383,6 +403,7 @@ export function createUBSService(projectRoot?: string): UBSService {
         };
 
         store.scans.set(scanId, result);
+        pruneOldScans();
 
         ubsLogger.result("ubs scan", durationMs, "ubs scan completed", {
           scanId,
@@ -416,6 +437,7 @@ export function createUBSService(projectRoot?: string): UBSService {
           error: error instanceof Error ? error.message : String(error),
         };
         store.scans.set(scanId, errorResult);
+        pruneOldScans();
         log.error({ scanId, error }, "UBS scan failed");
         return errorResult;
       }

@@ -10,7 +10,6 @@
  */
 
 import { type Context, Hono } from "hono";
-import type { AuthContext } from "../ws/hub";
 import { z } from "zod";
 import { getLogger } from "../middleware/correlation";
 import type {
@@ -42,6 +41,7 @@ import {
   sendValidationError,
 } from "../utils/response";
 import { transformZodError } from "../utils/validation";
+import type { AuthContext } from "../ws/hub";
 
 const notifications = new Hono();
 

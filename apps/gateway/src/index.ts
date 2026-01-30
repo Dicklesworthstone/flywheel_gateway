@@ -159,13 +159,18 @@ if (import.meta.main) {
 
         const adminKey = process.env["GATEWAY_ADMIN_KEY"]?.trim();
         const jwtSecret = process.env["JWT_SECRET"]?.trim();
+        const authEnabled = Boolean(adminKey || jwtSecret);
 
-        if ((adminKey || jwtSecret) && !token) {
+        if (authEnabled && !token) {
           return new Response("Unauthorized", { status: 401 });
         }
 
-        let authContext = createGuestAuthContext();
-        if (token) {
+        // When auth is disabled, treat WS connections as internal/admin so the
+        // local dashboard can subscribe (workspace/user channels require auth).
+        let authContext = authEnabled
+          ? createGuestAuthContext()
+          : createInternalAuthContext();
+        if (authEnabled && token) {
           if (adminKey && token === adminKey) {
             authContext = createInternalAuthContext();
           } else if (jwtSecret) {

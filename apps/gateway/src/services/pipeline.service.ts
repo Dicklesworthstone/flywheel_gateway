@@ -519,14 +519,16 @@ async function executeApproval(
 async function executeScript(
   config: ScriptConfig,
   context: Record<string, unknown>,
-  _signal?: AbortSignal,
+  signal?: AbortSignal,
 ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   const log = getLogger();
+
+  const isPathScript = config.isPath === true;
 
   // SECURITY: Do not substitute variables in inline scripts to prevent command injection.
   // Users should use environment variables (e.g., $PIPELINE_VAR) instead.
   // We only substitute for file paths to resolve locations.
-  const script = config.isPath
+  const script = isPathScript
     ? substituteVariables(config.script, context)
     : config.script;
 
@@ -552,7 +554,13 @@ async function executeScript(
   const cwd = config.workingDirectory ?? "/tmp";
 
   // Use Bun's subprocess
-  const proc = Bun.spawn([shell, "-c", script], {
+  const spawnArgs = isPathScript
+    ? // Execute the script file directly (no shell interpolation).
+      // Use "--" to prevent script paths starting with "-" from being treated as flags.
+      [shell, "--", script]
+    : [shell, "-c", script];
+
+  const proc = Bun.spawn(spawnArgs, {
     cwd,
     env,
     stdout: "pipe",
@@ -570,6 +578,23 @@ async function executeScript(
     }, timeoutMs);
   });
 
+  let abortCleanup: (() => void) | undefined;
+  const abortPromise = signal
+    ? new Promise<never>((_, reject) => {
+        const onAbort = () => {
+          proc.kill();
+          reject(new Error("Execution cancelled"));
+        };
+        if (signal.aborted) {
+          onAbort();
+          return;
+        }
+        signal.addEventListener("abort", onAbort, { once: true });
+        abortCleanup = () => signal.removeEventListener("abort", onAbort);
+      })
+    : // Never resolves; keeps race signature stable when no signal provided.
+      new Promise<never>(() => {});
+
   const resultPromise = (async () => {
     const exitCode = await proc.exited;
     const stdout = await new Response(proc.stdout).text();
@@ -578,10 +603,15 @@ async function executeScript(
   })();
 
   try {
-    const result = await Promise.race([resultPromise, timeoutPromise]);
+    const result = await Promise.race([
+      resultPromise,
+      timeoutPromise,
+      abortPromise,
+    ]);
     return result;
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
+    abortCleanup?.();
   }
 }
 

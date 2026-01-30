@@ -9,7 +9,6 @@
  */
 
 import { type Context, Hono } from "hono";
-import type { AuthContext } from "../ws/hub";
 import { z } from "zod";
 import { getLogger } from "../middleware/correlation";
 import {
@@ -47,6 +46,7 @@ import {
   sendValidationError,
 } from "../utils/response";
 import { transformZodError } from "../utils/validation";
+import type { AuthContext } from "../ws/hub";
 
 const pipelines = new Hono();
 
@@ -438,11 +438,12 @@ function resolveOptionalUserId(c: Context): { userId?: string } | Response {
   const requested = c.req.query("user_id");
 
   if (!auth) {
-    return { userId: requested };
+    return requested ? { userId: requested } : {};
   }
 
   if (auth.isAdmin) {
-    return { userId: requested ?? auth.userId };
+    const adminUserId = requested ?? auth.userId;
+    return adminUserId ? { userId: adminUserId } : {};
   }
 
   if (!auth.userId) {
@@ -482,7 +483,12 @@ async function parseOptionalJson(c: Context): Promise<unknown | Response> {
     return JSON.parse(raw) as unknown;
   } catch (error) {
     if (error instanceof SyntaxError) {
-      return sendError(c, "INVALID_REQUEST", "Invalid JSON in request body", 400);
+      return sendError(
+        c,
+        "INVALID_REQUEST",
+        "Invalid JSON in request body",
+        400,
+      );
     }
     return sendInternalError(c);
   }

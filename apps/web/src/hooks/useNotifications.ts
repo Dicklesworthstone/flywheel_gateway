@@ -927,10 +927,12 @@ export function useNotificationSubscription(
 
     // Production WebSocket connection
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const wsUrl = new URL(`${protocol}//${window.location.host}/ws`);
+    const gatewayToken = import.meta.env["VITE_GATEWAY_TOKEN"]?.trim();
+    if (gatewayToken) wsUrl.searchParams.set("token", gatewayToken);
 
     try {
-      const ws = new WebSocket(wsUrl);
+      const ws = new WebSocket(wsUrl.toString());
 
       ws.onopen = () => {
         setConnected(true);

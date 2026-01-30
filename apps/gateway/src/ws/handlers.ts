@@ -51,6 +51,9 @@ export function handleWSOpen(ws: ServerWebSocket<ConnectionData>): void {
   if (ws.data.subscriptions.size > 0) {
     // Clone entries to avoid iterator invalidation issues as hub.subscribe modifies the map
     const initialSubs = Array.from(ws.data.subscriptions.entries());
+    // Treat upgrade-time subscriptions as "requested"; clear and re-add only those that pass auth.
+    // This ensures `ws.data.subscriptions` reflects actual hub subscriptions (e.g. for ping reporting).
+    ws.data.subscriptions.clear();
 
     for (const [channelStr, cursor] of initialSubs) {
       const channel = parseChannel(channelStr);

@@ -256,6 +256,71 @@ describe("Pipeline Service", () => {
       expect(run.startedAt).toBeInstanceOf(Date);
     });
 
+    test("executes script paths without shell interpolation (no -c)", async () => {
+      const originalSpawn = Bun.spawn;
+      const spawnedArgs: string[][] = [];
+
+      Bun.spawn = ((args: string[], options: Record<string, unknown>) => {
+        spawnedArgs.push(args);
+
+        const encoder = new TextEncoder();
+        const makeStream = () =>
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(encoder.encode(""));
+              controller.close();
+            },
+          });
+
+        const proc = {
+          stdout: makeStream(),
+          stderr: makeStream(),
+          exited: Promise.resolve(0),
+          exitCode: 0,
+          kill: () => {},
+        } as unknown as ReturnType<typeof Bun.spawn>;
+        void options;
+        return proc;
+      }) as typeof Bun.spawn;
+
+      try {
+        const input: CreatePipelineInput = {
+          name: "Path Script Pipeline",
+          trigger: {
+            type: "manual",
+            config: { type: "manual", config: {} },
+            enabled: true,
+          },
+          steps: [
+            {
+              id: "run_file",
+              name: "Run script file",
+              type: "script",
+              config: {
+                type: "script",
+                config: {
+                  script: "/tmp/test-script.sh",
+                  isPath: true,
+                  shell: "bash",
+                },
+              },
+            },
+          ],
+        };
+
+        const pipeline = createPipeline(input);
+        const run = await runPipeline(pipeline.id);
+
+        const finished = await waitForRunToFinish(run.id);
+        expect(finished?.status).toBe("completed");
+
+        expect(spawnedArgs.length).toBe(1);
+        expect(spawnedArgs[0]).toEqual(["bash", "--", "/tmp/test-script.sh"]);
+      } finally {
+        Bun.spawn = originalSpawn;
+      }
+    });
+
     test("throws for unknown pipeline", async () => {
       await expect(runPipeline("pipe_unknown")).rejects.toThrow("not found");
     });
@@ -421,6 +486,99 @@ describe("Pipeline Service", () => {
       const cancelled = cancelRun(run.id);
       expect(cancelled?.status).toBe("cancelled");
       expect(cancelled?.completedAt).toBeInstanceOf(Date);
+    });
+
+    test("cancels a running script by killing the subprocess", async () => {
+      const originalSpawn = Bun.spawn;
+
+      let killCalled = false;
+      let spawnCalled = false;
+      let resolveExited: (code: number) => void;
+
+      Bun.spawn = ((args: string[], options: Record<string, unknown>) => {
+        spawnCalled = true;
+
+        const encoder = new TextEncoder();
+        const makeStream = () =>
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(encoder.encode(""));
+              controller.close();
+            },
+          });
+
+        let proc:
+          | (ReturnType<typeof Bun.spawn> & {
+              kill: () => void;
+              exitCode: number | null;
+            })
+          | undefined;
+
+        const exited = new Promise<number>((resolve) => {
+          resolveExited = resolve;
+        });
+
+        proc = {
+          stdout: makeStream(),
+          stderr: makeStream(),
+          exited,
+          exitCode: null,
+          kill: () => {
+            killCalled = true;
+            proc!.exitCode = 143;
+            resolveExited(143);
+          },
+        } as unknown as ReturnType<typeof Bun.spawn>;
+        void options;
+        void args;
+        return proc;
+      }) as typeof Bun.spawn;
+
+      try {
+        const input: CreatePipelineInput = {
+          name: "Cancellable Script Pipeline",
+          trigger: {
+            type: "manual",
+            config: { type: "manual", config: {} },
+            enabled: true,
+          },
+          steps: [
+            {
+              id: "long_script",
+              name: "Long script",
+              type: "script",
+              config: {
+                type: "script",
+                config: { script: "echo 'hang'", timeout: 60_000 },
+              },
+            },
+          ],
+        };
+
+        const pipeline = createPipeline(input);
+        const run = await runPipeline(pipeline.id);
+
+        // Wait for the subprocess to start so the abort handler can kill it.
+        const start = Date.now();
+        while (!spawnCalled && Date.now() - start < 1000) {
+          await new Promise((resolve) => setTimeout(resolve, 1));
+        }
+        expect(spawnCalled).toBe(true);
+
+        // Yield once so executeScript can register the abort listener.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        cancelRun(run.id);
+
+        // Abort dispatch is synchronous in practice, but poll to avoid flakiness.
+        const killStart = Date.now();
+        while (!killCalled && Date.now() - killStart < 1000) {
+          await new Promise((resolve) => setTimeout(resolve, 1));
+        }
+        expect(killCalled).toBe(true);
+      } finally {
+        Bun.spawn = originalSpawn;
+      }
     });
   });
 });
@@ -1041,6 +1199,8 @@ describe("Pipeline Triggers", () => {
   });
 
   test("webhook trigger", () => {
+    const webhookSecret =
+      process.env["TEST_WEBHOOK_SECRET"] ?? crypto.randomUUID();
     const input: CreatePipelineInput = {
       name: "Webhook",
       trigger: {
@@ -1048,7 +1208,7 @@ describe("Pipeline Triggers", () => {
         config: {
           type: "webhook",
           config: {
-            secret: "webhook_secret",
+            secret: webhookSecret,
             expectedHeaders: { "X-Custom-Header": "value" },
           },
         },

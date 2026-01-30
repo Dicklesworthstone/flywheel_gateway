@@ -19,6 +19,8 @@ import {
   shouldRetry,
 } from "./websocket/reconnect";
 
+const gatewayToken = import.meta.env["VITE_GATEWAY_TOKEN"]?.trim();
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -82,11 +84,23 @@ export function WebSocketProvider({ children, url }: WebSocketProviderProps) {
   const messageQueueRef = useRef<QueuedMessage[]>([]);
 
   // Build WebSocket URL
-  const wsUrl =
+  const wsUrlBase =
     url ??
     (typeof window !== "undefined"
       ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`
       : "ws://localhost:3000/ws");
+  const wsUrl =
+    gatewayToken && wsUrlBase
+      ? (() => {
+          try {
+            const u = new URL(wsUrlBase);
+            u.searchParams.set("token", gatewayToken);
+            return u.toString();
+          } catch {
+            return wsUrlBase;
+          }
+        })()
+      : wsUrlBase;
 
   // Update status helper (guarded against unmount)
   const updateStatus = useCallback(

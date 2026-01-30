@@ -626,7 +626,10 @@ export function useGraphSubscription(
     shouldReconnectRef.current = true;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    const wsUrl = new URL(`${protocol}//${window.location.host}/ws`);
+    const gatewayToken = import.meta.env["VITE_GATEWAY_TOKEN"]?.trim();
+    if (gatewayToken) wsUrl.searchParams.set("token", gatewayToken);
+    const ws = new WebSocket(wsUrl.toString());
 
     ws.onopen = () => {
       if (wsRef.current !== ws) return;
