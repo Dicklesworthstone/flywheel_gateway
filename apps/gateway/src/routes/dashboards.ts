@@ -64,18 +64,20 @@ function getRequestUserId(c: Context): string {
   if (authEnabled) {
     const auth = c.get("auth") as AuthContext | undefined;
 
+    // Allow admin/internal to optionally "act as" a user for debugging via headers.
+    if (auth?.isAdmin === true) {
+      const overrideUserId =
+        c.req.header("X-User-Id") ?? c.req.header("X-User");
+      if (overrideUserId) return overrideUserId;
+      if (typeof auth.userId === "string" && auth.userId.length > 0) {
+        return auth.userId;
+      }
+      return DEFAULT_DASHBOARD_USER_ID;
+    }
+
     // Non-admin users must use the authenticated userId; never trust caller-controlled headers.
     if (typeof auth?.userId === "string" && auth.userId.length > 0) {
       return auth.userId;
-    }
-
-    // Allow admin/internal to optionally "act as" a user for debugging via headers.
-    if (auth?.isAdmin === true) {
-      return (
-        c.req.header("X-User-Id") ??
-        c.req.header("X-User") ??
-        DEFAULT_DASHBOARD_USER_ID
-      );
     }
 
     return DEFAULT_DASHBOARD_USER_ID;
