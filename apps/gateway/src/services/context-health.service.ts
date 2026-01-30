@@ -535,7 +535,8 @@ export class ContextHealthService {
 
     const afterTokens = newTokenCount;
     const reduction = beforeTokens - afterTokens;
-    const reductionPercent = (reduction / beforeTokens) * 100;
+    const reductionPercent =
+      beforeTokens > 0 ? (reduction / beforeTokens) * 100 : 0;
 
     // Update history
     this.updateTokens(sessionId, afterTokens, "compaction");

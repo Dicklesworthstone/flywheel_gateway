@@ -1061,6 +1061,8 @@ export async function transferCheckpoint(
 
 /**
  * Clean up old checkpoints for an agent, keeping only the most recent N.
+ * Respects delta chain dependencies - checkpoints that are parents of other
+ * checkpoints will not be deleted to avoid corrupting delta chains.
  */
 export async function pruneCheckpoints(
   agentId: string,
@@ -1080,23 +1082,62 @@ export async function pruneCheckpoints(
   }
 
   const toDelete = allCheckpoints.slice(0, allCheckpoints.length - keepCount);
-  const deleteIds = toDelete.map((r) => r.id);
+  const candidateIds = toDelete.map((r) => r.id);
 
-  if (deleteIds.length === 0) return 0;
+  if (candidateIds.length === 0) return 0;
 
-  // Batch delete
-  await db
-    .delete(checkpointsTable)
-    .where(inArray(checkpointsTable.id, deleteIds));
+  // Find checkpoints that are referenced as parents by other checkpoints.
+  // These cannot be safely deleted without corrupting delta chains.
+  const referencedParents = await db
+    .select({
+      parentId: sql<string>`json_extract(${checkpointsTable.state}, '$.parentCheckpointId')`,
+    })
+    .from(checkpointsTable)
+    .where(eq(checkpointsTable.agentId, agentId));
 
-  incrementCounter("flywheel_checkpoints_pruned_total", deleteIds.length, {});
-
-  log.info(
-    { type: "checkpoint", action: "prune", agentId, deleted: deleteIds.length },
-    `[CHECKPOINT] Pruned ${deleteIds.length} old checkpoints for agent ${agentId}`,
+  const parentIds = new Set(
+    referencedParents
+      .map((r) => r.parentId)
+      .filter((id): id is string => id != null),
   );
 
-  return deleteIds.length;
+  // Filter out candidates that are parents of other checkpoints
+  const safeToDelete = candidateIds.filter((id) => !parentIds.has(id));
+
+  if (safeToDelete.length === 0) {
+    log.debug(
+      {
+        type: "checkpoint",
+        action: "prune",
+        agentId,
+        candidates: candidateIds.length,
+        skipped: candidateIds.length,
+      },
+      "[CHECKPOINT] All prune candidates are delta chain parents, skipping",
+    );
+    return 0;
+  }
+
+  // Batch delete only safe checkpoints
+  await db
+    .delete(checkpointsTable)
+    .where(inArray(checkpointsTable.id, safeToDelete));
+
+  incrementCounter("flywheel_checkpoints_pruned_total", safeToDelete.length, {});
+
+  const skipped = candidateIds.length - safeToDelete.length;
+  log.info(
+    {
+      type: "checkpoint",
+      action: "prune",
+      agentId,
+      deleted: safeToDelete.length,
+      skippedDeltaParents: skipped,
+    },
+    `[CHECKPOINT] Pruned ${safeToDelete.length} old checkpoints for agent ${agentId}${skipped > 0 ? ` (skipped ${skipped} delta chain parents)` : ""}`,
+  );
+
+  return safeToDelete.length;
 }
 
 // ============================================================================

@@ -157,6 +157,11 @@ export class AutoCheckpointService {
       this.intervalTimer = setInterval(async () => {
         await this.tryCheckpoint("interval");
       }, intervalMs);
+
+      // Ensure the interval doesn't prevent process exit
+      if (this.intervalTimer.unref) {
+        this.intervalTimer.unref();
+      }
     }
   }
 
