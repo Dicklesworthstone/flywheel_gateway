@@ -68,7 +68,8 @@ export interface LogFilter {
   endTime?: number;
 }
 
-// ANSI escape code regex (uses \u001b for ESC character to satisfy linter)
+// ANSI escape code regex - \u001b is the ESC control character (intentional)
+// biome-ignore lint/suspicious/noControlCharactersInRegex: Required for ANSI parsing
 const ANSI_REGEX = /\u001b\[([0-9;]*)m/g;
 
 // URL regex

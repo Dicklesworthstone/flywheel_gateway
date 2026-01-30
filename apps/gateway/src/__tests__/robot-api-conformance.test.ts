@@ -204,12 +204,13 @@ describe("Route registration conformance", () => {
     // Extract "type" field values from response examples
     const typeRegex = /"type":\s*"([^"]+)"/g;
     const types: string[] = [];
-    let match;
-    while ((match = typeRegex.exec(md)) !== null) {
+    let match: RegExpExecArray | null = typeRegex.exec(md);
+    while (match !== null) {
       // Skip request body types like "user"
       if (!["subscribe", "ack", "user", "state_changed"].includes(match[1]!)) {
         types.push(match[1]!);
       }
+      match = typeRegex.exec(md);
     }
 
     // Response types should use snake_case

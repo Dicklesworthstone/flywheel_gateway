@@ -58,12 +58,7 @@ function SkeletonTable({
 
 export function DashboardSkeleton() {
   return (
-    <div
-      className="page"
-      role="region"
-      aria-busy="true"
-      aria-label="Loading dashboard"
-    >
+    <section className="page" aria-busy="true" aria-label="Loading dashboard">
       {/* Top stats grid */}
       <section className="grid grid--2">
         <div className="card">
@@ -106,7 +101,7 @@ export function DashboardSkeleton() {
           </div>
         ))}
       </section>
-    </div>
+    </section>
   );
 }
 
@@ -116,12 +111,7 @@ export function DashboardSkeleton() {
 
 export function AgentsSkeleton() {
   return (
-    <div
-      className="page"
-      role="region"
-      aria-busy="true"
-      aria-label="Loading agents"
-    >
+    <section className="page" aria-busy="true" aria-label="Loading agents">
       <div className="card">
         <div className="card__header">
           <Skeleton variant="text" style={{ width: 80 }} />
@@ -129,7 +119,7 @@ export function AgentsSkeleton() {
         </div>
         <SkeletonTable rows={6} columns={4} />
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -139,12 +129,7 @@ export function AgentsSkeleton() {
 
 export function FleetSkeleton() {
   return (
-    <div
-      className="page"
-      role="region"
-      aria-busy="true"
-      aria-label="Loading fleet"
-    >
+    <section className="page" aria-busy="true" aria-label="Loading fleet">
       {/* Stats row */}
       <section className="grid grid--4">
         {[1, 2, 3, 4].map((i) => (
@@ -169,7 +154,7 @@ export function FleetSkeleton() {
       <div className="card">
         <SkeletonTable rows={8} columns={5} />
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -179,12 +164,7 @@ export function FleetSkeleton() {
 
 export function BeadsSkeleton() {
   return (
-    <div
-      className="page"
-      role="region"
-      aria-busy="true"
-      aria-label="Loading beads"
-    >
+    <section className="page" aria-busy="true" aria-label="Loading beads">
       <div className="card">
         <div className="card__header">
           <Skeleton variant="text" style={{ width: 80 }} />
@@ -192,7 +172,7 @@ export function BeadsSkeleton() {
         </div>
         <SkeletonTable rows={10} columns={5} />
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -202,19 +182,14 @@ export function BeadsSkeleton() {
 
 export function AccountsSkeleton() {
   return (
-    <div
-      className="page"
-      role="region"
-      aria-busy="true"
-      aria-label="Loading accounts"
-    >
+    <section className="page" aria-busy="true" aria-label="Loading accounts">
       {/* Account cards */}
       <section className="grid grid--2">
         {[1, 2, 3, 4].map((i) => (
           <SkeletonCard key={i} />
         ))}
       </section>
-    </div>
+    </section>
   );
 }
 
@@ -224,12 +199,7 @@ export function AccountsSkeleton() {
 
 export function SettingsSkeleton() {
   return (
-    <div
-      className="page"
-      role="region"
-      aria-busy="true"
-      aria-label="Loading settings"
-    >
+    <section className="page" aria-busy="true" aria-label="Loading settings">
       <div className="card">
         <div className="card__header">
           <Skeleton variant="text" style={{ width: 100 }} />
@@ -246,7 +216,7 @@ export function SettingsSkeleton() {
         ))}
         <Skeleton variant="button" style={{ width: 100 }} />
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -256,19 +226,14 @@ export function SettingsSkeleton() {
 
 export function DashboardsSkeleton() {
   return (
-    <div
-      className="page"
-      role="region"
-      aria-busy="true"
-      aria-label="Loading dashboards"
-    >
+    <section className="page" aria-busy="true" aria-label="Loading dashboards">
       {/* Dashboard grid */}
       <section className="grid grid--3">
         {[1, 2, 3, 4, 5, 6].map((i) => (
           <SkeletonCard key={i} />
         ))}
       </section>
-    </div>
+    </section>
   );
 }
 
@@ -278,12 +243,7 @@ export function DashboardsSkeleton() {
 
 export function DCGSkeleton() {
   return (
-    <div
-      className="page"
-      role="region"
-      aria-busy="true"
-      aria-label="Loading DCG"
-    >
+    <section className="page" aria-busy="true" aria-label="Loading DCG">
       {/* Stats */}
       <section className="grid grid--3">
         {[1, 2, 3].map((i) => (
@@ -308,7 +268,7 @@ export function DCGSkeleton() {
       <div className="card">
         <SkeletonTable rows={6} columns={4} />
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -318,12 +278,7 @@ export function DCGSkeleton() {
 
 export function PipelinesSkeleton() {
   return (
-    <div
-      className="page"
-      role="region"
-      aria-busy="true"
-      aria-label="Loading pipelines"
-    >
+    <section className="page" aria-busy="true" aria-label="Loading pipelines">
       <div className="card">
         <div className="card__header">
           <Skeleton variant="text" style={{ width: 100 }} />
@@ -331,7 +286,7 @@ export function PipelinesSkeleton() {
         </div>
         <SkeletonTable rows={8} columns={5} />
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -341,12 +296,7 @@ export function PipelinesSkeleton() {
 
 export function VelocitySkeleton() {
   return (
-    <div
-      className="page"
-      role="region"
-      aria-busy="true"
-      aria-label="Loading velocity"
-    >
+    <section className="page" aria-busy="true" aria-label="Loading velocity">
       {/* Chart area */}
       <div className="card" style={{ minHeight: 300 }}>
         <div className="card__header">
@@ -368,7 +318,7 @@ export function VelocitySkeleton() {
           </div>
         ))}
       </section>
-    </div>
+    </section>
   );
 }
 
@@ -378,9 +328,8 @@ export function VelocitySkeleton() {
 
 export function CollaborationGraphSkeleton() {
   return (
-    <div
+    <section
       className="page"
-      role="region"
       aria-busy="true"
       aria-label="Loading collaboration graph"
     >
@@ -392,7 +341,7 @@ export function CollaborationGraphSkeleton() {
         </div>
         <Skeleton style={{ width: "100%", height: 350, borderRadius: 8 }} />
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -402,9 +351,8 @@ export function CollaborationGraphSkeleton() {
 
 export function CostAnalyticsSkeleton() {
   return (
-    <div
+    <section
       className="page"
-      role="region"
       aria-busy="true"
       aria-label="Loading cost analytics"
     >
@@ -436,7 +384,7 @@ export function CostAnalyticsSkeleton() {
         </div>
         <SkeletonTable rows={5} columns={4} />
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -446,12 +394,7 @@ export function CostAnalyticsSkeleton() {
 
 export function SetupSkeleton() {
   return (
-    <div
-      className="page"
-      role="region"
-      aria-busy="true"
-      aria-label="Loading setup"
-    >
+    <section className="page" aria-busy="true" aria-label="Loading setup">
       {/* Header */}
       <div
         style={{
@@ -517,7 +460,7 @@ export function SetupSkeleton() {
           ))}
         </div>
       </section>
-    </div>
+    </section>
   );
 }
 
@@ -527,12 +470,7 @@ export function SetupSkeleton() {
 
 export function UtilitiesSkeleton() {
   return (
-    <div
-      className="page"
-      role="region"
-      aria-busy="true"
-      aria-label="Loading utilities"
-    >
+    <section className="page" aria-busy="true" aria-label="Loading utilities">
       <SkeletonCard />
       <div className="grid grid--3" style={{ marginTop: 16 }}>
         {Array.from({ length: 6 }).map((_, i) => (
@@ -545,7 +483,7 @@ export function UtilitiesSkeleton() {
           <SkeletonCard />
         </div>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -555,12 +493,7 @@ export function UtilitiesSkeleton() {
 
 export function NTMSkeleton() {
   return (
-    <div
-      className="page"
-      role="region"
-      aria-busy="true"
-      aria-label="Loading NTM sessions"
-    >
+    <section className="page" aria-busy="true" aria-label="Loading NTM sessions">
       <div className="card">
         <div className="card__header">
           <Skeleton variant="text" style={{ width: 100 }} />
@@ -574,7 +507,7 @@ export function NTMSkeleton() {
       <div className="card" style={{ marginTop: 16 }}>
         <SkeletonTable rows={8} columns={5} />
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -584,9 +517,8 @@ export function NTMSkeleton() {
 
 export function CASSSkeleton() {
   return (
-    <div
+    <section
       className="page"
-      role="region"
       aria-busy="true"
       aria-label="Loading session search"
     >
@@ -601,7 +533,7 @@ export function CASSSkeleton() {
       <div className="card" style={{ marginTop: 16 }}>
         <SkeletonTable rows={6} columns={4} />
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -611,9 +543,8 @@ export function CASSSkeleton() {
 
 export function SLBSkeleton() {
   return (
-    <div
+    <section
       className="page"
-      role="region"
       aria-busy="true"
       aria-label="Loading safety line buffer"
     >
@@ -626,7 +557,7 @@ export function SLBSkeleton() {
       <div className="card">
         <SkeletonTable rows={6} columns={5} />
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -636,9 +567,8 @@ export function SLBSkeleton() {
 
 export function CMSkeleton() {
   return (
-    <div
+    <section
       className="page"
-      role="region"
       aria-busy="true"
       aria-label="Loading credential manager"
     >
@@ -652,7 +582,7 @@ export function CMSkeleton() {
       <div className="card">
         <SkeletonTable rows={6} columns={5} />
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -662,11 +592,11 @@ export function CMSkeleton() {
 
 export function PageSkeleton() {
   return (
-    <div className="page" role="region" aria-busy="true" aria-label="Loading">
+    <section className="page" aria-busy="true" aria-label="Loading">
       <SkeletonCard />
       <div style={{ marginTop: 16 }}>
         <SkeletonText lines={3} />
       </div>
-    </div>
+    </section>
   );
 }
