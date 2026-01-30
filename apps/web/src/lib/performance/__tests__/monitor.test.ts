@@ -128,6 +128,44 @@ describe("PerformanceMonitor", () => {
       expect(true).toBe(true);
     });
   });
+
+  describe("frame rate monitoring", () => {
+    it("should clear interval even when id is 0", () => {
+      const originalSetInterval = globalThis.setInterval;
+      const originalClearInterval = globalThis.clearInterval;
+      const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+      const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
+
+      const setIntervalMock = mock(
+        () => 0 as unknown as ReturnType<typeof setInterval>,
+      );
+      const clearIntervalMock = mock(() => {});
+      const requestAnimationFrameMock = mock(() => 1);
+      const cancelAnimationFrameMock = mock(() => {});
+
+      globalThis.setInterval = setIntervalMock as typeof setInterval;
+      globalThis.clearInterval = clearIntervalMock as typeof clearInterval;
+      globalThis.requestAnimationFrame =
+        requestAnimationFrameMock as typeof requestAnimationFrame;
+      globalThis.cancelAnimationFrame =
+        cancelAnimationFrameMock as typeof cancelAnimationFrame;
+
+      try {
+        monitor.startFrameRateMonitoring(1000);
+        monitor.stopFrameRateMonitoring();
+
+        expect(clearIntervalMock).toHaveBeenCalledTimes(1);
+        expect(clearIntervalMock).toHaveBeenCalledWith(0);
+        expect(cancelAnimationFrameMock).toHaveBeenCalledTimes(1);
+        expect(cancelAnimationFrameMock).toHaveBeenCalledWith(1);
+      } finally {
+        globalThis.setInterval = originalSetInterval;
+        globalThis.clearInterval = originalClearInterval;
+        globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+        globalThis.cancelAnimationFrame = originalCancelAnimationFrame;
+      }
+    });
+  });
 });
 
 describe("getPerformanceMonitor", () => {

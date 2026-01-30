@@ -236,7 +236,7 @@ class PerformanceMonitor {
    * Start frame rate monitoring
    */
   startFrameRateMonitoring(sampleInterval = 1000): void {
-    if (this.frameRateInterval) return;
+    if (this.frameRateInterval !== null) return;
     if (typeof requestAnimationFrame !== "function") return;
 
     let lastTime = performance.now();
@@ -268,7 +268,7 @@ class PerformanceMonitor {
    * Stop frame rate monitoring
    */
   stopFrameRateMonitoring(): void {
-    if (this.frameRateInterval) {
+    if (this.frameRateInterval !== null) {
       clearInterval(this.frameRateInterval);
       this.frameRateInterval = null;
     }
