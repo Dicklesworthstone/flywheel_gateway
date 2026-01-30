@@ -32,6 +32,7 @@ export function TextWidget({ widget: _widget, data }: TextWidgetProps) {
   const html = renderMarkdown(textData.content);
 
   return (
+    // biome-ignore lint/security/noDangerouslySetInnerHtml: content is HTML-escaped and link hrefs are protocol-sanitized in renderMarkdown()
     <div className="text-widget" dangerouslySetInnerHTML={{ __html: html }} />
   );
 }
@@ -57,8 +58,14 @@ function renderMarkdown(markdown: string): string {
 
   // Links
   html = html.replace(
-    /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
+    /\[([^\]]+)\]\(((?:[^()\n]+|\([^)\n]*\))*)\)/g,
+    (_match: string, text: string, href: string): string => {
+      const safeHref = sanitizeHref(href);
+      if (!safeHref) {
+        return text;
+      }
+      return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+    },
   );
 
   // Unordered lists
@@ -87,6 +94,38 @@ function renderMarkdown(markdown: string): string {
   html = html.replace(/\n/g, "<br />");
 
   return html;
+}
+
+function sanitizeHref(rawHref: string): string | null {
+  const href = rawHref.trim();
+
+  // Disallow obvious HTML injection / whitespace tricks.
+  if (href === "" || /[\s<>]/.test(href)) {
+    return null;
+  }
+
+  // Allow relative links and anchors.
+  if (
+    href.startsWith("#") ||
+    href.startsWith("/") ||
+    href.startsWith("./") ||
+    href.startsWith("../") ||
+    href.startsWith("?")
+  ) {
+    return href;
+  }
+
+  // Allowlist safe protocols only.
+  const hrefLower = href.toLowerCase();
+  if (
+    hrefLower.startsWith("http://") ||
+    hrefLower.startsWith("https://") ||
+    hrefLower.startsWith("mailto:")
+  ) {
+    return href;
+  }
+
+  return null;
 }
 
 function escapeHtml(text: string): string {
