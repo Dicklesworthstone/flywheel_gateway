@@ -84,7 +84,10 @@ export async function listProfiles(options: ListProfilesOptions = {}): Promise<{
     hasMore,
   };
   if (hasMore && profiles.length > 0) {
-    pagination.cursor = profiles[profiles.length - 1]!.id;
+    const lastProfile = profiles.at(-1);
+    if (lastProfile) {
+      pagination.cursor = lastProfile.id;
+    }
   }
 
   return { profiles, pagination };
