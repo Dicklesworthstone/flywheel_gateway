@@ -210,12 +210,12 @@ function parseToonSections(input: string): Record<string, unknown> {
 
     // Check for section header
     const headerMatch = sectionHeaderPattern.exec(trimmedLine);
-    if (headerMatch) {
+    if (headerMatch?.[1]) {
       // Save previous section
       if (Object.keys(currentValues).length > 0) {
         result[currentSection] = currentValues;
       }
-      currentSection = headerMatch[1]!.trim();
+      currentSection = headerMatch[1].trim();
       currentValues = {};
       continue;
     }
@@ -225,9 +225,9 @@ function parseToonSections(input: string): Record<string, unknown> {
 
     // Try key-value extraction
     const kvMatch = kvPattern.exec(trimmedLine);
-    if (kvMatch) {
-      const key = kvMatch[1]!.trim();
-      const value = kvMatch[2]!.trim();
+    if (kvMatch?.[1] && kvMatch[2]) {
+      const key = kvMatch[1].trim();
+      const value = kvMatch[2].trim();
       if (key) currentValues[key] = value;
     }
   }
@@ -333,14 +333,18 @@ export function normalizeOutput<T = unknown>(
  */
 function parseCsvSimple(input: string): Array<Record<string, string>> {
   const lines = input.split("\n").filter((l) => l.trim());
-  if (lines.length < 2) return [];
+  const firstLine = lines[0];
+  if (lines.length < 2 || !firstLine) return [];
 
-  const headers = lines[0]!.split(",").map((h) => h.trim());
+  const headers = firstLine.split(",").map((h) => h.trim());
   return lines.slice(1).map((line) => {
     const values = line.split(",").map((v) => v.trim());
     const row: Record<string, string> = {};
     for (let i = 0; i < headers.length; i++) {
-      row[headers[i]!] = values[i] ?? "";
+      const header = headers[i];
+      if (header) {
+        row[header] = values[i] ?? "";
+      }
     }
     return row;
   });

@@ -333,7 +333,8 @@ export function useProfiles(options?: {
     filtered = filtered.filter((p) => p.provider === options.provider);
   }
   if (options?.status) {
-    filtered = filtered.filter((p) => options.status!.includes(p.status));
+    const statusFilter = options.status;
+    filtered = filtered.filter((p) => statusFilter.includes(p.status));
   }
 
   return useQuery(`/profiles${query}`, filtered, [
@@ -347,7 +348,11 @@ export function useProfiles(options?: {
  * Hook to fetch a single profile by ID.
  */
 export function useProfile(profileId: string): UseQueryResult<AccountProfile> {
-  const mock = mockProfiles.find((p) => p.id === profileId) ?? mockProfiles[0]!;
+  const defaultProfile = mockProfiles[0];
+  const mock =
+    mockProfiles.find((p) => p.id === profileId) ?? defaultProfile;
+  // Mock profiles are static fixtures, so this should never be undefined
+  if (!mock) throw new Error("No mock profiles available");
   return useQuery(`/profiles/${profileId}`, mock, [profileId]);
 }
 
@@ -604,10 +609,20 @@ export function useRotatePool() {
           };
         }
         const previousProfile = profiles[0];
+        const newProfile = profiles[profiles.length > 1 ? 1 : 0];
+        // We already checked profiles.length > 0 above
+        if (!newProfile) {
+          return {
+            success: false,
+            newProfileId: "",
+            reason: "No profile available for rotation",
+            retriesRemaining: 0,
+          };
+        }
         return {
           success: true,
           ...(previousProfile && { previousProfileId: previousProfile.id }),
-          newProfileId: profiles[profiles.length > 1 ? 1 : 0]!.id,
+          newProfileId: newProfile.id,
           reason: reason ?? "Manual rotation",
           retriesRemaining: 2,
         };
