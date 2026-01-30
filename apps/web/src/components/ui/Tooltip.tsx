@@ -13,6 +13,7 @@ import {
   type MouseEvent,
   type ReactNode,
   useCallback,
+  useEffect,
   useId,
   useRef,
   useState,
@@ -51,20 +52,36 @@ export function Tooltip({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tooltipId = useId();
 
+  const clearShowTimeout = useCallback(() => {
+    if (!timeoutRef.current) return;
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
+  }, []);
+
   const showTooltip = useCallback(() => {
     if (disabled) return;
+    clearShowTimeout();
     timeoutRef.current = setTimeout(() => {
       setIsVisible(true);
     }, delay);
-  }, [delay, disabled]);
+  }, [clearShowTimeout, delay, disabled]);
 
   const hideTooltip = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
+    clearShowTimeout();
     setIsVisible(false);
-  }, []);
+  }, [clearShowTimeout]);
+
+  useEffect(() => {
+    if (!disabled) return;
+    clearShowTimeout();
+    setIsVisible(false);
+  }, [clearShowTimeout, disabled]);
+
+  useEffect(() => {
+    return () => {
+      clearShowTimeout();
+    };
+  }, [clearShowTimeout]);
 
   if (disabled) {
     return <>{children}</>;

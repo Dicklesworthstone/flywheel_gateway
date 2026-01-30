@@ -5,10 +5,8 @@
  */
 
 import { Hono } from "hono";
-import {
-  generateOpenAPISpec,
-  getOpenAPISpecJson,
-} from "../api/generate-openapi";
+import { stringify as yamlStringify } from "yaml";
+import { generateOpenAPISpec } from "../api/generate-openapi";
 
 const openapi = new Hono();
 
@@ -26,13 +24,11 @@ openapi.get("/openapi.json", (c) => {
  * GET /openapi.yaml
  *
  * Returns the OpenAPI 3.1 specification as YAML.
- * Note: Basic YAML conversion, for production consider using js-yaml.
  */
 openapi.get("/openapi.yaml", (c) => {
-  const spec = getOpenAPISpecJson();
-  c.header("Content-Type", "text/yaml");
-  // Return JSON for now - YAML conversion can be added later
-  return c.text(spec);
+  const spec = generateOpenAPISpec();
+  c.header("Content-Type", "text/yaml; charset=utf-8");
+  return c.text(yamlStringify(spec));
 });
 
 /**

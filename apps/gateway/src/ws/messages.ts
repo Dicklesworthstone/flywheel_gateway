@@ -34,6 +34,7 @@ export type MessageType =
   | "dcg.warn"
   | "dcg.false_positive"
   | "dcg.allowlist_added"
+  | "dcg.config_updated"
   | "dcg.pending_created"
   | "dcg.pending_approved"
   | "dcg.pending_denied"

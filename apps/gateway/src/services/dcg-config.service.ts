@@ -322,9 +322,8 @@ export async function updateConfig(
   const channel: Channel = { type: "system:dcg" };
   getHub().publish(
     channel,
-    "dcg.pending_approved", // Reuse existing message type for config updates
+    "dcg.config_updated",
     {
-      action: "config_updated",
       changedBy: params.changedBy,
       changeType: params.changeType ?? "bulk_update",
       changeReason: params.changeReason,
