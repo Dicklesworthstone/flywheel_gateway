@@ -493,7 +493,11 @@ export function UtilitiesSkeleton() {
 
 export function NTMSkeleton() {
   return (
-    <section className="page" aria-busy="true" aria-label="Loading NTM sessions">
+    <section
+      className="page"
+      aria-busy="true"
+      aria-label="Loading NTM sessions"
+    >
       <div className="card">
         <div className="card__header">
           <Skeleton variant="text" style={{ width: 100 }} />
