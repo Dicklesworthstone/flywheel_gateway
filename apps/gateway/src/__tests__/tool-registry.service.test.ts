@@ -14,6 +14,12 @@ import {
 import { createHash } from "node:crypto";
 import { isGatewayError } from "@flywheel/shared/errors";
 import { requestContextStorage } from "../middleware/correlation";
+import { restoreToolRegistryService } from "./test-utils/db-mock-restore";
+
+// Clear any mocks from prior test files (e.g., setup-readiness.test.ts)
+// BEFORE setting up our own mocks for node:fs and node:fs/promises
+mock.restore();
+restoreToolRegistryService();
 
 const realFs = require("node:fs");
 const realFsPromises = require("node:fs/promises");
