@@ -25,6 +25,7 @@ import {
   PRIORITY_ORDER,
   type PreferencesUpdateRequest,
 } from "../models/notification";
+import { isPrivateNetworkUrl } from "../utils/url-security";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
 import type { MessageType } from "../ws/messages";
@@ -233,58 +234,6 @@ function escapeSlackMrkdwn(text: string): string {
  */
 function escapeSlackUrl(url: string): string {
   return escapeSlackMrkdwn(url).replace(/\|/g, "%7C");
-}
-
-/**
- * Check if a URL points to a private/internal network address.
- * Used to prevent SSRF attacks via webhook URLs.
- */
-function isPrivateNetworkUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    const hostname = parsed.hostname.toLowerCase();
-
-    // Check for localhost variants
-    if (
-      hostname === "localhost" ||
-      hostname === "127.0.0.1" ||
-      hostname === "::1" ||
-      hostname === "[::1]" ||
-      hostname.endsWith(".localhost")
-    ) {
-      return true;
-    }
-
-    // Check for private IPv4 ranges
-    const ipv4Match = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
-    if (ipv4Match) {
-      const [, a, b] = ipv4Match.map(Number);
-      // 10.0.0.0/8
-      if (a === 10) return true;
-      // 172.16.0.0/12
-      if (a === 172 && b !== undefined && b >= 16 && b <= 31) return true;
-      // 192.168.0.0/16
-      if (a === 192 && b === 168) return true;
-      // 169.254.0.0/16 (link-local, including AWS metadata)
-      if (a === 169 && b === 254) return true;
-      // 0.0.0.0
-      if (a === 0) return true;
-    }
-
-    // Block common cloud metadata endpoints
-    if (
-      hostname === "metadata.google.internal" ||
-      hostname === "metadata" ||
-      hostname.endsWith(".internal")
-    ) {
-      return true;
-    }
-
-    return false;
-  } catch {
-    // If URL parsing fails, consider it unsafe
-    return true;
-  }
 }
 
 /**

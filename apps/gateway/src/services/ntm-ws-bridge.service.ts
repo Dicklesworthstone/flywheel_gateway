@@ -277,6 +277,8 @@ export class NtmWsBridgeService {
   private config: Required<NtmWsBridgeConfig>;
   private unsubscribeIngest: (() => void) | null = null;
   private tailPollInterval: ReturnType<typeof setInterval> | null = null;
+  private tailPollInFlight = false;
+  private tailPollGeneration = 0;
   private outputStates = new Map<string, OutputState>();
   private running = false;
   private stateBatcher: ThrottledEventBatcher<BatchableStateEvent> | null =
@@ -308,6 +310,7 @@ export class NtmWsBridgeService {
 
     const log = getLogger();
     this.running = true;
+    this.tailPollGeneration += 1;
 
     // Initialize the state event batcher if throttling is enabled
     if (this.config.enableThrottling) {
@@ -351,6 +354,8 @@ export class NtmWsBridgeService {
   stop(): void {
     const log = getLogger();
     this.running = false;
+    this.tailPollGeneration += 1;
+    this.tailPollInFlight = false;
 
     if (this.unsubscribeIngest) {
       this.unsubscribeIngest();
@@ -573,14 +578,23 @@ export class NtmWsBridgeService {
    */
   private startTailPolling(): void {
     this.tailPollInterval = setInterval(() => {
-      if (this.running) {
-        this.pollTailOutput().catch((err) => {
+      if (!this.running) return;
+      if (this.tailPollInFlight) return;
+
+      const generation = this.tailPollGeneration;
+      this.tailPollInFlight = true;
+
+      this.pollTailOutput(generation)
+        .catch((err) => {
           getLogger().warn(
             { error: String(err) },
             "[NTM-WS-BRIDGE] Tail poll error",
           );
+        })
+        .finally(() => {
+          // Always clear in-flight state; generation guard prevents stale publishes.
+          this.tailPollInFlight = false;
         });
-      }
     }, this.config.tailPollIntervalMs);
 
     // Don't prevent process exit
@@ -592,31 +606,45 @@ export class NtmWsBridgeService {
   /**
    * Poll NTM tail and publish new output to WebSocket.
    */
-  private async pollTailOutput(): Promise<void> {
+  private async pollTailOutput(generation: number): Promise<void> {
     const log = getLogger();
     const trackedAgents = this.ingestService.getTrackedAgents();
+    if (!this.running || generation !== this.tailPollGeneration) return;
 
     // Group agents by session for efficient tail calls
     const sessionAgents = new Map<string, TrackedNtmAgent[]>();
+    const trackedPanes = new Set<string>();
     for (const agent of trackedAgents.values()) {
       if (!agent.gatewayAgentId) continue;
       const agents = sessionAgents.get(agent.sessionName) ?? [];
       agents.push(agent);
       sessionAgents.set(agent.sessionName, agents);
+      trackedPanes.add(agent.pane);
     }
 
     // Poll tail for each session
     for (const [sessionName, agents] of sessionAgents) {
+      if (!this.running || generation !== this.tailPollGeneration) return;
+
       try {
         const tailOutput = await this.ntmClient.tail(sessionName, {
           lines: this.config.tailLines,
         });
-        this.processSessionTail(sessionName, agents, tailOutput);
+        if (!this.running || generation !== this.tailPollGeneration) return;
+
+        this.processSessionTail(generation, sessionName, agents, tailOutput);
       } catch (err) {
         log.debug(
           { sessionName, error: String(err) },
           "[NTM-WS-BRIDGE] Failed to get tail for session",
         );
+      }
+    }
+
+    // Prevent unbounded growth: drop output state for panes no longer tracked.
+    for (const pane of this.outputStates.keys()) {
+      if (!trackedPanes.has(pane)) {
+        this.outputStates.delete(pane);
       }
     }
   }
@@ -625,16 +653,20 @@ export class NtmWsBridgeService {
    * Process tail output for a session and publish new content.
    */
   private processSessionTail(
+    generation: number,
     _sessionName: string,
     agents: TrackedNtmAgent[],
     tailOutput: NtmTailOutput,
   ): void {
     const log = getLogger();
+    if (!this.running || generation !== this.tailPollGeneration) return;
 
     // Cast panes to proper type - NtmTailOutput.panes is Record<string, PaneOutput>
     const panes = tailOutput.panes as Record<string, PaneOutput>;
 
     for (const agent of agents) {
+      if (!this.running || generation !== this.tailPollGeneration) return;
+
       const agentId = agent.gatewayAgentId;
       if (!agentId) continue;
 
