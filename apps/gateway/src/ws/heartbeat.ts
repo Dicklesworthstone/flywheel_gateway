@@ -50,11 +50,19 @@ export class HeartbeatManager {
     this.heartbeatInterval = setInterval(() => {
       this.sendHeartbeat();
     }, this.intervalMs);
+    // Ensure interval doesn't prevent process exit
+    if (this.heartbeatInterval.unref) {
+      this.heartbeatInterval.unref();
+    }
 
     // Clean up dead connections at half the timeout interval
     this.cleanupInterval = setInterval(() => {
       this.cleanupDeadConnections();
     }, this.timeoutMs / 2);
+    // Ensure interval doesn't prevent process exit
+    if (this.cleanupInterval.unref) {
+      this.cleanupInterval.unref();
+    }
 
     logger.info(
       { intervalMs: this.intervalMs, timeoutMs: this.timeoutMs },
