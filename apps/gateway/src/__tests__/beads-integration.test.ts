@@ -88,16 +88,53 @@ describe.skipIf(!BR_AVAILABLE)("BR Endpoints Integration Tests", () => {
   let app: Hono;
   let service: ReturnType<typeof createBeadsService>;
 
-  beforeAll(async () => {
-    logTest({ test: "setup", action: "initializing_test_suite" });
+  beforeAll(
+    async () => {
+      logTest({ test: "setup", action: "initializing_test_suite" });
 
-    // Create app with real BeadsService
-    service = createBeadsService();
-    app = new Hono();
-    app.route("/beads", createBeadsRoutes(service));
+      // Create app with real BeadsService
+      service = createBeadsService();
+      app = new Hono();
+      app.route("/beads", createBeadsRoutes(service));
 
-    logTest({ test: "setup", action: "test_suite_initialized" });
-  });
+      // Pre-test cleanup: remove any orphaned test beads from prior runs
+      // This prevents test pollution if previous runs were interrupted
+      logTest({ test: "setup", action: "cleaning_orphaned_test_beads" });
+      try {
+        const allIssues = await service.list({ status: "open" });
+        const orphanedTestBeads = allIssues
+          .filter((issue) => issue.title.startsWith("test-bead-"))
+          .map((issue) => issue.id);
+
+        if (orphanedTestBeads.length > 0) {
+          logTest({
+            test: "setup",
+            action: "found_orphaned_beads",
+            payload: { count: orphanedTestBeads.length, ids: orphanedTestBeads },
+          });
+          await service.close(orphanedTestBeads, { force: true });
+          logTest({
+            test: "setup",
+            action: "cleaned_orphaned_beads",
+            payload: { count: orphanedTestBeads.length },
+          });
+        }
+      } catch (cleanupError) {
+        logTest({
+          test: "setup",
+          action: "orphan_cleanup_failed",
+          error:
+            cleanupError instanceof Error
+              ? cleanupError.message
+              : String(cleanupError),
+        });
+        // Non-fatal: continue with tests even if cleanup fails
+      }
+
+      logTest({ test: "setup", action: "test_suite_initialized" });
+    },
+    { timeout: TEST_TIMEOUT * 2 },
+  );
 
   afterAll(
     async () => {
