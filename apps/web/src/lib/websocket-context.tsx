@@ -252,7 +252,10 @@ export function WebSocketProvider({ children, url }: WebSocketProviderProps) {
               });
             }
 
-            if (data.ackRequired === true && typeof hubMessage.id === "string") {
+            if (
+              data.ackRequired === true &&
+              typeof hubMessage.id === "string"
+            ) {
               ws.send(
                 JSON.stringify({ type: "ack", messageIds: [hubMessage.id] }),
               );

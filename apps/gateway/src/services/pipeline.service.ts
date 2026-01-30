@@ -46,6 +46,18 @@ export const TRANSFORM_REDUCE_ALLOWED_IDENTIFIERS = [
   "$index",
 ] as const;
 
+/**
+ * Mask a URL for safe logging (show only host, hide path/query).
+ */
+function maskUrlForLogging(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.protocol}//${parsed.host}/***`;
+  } catch {
+    return "***invalid-url***";
+  }
+}
+
 // ============================================================================
 // In-Memory Storage
 // ============================================================================
@@ -1734,6 +1746,7 @@ async function executeWebhook(
 ): Promise<unknown> {
   const log = getLogger();
   const url = substituteVariables(config.url, context);
+  const maskedUrl = maskUrlForLogging(url);
   const timeout = config.timeout ?? 30000;
 
   // SECURITY: Prevent SSRF by blocking requests to internal network addresses
@@ -1743,7 +1756,10 @@ async function executeWebhook(
     );
   }
 
-  log.info({ method: config.method, url }, "[PIPELINE] Starting webhook step");
+  log.info(
+    { method: config.method, url: maskedUrl },
+    "[PIPELINE] Starting webhook step",
+  );
 
   // Build headers
   const headers: Record<string, string> = {};

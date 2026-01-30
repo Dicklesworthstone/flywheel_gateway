@@ -211,54 +211,54 @@ export const MobileAgentCard = memo(function MobileAgentCard({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handlers.onTouchCancel}
-        >
-          {/* Compact view (always visible) */}
-          <div className="p-4 flex items-center gap-3 min-h-[72px]">
-            <button
-              type="button"
-              className="flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer bg-transparent border-0 p-0"
-              onClick={handleSelect}
-            >
-              {/* Status indicator */}
-              <div
-                className={`w-3 h-3 rounded-full ${STATUS_COLORS[agent.status]}`}
-              />
+      >
+        {/* Compact view (always visible) */}
+        <div className="p-4 flex items-center gap-3 min-h-[72px]">
+          <button
+            type="button"
+            className="flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer bg-transparent border-0 p-0"
+            onClick={handleSelect}
+          >
+            {/* Status indicator */}
+            <div
+              className={`w-3 h-3 rounded-full ${STATUS_COLORS[agent.status]}`}
+            />
 
-              {/* Agent icon and name */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <Bot className={`w-5 h-5 ${MODEL_COLORS[agent.model]}`} />
-                  <span className="font-medium text-white truncate">
-                    {agent.name}
-                  </span>
-                </div>
-                {agent.currentTask && (
-                  <p className="text-sm text-gray-400 truncate mt-0.5">
-                    {agent.currentTask}
-                  </p>
-                )}
+            {/* Agent icon and name */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <Bot className={`w-5 h-5 ${MODEL_COLORS[agent.model]}`} />
+                <span className="font-medium text-white truncate">
+                  {agent.name}
+                </span>
               </div>
+              {agent.currentTask && (
+                <p className="text-sm text-gray-400 truncate mt-0.5">
+                  {agent.currentTask}
+                </p>
+              )}
+            </div>
 
-              {/* Quick stats */}
-              <div className="text-right text-sm">
-                <div className="text-gray-400">{formatUptime(agent.uptime)}</div>
-                <div className="text-gray-500 text-xs">
-                  {agent.sessionCount ?? 0} sessions
-                </div>
+            {/* Quick stats */}
+            <div className="text-right text-sm">
+              <div className="text-gray-400">{formatUptime(agent.uptime)}</div>
+              <div className="text-gray-500 text-xs">
+                {agent.sessionCount ?? 0} sessions
               </div>
-            </button>
+            </div>
+          </button>
 
-            {/* Expand button */}
-            <button
-              type="button"
-              className="p-2 text-gray-400 hover:text-white min-w-[44px] min-h-[44px] flex items-center justify-center"
-              onClick={toggleExpanded}
-              aria-label={isExpanded ? "Collapse details" : "Expand details"}
-              aria-expanded={isExpanded}
-            >
-              {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-            </button>
-          </div>
+          {/* Expand button */}
+          <button
+            type="button"
+            className="p-2 text-gray-400 hover:text-white min-w-[44px] min-h-[44px] flex items-center justify-center"
+            onClick={toggleExpanded}
+            aria-label={isExpanded ? "Collapse details" : "Expand details"}
+            aria-expanded={isExpanded}
+          >
+            {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+          </button>
+        </div>
 
         {/* Expanded details */}
         {isExpanded && (

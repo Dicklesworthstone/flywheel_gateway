@@ -81,25 +81,25 @@ describe("isPrivateNetworkUrl", () => {
     });
   });
 
-	  describe("public URLs", () => {
-	    test("allows external public URLs", () => {
-	      expect(isPrivateNetworkUrl("https://api.example.com/webhook")).toBe(
-	        false,
-	      );
+  describe("public URLs", () => {
+    test("allows external public URLs", () => {
+      expect(isPrivateNetworkUrl("https://api.example.com/webhook")).toBe(
+        false,
+      );
       expect(
         isPrivateNetworkUrl("https://hooks.slack.com/services/T00/B00"),
       ).toBe(false);
       expect(isPrivateNetworkUrl("https://api.github.com/repos")).toBe(false);
       expect(isPrivateNetworkUrl("http://8.8.8.8/api")).toBe(false);
-	    });
+    });
 
-	    test("allows public IP addresses", () => {
-	      expect(isPrivateNetworkUrl("http://1.2.3.4/api")).toBe(false);
-	      expect(isPrivateNetworkUrl("http://9.9.9.9/api")).toBe(false);
-	    });
-	  });
+    test("allows public IP addresses", () => {
+      expect(isPrivateNetworkUrl("http://1.2.3.4/api")).toBe(false);
+      expect(isPrivateNetworkUrl("http://9.9.9.9/api")).toBe(false);
+    });
+  });
 
-	  describe("trailing-dot FQDN normalization", () => {
+  describe("trailing-dot FQDN normalization", () => {
     test("blocks localhost with trailing dot", () => {
       expect(isPrivateNetworkUrl("http://localhost./api")).toBe(true);
       expect(isPrivateNetworkUrl("http://localhost.:8080/api")).toBe(true);
@@ -120,21 +120,23 @@ describe("isPrivateNetworkUrl", () => {
 
     test("allows public URLs with trailing dot", () => {
       expect(isPrivateNetworkUrl("https://example.com./api")).toBe(false);
-      expect(isPrivateNetworkUrl("https://api.github.com./webhook")).toBe(false);
+      expect(isPrivateNetworkUrl("https://api.github.com./webhook")).toBe(
+        false,
+      );
     });
   });
 
   describe("edge cases", () => {
-	    test("blocks documentation/test ranges (TEST-NET)", () => {
-	      expect(isPrivateNetworkUrl("http://192.0.2.1/api")).toBe(true);
-	      expect(isPrivateNetworkUrl("http://198.51.100.1/api")).toBe(true);
-	      expect(isPrivateNetworkUrl("http://203.0.113.1/api")).toBe(true);
-	    });
+    test("blocks documentation/test ranges (TEST-NET)", () => {
+      expect(isPrivateNetworkUrl("http://192.0.2.1/api")).toBe(true);
+      expect(isPrivateNetworkUrl("http://198.51.100.1/api")).toBe(true);
+      expect(isPrivateNetworkUrl("http://203.0.113.1/api")).toBe(true);
+    });
 
-	    test("returns true for invalid URLs", () => {
-	      expect(isPrivateNetworkUrl("not-a-url")).toBe(true);
-	      expect(isPrivateNetworkUrl("")).toBe(true);
-	    });
+    test("returns true for invalid URLs", () => {
+      expect(isPrivateNetworkUrl("not-a-url")).toBe(true);
+      expect(isPrivateNetworkUrl("")).toBe(true);
+    });
 
     test("handles URLs with credentials", () => {
       expect(isPrivateNetworkUrl("http://user:pass@localhost/api")).toBe(true);

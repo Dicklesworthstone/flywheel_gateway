@@ -98,9 +98,10 @@ function generateEmbedToken(): string {
 /**
  * Convert DB row to Dashboard object.
  */
-function splitPermissions(
-  permissions: DashboardPermissionEntry[],
-): { viewers: string[]; editors: string[] } {
+function splitPermissions(permissions: DashboardPermissionEntry[]): {
+  viewers: string[];
+  editors: string[];
+} {
   const viewers = new Set<string>();
   const editors = new Set<string>();
 
@@ -313,7 +314,10 @@ export async function createDashboard(
 
   await db.insert(dashboards).values(newDashboard);
 
-  if (input.sharing?.viewers !== undefined || input.sharing?.editors !== undefined) {
+  if (
+    input.sharing?.viewers !== undefined ||
+    input.sharing?.editors !== undefined
+  ) {
     await syncDashboardPermissions({
       dashboardId: id,
       viewers: sharing.viewers,
@@ -325,7 +329,9 @@ export async function createDashboard(
   log.info({ dashboardId: id, name: input.name }, "Dashboard created");
 
   const created = await getDashboard(id);
-  return created ?? rowToDashboard(newDashboard as typeof dashboards.$inferSelect);
+  return (
+    created ?? rowToDashboard(newDashboard as typeof dashboards.$inferSelect)
+  );
 }
 
 /**
@@ -404,7 +410,8 @@ export async function updateDashboard(
   const sharingUpdates = input.sharing;
   if (
     sharingUpdates &&
-    (sharingUpdates.viewers !== undefined || sharingUpdates.editors !== undefined)
+    (sharingUpdates.viewers !== undefined ||
+      sharingUpdates.editors !== undefined)
   ) {
     await syncDashboardPermissions({
       dashboardId: id,

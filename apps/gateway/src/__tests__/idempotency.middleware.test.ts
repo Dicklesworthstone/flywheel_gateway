@@ -64,6 +64,51 @@ describe("Idempotency Middleware", () => {
       expect(res2.headers.get("X-Idempotent-Replayed")).toBe("true");
     });
 
+    test("scopes cache by auth context when present", async () => {
+      let callCount = 0;
+      const app = new Hono();
+
+      // Simulate auth middleware populating c.set("auth", ...)
+      app.use("*", async (c, next) => {
+        const userId = c.req.header("X-Test-User") ?? "anon";
+        c.set("auth", {
+          userId,
+          workspaceIds: [`ws_${userId}`],
+          isAdmin: false,
+        });
+        await next();
+      });
+
+      app.use("*", idempotencyMiddleware());
+      app.post("/test", () => {
+        callCount++;
+        return Response.json({ count: callCount });
+      });
+
+      const key = crypto.randomUUID();
+
+      const resUserA1 = await app.request("/test", {
+        method: "POST",
+        headers: { "Idempotency-Key": key, "X-Test-User": "user_a" },
+      });
+      expect(await resUserA1.json()).toEqual({ count: 1 });
+
+      const resUserB1 = await app.request("/test", {
+        method: "POST",
+        headers: { "Idempotency-Key": key, "X-Test-User": "user_b" },
+      });
+      expect(await resUserB1.json()).toEqual({ count: 2 });
+
+      const resUserA2 = await app.request("/test", {
+        method: "POST",
+        headers: { "Idempotency-Key": key, "X-Test-User": "user_a" },
+      });
+      expect(await resUserA2.json()).toEqual({ count: 1 });
+      expect(resUserA2.headers.get("X-Idempotent-Replayed")).toBe("true");
+
+      expect(callCount).toBe(2);
+    });
+
     test("different keys execute handler separately", async () => {
       let callCount = 0;
       const app = new Hono();

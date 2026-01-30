@@ -47,6 +47,47 @@ type PendingRequest = {
 };
 
 // ============================================================================
+// Key Scoping
+// ============================================================================
+
+type AuthLike = {
+  userId?: unknown;
+  apiKeyId?: unknown;
+  workspaceIds?: unknown;
+  isAdmin?: unknown;
+};
+
+function getIdempotencyScopeKey(c: Context): string | null {
+  const auth = c.get("auth") as AuthLike | undefined;
+  if (!auth || typeof auth !== "object") return null;
+
+  const userId = typeof auth.userId === "string" ? auth.userId : undefined;
+  const apiKeyId =
+    typeof auth.apiKeyId === "string" ? auth.apiKeyId : undefined;
+  const isAdmin = auth.isAdmin === true;
+  const workspaceIds = Array.isArray(auth.workspaceIds)
+    ? auth.workspaceIds.filter((id): id is string => typeof id === "string")
+    : [];
+
+  // Stable ordering so the same context yields the same scope key
+  workspaceIds.sort();
+
+  const parts: string[] = [];
+  if (isAdmin) parts.push("admin");
+  if (userId) parts.push(`user:${userId}`);
+  if (apiKeyId) parts.push(`apiKey:${apiKeyId}`);
+  if (workspaceIds.length > 0)
+    parts.push(`workspaces:${workspaceIds.join(",")}`);
+
+  return parts.length > 0 ? parts.join("|") : null;
+}
+
+function getScopedIdempotencyKey(c: Context, idempotencyKey: string): string {
+  const scopeKey = getIdempotencyScopeKey(c);
+  return scopeKey ? `${scopeKey}::${idempotencyKey}` : idempotencyKey;
+}
+
+// ============================================================================
 // In-Memory Store
 // ============================================================================
 
@@ -271,6 +312,8 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
       return;
     }
 
+    const scopedKey = getScopedIdempotencyKey(c, idempotencyKey);
+
     // Validate key format (should be UUID-like or reasonable string)
     if (idempotencyKey.length < 8 || idempotencyKey.length > 256) {
       return c.json(
@@ -319,7 +362,7 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
     const fingerprint = await generateFingerprint(method, path, bodyBuffer);
 
     // Check for existing record
-    const existingRecord = getIdempotencyRecord(idempotencyKey);
+    const existingRecord = getIdempotencyRecord(scopedKey);
     if (existingRecord) {
       // Verify the request matches
       if (existingRecord.fingerprint !== fingerprint) {
@@ -363,7 +406,7 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
     }
 
     // Check for pending request with same key
-    const pending = pendingRequests.get(idempotencyKey);
+    const pending = pendingRequests.get(scopedKey);
     if (pending) {
       log.debug(
         { idempotencyKey },
@@ -424,7 +467,7 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
       resolvePromise = resolve;
       rejectPromise = reject;
     });
-    pendingRequests.set(idempotencyKey, {
+    pendingRequests.set(scopedKey, {
       promise,
       resolve: resolvePromise!,
       reject: rejectPromise!,
@@ -456,7 +499,7 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
         (status >= 200 && status < 300) || (status >= 400 && status < 500);
       if (shouldCache) {
         const record: IdempotencyRecord = {
-          key: idempotencyKey,
+          key: scopedKey,
           method,
           path,
           status,
@@ -468,14 +511,14 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
         };
 
         setIdempotencyRecord(record);
-        pendingRequests.get(idempotencyKey)?.resolve(record);
+        pendingRequests.get(scopedKey)?.resolve(record);
         log.debug({ idempotencyKey, status }, "Cached idempotent response");
       }
     } catch (error) {
-      pendingRequests.get(idempotencyKey)?.reject(error as Error);
+      pendingRequests.get(scopedKey)?.reject(error as Error);
       throw error;
     } finally {
-      pendingRequests.delete(idempotencyKey);
+      pendingRequests.delete(scopedKey);
     }
   };
 }
