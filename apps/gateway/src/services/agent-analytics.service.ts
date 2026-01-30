@@ -173,6 +173,89 @@ function generateRecommendationId(): string {
   return `rec_${timestamp}_${random}`;
 }
 
+/**
+ * Calculate percentile rank of a value in a distribution.
+ * Returns 0-100 indicating what percentage of values are <= the given value.
+ */
+function calculatePercentileRankInDistribution(
+  value: number,
+  allValues: number[],
+): number {
+  if (allValues.length === 0) return 50; // Default to median if no data
+  if (allValues.length === 1) return 50; // Single agent is at median
+
+  const sorted = [...allValues].sort((a, b) => a - b);
+  let countBelow = 0;
+
+  for (const v of sorted) {
+    if (v < value) countBelow++;
+  }
+
+  // Percentile rank = (count below / total) * 100
+  return Math.round((countBelow / sorted.length) * 100);
+}
+
+/**
+ * Get success rates for all agents in a period.
+ * Uses a single batch query for efficiency (avoids N+1 pattern).
+ * Results are cached for 30 seconds to reduce database load.
+ */
+async function getFleetSuccessRates(
+  period: AnalyticsPeriod,
+): Promise<Map<string, number>> {
+  const cacheKey = generateCacheKey("fleet_success_rates", { period });
+
+  return analyticsCache.getOrCompute(cacheKey, async () => {
+    const { start, end } = getPeriodDates(period);
+
+    // Single batch query for all history in the period
+    const allHistory = await db
+      .select()
+      .from(historyTable)
+      .where(
+        and(
+          gte(historyTable.createdAt, start),
+          lte(historyTable.createdAt, end),
+        ),
+      );
+
+    // Aggregate by agent
+    const agentStats = new Map<
+      string,
+      { successful: number; total: number }
+    >();
+
+    for (const row of allHistory) {
+      if (!agentStats.has(row.agentId)) {
+        agentStats.set(row.agentId, { successful: 0, total: 0 });
+      }
+
+      const output = row.output as Record<string, unknown> | null;
+      const outcome = output?.["outcome"] as string | undefined;
+
+      if (
+        outcome === "success" ||
+        outcome === "failure" ||
+        outcome === "timeout"
+      ) {
+        const stats = agentStats.get(row.agentId)!;
+        stats.total++;
+        if (outcome === "success") stats.successful++;
+      }
+    }
+
+    // Convert to success rates
+    const successRates = new Map<string, number>();
+    for (const [agentId, stats] of agentStats) {
+      if (stats.total > 0) {
+        successRates.set(agentId, (stats.successful / stats.total) * 100);
+      }
+    }
+
+    return successRates;
+  }) as Promise<Map<string, number>>;
+}
+
 // ============================================================================
 // Core Analytics Functions
 // ============================================================================
@@ -285,8 +368,13 @@ export async function getSuccessRateMetrics(
       : 0;
   const previousRate = prevTotal > 0 ? (prevSuccessful / prevTotal) * 100 : 0;
 
-  // TODO: Calculate percentile rank vs fleet (needs all agents' data)
-  const percentileRank = 50; // Placeholder
+  // Calculate percentile rank vs fleet
+  const fleetRates = await getFleetSuccessRates(period);
+  const allRates = Array.from(fleetRates.values());
+  const percentileRank = calculatePercentileRankInDistribution(
+    currentRate,
+    allRates,
+  );
 
   return {
     agentId,
