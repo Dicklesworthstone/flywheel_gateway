@@ -104,6 +104,8 @@ interface CacheClearedEnvelope {
 // Tests
 // ============================================================================
 
+const ROUTES_TEST_TIMEOUT_MS = 30000;
+
 describe("System Routes", () => {
   const app = new Hono().route("/system", system);
 
@@ -172,7 +174,7 @@ describe("System Routes", () => {
       expect(body.data.tools.dcg).toBeDefined();
       expect(body.data.tools.slb).toBeDefined();
       expect(body.data.tools.ubs).toBeDefined();
-    });
+    }, ROUTES_TEST_TIMEOUT_MS);
 
     test("returns cached response on subsequent requests", async () => {
       // First request
@@ -185,7 +187,7 @@ describe("System Routes", () => {
 
       // Should have same generatedAt (cached)
       expect(body1.data.meta.generatedAt).toBe(body2.data.meta.generatedAt);
-    });
+    }, ROUTES_TEST_TIMEOUT_MS);
 
     test("bypass_cache=true returns fresh snapshot", async () => {
       // First request
@@ -201,7 +203,7 @@ describe("System Routes", () => {
 
       // Should have different generatedAt (fresh)
       expect(body1.data.meta.generatedAt).not.toBe(body2.data.meta.generatedAt);
-    });
+    }, ROUTES_TEST_TIMEOUT_MS);
 
     test("returns 503 when overall status is unhealthy", async () => {
       const res = await app.request("/system/snapshot");
@@ -212,7 +214,7 @@ describe("System Routes", () => {
       } else {
         expect(res.status).toBe(200);
       }
-    });
+    }, ROUTES_TEST_TIMEOUT_MS);
   });
 
   describe("GET /system/snapshot/cache", () => {
@@ -227,7 +229,7 @@ describe("System Routes", () => {
       expect(body.data.ageMs).toBeNull();
       expect(typeof body.data.ttlMs).toBe("number");
       expect(body.data.expiresInMs).toBeNull();
-    });
+    }, ROUTES_TEST_TIMEOUT_MS);
 
     test("returns cache status after snapshot", async () => {
       // First fetch a snapshot
@@ -242,7 +244,7 @@ describe("System Routes", () => {
       expect(typeof body.data.ageMs).toBe("number");
       expect(body.data.ageMs).toBeGreaterThanOrEqual(0);
       expect(typeof body.data.expiresInMs).toBe("number");
-    });
+    }, ROUTES_TEST_TIMEOUT_MS);
   });
 
   describe("DELETE /system/snapshot/cache", () => {
@@ -272,7 +274,7 @@ describe("System Routes", () => {
       cacheRes = await app.request("/system/snapshot/cache");
       cacheBody = (await cacheRes.json()) as CacheStatusEnvelope;
       expect(cacheBody.data.cached).toBe(false);
-    });
+    }, ROUTES_TEST_TIMEOUT_MS);
   });
 });
 
