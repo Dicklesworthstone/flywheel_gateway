@@ -2,7 +2,14 @@
  * Tests for the ACP Driver.
  */
 
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "bun:test";
 import { type AcpDriver, type AcpDriverOptions, createAcpDriver } from "../acp";
 import type { AgentConfig } from "../types";
 
@@ -306,7 +313,9 @@ describe("AcpDriver", () => {
 
     it("should preserve the first message when pruning", async () => {
       if (!shellAvailable) {
-        console.log("Skipping preserve-first-message test: /bin/sh not available");
+        console.log(
+          "Skipping preserve-first-message test: /bin/sh not available",
+        );
         return;
       }
       const driver = await createAcpDriver({

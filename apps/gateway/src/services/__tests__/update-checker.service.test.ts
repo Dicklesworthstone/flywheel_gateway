@@ -414,8 +414,8 @@ describe("Checksum Verification Error Context", () => {
     const errorContext = {
       toolId,
       filename,
-      expected: expected.substring(0, 16) + "...",
-      actual: actual.substring(0, 16) + "...",
+      expected: `${expected.substring(0, 16)}...`,
+      actual: `${actual.substring(0, 16)}...`,
     };
 
     // Verify error context includes all required fields

@@ -495,7 +495,7 @@ export class NtmWsBridgeService {
   private publishStateChange(
     agentId: string,
     event: NtmStateChangeEvent,
-    tracked: TrackedNtmAgent,
+    _tracked: TrackedNtmAgent,
   ): void {
     const payload: AgentStatePayload = {
       agentId,

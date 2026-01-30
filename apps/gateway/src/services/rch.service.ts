@@ -10,7 +10,7 @@
 
 import { getLogger } from "../middleware/correlation";
 
-const MAX_LOG_BYTES = 5 * 1024 * 1024;
+const DEFAULT_MAX_OUTPUT_BYTES = 5 * 1024 * 1024;
 
 async function readStreamSafe(
   stream: ReadableStream<Uint8Array>,
@@ -49,7 +49,7 @@ async function readStreamSafe(
   }
 
   if (content.length > maxBytes) {
-    content = content.slice(0, maxBytes) + "\n[TRUNCATED]";
+    content = `${content.slice(0, maxBytes)}\n[TRUNCATED]`;
   }
 
   return content;
@@ -138,7 +138,7 @@ async function executeRchCommand<T = unknown>(
   args: string[],
   options: { timeout?: number; maxOutputSize?: number } = {},
 ): Promise<RchResponse<T>> {
-  const { timeout = 30000, maxOutputSize = 5 * 1024 * 1024 } = options;
+  const { timeout = 30000, maxOutputSize = DEFAULT_MAX_OUTPUT_BYTES } = options;
   const log = getLogger();
 
   try {
@@ -218,7 +218,10 @@ export async function isRchAvailable(): Promise<boolean> {
       stderr: "pipe",
     });
 
-    const stdout = await new Response(proc.stdout).text();
+    await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
     const exitCode = await proc.exited;
 
     return exitCode === 0;

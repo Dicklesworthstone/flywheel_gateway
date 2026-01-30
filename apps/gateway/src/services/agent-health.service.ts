@@ -284,7 +284,7 @@ export function detectWorkState(
     // Create global regex to find all matches (latest is most relevant)
     const flags = pattern.flags.includes("g")
       ? pattern.flags
-      : pattern.flags + "g";
+      : `${pattern.flags}g`;
     const globalPattern = new RegExp(pattern.source, flags);
     const matches = Array.from(output.matchAll(globalPattern));
 

@@ -112,7 +112,7 @@ export interface NtmStateChangeEvent {
  */
 export function mapNtmStateToLifecycle(
   ntmState: NtmAgentState,
-  currentLifecycleState?: LifecycleState,
+  _currentLifecycleState?: LifecycleState,
 ): LifecycleState | null {
   switch (ntmState) {
     case "idle":
