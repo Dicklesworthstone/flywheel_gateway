@@ -16,34 +16,41 @@ function isExemptPath(path: string): boolean {
   return AUTH_EXEMPT_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
 
-function getBearerToken(headerValue?: string | null): string | undefined {
+export function getBearerToken(
+  headerValue?: string | null,
+): string | undefined {
   if (!headerValue) return undefined;
   const match = headerValue.match(/^Bearer\s+(.+)$/i);
   return match?.[1]?.trim();
 }
 
 function parseWorkspaceIds(payload: JwtPayload): string[] {
-  const raw = payload.workspaceIds;
+  const raw = payload["workspaceIds"];
   if (Array.isArray(raw)) {
     return raw.filter((id): id is string => typeof id === "string");
   }
-  if (typeof payload.workspaceId === "string") return [payload.workspaceId];
+  const workspaceId = payload["workspaceId"];
+  if (typeof workspaceId === "string") return [workspaceId];
   return [];
 }
 
 function getUserId(payload: JwtPayload): string | undefined {
-  if (typeof payload.userId === "string") return payload.userId;
-  if (typeof payload.sub === "string") return payload.sub;
-  if (typeof payload.uid === "string") return payload.uid;
+  const userId = payload["userId"];
+  if (typeof userId === "string") return userId;
+  const sub = payload["sub"];
+  if (typeof sub === "string") return sub;
+  const uid = payload["uid"];
+  if (typeof uid === "string") return uid;
   return undefined;
 }
 
 function getApiKeyId(payload: JwtPayload): string | undefined {
-  if (typeof payload.apiKeyId === "string") return payload.apiKeyId;
+  const apiKeyId = payload["apiKeyId"];
+  if (typeof apiKeyId === "string") return apiKeyId;
   return undefined;
 }
 
-async function verifyJwtHs256(
+export async function verifyJwtHs256(
   token: string,
   secret: string,
 ): Promise<VerifyResult> {
@@ -52,7 +59,10 @@ async function verifyJwtHs256(
     return { ok: false, reason: "invalid" };
   }
 
-  const [headerB64, payloadB64, signatureB64] = parts;
+  const headerB64 = parts[0]!;
+  const payloadB64 = parts[1]!;
+  const signatureB64 = parts[2]!;
+
   let header: JwtPayload;
   let payload: JwtPayload;
 
@@ -67,7 +77,7 @@ async function verifyJwtHs256(
     return { ok: false, reason: "invalid" };
   }
 
-  if (header.alg !== "HS256") {
+  if (header["alg"] !== "HS256") {
     return { ok: false, reason: "invalid" };
   }
 
@@ -79,31 +89,48 @@ async function verifyJwtHs256(
     ["verify"],
   );
   const data = textEncoder.encode(`${headerB64}.${payloadB64}`);
-  const signature = Buffer.from(signatureB64, "base64url");
-  const valid = await crypto.subtle.verify("HMAC", key, signature, data);
+  const signatureBuffer = Buffer.from(signatureB64, "base64url");
+  const signatureUint8 = new Uint8Array(
+    signatureBuffer.buffer,
+    signatureBuffer.byteOffset,
+    signatureBuffer.byteLength,
+  );
+  const valid = await crypto.subtle.verify("HMAC", key, signatureUint8, data);
 
   if (!valid) {
     return { ok: false, reason: "invalid" };
   }
 
   const nowSeconds = Math.floor(Date.now() / 1000);
-  if (typeof payload.exp === "number" && nowSeconds >= payload.exp) {
+  const exp = payload["exp"];
+  if (typeof exp === "number" && nowSeconds >= exp) {
     return { ok: false, reason: "expired" };
   }
-  if (typeof payload.nbf === "number" && nowSeconds < payload.nbf) {
+  const nbf = payload["nbf"];
+  if (typeof nbf === "number" && nowSeconds < nbf) {
     return { ok: false, reason: "not_active" };
   }
 
   return { ok: true, payload };
 }
 
-function buildAuthContext(payload: JwtPayload, isAdmin?: boolean): AuthContext {
-  return {
-    userId: getUserId(payload),
-    apiKeyId: getApiKeyId(payload),
+export function buildAuthContext(
+  payload: JwtPayload,
+  isAdmin?: boolean,
+): AuthContext {
+  const ctx: AuthContext = {
     workspaceIds: parseWorkspaceIds(payload),
-    isAdmin: isAdmin ?? payload.isAdmin === true,
+    isAdmin: isAdmin ?? payload["isAdmin"] === true,
   };
+  const userId = getUserId(payload);
+  if (userId !== undefined) {
+    ctx.userId = userId;
+  }
+  const apiKeyId = getApiKeyId(payload);
+  if (apiKeyId !== undefined) {
+    ctx.apiKeyId = apiKeyId;
+  }
+  return ctx;
 }
 
 export function authMiddleware() {

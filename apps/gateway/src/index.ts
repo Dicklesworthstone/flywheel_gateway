@@ -4,7 +4,12 @@ import {
 } from "@flywheel/flywheel-clients";
 import { Hono } from "hono";
 import { registerDrivers } from "./config/drivers";
-import { authMiddleware } from "./middleware/auth";
+import {
+  authMiddleware,
+  buildAuthContext,
+  getBearerToken,
+  verifyJwtHs256,
+} from "./middleware/auth";
 import { correlationMiddleware } from "./middleware/correlation";
 import { idempotencyMiddleware } from "./middleware/idempotency";
 import { loggingMiddleware } from "./middleware/logging";
@@ -129,7 +134,7 @@ if (import.meta.main) {
   logger.info({ host, port }, "Starting Flywheel Gateway");
   Bun.serve({
     hostname: host,
-    fetch(req, server) {
+    async fetch(req, server) {
       // Handle WebSocket upgrade
       const url = new URL(req.url);
 
@@ -147,17 +152,31 @@ if (import.meta.main) {
           initialSubscriptions.set(`agent:tools:${agentId}`, undefined);
         }
 
-        // Check for admin authentication
+        // Check for authentication
         const authHeader = req.headers.get("Authorization");
         const urlToken = url.searchParams.get("token");
-        const token = authHeader?.replace("Bearer ", "") ?? urlToken;
+        const token = getBearerToken(authHeader) ?? urlToken?.trim();
+
+        const adminKey = process.env["GATEWAY_ADMIN_KEY"]?.trim();
+        const jwtSecret = process.env["JWT_SECRET"]?.trim();
+
+        if ((adminKey || jwtSecret) && !token) {
+          return new Response("Unauthorized", { status: 401 });
+        }
 
         let authContext = createGuestAuthContext();
-
-        // Simple admin key check
-        const adminKey = process.env["GATEWAY_ADMIN_KEY"];
-        if (adminKey && token === adminKey) {
-          authContext = createInternalAuthContext();
+        if (token) {
+          if (adminKey && token === adminKey) {
+            authContext = createInternalAuthContext();
+          } else if (jwtSecret) {
+            const result = await verifyJwtHs256(token, jwtSecret);
+            if (!result.ok) {
+              return new Response("Unauthorized", { status: 401 });
+            }
+            authContext = buildAuthContext(result.payload);
+          } else {
+            return new Response("Unauthorized", { status: 401 });
+          }
         }
 
         const upgraded = server.upgrade(req, {
