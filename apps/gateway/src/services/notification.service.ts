@@ -202,6 +202,82 @@ async function sendEmailNotification(
 }
 
 /**
+ * Build Slack message payload with Block Kit formatting.
+ */
+function buildSlackPayload(notification: Notification): {
+  text: string;
+  blocks: Array<Record<string, unknown>>;
+} {
+  const priorityEmoji: Record<string, string> = {
+    urgent: "🚨",
+    high: "🔴",
+    medium: "🟡",
+    low: "🟢",
+  };
+
+  const emoji = priorityEmoji[notification.priority] ?? "📢";
+  const fallbackText = `${emoji} ${notification.title}: ${notification.body}`;
+
+  const blocks: Array<Record<string, unknown>> = [
+    {
+      type: "header",
+      text: {
+        type: "plain_text",
+        text: `${emoji} ${notification.title}`,
+        emoji: true,
+      },
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: notification.body,
+      },
+    },
+    {
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: `*Category:* ${notification.category} | *Priority:* ${notification.priority} | *Source:* ${notification.source.name}`,
+        },
+      ],
+    },
+  ];
+
+  // Add action buttons if present
+  if (notification.actions?.length) {
+    blocks.push({
+      type: "actions",
+      elements: notification.actions.slice(0, 5).map((action) => ({
+        type: "button",
+        text: {
+          type: "plain_text",
+          text: action.label,
+          emoji: true,
+        },
+        action_id: action.id,
+        ...(action.style === "danger" ? { style: "danger" } : {}),
+        ...(action.style === "primary" ? { style: "primary" } : {}),
+      })),
+    });
+  }
+
+  // Add link if present
+  if (notification.link) {
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `<${notification.link}|View details →>`,
+      },
+    });
+  }
+
+  return { text: fallbackText, blocks };
+}
+
+/**
  * Send notification via Slack channel.
  */
 async function sendSlackNotification(
@@ -219,12 +295,67 @@ async function sendSlackNotification(
     return false;
   }
 
-  // TODO: Send to Slack webhook
-  log.warn(
-    { notificationId: notification.id, title: notification.title },
-    "[NOTIFY] Slack channel: SIMULATION - would send to Slack (provider not configured)",
+  try {
+    const payload = buildSlackPayload(notification);
+
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      log.error(
+        {
+          notificationId: notification.id,
+          status: response.status,
+          error: errorText,
+        },
+        "[NOTIFY] Slack webhook request failed",
+      );
+      return false;
+    }
+
+    log.info(
+      { notificationId: notification.id, title: notification.title },
+      "[NOTIFY] Slack notification sent successfully",
+    );
+    return true;
+  } catch (error) {
+    log.error(
+      { notificationId: notification.id, error: String(error) },
+      "[NOTIFY] Slack webhook request error",
+    );
+    return false;
+  }
+}
+
+/**
+ * Compute HMAC-SHA256 signature for webhook payload.
+ */
+async function computeHmacSignature(
+  payload: string,
+  secret: string,
+): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
   );
-  return true;
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(payload),
+  );
+  return Array.from(new Uint8Array(signature))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 /**
@@ -235,7 +366,8 @@ async function sendWebhookNotification(
   prefs: NotificationPreferences,
 ): Promise<boolean> {
   const log = getLogger();
-  const webhookUrl = prefs.channelConfig?.webhook?.url;
+  const webhookConfig = prefs.channelConfig?.webhook;
+  const webhookUrl = webhookConfig?.url;
 
   if (!webhookUrl) {
     log.debug(
@@ -245,16 +377,78 @@ async function sendWebhookNotification(
     return false;
   }
 
-  // TODO: Send to webhook with HMAC signature
-  log.warn(
-    {
-      notificationId: notification.id,
-      url: webhookUrl,
+  try {
+    const payload = {
+      id: notification.id,
+      type: notification.type,
+      category: notification.category,
+      priority: notification.priority,
       title: notification.title,
-    },
-    "[NOTIFY] Webhook channel: SIMULATION - would POST to webhook",
-  );
-  return true;
+      body: notification.body,
+      recipientId: notification.recipientId,
+      source: notification.source,
+      link: notification.link,
+      actions: notification.actions,
+      metadata: notification.metadata,
+      createdAt: notification.createdAt.toISOString(),
+      correlationId: notification.correlationId,
+    };
+
+    const payloadJson = JSON.stringify(payload);
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "X-Flywheel-Notification-Id": notification.id,
+      "X-Flywheel-Event": "notification.created",
+    };
+
+    // Add HMAC signature if secret is configured
+    if (webhookConfig.secret) {
+      const timestamp = Math.floor(Date.now() / 1000).toString();
+      const signaturePayload = `${timestamp}.${payloadJson}`;
+      const signature = await computeHmacSignature(
+        signaturePayload,
+        webhookConfig.secret,
+      );
+      headers["X-Flywheel-Timestamp"] = timestamp;
+      headers["X-Flywheel-Signature"] = `sha256=${signature}`;
+    }
+
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers,
+      body: payloadJson,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      log.error(
+        {
+          notificationId: notification.id,
+          url: webhookUrl,
+          status: response.status,
+          error: errorText,
+        },
+        "[NOTIFY] Webhook request failed",
+      );
+      return false;
+    }
+
+    log.info(
+      { notificationId: notification.id, url: webhookUrl },
+      "[NOTIFY] Webhook notification sent successfully",
+    );
+    return true;
+  } catch (error) {
+    log.error(
+      {
+        notificationId: notification.id,
+        url: webhookUrl,
+        error: String(error),
+      },
+      "[NOTIFY] Webhook request error",
+    );
+    return false;
+  }
 }
 
 /**
