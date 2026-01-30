@@ -503,6 +503,11 @@ interface GraphEvent {
 }
 
 interface UseGraphSubscriptionOptions {
+  /**
+   * Workspace ID to subscribe to for collaboration events.
+   * Defaults to "default".
+   */
+  workspaceId?: string;
   onAgentStatus?: (agent: AgentNode) => void;
   onReservationAcquired?: (reservation: ReservationNode) => void;
   onReservationReleased?: (reservationId: string) => void;
@@ -587,21 +592,135 @@ export function useGraphSubscription(
     }
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(
-      `${protocol}//${window.location.host}/ws/collaboration`,
-    );
+    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
     ws.onopen = () => {
-      setConnected(true);
-      ws.send(JSON.stringify({ type: "subscribe", channel: "collaboration" }));
+      const workspaceId = options.workspaceId ?? "default";
+
+      // Consider "connected" only once we have at least one successful subscription.
+      setConnected(false);
+
+      // Subscribe to workspace channels that affect collaboration graph state.
+      ws.send(
+        JSON.stringify({
+          type: "subscribe",
+          channel: `workspace:reservations:${workspaceId}`,
+        }),
+      );
+      ws.send(
+        JSON.stringify({
+          type: "subscribe",
+          channel: `workspace:conflicts:${workspaceId}`,
+        }),
+      );
     };
 
     ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data) as GraphEvent;
-        queueEvent(data);
+        const message = JSON.parse(event.data) as {
+          type?: unknown;
+          channel?: unknown;
+          message?: { id?: unknown; type?: unknown; payload?: unknown };
+          ackRequired?: unknown;
+          code?: unknown;
+        };
+
+        if (message.type === "subscribed") {
+          setConnected(true);
+          return;
+        }
+
+        if (message.type === "error") {
+          // Subscription errors (e.g. auth) mean real-time updates are not active.
+          if (
+            message.code === "WS_SUBSCRIPTION_DENIED" ||
+            message.code === "INVALID_CHANNEL"
+          ) {
+            setConnected(false);
+          }
+          return;
+        }
+
+        if (message.type !== "message" || !message.message) return;
+
+        const hubType = message.message.type;
+        const hubPayload = message.message.payload;
+
+        if (hubType === "reservation.acquired") {
+          const p = hubPayload as {
+            reservationId?: string;
+            requesterId?: string;
+            patterns?: string[];
+            exclusive?: boolean;
+            acquiredAt?: string;
+            expiresAt?: string;
+          };
+          queueEvent({
+            type: "reservation.acquired",
+            payload: {
+              id: p.reservationId ?? "unknown",
+              resourcePath: p.patterns?.[0] ?? "unknown",
+              resourceType: "file",
+              holderId: p.requesterId ?? "unknown",
+              waiters: [],
+              acquiredAt: p.acquiredAt ?? new Date().toISOString(),
+              expiresAt: p.expiresAt ?? new Date().toISOString(),
+              mode: p.exclusive ? "exclusive" : "shared",
+            } satisfies ReservationNode,
+            timestamp: new Date().toISOString(),
+          });
+        } else if (hubType === "reservation.released") {
+          const p = hubPayload as { reservationId?: string };
+          queueEvent({
+            type: "reservation.released",
+            payload: p.reservationId ?? "unknown",
+            timestamp: new Date().toISOString(),
+          });
+        } else if (hubType === "conflict.detected") {
+          const p = hubPayload as {
+            conflictId?: string;
+            pattern?: string;
+            existingReservation?: { requesterId?: string };
+            requestingAgent?: string;
+            detectedAt?: string;
+          };
+          queueEvent({
+            type: "conflict.detected",
+            payload: {
+              id: p.conflictId ?? "unknown",
+              conflictType: "contention",
+              involvedAgents: [
+                p.existingReservation?.requesterId ?? "unknown",
+                p.requestingAgent ?? "unknown",
+              ],
+              involvedResources: p.pattern ? [p.pattern] : [],
+              severity: "warning",
+              detectedAt: p.detectedAt ?? new Date().toISOString(),
+            } satisfies ConflictNode,
+            timestamp: new Date().toISOString(),
+          });
+        } else if (hubType === "conflict.resolved") {
+          const p = hubPayload as { conflictId?: string };
+          queueEvent({
+            type: "conflict.resolved",
+            payload: p.conflictId ?? "unknown",
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        if (
+          message.ackRequired === true &&
+          typeof message.message.id === "string"
+        ) {
+          ws.send(
+            JSON.stringify({
+              type: "ack",
+              messageIds: [message.message.id],
+            }),
+          );
+        }
       } catch {
-        console.error("Failed to parse WebSocket message");
+        // Ignore invalid messages
       }
     };
 
@@ -616,7 +735,7 @@ export function useGraphSubscription(
     };
 
     wsRef.current = ws;
-  }, [mockMode, queueEvent]);
+  }, [mockMode, options.workspaceId, queueEvent]);
 
   // Keep connectRef in sync with connect for self-referencing
   useEffect(() => {
