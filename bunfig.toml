@@ -1,0 +1,6 @@
+# Bun configuration for Flywheel Gateway
+# https://bun.sh/docs/runtime/bunfig
+
+[test]
+# Only scan apps and packages directories for unit tests
+# E2E tests in tests/e2e use Playwright and are run separately via "bunx playwright test"

@@ -4,6 +4,7 @@ import {
 } from "@flywheel/flywheel-clients";
 import { Hono } from "hono";
 import { registerDrivers } from "./config/drivers";
+import { authMiddleware } from "./middleware/auth";
 import { correlationMiddleware } from "./middleware/correlation";
 import { idempotencyMiddleware } from "./middleware/idempotency";
 import { loggingMiddleware } from "./middleware/logging";
@@ -42,6 +43,7 @@ const app = new Hono();
 app.use("*", correlationMiddleware());
 app.use("*", loggingMiddleware());
 app.use("*", apiSecurityHeaders());
+app.use("*", authMiddleware());
 app.use(
   "*",
   idempotencyMiddleware({

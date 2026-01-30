@@ -11,7 +11,7 @@
     "dev:gateway": "bun run --filter @flywheel/gateway dev",
     "dev:web": "bun run --filter @flywheel/web dev",
     "build": "bun run --filter '*' build",
-    "test": "DB_FILE_NAME=:memory: bun test .test.ts",
+    "test": "DB_FILE_NAME=:memory: bun test apps packages .test.ts",
     "test:integration": "DB_FILE_NAME=:memory: bun test tests/integration",
     "test:e2e": "bunx playwright test",
     "e2e:server": "bun scripts/e2e-server.ts",
