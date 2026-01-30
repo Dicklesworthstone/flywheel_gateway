@@ -9,7 +9,6 @@ import {
   type Agent,
   type AgentConfig,
   type AgentDriver,
-  type AgentEvent,
   selectDriver,
 } from "@flywheel/agent-drivers";
 import { eq, not } from "drizzle-orm";
@@ -72,7 +71,7 @@ interface AgentRecord {
  */
 async function handleAgentEvents(
   agentId: string,
-  eventStream: AsyncIterable<AgentEvent>,
+  drv: AgentDriver,
 ): Promise<void> {
   const log = getLogger();
   const abortController = new AbortController();
@@ -82,6 +81,8 @@ async function handleAgentEvents(
     activeMonitors.get(agentId)?.abort();
   }
   activeMonitors.set(agentId, abortController);
+
+  const eventStream = drv.subscribe(agentId, abortController.signal);
 
   try {
     for await (const event of eventStream) {
@@ -291,8 +292,7 @@ export async function spawnAgent(config: {
     // If subscribe comes after markReady + the awaited DB update, a concurrent
     // terminateAgent call during the await could remove the agent from the
     // driver before subscribe runs, causing "Agent not found" errors.
-    const eventStream = drv.subscribe(agentId);
-    handleAgentEvents(agentId, eventStream).catch((err) => {
+    handleAgentEvents(agentId, drv).catch((err) => {
       log.error(
         { error: err, agentId },
         "Unhandled error in agent event handler",
@@ -975,8 +975,7 @@ export async function initializeAgentService(): Promise<void> {
       // Subscribe BEFORE hydrating state to prevent TOCTOU race.
       // Once hydrated to READY, a concurrent terminateAgent could remove
       // the agent from the driver before subscribe runs.
-      const eventStream = drv.subscribe(row.id);
-      handleAgentEvents(row.id, eventStream).catch((err) => {
+      handleAgentEvents(row.id, drv).catch((err) => {
         log.error(
           { error: err, agentId: row.id },
           "Unhandled error in restored agent event handler",
