@@ -436,69 +436,74 @@ export async function getProductivityMetrics(
 
 /**
  * Get success rate metrics for an agent.
+ * Results are cached for 30 seconds to reduce database load.
  */
 export async function getSuccessRateMetrics(
   agentId: string,
   period: AnalyticsPeriod = "24h",
 ): Promise<SuccessRateMetric> {
-  const productivity = await getProductivityMetrics(agentId, period);
+  const cacheKey = generateCacheKey("success_rate", { agentId, period });
 
-  // Get previous period for trend
-  const previousPeriodMs = PERIOD_MS[period];
-  const { start: prevStart, end: prevEnd } = {
-    end: new Date(Date.now() - previousPeriodMs),
-    start: new Date(Date.now() - 2 * previousPeriodMs),
-  };
+  return analyticsCache.getOrCompute(cacheKey, async () => {
+    const productivity = await getProductivityMetrics(agentId, period);
 
-  const prevRows = await db
-    .select()
-    .from(historyTable)
-    .where(
-      and(
-        eq(historyTable.agentId, agentId),
-        gte(historyTable.createdAt, prevStart),
-        lte(historyTable.createdAt, prevEnd),
-      ),
+    // Get previous period for trend
+    const previousPeriodMs = PERIOD_MS[period];
+    const { start: prevStart, end: prevEnd } = {
+      end: new Date(Date.now() - previousPeriodMs),
+      start: new Date(Date.now() - 2 * previousPeriodMs),
+    };
+
+    const prevRows = await db
+      .select()
+      .from(historyTable)
+      .where(
+        and(
+          eq(historyTable.agentId, agentId),
+          gte(historyTable.createdAt, prevStart),
+          lte(historyTable.createdAt, prevEnd),
+        ),
+      );
+
+    let prevSuccessful = 0;
+    let prevTotal = 0;
+    for (const row of prevRows) {
+      const output = row.output as Record<string, unknown> | null;
+      const outcome = output?.["outcome"] as string | undefined;
+      if (outcome === "success") prevSuccessful++;
+      if (
+        outcome === "success" ||
+        outcome === "failure" ||
+        outcome === "timeout"
+      ) {
+        prevTotal++;
+      }
+    }
+
+    const currentRate =
+      productivity.tasksCompleted > 0
+        ? (productivity.successfulTasks / productivity.tasksCompleted) * 100
+        : 0;
+    const previousRate = prevTotal > 0 ? (prevSuccessful / prevTotal) * 100 : 0;
+
+    // Calculate percentile rank vs fleet
+    const fleetRates = await getFleetSuccessRates(period);
+    const allRates = Array.from(fleetRates.values());
+    const percentileRank = calculatePercentileRankInDistribution(
+      currentRate,
+      allRates,
     );
 
-  let prevSuccessful = 0;
-  let prevTotal = 0;
-  for (const row of prevRows) {
-    const output = row.output as Record<string, unknown> | null;
-    const outcome = output?.["outcome"] as string | undefined;
-    if (outcome === "success") prevSuccessful++;
-    if (
-      outcome === "success" ||
-      outcome === "failure" ||
-      outcome === "timeout"
-    ) {
-      prevTotal++;
-    }
-  }
-
-  const currentRate =
-    productivity.tasksCompleted > 0
-      ? (productivity.successfulTasks / productivity.tasksCompleted) * 100
-      : 0;
-  const previousRate = prevTotal > 0 ? (prevSuccessful / prevTotal) * 100 : 0;
-
-  // Calculate percentile rank vs fleet
-  const fleetRates = await getFleetSuccessRates(period);
-  const allRates = Array.from(fleetRates.values());
-  const percentileRank = calculatePercentileRankInDistribution(
-    currentRate,
-    allRates,
-  );
-
-  return {
-    agentId,
-    period,
-    totalTasks: productivity.tasksCompleted,
-    successfulTasks: productivity.successfulTasks,
-    successRate: currentRate,
-    trend: calculateTrend(currentRate, previousRate),
-    percentileRank,
-  };
+    return {
+      agentId,
+      period,
+      totalTasks: productivity.tasksCompleted,
+      successfulTasks: productivity.successfulTasks,
+      successRate: currentRate,
+      trend: calculateTrend(currentRate, previousRate),
+      percentileRank,
+    };
+  }) as Promise<SuccessRateMetric>;
 }
 
 /**

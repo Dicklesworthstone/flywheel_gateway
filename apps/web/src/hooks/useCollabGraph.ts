@@ -270,10 +270,18 @@ function buildMockEdges(): GraphEdge[] {
   // Message edges between agents
   for (const msg of mockRecentMessages) {
     if (msg.toAgentId !== "all") {
+      const fromIdx = mockAgentNodes.findIndex(
+        (a) => a.agentId === msg.fromAgentId,
+      );
+      const toIdx = mockAgentNodes.findIndex(
+        (a) => a.agentId === msg.toAgentId,
+      );
+      // Skip edges with invalid agent references
+      if (fromIdx < 0 || toIdx < 0) continue;
       edges.push({
         id: `edge-msg-${msg.id}`,
-        source: `agent-node-${mockAgentNodes.findIndex((a) => a.agentId === msg.fromAgentId) + 1}`,
-        target: `agent-node-${mockAgentNodes.findIndex((a) => a.agentId === msg.toAgentId) + 1}`,
+        source: `agent-node-${fromIdx + 1}`,
+        target: `agent-node-${toIdx + 1}`,
         type: "message",
         animated: true,
         label: msg.subject,
@@ -549,6 +557,14 @@ export function useGraphSubscription(
     reconnectTimeoutRef.current = null;
   }, []);
 
+  // Store options in a ref to avoid recreating callbacks on every render.
+  // This prevents cascading recreation of queueEvent → connect → reconnect
+  // which could cause unnecessary WebSocket reconnections.
+  const optionsRef = useRef(options);
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
+
   const processEvents = useCallback(() => {
     const events = eventQueueRef.current;
     eventQueueRef.current = [];
@@ -556,28 +572,32 @@ export function useGraphSubscription(
     for (const event of events) {
       switch (event.type) {
         case "agent.status":
-          options.onAgentStatus?.(event.payload as AgentNode);
+          optionsRef.current.onAgentStatus?.(event.payload as AgentNode);
           break;
         case "reservation.acquired":
-          options.onReservationAcquired?.(event.payload as ReservationNode);
+          optionsRef.current.onReservationAcquired?.(
+            event.payload as ReservationNode,
+          );
           break;
         case "reservation.released":
-          options.onReservationReleased?.(event.payload as string);
+          optionsRef.current.onReservationReleased?.(event.payload as string);
           break;
         case "message.sent":
-          options.onMessageSent?.(event.payload as MessageEvent);
+          optionsRef.current.onMessageSent?.(event.payload as MessageEvent);
           break;
         case "conflict.detected":
-          options.onConflictDetected?.(event.payload as ConflictNode);
+          optionsRef.current.onConflictDetected?.(
+            event.payload as ConflictNode,
+          );
           break;
         case "conflict.resolved":
-          options.onConflictResolved?.(event.payload as string);
+          optionsRef.current.onConflictResolved?.(event.payload as string);
           break;
       }
       setLastEvent(event);
       setEventCount((c) => c + 1);
     }
-  }, [options]);
+  }, []);
 
   const queueEvent = useCallback(
     (event: GraphEvent) => {

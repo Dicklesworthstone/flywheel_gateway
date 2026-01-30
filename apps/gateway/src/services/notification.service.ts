@@ -215,6 +215,79 @@ const SLACK_SECTION_TEXT_MAX_LENGTH = 3000;
 const WEBHOOK_TIMEOUT_MS = 10_000;
 
 /**
+ * Escape special characters for Slack mrkdwn format.
+ * Slack mrkdwn requires escaping: & < >
+ * @see https://api.slack.com/reference/surfaces/formatting#escaping
+ */
+function escapeSlackMrkdwn(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/**
+ * Escape a URL for use in Slack mrkdwn link format.
+ * In addition to standard mrkdwn escaping, we must escape pipe characters
+ * since Slack uses <URL|text> format where | is the delimiter.
+ */
+function escapeSlackUrl(url: string): string {
+  return escapeSlackMrkdwn(url).replace(/\|/g, "%7C");
+}
+
+/**
+ * Check if a URL points to a private/internal network address.
+ * Used to prevent SSRF attacks via webhook URLs.
+ */
+function isPrivateNetworkUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+
+    // Check for localhost variants
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "::1" ||
+      hostname === "[::1]" ||
+      hostname.endsWith(".localhost")
+    ) {
+      return true;
+    }
+
+    // Check for private IPv4 ranges
+    const ipv4Match = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+    if (ipv4Match) {
+      const [, a, b] = ipv4Match.map(Number);
+      // 10.0.0.0/8
+      if (a === 10) return true;
+      // 172.16.0.0/12
+      if (a === 172 && b !== undefined && b >= 16 && b <= 31) return true;
+      // 192.168.0.0/16
+      if (a === 192 && b === 168) return true;
+      // 169.254.0.0/16 (link-local, including AWS metadata)
+      if (a === 169 && b === 254) return true;
+      // 0.0.0.0
+      if (a === 0) return true;
+    }
+
+    // Block common cloud metadata endpoints
+    if (
+      hostname === "metadata.google.internal" ||
+      hostname === "metadata" ||
+      hostname.endsWith(".internal")
+    ) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    // If URL parsing fails, consider it unsafe
+    return true;
+  }
+}
+
+/**
  * Truncate text to max length, adding ellipsis if truncated.
  */
 function truncateText(text: string, maxLength: number): string {
@@ -264,10 +337,14 @@ function buildSlackPayload(notification: Notification): {
     notification.source.id ??
     notification.source.type;
 
-  const bodyText = truncateText(
-    notification.body,
-    SLACK_SECTION_TEXT_MAX_LENGTH,
-  );
+  // Escape user-provided text for Slack mrkdwn to prevent injection
+  const escapedBody = escapeSlackMrkdwn(notification.body);
+  const bodyText = truncateText(escapedBody, SLACK_SECTION_TEXT_MAX_LENGTH);
+
+  // Escape source label as it may contain user-provided content
+  const escapedSourceLabel = escapeSlackMrkdwn(sourceLabel ?? "unknown");
+  const escapedCategory = escapeSlackMrkdwn(notification.category);
+  const escapedPriority = escapeSlackMrkdwn(notification.priority);
 
   const blocks: Array<Record<string, unknown>> = [
     {
@@ -290,7 +367,7 @@ function buildSlackPayload(notification: Notification): {
       elements: [
         {
           type: "mrkdwn",
-          text: `*Category:* ${notification.category} | *Priority:* ${notification.priority} | *Source:* ${sourceLabel}`,
+          text: `*Category:* ${escapedCategory} | *Priority:* ${escapedPriority} | *Source:* ${escapedSourceLabel}`,
         },
       ],
     },
@@ -314,13 +391,14 @@ function buildSlackPayload(notification: Notification): {
     });
   }
 
-  // Add link if present
+  // Add link if present (escape URL to prevent Slack mrkdwn injection)
   if (notification.link) {
+    const escapedLink = escapeSlackUrl(notification.link);
     blocks.push({
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `<${notification.link}|View details →>`,
+        text: `<${escapedLink}|View details →>`,
       },
     });
   }
@@ -342,6 +420,15 @@ async function sendSlackNotification(
     log.debug(
       { notificationId: notification.id },
       "[NOTIFY] Slack channel: no webhook configured",
+    );
+    return false;
+  }
+
+  // SECURITY: Prevent SSRF by blocking requests to internal network addresses
+  if (isPrivateNetworkUrl(webhookUrl)) {
+    log.warn(
+      { notificationId: notification.id },
+      "[NOTIFY] Slack webhook blocked: URL points to private/internal network",
     );
     return false;
   }
@@ -439,6 +526,15 @@ async function sendWebhookNotification(
     log.debug(
       { notificationId: notification.id },
       "[NOTIFY] Webhook channel: no URL configured",
+    );
+    return false;
+  }
+
+  // SECURITY: Prevent SSRF by blocking requests to internal network addresses
+  if (isPrivateNetworkUrl(webhookUrl)) {
+    log.warn(
+      { notificationId: notification.id },
+      "[NOTIFY] Webhook blocked: URL points to private/internal network",
     );
     return false;
   }
