@@ -287,6 +287,18 @@ export async function spawnAgent(config: {
 
     agents.set(agentId, record);
 
+    // Start event monitoring BEFORE marking ready to prevent TOCTOU race.
+    // If subscribe comes after markReady + the awaited DB update, a concurrent
+    // terminateAgent call during the await could remove the agent from the
+    // driver before subscribe runs, causing "Agent not found" errors.
+    const eventStream = drv.subscribe(agentId);
+    handleAgentEvents(agentId, eventStream).catch((err) => {
+      log.error(
+        { error: err, agentId },
+        "Unhandled error in agent event handler",
+      );
+    });
+
     // Transition to READY state
     markAgentReady(agentId);
     await db
@@ -298,12 +310,6 @@ export async function spawnAgent(config: {
       { agentId, workingDirectory: config.workingDirectory },
       "Agent spawned",
     );
-
-    // Start event monitoring (output + state)
-    const eventStream = drv.subscribe(agentId);
-    handleAgentEvents(agentId, eventStream).catch((err) => {
-      log.error({ error: err, agentId }, "Unhandled error in agent event handler");
-    });
 
     // Initialize auto-checkpointing for the agent
     const acs = getAutoCheckpointService(agentId);
@@ -937,6 +943,17 @@ export async function initializeAgentService(): Promise<void> {
 
       agents.set(row.id, record);
 
+      // Subscribe BEFORE hydrating state to prevent TOCTOU race.
+      // Once hydrated to READY, a concurrent terminateAgent could remove
+      // the agent from the driver before subscribe runs.
+      const eventStream = drv.subscribe(row.id);
+      handleAgentEvents(row.id, eventStream).catch((err) => {
+        log.error(
+          { error: err, agentId: row.id },
+          "Unhandled error in restored agent event handler",
+        );
+      });
+
       // Hydrate state machine
       // Map DB status to LifecycleState if possible, or default to READY
       // DB status: idle, spawning, ready, failed, terminated
@@ -945,10 +962,6 @@ export async function initializeAgentService(): Promise<void> {
       // ... others map to READY or EXECUTING mostly
 
       hydrateAgentState(row.id, lifecycleState);
-
-      // Resume event monitoring
-      const eventStream = drv.subscribe(row.id);
-      handleAgentEvents(row.id, eventStream);
 
       // Initialize auto-checkpointing
       const acs = getAutoCheckpointService(row.id);
