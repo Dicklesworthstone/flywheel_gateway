@@ -15,6 +15,7 @@ import { history as historyTable } from "../db/schema";
 import { getCorrelationId } from "../middleware/correlation";
 import { logger } from "./logger";
 import { invalidateAgentAnalytics } from "./query-cache";
+import { isReDoSPattern } from "./safety-rules.engine";
 
 // ============================================================================
 // Types
@@ -741,6 +742,14 @@ export function extractFromOutput(
 
     case "custom": {
       if (options.customPattern) {
+        // Prevent ReDoS attacks from user-controlled patterns
+        if (isReDoSPattern(options.customPattern)) {
+          logger.warn(
+            { pattern: options.customPattern },
+            "Potentially dangerous regex pattern rejected in extractFromOutput",
+          );
+          break;
+        }
         try {
           const pattern = new RegExp(options.customPattern, "gi");
           for (const match of output.matchAll(pattern)) {

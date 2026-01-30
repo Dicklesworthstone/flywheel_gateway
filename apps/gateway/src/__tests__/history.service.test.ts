@@ -180,7 +180,9 @@ x = 1
         const result = extractFromOutput(output, "json");
 
         expect(result.totalMatches).toBe(1);
-        const parsed = JSON.parse(result.matches[0]!.content);
+        const firstMatch = result.matches.at(0);
+        expect(firstMatch).toBeDefined();
+        const parsed = JSON.parse(firstMatch?.content ?? "");
         expect(parsed.name).toBe("test");
       });
 
@@ -190,7 +192,9 @@ x = 1
         const result = extractFromOutput(output, "json");
 
         expect(result.totalMatches).toBe(1);
-        const parsed = JSON.parse(result.matches[0]!.content);
+        const firstMatch = result.matches.at(0);
+        expect(firstMatch).toBeDefined();
+        const parsed = JSON.parse(firstMatch?.content ?? "");
         expect(parsed).toEqual([1, 2, 3, 4]);
       });
 
@@ -279,6 +283,18 @@ ReferenceError: x is not defined`;
 
         // Should not throw, just return empty
         expect(result.matches).toBeDefined();
+      });
+
+      test("rejects ReDoS-vulnerable patterns", () => {
+        const output = `aaaaaaaaaaaaaaaaaaaaaaaaa`;
+
+        // Pattern with nested quantifiers that could cause catastrophic backtracking
+        const result = extractFromOutput(output, "custom", {
+          customPattern: "(a+)+$",
+        });
+
+        // Should return empty matches (pattern rejected)
+        expect(result.totalMatches).toBe(0);
       });
 
       test("works without custom pattern", () => {
