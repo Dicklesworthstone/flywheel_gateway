@@ -26,7 +26,15 @@ type Envelope<T> = {
 };
 
 describe("Setup Routes Integration (no mocks)", () => {
-  const app = new Hono().route("/setup", setup);
+  // These tests intentionally mount only the setup routes (no auth middleware),
+  // so set an admin auth context explicitly instead of mutating process.env
+  // (which can be flaky under parallel test execution).
+  const app = new Hono();
+  app.use("*", async (c, next) => {
+    c.set("auth", { isAdmin: true });
+    await next();
+  });
+  app.route("/setup", setup);
 
   // ========================================================================
   // Install endpoint validation

@@ -1090,7 +1090,9 @@ export async function pruneCheckpoints(
   // These cannot be safely deleted without corrupting delta chains.
   const referencedParents = await db
     .select({
-      parentId: sql<string>`json_extract(${checkpointsTable.state}, '$.parentCheckpointId')`,
+      parentId: sql<
+        string | null
+      >`json_extract(${checkpointsTable.state}, '$.parentCheckpointId')`,
     })
     .from(checkpointsTable)
     .where(eq(checkpointsTable.agentId, agentId));
@@ -1123,7 +1125,11 @@ export async function pruneCheckpoints(
     .delete(checkpointsTable)
     .where(inArray(checkpointsTable.id, safeToDelete));
 
-  incrementCounter("flywheel_checkpoints_pruned_total", safeToDelete.length, {});
+  incrementCounter(
+    "flywheel_checkpoints_pruned_total",
+    safeToDelete.length,
+    {},
+  );
 
   const skipped = candidateIds.length - safeToDelete.length;
   log.info(

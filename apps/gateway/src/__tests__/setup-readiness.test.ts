@@ -623,6 +623,19 @@ describe("Setup Readiness Test Harness (bd-a1jg)", () => {
   // ==========================================================================
 
   describe("Install endpoint deterministic errors", () => {
+    // Enable unauthenticated installs for these tests (auth middleware not mounted)
+    const originalEnv = process.env["ENABLE_SETUP_INSTALL_UNAUTH"];
+    beforeEach(() => {
+      process.env["ENABLE_SETUP_INSTALL_UNAUTH"] = "true";
+    });
+    afterEach(() => {
+      if (originalEnv !== undefined) {
+        process.env["ENABLE_SETUP_INSTALL_UNAUTH"] = originalEnv;
+      } else {
+        delete process.env["ENABLE_SETUP_INSTALL_UNAUTH"];
+      }
+    });
+
     it("returns deterministic error for unknown tool", async () => {
       const res = await app.request("/setup/install", {
         method: "POST",

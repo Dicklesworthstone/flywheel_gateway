@@ -277,6 +277,17 @@ describe("ContextHealthService", () => {
       expect(result.appliedAt).toBeInstanceOf(Date);
     });
 
+    test("does not produce NaN reductionPercent when beforeTokens is 0", async () => {
+      service.registerSession("empty-session");
+
+      const result = await service.compact("empty-session");
+
+      expect(result.beforeTokens).toBe(0);
+      expect(result.afterTokens).toBe(0);
+      expect(result.reduction).toBe(0);
+      expect(result.reductionPercent).toBe(0);
+    });
+
     test("preserves recent messages during compaction", async () => {
       service.registerSession("test-session");
 

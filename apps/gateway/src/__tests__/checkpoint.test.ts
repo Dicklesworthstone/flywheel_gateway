@@ -427,6 +427,49 @@ describe("Checkpoint Service", () => {
       expect(afterPrune.length).toBe(2);
     });
 
+    test("does not delete delta chain parents needed by remaining checkpoints", async () => {
+      const uniqueAgentId = `agent-prune-delta-${Date.now()}`;
+      await ensureAgent(uniqueAgentId);
+
+      const base = await createCheckpoint(uniqueAgentId, {
+        conversationHistory: [{ role: "user", content: "Base" }],
+        toolState: { base: true },
+        tokenUsage: testTokenUsage,
+      });
+
+      const parent = await createCheckpoint(uniqueAgentId, {
+        conversationHistory: [{ role: "user", content: "Parent" }],
+        toolState: { parent: true },
+        tokenUsage: testTokenUsage,
+      });
+
+      const delta = await createCheckpoint(
+        uniqueAgentId,
+        {
+          conversationHistory: [{ role: "user", content: "Delta" }],
+          toolState: { delta: true },
+          tokenUsage: testTokenUsage,
+        },
+        { delta: true },
+      );
+
+      // Keeping only the most recent checkpoint would normally delete both earlier
+      // checkpoints; however, the delta checkpoint references `parent` as its chain
+      // parent and must keep it for future resolution correctness.
+      //
+      // This test intentionally does not assert an exact delete count because the
+      // pruning strategy may be conservative and keep extra checkpoints.
+      await pruneCheckpoints(uniqueAgentId, 1);
+
+      const remaining = await getAgentCheckpoints(uniqueAgentId);
+      const remainingIds = remaining.map((c) => c.id);
+      expect(remainingIds).toContain(parent.id);
+      expect(remainingIds).toContain(delta.id);
+
+      // Should still be restorable after pruning.
+      await expect(restoreCheckpoint(delta.id)).resolves.toBeDefined();
+    });
+
     test("returns 0 when nothing to prune", async () => {
       const uniqueAgentId = `agent-noprune-${Date.now()}`;
       await ensureAgent(uniqueAgentId);
