@@ -91,6 +91,22 @@ class TestDriver extends BaseDriver {
   public testEmitEvent(agentId: string, event: AgentEvent): void {
     this.emitEvent(agentId, event);
   }
+
+  public testDeleteAgent(agentId: string): void {
+    this.agents.delete(agentId);
+  }
+
+  public testGetInternalState(agentId: string):
+    | {
+        eventSubscribers: Set<(event: AgentEvent) => void>;
+      }
+    | undefined {
+    return this.agents.get(agentId) as
+      | {
+          eventSubscribers: Set<(event: AgentEvent) => void>;
+        }
+      | undefined;
+  }
 }
 
 describe("BaseDriver", () => {
@@ -361,6 +377,41 @@ describe("BaseDriver", () => {
 
       // Should have at least the state_change and terminated events
       expect(events.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("should terminate subscription if agent disappears during setup", async () => {
+      const agentConfig = createTestConfig();
+      await driver.spawn(agentConfig);
+
+      const state = driver.testGetInternalState(agentConfig.id);
+      expect(state).toBeDefined();
+      if (!state) return;
+
+      const originalAdd = state.eventSubscribers.add.bind(
+        state.eventSubscribers,
+      );
+      state.eventSubscribers.add = (subscriber) => {
+        driver.testDeleteAgent(agentConfig.id);
+        return originalAdd(subscriber);
+      };
+
+      const events: AgentEvent[] = [];
+      const subscription = driver.subscribe(agentConfig.id);
+      const collector = (async () => {
+        for await (const event of subscription) {
+          events.push(event);
+          if (event.type === "terminated") break;
+        }
+      })();
+
+      await Promise.race([
+        collector,
+        Bun.sleep(200).then(() => {
+          throw new Error("Subscription did not terminate");
+        }),
+      ]);
+
+      expect(events.some((event) => event.type === "terminated")).toBe(true);
     });
   });
 

@@ -356,6 +356,18 @@ export abstract class BaseDriver implements AgentDriver {
 
     state.eventSubscribers.add(subscriber);
 
+    const liveState = this.agents.get(agentId);
+    if (!liveState || liveState !== state) {
+      done = true;
+      queue.push({
+        type: "terminated",
+        agentId,
+        timestamp: new Date(),
+        reason: "system",
+        exitCode: undefined,
+      });
+    }
+
     try {
       while (!done) {
         if (queue.length > 0) {
