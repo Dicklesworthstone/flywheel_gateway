@@ -10,7 +10,6 @@
  */
 
 import { getLogger } from "../middleware/correlation";
-import { isPrivateNetworkUrl } from "../utils/url-security";
 import {
   type AgentTaskConfig,
   type ApprovalConfig,
@@ -35,6 +34,7 @@ import {
   type WaitConfig,
   type WebhookConfig,
 } from "../models/pipeline";
+import { isPrivateNetworkUrl } from "../utils/url-security";
 import { sendMessage, spawnAgent, terminateAgent } from "./agent";
 
 const UNSAFE_CONTEXT_KEYS = new Set(["__proto__", "prototype", "constructor"]);
