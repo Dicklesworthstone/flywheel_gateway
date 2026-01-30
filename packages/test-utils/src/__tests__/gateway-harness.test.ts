@@ -56,8 +56,10 @@ describe("createGatewayHarness", () => {
       email: string;
     }[];
     expect(rows).toHaveLength(1);
-    expect(rows[0].id).toBe("acct-1");
-    expect(rows[0].email).toBe("test@example.com");
+    const firstRow = rows[0];
+    expect(firstRow).toBeDefined();
+    expect(firstRow!.id).toBe("acct-1");
+    expect(firstRow!.email).toBe("test@example.com");
   });
 
   test("seed handles foreign key relationships", async () => {

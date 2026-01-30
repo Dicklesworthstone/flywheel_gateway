@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { JfpClientError, createJfpClient } from "../index";
+import { JfpClientError, createJfpClient, type JfpPrompt } from "../index";
 
 function createRunner(stdout: string, exitCode = 0) {
   const calls: { command: string; args: string[] }[] = [];
@@ -16,11 +16,11 @@ function createRunner(stdout: string, exitCode = 0) {
   };
 }
 
-function createPrompt(overrides: Partial<ReturnType<typeof fullPrompt>> = {}) {
+function createPrompt(overrides: Partial<JfpPrompt> = {}): JfpPrompt {
   return { ...fullPrompt(), ...overrides };
 }
 
-function fullPrompt() {
+function fullPrompt(): JfpPrompt {
   return {
     id: "prompt-123",
     title: "Test Prompt",
@@ -30,7 +30,7 @@ function fullPrompt() {
     author: "Test Author",
     version: "1.0.0",
     featured: false,
-    difficulty: "intermediate" as const,
+    difficulty: "intermediate",
     estimatedTokens: 500,
     created: "2026-01-01T00:00:00Z",
     content: "This is the prompt content...",
@@ -437,16 +437,22 @@ describe("JFP client", () => {
     });
 
     test("validates difficulty enum values", async () => {
-      for (const difficulty of ["beginner", "intermediate", "advanced"]) {
+      const difficulties: Array<JfpPrompt["difficulty"]> = [
+        "beginner",
+        "intermediate",
+        "advanced",
+      ];
+      for (const difficulty of difficulties) {
         const prompt = createPrompt({
-          difficulty: difficulty as "beginner" | "intermediate" | "advanced",
+          difficulty,
         });
         const runner = createRunner(JSON.stringify(prompt));
         const client = createJfpClient({ runner });
 
         const result = await client.get("test");
 
-        expect(result?.difficulty).toBe(difficulty);
+        expect(result).not.toBeNull();
+        expect(result!.difficulty).toBe(difficulty);
       }
     });
   });

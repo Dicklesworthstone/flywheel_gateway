@@ -123,18 +123,22 @@ async function loadSecretsIndex(
     }
 
     const entries: SecretFileEntry[] = [];
+    const basePath = path.resolve(baseDir);
 
     for (const [tool, keys] of Object.entries(parsed.tools)) {
       for (const [key, valueOrFile] of Object.entries(keys)) {
         // If value starts with "file:", load from file
         if (valueOrFile.startsWith("file:")) {
-          const filePath = path.join(baseDir, valueOrFile.slice(5));
+          const filePath = path.resolve(basePath, valueOrFile.slice(5));
+          if (!filePath.startsWith(`${basePath}${path.sep}`)) {
+            continue;
+          }
           if (existsSync(filePath)) {
             try {
               const fileValue = (await readFile(filePath, "utf-8")).trim();
               entries.push({ tool, key, value: fileValue });
             } catch {
-              // Skip unreadable files — reported in errors
+              // Skip unreadable files
             }
           }
         } else {

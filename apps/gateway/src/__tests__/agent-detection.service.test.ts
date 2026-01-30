@@ -17,10 +17,12 @@ import {
   it,
   mock,
 } from "bun:test";
+import pino from "pino";
 import {
   restoreToolRegistryService,
 } from "./test-utils/db-mock-restore";
 import { requestContextStorage } from "../middleware/correlation";
+import type { Logger } from "../services/logger";
 
 // ============================================================================
 // Mock State
@@ -49,13 +51,22 @@ let registryMetadata: { schemaVersion: string; manifestHash: string } | null = n
 // Mock Setup
 // ============================================================================
 
-const mockLogger = {
-  info: (...args: unknown[]) => logEvents.push({ level: "info", args }),
-  warn: (...args: unknown[]) => logEvents.push({ level: "warn", args }),
-  debug: (...args: unknown[]) => logEvents.push({ level: "debug", args }),
-  error: (...args: unknown[]) => logEvents.push({ level: "error", args }),
+const baseTestLogger = pino({ level: "silent" });
+const mockLogger: Logger = Object.assign(baseTestLogger, {
+  info: (...args: unknown[]) => {
+    logEvents.push({ level: "info", args });
+  },
+  warn: (...args: unknown[]) => {
+    logEvents.push({ level: "warn", args });
+  },
+  debug: (...args: unknown[]) => {
+    logEvents.push({ level: "debug", args });
+  },
+  error: (...args: unknown[]) => {
+    logEvents.push({ level: "error", args });
+  },
   child: () => mockLogger,
-};
+});
 
 // Mock the tool registry service
 mock.module("../services/tool-registry.service", () => ({
@@ -80,7 +91,13 @@ function setupSpawnMock() {
   // @ts-expect-error - Mocking global
   Bun.spawn = (cmd: string[], opts?: { stdout?: string; stderr?: string; env?: Record<string, string> }) => {
     const cmdArray = Array.isArray(cmd) ? cmd : [cmd];
-    spawnCalls.push({ cmd: cmdArray, env: opts?.env });
+    const call: { cmd: string[]; env?: Record<string, string> } = {
+      cmd: cmdArray,
+    };
+    if (opts?.env !== undefined) {
+      call.env = opts.env;
+    }
+    spawnCalls.push(call);
 
     const cmdKey = cmdArray.join(" ");
     const result = spawnResults.get(cmdKey) ?? defaultSpawnResult;
@@ -152,7 +169,6 @@ afterEach(() => {
 
 afterAll(() => {
   // Restore original spawn
-  // @ts-expect-error - Restoring global
   Bun.spawn = originalSpawn;
   mock.restore();
   restoreToolRegistryService();

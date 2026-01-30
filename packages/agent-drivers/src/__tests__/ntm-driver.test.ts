@@ -25,7 +25,10 @@ function createMockNtmClient(overrides: Partial<NtmClient> = {}): NtmClient {
     ),
     tail: mock(() =>
       Promise.resolve({
-        session_name: "test-session",
+        success: true,
+        timestamp: new Date().toISOString(),
+        session: "test-session",
+        captured_at: new Date().toISOString(),
         panes: {},
       } as NtmTailOutput),
     ),
@@ -184,7 +187,10 @@ describe("NtmDriver", () => {
             return Promise.reject(new Error("NTM unavailable"));
           }
           return Promise.resolve({
-            session_name: "test-session",
+            success: true,
+            timestamp: new Date().toISOString(),
+            session: "test-session",
+            captured_at: new Date().toISOString(),
             panes: {},
           } as NtmTailOutput);
         }),
@@ -337,7 +343,10 @@ describe("NtmDriver", () => {
             return Promise.reject(new Error("NTM unavailable"));
           }
           return Promise.resolve({
-            session_name: "test-session",
+            success: true,
+            timestamp: new Date().toISOString(),
+            session: "test-session",
+            captured_at: new Date().toISOString(),
             panes: {},
           } as NtmTailOutput);
         }),

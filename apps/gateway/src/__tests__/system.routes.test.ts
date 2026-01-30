@@ -333,7 +333,7 @@ function validateSchemaWithLog<T extends z.ZodTypeAny>(
       message: e.message,
       received:
         e.code === "invalid_type"
-          ? (e as z.ZodInvalidTypeIssue).received
+          ? (e as unknown as { received: unknown }).received
           : undefined,
     }));
   }

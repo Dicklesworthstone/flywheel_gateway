@@ -71,9 +71,11 @@ describe("loadSecretsFromDir", () => {
     );
     const result = await loadSecretsFromDir(dir);
     expect(result.entries).toHaveLength(2);
-    expect(result.entries[0].tool).toBe("dcg");
-    expect(result.entries[0].key).toBe("apiKey");
-    expect(result.entries[0].value).toBe("key-test-123");
+    const firstEntry = result.entries[0];
+    expect(firstEntry).toBeDefined();
+    expect(firstEntry!.tool).toBe("dcg");
+    expect(firstEntry!.key).toBe("apiKey");
+    expect(firstEntry!.value).toBe("key-test-123");
     rmSync(dir, { recursive: true });
   });
 
@@ -87,7 +89,9 @@ describe("loadSecretsFromDir", () => {
     );
     const result = await loadSecretsFromDir(dir);
     expect(result.entries).toHaveLength(1);
-    expect(result.entries[0].value).toBe("file-secret-value");
+    const firstEntry = result.entries[0];
+    expect(firstEntry).toBeDefined();
+    expect(firstEntry!.value).toBe("file-secret-value");
     rmSync(dir, { recursive: true });
   });
 
@@ -197,7 +201,9 @@ describe("loadSecrets", () => {
     ];
     const result = await loadSecrets(specs, "/nonexistent/xyz");
     expect(result.secrets).toHaveLength(1);
-    expect(result.secrets[0].found).toBe(false);
+    const first = result.secrets[0];
+    if (!first) throw new Error("Expected first secret result to exist");
+    expect(first.found).toBe(false);
     expect(result.allRequiredPresent).toBe(true);
   });
 
@@ -237,7 +243,9 @@ describe("loadSecrets", () => {
     ];
     const result = await loadSecrets(specs, dir);
     expect(result.allRequiredPresent).toBe(true);
-    expect(result.secrets[0].source).toBe("file");
+    const first = result.secrets[0];
+    if (!first) throw new Error("Expected first secret result to exist");
+    expect(first.source).toBe("file");
     rmSync(dir, { recursive: true });
   });
 });

@@ -78,7 +78,7 @@ mock.module("yaml", () => ({
 
 // Import after mocks are defined
 const { clearToolRegistryCache, getToolRegistryMetadata, loadToolRegistry } =
-  await import("../services/tool-registry.service?tool-registry-service-test");
+  await import("../services/tool-registry.service");
 
 const validManifest = `schemaVersion: "1.0.0"
 source: "acfs"
@@ -648,14 +648,14 @@ describe("Golden fixture validation", () => {
     expect(registry.schemaVersion).toBe("1.0.0");
     expect(registry.source).toBe("acfs");
     expect(Array.isArray(registry.tools)).toBe(true);
-    expect(registry.tools.length).toBeGreaterThan(0);
+	    expect(registry.tools.length).toBeGreaterThan(0);
 
-    // Verify expected tools are present
-    const toolIds = registry.tools.map((t) => t.id);
-    expect(toolIds).toContain("agents.claude");
-    expect(toolIds).toContain("tools.dcg");
-    expect(toolIds).toContain("tools.slb");
-    expect(toolIds).toContain("tools.ubs");
+	    // Verify expected tools are present
+	    const toolIds = registry.tools.map((t: { id: string }) => t.id);
+	    expect(toolIds).toContain("agents.claude");
+	    expect(toolIds).toContain("tools.dcg");
+	    expect(toolIds).toContain("tools.slb");
+	    expect(toolIds).toContain("tools.ubs");
     expect(toolIds).toContain("tools.br");
 
     const meta = getToolRegistryMetadata();

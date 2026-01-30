@@ -189,8 +189,10 @@ export async function getBvTriage(options?: {
 
   const start = performance.now();
   const data = await getBvClient().getTriage({
-    timeoutMs: options?.timeoutMs,
-    maxOutputBytes: options?.maxOutputBytes,
+    ...(options?.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
+    ...(options?.maxOutputBytes !== undefined
+      ? { maxOutputBytes: options.maxOutputBytes }
+      : {}),
   });
   const latencyMs = Math.round(performance.now() - start);
   bvLogger.result("bv --robot-triage", latencyMs, "bv triage fetched", {

@@ -424,7 +424,9 @@ describe("APR client", () => {
 
       expect(thrown).toBeInstanceOf(AprClientError);
       expect((thrown as AprClientError).kind).toBe("command_failed");
-      expect((thrown as AprClientError).details?.hint).toBe("Config not found");
+      expect((thrown as AprClientError).details?.["hint"]).toBe(
+        "Config not found",
+      );
     });
 
     test("error includes diagnostic details", async () => {
@@ -453,7 +455,11 @@ describe("APR client", () => {
           _args: string[],
           options?: { cwd?: string },
         ) => {
-          calls.push({ cwd: options?.cwd });
+          const call: { cwd?: string } = {};
+          if (options?.cwd !== undefined) {
+            call.cwd = options.cwd;
+          }
+          calls.push(call);
           const data = {
             configured: true,
             default_workflow: "main",
@@ -482,7 +488,11 @@ describe("APR client", () => {
           _args: string[],
           options?: { timeout?: number },
         ) => {
-          calls.push({ timeout: options?.timeout });
+          const call: { timeout?: number } = {};
+          if (options?.timeout !== undefined) {
+            call.timeout = options.timeout;
+          }
+          calls.push(call);
           const data = {
             configured: true,
             default_workflow: "main",

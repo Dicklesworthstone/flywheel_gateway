@@ -133,7 +133,9 @@ tools:
     expect(result.manifest).toBeDefined();
     expect(result.manifest!.schemaVersion).toBe("1.0");
     expect(result.manifest!.tools).toHaveLength(1);
-    expect(result.manifest!.tools![0].name).toBe("dcg");
+    const firstTool = result.manifest!.tools?.[0];
+    expect(firstTool).toBeDefined();
+    expect(firstTool!.name).toBe("dcg");
   });
 
   it("returns error for invalid YAML", async () => {

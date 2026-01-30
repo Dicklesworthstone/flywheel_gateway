@@ -168,6 +168,26 @@ async function runBvCommand(
   return result.stdout;
 }
 
+function toBvCommandOptions(input: {
+  cwd: string | undefined;
+  timeoutMs: number | undefined;
+  maxOutputBytes: number | undefined;
+}): BvCommandOptions | undefined {
+  const options: BvCommandOptions = {};
+
+  if (input.cwd !== undefined) {
+    options.cwd = input.cwd;
+  }
+  if (input.timeoutMs !== undefined) {
+    options.timeoutMs = input.timeoutMs;
+  }
+  if (input.maxOutputBytes !== undefined) {
+    options.maxOutputBytes = input.maxOutputBytes;
+  }
+
+  return Object.keys(options).length === 0 ? undefined : options;
+}
+
 export function createBvClient(options: BvClientOptions): BvClient {
   const baseCwd = options.cwd;
 
@@ -176,11 +196,11 @@ export function createBvClient(options: BvClientOptions): BvClient {
       const cwd = opts?.cwd ?? baseCwd;
       const timeoutMs = opts?.timeoutMs;
       const maxOutputBytes = opts?.maxOutputBytes;
-      const stdout = await runBvCommand(options.runner, ["--robot-triage"], {
-        cwd,
-        timeoutMs,
-        maxOutputBytes,
-      });
+      const stdout = await runBvCommand(
+        options.runner,
+        ["--robot-triage"],
+        toBvCommandOptions({ cwd, timeoutMs, maxOutputBytes }),
+      );
       let parsed: unknown;
       try {
         parsed = JSON.parse(stdout);
@@ -203,11 +223,11 @@ export function createBvClient(options: BvClientOptions): BvClient {
       const cwd = opts?.cwd ?? baseCwd;
       const timeoutMs = opts?.timeoutMs;
       const maxOutputBytes = opts?.maxOutputBytes;
-      const stdout = await runBvCommand(options.runner, ["--robot-insights"], {
-        cwd,
-        timeoutMs,
-        maxOutputBytes,
-      });
+      const stdout = await runBvCommand(
+        options.runner,
+        ["--robot-insights"],
+        toBvCommandOptions({ cwd, timeoutMs, maxOutputBytes }),
+      );
       let parsed: unknown;
       try {
         parsed = JSON.parse(stdout);
@@ -230,11 +250,11 @@ export function createBvClient(options: BvClientOptions): BvClient {
       const cwd = opts?.cwd ?? baseCwd;
       const timeoutMs = opts?.timeoutMs;
       const maxOutputBytes = opts?.maxOutputBytes;
-      const stdout = await runBvCommand(options.runner, ["--robot-plan"], {
-        cwd,
-        timeoutMs,
-        maxOutputBytes,
-      });
+      const stdout = await runBvCommand(
+        options.runner,
+        ["--robot-plan"],
+        toBvCommandOptions({ cwd, timeoutMs, maxOutputBytes }),
+      );
       let parsed: unknown;
       try {
         parsed = JSON.parse(stdout);
@@ -270,11 +290,11 @@ export function createBvClient(options: BvClientOptions): BvClient {
         args.push("--graph-depth", String(opts.depth));
       }
 
-      const stdout = await runBvCommand(options.runner, args, {
-        cwd,
-        timeoutMs,
-        maxOutputBytes,
-      });
+      const stdout = await runBvCommand(
+        options.runner,
+        args,
+        toBvCommandOptions({ cwd, timeoutMs, maxOutputBytes }),
+      );
 
       // For non-JSON formats, return raw output
       if (format !== "json") {

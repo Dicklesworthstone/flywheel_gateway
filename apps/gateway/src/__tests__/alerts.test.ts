@@ -414,7 +414,7 @@ describe("Alert Service", () => {
       ubsInstalled?: boolean;
       checksumsStale?: boolean;
       registryAgeMs?: number | null;
-    }): AlertContext["safety"] {
+    }): NonNullable<AlertContext["safety"]> {
       const dcgInstalled = overrides.dcgInstalled ?? true;
       const slbInstalled = overrides.slbInstalled ?? true;
       const ubsInstalled = overrides.ubsInstalled ?? true;
@@ -516,9 +516,9 @@ describe("Alert Service", () => {
 
         const alert = fireAlert(rule!, context);
 
-        expect(alert.metadata?.tool).toBe("dcg");
-        expect(alert.metadata?.safetyStatus).toBe("unhealthy");
-        expect(alert.metadata?.issues).toContain("DCG not installed");
+        expect(alert.metadata?.["tool"]).toBe("dcg");
+        expect(alert.metadata?.["safetyStatus"]).toBe("unhealthy");
+        expect(alert.metadata?.["issues"]).toContain("DCG not installed");
       });
     });
 
@@ -559,8 +559,8 @@ describe("Alert Service", () => {
 
         const alert = fireAlert(rule!, context);
 
-        expect(alert.metadata?.tool).toBe("slb");
-        expect(alert.metadata?.safetyStatus).toBe("unhealthy");
+        expect(alert.metadata?.["tool"]).toBe("slb");
+        expect(alert.metadata?.["safetyStatus"]).toBe("unhealthy");
       });
     });
 
@@ -601,8 +601,8 @@ describe("Alert Service", () => {
 
         const alert = fireAlert(rule!, context);
 
-        expect(alert.metadata?.tool).toBe("ubs");
-        expect(alert.metadata?.safetyStatus).toBe("unhealthy");
+        expect(alert.metadata?.["tool"]).toBe("ubs");
+        expect(alert.metadata?.["safetyStatus"]).toBe("unhealthy");
       });
     });
 
@@ -664,9 +664,11 @@ describe("Alert Service", () => {
 
         const alert = fireAlert(rule!, context);
 
-        expect(alert.metadata?.registryAgeMs).toBe(ageMs);
-        expect(alert.metadata?.staleThresholdMs).toBe(7 * 24 * 60 * 60 * 1000);
-        expect(alert.metadata?.safetyStatus).toBe("unhealthy");
+        expect(alert.metadata?.["registryAgeMs"]).toBe(ageMs);
+        expect(alert.metadata?.["staleThresholdMs"]).toBe(
+          7 * 24 * 60 * 60 * 1000,
+        );
+        expect(alert.metadata?.["safetyStatus"]).toBe("unhealthy");
       });
     });
 

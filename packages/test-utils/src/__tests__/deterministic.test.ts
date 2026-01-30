@@ -28,13 +28,13 @@ describe("installDeterministicIds", () => {
 
   test("replaces crypto.randomUUID with sequential generator", () => {
     installDeterministicIds("test");
-    expect(crypto.randomUUID()).toBe("test-0001");
-    expect(crypto.randomUUID()).toBe("test-0002");
+    expect(crypto.randomUUID() as string).toBe("test-0001");
+    expect(crypto.randomUUID() as string).toBe("test-0002");
   });
 
   test("restoreDeterministicIds brings back real randomUUID", () => {
     installDeterministicIds("tmp");
-    const fake = crypto.randomUUID();
+    const fake = crypto.randomUUID() as string;
     expect(fake).toBe("tmp-0001");
 
     restoreDeterministicIds();

@@ -157,7 +157,10 @@ export async function loadOverlay(
   const { envMapping, error: envError } = await loadEnvMapping(dir);
   if (envError) errors.push(envError);
 
-  return { available: true, manifest, envMapping, errors };
+  const result: OverlayLoadResult = { available: true, errors };
+  if (manifest !== undefined) result.manifest = manifest;
+  if (envMapping !== undefined) result.envMapping = envMapping;
+  return result;
 }
 
 // ============================================================================

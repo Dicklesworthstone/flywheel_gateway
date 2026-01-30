@@ -303,6 +303,7 @@ describe("DCG Service (real DB)", () => {
       pack: "core.filesystem",
       ruleId: "rm-rf-root",
       timestamp: new Date(),
+      contextClassification: "executed" as const,
     };
 
     const result = await ingestBlockEvent(event);
@@ -320,7 +321,7 @@ describe("DCG Service (real DB)", () => {
     const result = await getBlockEvents({ limit: 1 });
     const events = result.events;
     if (events.length > 0) {
-      const result = await markFalsePositive(events[0]!.id);
+      const result = await markFalsePositive(events[0]!.id, "test");
       expect(result).toBeDefined();
     }
   });

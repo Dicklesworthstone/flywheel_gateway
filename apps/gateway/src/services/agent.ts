@@ -907,20 +907,21 @@ export async function initializeAgentService(): Promise<void> {
       const record: AgentRecord = {
         agent: {
           id: row.id,
-          name: `Agent ${row.id}`,
-          provider: "claude", // Default assumption
-          model: row.model,
-          workingDirectory: row.repoUrl,
-          driverType: "sdk", // Default assumption
+          driverId: drv.driverId,
+          driverType: drv.driverType,
           activityState: state.activityState,
           lastActivityAt: state.lastActivityAt,
           tokenUsage: state.tokenUsage,
           contextHealth: state.contextHealth,
           config: {
+            id: row.id,
+            name: `Agent ${row.id}`,
+            provider: "claude",
+            model: row.model,
             workingDirectory: row.repoUrl,
             maxTokens: 100000, // Default
           },
-          startedAt: row.createdAt,
+          startedAt: state.startedAt,
         },
         createdAt: row.createdAt,
         timeout: 3600000, // Default 1 hour

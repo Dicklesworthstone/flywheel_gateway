@@ -762,7 +762,7 @@ async function executeWait(
   switch (config.mode) {
     case "duration": {
       const duration = config.duration ?? 0;
-      const actualWait = Math.min(duration, config.timeout);
+      const actualWait = Math.min(Math.max(0, duration), config.timeout);
 
       await Promise.race([
         sleep(actualWait),
@@ -783,8 +783,13 @@ async function executeWait(
     case "until": {
       const untilValue = substituteVariables(config.until ?? "", context);
       const targetTime = new Date(untilValue).getTime();
+      if (!Number.isFinite(targetTime)) {
+        throw new Error(`Invalid until timestamp: ${untilValue}`);
+      }
       const now = Date.now();
-      const waitTime = Math.min(Math.max(0, targetTime - now), config.timeout);
+      const msUntilTarget = targetTime - now;
+      const waitTime = Math.min(Math.max(0, msUntilTarget), config.timeout);
+      const timedOut = msUntilTarget > config.timeout;
 
       await Promise.race([
         sleep(waitTime),
@@ -801,7 +806,7 @@ async function executeWait(
 
       return {
         waitedMs: Date.now() - startTime,
-        reason: "target_time_reached",
+        reason: timedOut ? "timeout_elapsed" : "target_time_reached",
       };
     }
 
@@ -846,18 +851,18 @@ type SafeExprNode =
   | { type: "identifier"; name: string }
   | { type: "member"; object: SafeExprNode; property: string }
   | { type: "unary"; operator: "!" | "+" | "-"; argument: SafeExprNode }
-	  | {
-	      type: "binary";
-	      operator:
-	        | "+"
-	        | "-"
-	        | "*"
-	        | "/"
-	        | "%"
-	        | "==="
-	        | "!=="
-	        | "<"
-	        | "<="
+  | {
+      type: "binary";
+      operator:
+        | "+"
+        | "-"
+        | "*"
+        | "/"
+        | "%"
+        | "==="
+        | "!=="
+        | "<"
+        | "<="
         | ">"
         | ">="
         | "&&"
@@ -1022,43 +1027,42 @@ function tokenizeSafeExpression(expression: string): SafeExprToken[] {
       continue;
     }
 
-	    // Multi-char operators (longest first)
-	    const start = index;
-	    const rest = trimmed.slice(index);
-	    if (rest.startsWith("==") && !rest.startsWith("===")) {
-	      throw new Error(
-	        formatSafeExpressionError(
-	          'Use strict equality (===) instead of "=="',
-	          trimmed,
-	          start,
-	        ),
-	      );
-	    }
-	    if (rest.startsWith("!=") && !rest.startsWith("!==")) {
-	      throw new Error(
-	        formatSafeExpressionError(
-	          'Use strict inequality (!==) instead of "!="',
-	          trimmed,
-	          start,
-	        ),
-	      );
-	    }
-	    const multi =
-	      rest.startsWith("!==")
-	        ? "!=="
-	        : rest.startsWith("===")
-	          ? "==="
-          : rest.startsWith("&&")
-            ? "&&"
-            : rest.startsWith("||")
-              ? "||"
-	              : rest.startsWith("<=")
-	                ? "<="
-	                : rest.startsWith(">=")
-	                  ? ">="
-	                  : rest.startsWith("??")
-	                    ? "??"
-	                    : undefined;
+    // Multi-char operators (longest first)
+    const start = index;
+    const rest = trimmed.slice(index);
+    if (rest.startsWith("==") && !rest.startsWith("===")) {
+      throw new Error(
+        formatSafeExpressionError(
+          'Use strict equality (===) instead of "=="',
+          trimmed,
+          start,
+        ),
+      );
+    }
+    if (rest.startsWith("!=") && !rest.startsWith("!==")) {
+      throw new Error(
+        formatSafeExpressionError(
+          'Use strict inequality (!==) instead of "!="',
+          trimmed,
+          start,
+        ),
+      );
+    }
+    const multi = rest.startsWith("!==")
+      ? "!=="
+      : rest.startsWith("===")
+        ? "==="
+        : rest.startsWith("&&")
+          ? "&&"
+          : rest.startsWith("||")
+            ? "||"
+            : rest.startsWith("<=")
+              ? "<="
+              : rest.startsWith(">=")
+                ? ">="
+                : rest.startsWith("??")
+                  ? "??"
+                  : undefined;
 
     if (multi) {
       index += multi.length;
@@ -1094,7 +1098,11 @@ function tokenizeSafeExpression(expression: string): SafeExprToken[] {
       case ";":
       default:
         throw new Error(
-          formatSafeExpressionError(`Unexpected character "${ch}"`, trimmed, start),
+          formatSafeExpressionError(
+            `Unexpected character "${ch}"`,
+            trimmed,
+            start,
+          ),
         );
     }
   }
@@ -1197,23 +1205,23 @@ class SafeExpressionParser {
     return node;
   }
 
-	  private parseEquality(): SafeExprNode {
-	    let node = this.parseComparison();
-	    while (true) {
-	      if (this.matchOperator("===")) {
-	        const right = this.parseComparison();
-	        node = { type: "binary", operator: "===", left: node, right };
-	        continue;
-	      }
-	      if (this.matchOperator("!==")) {
-	        const right = this.parseComparison();
-	        node = { type: "binary", operator: "!==", left: node, right };
-	        continue;
-	      }
-	      break;
-	    }
-	    return node;
-	  }
+  private parseEquality(): SafeExprNode {
+    let node = this.parseComparison();
+    while (true) {
+      if (this.matchOperator("===")) {
+        const right = this.parseComparison();
+        node = { type: "binary", operator: "===", left: node, right };
+        continue;
+      }
+      if (this.matchOperator("!==")) {
+        const right = this.parseComparison();
+        node = { type: "binary", operator: "!==", left: node, right };
+        continue;
+      }
+      break;
+    }
+    return node;
+  }
 
   private parseComparison(): SafeExprNode {
     let node = this.parseAdditive();
@@ -1364,7 +1372,8 @@ class SafeExpressionParser {
         const value = this.parseExpression();
         properties.push({ key, value });
         if (this.matchPunct(",")) {
-          if (this.peek().type === "punctuation" && this.peek().value === "}") {
+          const next = this.peek();
+          if (next.type === "punctuation" && next.value === "}") {
             this.consume();
             break;
           }
@@ -1508,24 +1517,24 @@ function evaluateSafeExpression(
       const left = evaluateSafeExpression(node.left, env, depth + 1);
       const right = evaluateSafeExpression(node.right, env, depth + 1);
 
-	      switch (node.operator) {
-	        case "+":
-	          return typeof left === "string" || typeof right === "string"
-	            ? `${String(left ?? "")}${String(right ?? "")}`
-	            : Number(left) + Number(right);
-	        case "-":
-	          return Number(left) - Number(right);
-	        case "*":
-	          return Number(left) * Number(right);
-	        case "/":
-	          return Number(left) / Number(right);
-	        case "%":
-	          return Number(left) % Number(right);
-	        case "===":
-	          return left === right;
-	        case "!==":
-	          return left !== right;
-	        case "<":
+      switch (node.operator) {
+        case "+":
+          return typeof left === "string" || typeof right === "string"
+            ? `${String(left ?? "")}${String(right ?? "")}`
+            : Number(left) + Number(right);
+        case "-":
+          return Number(left) - Number(right);
+        case "*":
+          return Number(left) * Number(right);
+        case "/":
+          return Number(left) / Number(right);
+        case "%":
+          return Number(left) % Number(right);
+        case "===":
+          return left === right;
+        case "!==":
+          return left !== right;
+        case "<":
           return Number(left) < Number(right);
         case "<=":
           return Number(left) <= Number(right);

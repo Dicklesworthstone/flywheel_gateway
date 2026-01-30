@@ -18,6 +18,7 @@ import type {
   DashboardPermissionEntry,
   DashboardSharing,
   DashboardSummary,
+  RefreshInterval,
   UpdateDashboardInput,
   Widget,
   WidgetData,
@@ -51,6 +52,16 @@ const DEFAULT_SHARING_CONFIG: DashboardSharing = {
   embedEnabled: false,
 };
 
+const ALLOWED_REFRESH_INTERVALS = new Set<RefreshInterval>([
+  0, 15, 30, 60, 300, 900,
+]);
+
+function coerceRefreshInterval(value: number): RefreshInterval {
+  return ALLOWED_REFRESH_INTERVALS.has(value as RefreshInterval)
+    ? (value as RefreshInterval)
+    : 60;
+}
+
 // ============================================================================
 // ID Generation
 // ============================================================================
@@ -83,26 +94,28 @@ function generateEmbedToken(): string {
  * Convert DB row to Dashboard object.
  */
 function rowToDashboard(row: typeof dashboards.$inferSelect): Dashboard {
+  const sharing: DashboardSharing = {
+    visibility: row.visibility as "private" | "team" | "public",
+    viewers: [], // TODO: Store these or join? Schema doesn't have them separately yet except in permissions
+    editors: [], // For now we rely on permissions table for granular access
+    requireAuth: row.requireAuth ?? true,
+    embedEnabled: row.embedEnabled ?? false,
+    ...(row.teamId != null ? { teamId: row.teamId } : {}),
+    ...(row.publicSlug != null ? { publicSlug: row.publicSlug } : {}),
+    ...(row.embedToken != null ? { embedToken: row.embedToken } : {}),
+  };
+
   return {
     id: row.id,
     name: row.name,
-    description: row.description ?? undefined,
+    ...(row.description != null ? { description: row.description } : {}),
     ownerId: row.ownerId,
     workspaceId: row.workspaceId,
     layout: row.layout as DashboardLayout,
     widgets: row.widgets as Widget[],
     // Reconstruct sharing object
-    sharing: {
-      visibility: row.visibility as "private" | "team" | "public",
-      viewers: [], // TODO: Store these or join? Schema doesn't have them separately yet except in permissions
-      editors: [], // For now we rely on permissions table for granular access
-      teamId: row.teamId ?? undefined,
-      publicSlug: row.publicSlug ?? undefined,
-      requireAuth: row.requireAuth ?? true,
-      embedEnabled: row.embedEnabled ?? false,
-      embedToken: row.embedToken ?? undefined,
-    },
-    refreshInterval: row.refreshInterval,
+    sharing,
+    refreshInterval: coerceRefreshInterval(row.refreshInterval),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -263,21 +276,23 @@ export async function duplicateDashboard(
     return undefined;
   }
 
-  return createDashboard(
-    {
-      name: newName ?? `${original.name} (Copy)`,
-      description: original.description,
-      workspaceId: original.workspaceId,
-      layout: original.layout,
-      widgets: original.widgets.map((w) => ({
-        ...w,
-        id: `widget_${ulid()}`,
-      })),
-      sharing: {
-        ...DEFAULT_SHARING_CONFIG,
-      },
-      refreshInterval: original.refreshInterval,
+  const createInput: CreateDashboardInput = {
+    name: newName ?? `${original.name} (Copy)`,
+    workspaceId: original.workspaceId,
+    layout: original.layout,
+    widgets: original.widgets.map((w) => ({
+      ...w,
+      id: `widget_${ulid()}`,
+    })),
+    sharing: {
+      ...DEFAULT_SHARING_CONFIG,
     },
+    refreshInterval: original.refreshInterval,
+    ...(original.description !== undefined ? { description: original.description } : {}),
+  };
+
+  return createDashboard(
+    createInput,
     ownerId,
   );
 }
@@ -381,7 +396,7 @@ export async function listDashboards(
   const items: DashboardSummary[] = paginated.map((d) => ({
     id: d.id,
     name: d.name,
-    description: d.description ?? undefined,
+    ...(d.description != null ? { description: d.description } : {}),
     ownerId: d.ownerId,
     visibility: d.visibility as "private" | "team" | "public",
     widgetCount: (d.widgets as any[]).length,
@@ -568,7 +583,7 @@ export async function listFavorites(userId: string): Promise<DashboardSummary[]>
   return rows.map(({ dashboard }) => ({
     id: dashboard.id,
     name: dashboard.name,
-    description: dashboard.description ?? undefined,
+    ...(dashboard.description != null ? { description: dashboard.description } : {}),
     ownerId: dashboard.ownerId,
     visibility: dashboard.visibility as "private" | "team" | "public",
     widgetCount: (dashboard.widgets as any[]).length,

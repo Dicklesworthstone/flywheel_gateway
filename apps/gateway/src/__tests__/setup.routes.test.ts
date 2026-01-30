@@ -20,7 +20,7 @@ beforeAll(async () => {
   restoreToolRegistryService();
   restoreAgentDetectionService();
 
-  const { setup } = await import("../routes/setup?setup-routes-test");
+  const { setup } = await import("../routes/setup");
   app = new Hono().route("/setup", setup);
 });
 
@@ -426,9 +426,11 @@ describe("Setup Routes", () => {
       const body = (await res.json()) as Envelope<ToolRegistryData>;
 
       // Registry source should be either 'manifest' or 'fallback'
-      expect(["manifest", "fallback"]).toContain(
-        body.data.metadata.registrySource,
-      );
+      const { registrySource } = body.data.metadata;
+      if (registrySource == null) {
+        throw new Error("Expected tool registrySource to be present");
+      }
+      expect(["manifest", "fallback"]).toContain(registrySource);
     });
 
     test("tools include robotMode and mcp metadata when present", async () => {

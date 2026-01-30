@@ -393,7 +393,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
       });
 
       expect(fields.count).toBe(15);
-      expect(fields.status).toBe("open");
+      expect(fields["status"]).toBe("open");
     });
 
     test("redacts sensitive extra fields", () => {
@@ -404,8 +404,8 @@ describe("CLI Logging Standards (ADR-007)", () => {
       });
 
       expect(fields.count).toBe(15);
-      expect(fields.token).toBe("[REDACTED]");
-      expect(fields.password).toBe("[REDACTED]");
+      expect(fields["token"]).toBe("[REDACTED]");
+      expect(fields["password"]).toBe("[REDACTED]");
     });
 
     test("handles empty extra object", () => {
@@ -713,7 +713,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
       expect(fields.operation).toBe("ntm --robot-status");
       expect(fields.latencyMs).toBe(75);
       expect(fields.correlationId).toBe(TEST_CORRELATION_ID);
-      expect(fields.sessionCount).toBe(3);
+      expect(fields["sessionCount"]).toBe(3);
     });
   });
 });

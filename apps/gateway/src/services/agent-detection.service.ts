@@ -563,7 +563,9 @@ function deriveCapabilities(
       supported: true,
       flag: tool.robotMode.flag,
       outputFormats: tool.robotMode.outputFormats,
-      envelopeCompliant: tool.robotMode.envelopeCompliant,
+      ...(tool.robotMode.envelopeCompliant !== undefined
+        ? { envelopeCompliant: tool.robotMode.envelopeCompliant }
+        : {}),
     };
   }
 
@@ -571,8 +573,10 @@ function deriveCapabilities(
   if (tool.mcp?.available) {
     result.mcp = {
       available: true,
-      capabilities: tool.mcp.capabilities,
-      toolCount: tool.mcp.toolCount,
+      ...(tool.mcp.capabilities !== undefined
+        ? { capabilities: tool.mcp.capabilities }
+        : {}),
+      ...(tool.mcp.toolCount !== undefined ? { toolCount: tool.mcp.toolCount } : {}),
     };
   }
 

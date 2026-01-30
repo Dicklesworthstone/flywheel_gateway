@@ -173,8 +173,11 @@ describe("NTM client", () => {
       const result = await client.snapshot();
 
       expect("ts" in result).toBe(true);
-      if ("sessions" in result) {
-        expect(result.sessions[0]?.agents[0]?.type).toBe("claude");
+      if ("sessions" in result && Array.isArray(result.sessions)) {
+        const sessions = result.sessions as Array<{
+          agents?: Array<{ type?: string }>;
+        }>;
+        expect(sessions[0]?.agents?.[0]?.type).toBe("claude");
       }
       expect(runner.calls[0]?.args).toContain("--robot-snapshot");
     });

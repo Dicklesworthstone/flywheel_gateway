@@ -292,7 +292,7 @@ export async function createGatewayHarness(
     }
   }
 
-  return {
+  const harness: GatewayHarness = {
     db,
     sqlite: sqliteDb,
     dbPath,
@@ -300,8 +300,15 @@ export async function createGatewayHarness(
     seed,
     exec,
     cleanup,
-    baseUrl,
-    fetch: fetchFn,
     close,
   };
+
+  if (baseUrl !== undefined) {
+    harness.baseUrl = baseUrl;
+  }
+  if (fetchFn !== undefined) {
+    harness.fetch = fetchFn;
+  }
+
+  return harness;
 }

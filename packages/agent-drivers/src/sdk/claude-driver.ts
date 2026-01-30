@@ -103,8 +103,9 @@ export class ClaudeSDKDriver extends BaseDriver {
     }
 
     const history =
-      (config.providerOptions?.conversationHistory as ConversationMessage[]) ??
-      [];
+      (config.providerOptions?.[
+        "conversationHistory"
+      ] as ConversationMessage[]) ?? [];
 
     // Create session
     const session: ClaudeAgentSession = {

@@ -195,7 +195,6 @@ async function executeCommand(
   return new Promise((resolve) => {
     const proc = spawn(command, args, {
       cwd,
-      shell: true,
       timeout,
       env: { ...process.env, NO_COLOR: "1" },
     });
@@ -259,10 +258,24 @@ async function checkUtility(
     return cached.status;
   }
 
-  const result = await executeCommand(utility.checkCommand, [], {
+  const parts = utility.checkCommand.split(/\s+/).filter((p) => p.length > 0);
+  const command = parts[0];
+  const args = parts.slice(1);
+  const now = new Date();
+
+  if (!command) {
+    const status: DeveloperUtility = {
+      ...utility,
+      installed: false,
+      lastCheckedAt: now,
+    };
+    statusCache.set(utility.name, { status, checkedAt: now });
+    return status;
+  }
+
+  const result = await executeCommand(command, args, {
     timeout: 5000,
   });
-  const now = new Date();
 
   let installed = false;
   let installedVersion: string | undefined;
@@ -400,11 +413,6 @@ function validateOutputDir(outputDir: string): {
 } {
   // Resolve to absolute path
   const resolved = path.resolve(outputDir);
-
-  // Check for path traversal
-  if (resolved.includes("..")) {
-    return { valid: false, error: "Path traversal not allowed" };
-  }
 
   // Check against allowed bases
   const isAllowed = ALLOWED_OUTPUT_BASES.some((base) => {

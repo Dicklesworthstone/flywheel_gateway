@@ -491,7 +491,7 @@ export async function getConfig(workspaceId: string): Promise<SafetyConfig> {
     const rule: SafetyRule = {
       id: row.id,
       name: row.name,
-      description: row.description ?? undefined,
+      description: row.description ?? "",
       category: row.category as SafetyCategory,
       conditions: JSON.parse(row.conditions),
       conditionLogic: row.conditionLogic as "and" | "or",
@@ -499,9 +499,9 @@ export async function getConfig(workspaceId: string): Promise<SafetyConfig> {
       severity: row.severity as SafetySeverity,
       message: row.message,
       enabled: row.enabled,
-      alternatives: row.alternatives
-        ? JSON.parse(row.alternatives)
-        : undefined,
+      ...(row.alternatives
+        ? { alternatives: JSON.parse(row.alternatives) as string[] }
+        : {}),
     };
     categories[rule.category].rules.push(rule);
   }
@@ -510,7 +510,7 @@ export async function getConfig(workspaceId: string): Promise<SafetyConfig> {
     id: configRow.id,
     workspaceId: configRow.workspaceId,
     name: configRow.name,
-    description: configRow.description ?? undefined,
+    ...(configRow.description != null ? { description: configRow.description } : {}),
     enabled: configRow.enabled,
     categories,
     rateLimits: JSON.parse(configRow.rateLimits),
@@ -674,31 +674,33 @@ export async function toggleRule(
     )
     .returning();
 
-  if (result.length > 0) {
-    const row = result[0]!;
-    // Update config timestamp
-    const config = await getConfig(workspaceId);
-    await db
-        .update(safetyConfigs)
-        .set({ updatedAt: new Date() })
-        .where(eq(safetyConfigs.id, config.id));
+	  if (result.length > 0) {
+	    const row = result[0]!;
+	    // Update config timestamp
+	    const config = await getConfig(workspaceId);
+	    await db
+	      .update(safetyConfigs)
+	      .set({ updatedAt: new Date() })
+	      .where(eq(safetyConfigs.id, config.id));
 
-    logger.info({ workspaceId, ruleId, enabled }, "Safety rule toggled");
-    
-    return {
-      id: row.id,
-      name: row.name,
-      description: row.description ?? undefined,
-      category: row.category as SafetyCategory,
-      conditions: JSON.parse(row.conditions),
-      conditionLogic: row.conditionLogic as "and" | "or",
-      action: row.action as SafetyAction,
-      severity: row.severity as SafetySeverity,
-      message: row.message,
-      enabled: row.enabled,
-      alternatives: row.alternatives ? JSON.parse(row.alternatives) : undefined,
-    };
-  }
+	    logger.info({ workspaceId, ruleId, enabled }, "Safety rule toggled");
+
+	    return {
+	      id: row.id,
+	      name: row.name,
+	      description: row.description ?? "",
+	      category: row.category as SafetyCategory,
+	      conditions: JSON.parse(row.conditions),
+	      conditionLogic: row.conditionLogic as "and" | "or",
+	      action: row.action as SafetyAction,
+	      severity: row.severity as SafetySeverity,
+	      message: row.message,
+	      enabled: row.enabled,
+	      ...(row.alternatives
+	        ? { alternatives: JSON.parse(row.alternatives) as string[] }
+	        : {}),
+	    };
+	  }
 
   return undefined;
 }
@@ -1168,34 +1170,48 @@ export async function getViolations(
     .orderBy(desc(safetyViolations.timestamp))
     .limit(options?.limit ?? 50);
 
-  return rows.map(row => ({
+  return rows.map((row) => {
+    const context: SafetyViolation["context"] = {
+      recentHistory: row.recentHistory
+        ? (JSON.parse(row.recentHistory as string) as string[])
+        : [],
+      ...(row.taskDescription != null ? { taskDescription: row.taskDescription } : {}),
+    };
+
+    const action: SafetyViolation["action"] =
+      row.actionTaken === "blocked" ||
+      row.actionTaken === "warned" ||
+      row.actionTaken === "pending_approval"
+        ? row.actionTaken
+        : "blocked";
+
+    return {
       id: row.id,
       timestamp: row.timestamp,
-      agentId: row.agentId!,
-      sessionId: row.sessionId!,
+      agentId: row.agentId ?? "unknown",
+      sessionId: row.sessionId ?? "unknown",
       workspaceId: row.workspaceId,
       rule: {
-          id: row.ruleId!,
-          name: row.ruleName,
-          category: row.ruleCategory as SafetyCategory,
-          severity: row.ruleSeverity as SafetySeverity,
-          action: "deny", // Simplified reconstruction, not full rule
-          conditions: [],
-          conditionLogic: "and",
-          message: "",
-          enabled: true
+        id: row.ruleId ?? "unknown",
+        name: row.ruleName,
+        description: "",
+        category: row.ruleCategory as SafetyCategory,
+        severity: row.ruleSeverity as SafetySeverity,
+        action: "deny",
+        conditions: [],
+        conditionLogic: "and",
+        message: "",
+        enabled: true,
       },
       operation: {
-          type: row.operationType as SafetyCategory,
-          details: JSON.parse(row.operationDetails as string),
+        type: row.operationType as SafetyCategory,
+        details: (row.operationDetails ?? {}) as Record<string, unknown>,
       },
-      action: row.actionTaken as any,
-      context: {
-          taskDescription: row.taskDescription ?? undefined,
-          recentHistory: row.recentHistory ? JSON.parse(row.recentHistory as string) : [],
-      },
-      correlationId: row.correlationId ?? undefined
-  }));
+      action,
+      context,
+      ...(row.correlationId != null ? { correlationId: row.correlationId } : {}),
+    };
+  });
 }
 
 /**
@@ -1310,8 +1326,7 @@ export async function emergencyStop(
   config.enabled = true;
 
   // Add deny-all rule
-  const denyAllRule: SafetyRule = {
-    id: generateId("rule"),
+  const denyAllRule: Omit<SafetyRule, "id"> = {
     name: "Emergency Stop",
     description: `Emergency stop initiated by ${initiatedBy}: ${reason}`,
     category: "execution",
@@ -1325,9 +1340,9 @@ export async function emergencyStop(
 
   // We add this rule to the DB directly
   await addRule(workspaceId, denyAllRule);
-  await addRule(workspaceId, { ...denyAllRule, id: generateId("rule"), category: "filesystem" });
-  await addRule(workspaceId, { ...denyAllRule, id: generateId("rule"), category: "git" });
-  await addRule(workspaceId, { ...denyAllRule, id: generateId("rule"), category: "network" });
+  await addRule(workspaceId, { ...denyAllRule, category: "filesystem" });
+  await addRule(workspaceId, { ...denyAllRule, category: "git" });
+  await addRule(workspaceId, { ...denyAllRule, category: "network" });
 
   await updateConfig(workspaceId, { enabled: true });
 

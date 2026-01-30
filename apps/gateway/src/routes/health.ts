@@ -512,9 +512,13 @@ health.get("/detailed", async (c) => {
   if (agentCLIs.detection) {
     try {
       const registry = await loadToolRegistry();
+      const detectedCLIs = [
+        ...agentCLIs.detection.agents,
+        ...agentCLIs.detection.tools,
+      ];
       diagnostics = computeHealthDiagnostics(
         registry.tools,
-        agentCLIs.detection.clis,
+        detectedCLIs,
       );
     } catch {
       // Non-critical; omit diagnostics on failure

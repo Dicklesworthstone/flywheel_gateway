@@ -60,4 +60,10 @@ export function createChildLogger(bindings: pino.Bindings): pino.Logger {
   return ensureChild(bindings);
 }
 
-export type Logger = pino.Logger;
+export interface Logger {
+  info: pino.LogFn;
+  warn: pino.LogFn;
+  debug: pino.LogFn;
+  error: pino.LogFn;
+  child: (bindings: pino.Bindings) => Logger;
+}

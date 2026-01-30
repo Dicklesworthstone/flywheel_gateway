@@ -24,6 +24,14 @@ export function useAllowMockFallback(): boolean {
   // In development, always allow mock fallback
   const isDevelopment = import.meta.env.DEV;
 
+  // Explicitly disabling mock mode should disable fallback even in dev
+  if (typeof window !== "undefined") {
+    const stored = window.localStorage.getItem("fw-mock-mode");
+    if (stored === "false") {
+      return false;
+    }
+  }
+
   return mockMode || isDevelopment;
 }
 
@@ -39,6 +47,9 @@ export function getAllowMockFallback(): boolean {
   }
 
   const stored = window.localStorage.getItem("fw-mock-mode");
+  if (stored === "false") {
+    return false;
+  }
   const mockMode = stored === "true";
 
   return mockMode || isDevelopment;

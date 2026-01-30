@@ -87,19 +87,29 @@ interface LogCall {
 
 const logCalls: LogCall[] = [];
 
+function recordLog(level: LogCall["level"]) {
+  return (...args: unknown[]) => {
+    const first = args[0];
+    const second = args[1];
+
+    const context =
+      first && typeof first === "object" ? (first as Record<string, unknown>) : {};
+    const message =
+      typeof first === "string"
+        ? first
+        : typeof second === "string"
+          ? second
+          : "";
+
+    logCalls.push({ level, context, message });
+  };
+}
+
 const mockLogger = {
-  info: (context: Record<string, unknown>, message: string) => {
-    logCalls.push({ level: "info", context, message });
-  },
-  warn: (context: Record<string, unknown>, message: string) => {
-    logCalls.push({ level: "warn", context, message });
-  },
-  debug: (context: Record<string, unknown>, message: string) => {
-    logCalls.push({ level: "debug", context, message });
-  },
-  error: (context: Record<string, unknown>, message: string) => {
-    logCalls.push({ level: "error", context, message });
-  },
+  info: recordLog("info"),
+  warn: recordLog("warn"),
+  debug: recordLog("debug"),
+  error: recordLog("error"),
   child: () => mockLogger,
 };
 

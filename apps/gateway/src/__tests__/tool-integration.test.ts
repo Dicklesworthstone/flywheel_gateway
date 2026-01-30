@@ -333,11 +333,19 @@ describe("Health Diagnostics Integration with Registry", () => {
 
   function makeCLI(name: string, available: boolean): DetectedCLI {
     return {
-      name,
+      name: name as DetectedCLI["name"],
       available,
-      detectionMs: 1,
       ...(available ? {} : { unavailabilityReason: "not_installed" as const }),
-    } as DetectedCLI;
+      capabilities: {
+        streaming: false,
+        toolUse: false,
+        vision: false,
+        codeExecution: false,
+        fileAccess: false,
+      },
+      detectedAt: new Date(),
+      durationMs: 1,
+    };
   }
 
   it("integrates registry tools with detection results", () => {

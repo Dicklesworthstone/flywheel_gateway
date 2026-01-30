@@ -527,7 +527,7 @@ export class NtmIngestService {
         agentRecord &&
         agentRecord.currentState !== LifecycleState.TERMINATED
       ) {
-        transitionState(agentId, LifecycleState.TERMINATED, "ntm_disappeared");
+        transitionState(agentId, LifecycleState.TERMINATED, "driver_error");
         log.info(
           { agentId },
           "[NTM-INGEST] Marked gateway agent as terminated (disappeared from NTM)",

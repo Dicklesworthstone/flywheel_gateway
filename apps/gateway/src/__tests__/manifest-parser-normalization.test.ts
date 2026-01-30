@@ -50,6 +50,12 @@ mock.module("yaml", () => ({
   parse: (content: string) => realYaml.parse(content),
 }));
 
+// Use a cache-busting specifier so this test file always loads a fresh copy
+// of the registry module after mocks are installed. Keep the specifier
+// non-literal so TypeScript doesn't try to resolve the query string.
+const TOOL_REGISTRY_MODULE_SPECIFIER =
+  "../services/tool-registry.service?manifest-parser-normalization-test";
+
 const {
   categorizeTools,
   clearToolRegistryCache,
@@ -62,9 +68,9 @@ const {
   listAllTools,
   listSetupTools,
   loadToolRegistry,
-} = await import(
-  "../services/tool-registry.service?manifest-parser-normalization-test",
-);
+} = (await import(
+  TOOL_REGISTRY_MODULE_SPECIFIER,
+)) as typeof import("../services/tool-registry.service");
 import type { ToolDefinition } from "@flywheel/shared/types/tool-registry.types";
 
 const MANIFEST_PATH = "/tmp/norm-test.yaml";

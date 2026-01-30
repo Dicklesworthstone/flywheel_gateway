@@ -578,7 +578,7 @@ async function collectToolHealthSnapshot(
         toolsWithChecksums: checksumInfo.toolsWithChecksums,
         checksumsStale: checksumInfo.isStale,
         checksumStatuses: checksumInfo.tools,
-        ecosystem: ecosystem ?? undefined,
+        ...(ecosystem ? { ecosystem } : {}),
         issues,
         recommendations,
       };
@@ -988,23 +988,23 @@ function parseAgentMailAgentSnapshot(
     const derived: Record<string, unknown> = {};
 
     const displayName =
-      typeof value.display_name === "string"
-        ? value.display_name
-        : typeof value.displayName === "string"
-          ? value.displayName
+      typeof value["display_name"] === "string"
+        ? value["display_name"]
+        : typeof value["displayName"] === "string"
+          ? value["displayName"]
           : undefined;
-    if (displayName) derived.displayName = displayName;
+    if (displayName) derived["displayName"] = displayName;
 
     const agentType =
-      typeof value.agent_type === "string"
-        ? value.agent_type
-        : typeof value.agentType === "string"
-          ? value.agentType
+      typeof value["agent_type"] === "string"
+        ? value["agent_type"]
+        : typeof value["agentType"] === "string"
+          ? value["agentType"]
           : undefined;
-    if (agentType) derived.agentType = agentType;
+    if (agentType) derived["agentType"] = agentType;
 
-    if (typeof value.status === "string") derived.status = value.status;
-    if (typeof value.event === "string") derived.event = value.event;
+    if (typeof value["status"] === "string") derived["status"] = value["status"];
+    if (typeof value["event"] === "string") derived["event"] = value["event"];
 
     if (Object.keys(derived).length > 0) snapshot.metadata = derived;
   }
