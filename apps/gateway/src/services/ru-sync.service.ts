@@ -155,7 +155,7 @@ async function readStreamSafe(
   }
 
   if (content.length > maxBytes) {
-    content = content.slice(0, maxBytes) + "\n[TRUNCATED]";
+    content = `${content.slice(0, maxBytes)}\n[TRUNCATED]`;
   }
 
   return content;

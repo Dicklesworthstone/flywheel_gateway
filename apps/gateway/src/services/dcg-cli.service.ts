@@ -9,11 +9,7 @@
  */
 
 import { getCorrelationId, getLogger } from "../middleware/correlation";
-import {
-  createToolLogger,
-  logCliCommand,
-  logCliWarning,
-} from "../utils/cli-logging";
+import { createToolLogger } from "../utils/cli-logging";
 import { logger } from "./logger";
 
 // Create a scoped logger for dcg operations

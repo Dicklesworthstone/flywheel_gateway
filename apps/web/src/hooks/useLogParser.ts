@@ -101,7 +101,7 @@ export function useLogParser(
   // Helper to reject all pending promises
   const rejectAllPending = useCallback((reason: string) => {
     const error = new Error(reason);
-    for (const [key, { reject }] of pendingRef.current) {
+    for (const [_key, { reject }] of pendingRef.current) {
       reject(error);
     }
     pendingRef.current.clear();

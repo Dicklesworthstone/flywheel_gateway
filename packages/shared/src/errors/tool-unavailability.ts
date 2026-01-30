@@ -191,7 +191,7 @@ export function classifyToolUnavailability(
     typeof input.error === "string"
       ? input.error
       : (input.error?.message ?? "");
-  const combined = stderr + " " + errorMsg;
+  const combined = `${stderr} ${errorMsg}`;
 
   // 1. Check stderr + error message patterns
   for (const [pattern, reason] of STDERR_PATTERNS) {

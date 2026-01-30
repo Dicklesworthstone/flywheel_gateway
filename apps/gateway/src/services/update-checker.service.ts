@@ -22,7 +22,6 @@ import type {
   DownloadResult,
   ReleaseAsset,
   ReleaseInfo,
-  ToolDefinition,
   UpdateCheckCache,
   UpdateCheckerConfig,
   UpdateCheckerService,
@@ -667,8 +666,8 @@ export async function verifyAgainstAcfsChecksums(
       {
         toolId,
         filename,
-        expected: expectedChecksum.substring(0, 16) + "...",
-        actual: actualChecksum.substring(0, 16) + "...",
+        expected: `${expectedChecksum.substring(0, 16)}...`,
+        actual: `${actualChecksum.substring(0, 16)}...`,
       },
       "ACFS checksum mismatch",
     );
@@ -780,7 +779,7 @@ export async function verifyAcfsBatch(
         filePath,
       );
       results.push(result);
-    } catch (error) {
+    } catch (_error) {
       // Include failed verifications with verified=false
       results.push({
         verified: false,

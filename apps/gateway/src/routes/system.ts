@@ -6,11 +6,10 @@
  * - /system/snapshot/cache - Cache management for snapshot service
  */
 
-import type { SystemSnapshot } from "@flywheel/shared";
 import { Hono } from "hono";
 import { getLogger } from "../middleware/correlation";
 import { getSnapshotService } from "../services/snapshot.service";
-import { sendResource, sendValidationError } from "../utils/response";
+import { sendResource } from "../utils/response";
 
 const system = new Hono();
 

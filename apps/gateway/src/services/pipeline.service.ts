@@ -1094,8 +1094,6 @@ function tokenizeSafeExpression(expression: string): SafeExprToken[] {
         consume();
         tokens.push({ type: "punctuation", value: ch, pos: start });
         continue;
-      case "=":
-      case ";":
       default:
         throw new Error(
           formatSafeExpressionError(

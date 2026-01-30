@@ -179,7 +179,7 @@ describe("Route registration conformance", () => {
     const routesDir = join(import.meta.dir, "../routes");
     const routeFiles = readdirSync(routesDir) as string[];
 
-    const prefixes = new Set(endpoints.map((e) => "/" + e.path.split("/")[1]));
+    const prefixes = new Set(endpoints.map((e) => `/${e.path.split("/")[1]}`));
 
     for (const prefix of prefixes) {
       const expectedFile = pathToRouteFile[prefix!];

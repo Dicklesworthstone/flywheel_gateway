@@ -283,7 +283,7 @@ describe("JFP client", () => {
     test("returns status with version", async () => {
       const runner = {
         calls: [] as { command: string; args: string[] }[],
-        run: async (_command: string, args: string[]) => {
+        run: async (_command: string, _args: string[]) => {
           return { stdout: "jfp/1.2.3", stderr: "", exitCode: 0 };
         },
       };

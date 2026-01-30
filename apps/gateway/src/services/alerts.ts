@@ -31,10 +31,7 @@ import { getNtmIngestService } from "./ntm-ingest.service";
 import * as slbService from "./slb.service";
 import { loadToolRegistry } from "./tool-registry.service";
 import { getUBSService } from "./ubs.service";
-import {
-  getChecksumAge,
-  listToolsWithChecksums,
-} from "./update-checker.service";
+import { listToolsWithChecksums } from "./update-checker.service";
 
 /** Active alerts */
 const activeAlerts = new Map<string, Alert>();

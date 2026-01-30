@@ -23,7 +23,7 @@ import type {
   Widget,
   WidgetData,
 } from "@flywheel/shared";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { ulid } from "ulid";
 import { db } from "../db";
 import {
