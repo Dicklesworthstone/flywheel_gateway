@@ -1,7 +1,7 @@
 # Coverage Baseline Report
 
 Generated: 2026-01-29
-Command: `bun test --coverage`
+Command: `bun run test -- --coverage`
 
 ## Test Suite Summary
 

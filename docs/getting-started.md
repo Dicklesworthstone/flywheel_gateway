@@ -217,13 +217,13 @@ Track AI usage costs at `/cost-analytics`:
 
 ```bash
 # All tests
-bun test
+bun run test
 
 # Specific test file
 bun test apps/gateway/src/__tests__/agent.service.test.ts
 
 # With coverage
-bun test --coverage
+bun run test -- --coverage
 ```
 
 ### Lint and Format

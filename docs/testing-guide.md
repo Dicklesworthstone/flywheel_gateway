@@ -6,7 +6,7 @@ This document describes how to run tests, understand test patterns, and write ne
 
 | Command | Description |
 |---------|-------------|
-| `bun test` | Run all unit tests |
+| `bun run test` | Run all unit tests |
 | `bun test <path>` | Run specific test file |
 | `bun test --filter <pattern>` | Run tests matching pattern |
 | `bun test:e2e` | Run Playwright E2E tests |
@@ -285,7 +285,7 @@ describe("br client contract", () => {
 ### All Tests
 
 ```bash
-bun test
+bun run test
 ```
 
 ### Specific File
@@ -297,13 +297,13 @@ bun test apps/gateway/src/__tests__/safety.routes.test.ts
 ### Watch Mode
 
 ```bash
-bun test --watch
+bun run test -- --watch
 ```
 
 ### With Coverage
 
 ```bash
-bun test --coverage
+bun run test -- --coverage
 ```
 
 ### Filtering by Name

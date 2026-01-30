@@ -93,7 +93,7 @@ flywheel_gateway/
 bun dev
 
 # Run tests
-bun test
+bun run test
 
 # Run E2E tests
 bun test:e2e
