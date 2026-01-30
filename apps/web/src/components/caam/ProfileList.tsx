@@ -225,14 +225,13 @@ function ProfileCard({
 
           {showMenu && (
             <>
-              <div
+              <button
+                type="button"
                 className="fixed inset-0 z-10"
-                role="button"
-                tabIndex={0}
                 aria-label="Close menu"
                 onClick={() => setShowMenu(false)}
                 onKeyDown={(e) => {
-                  if (e.key === "Escape" || e.key === "Enter") {
+                  if (e.key === "Escape") {
                     setShowMenu(false);
                   }
                 }}

@@ -141,14 +141,13 @@ export function DashboardGrid({
             const isTarget = dropTarget?.x === x && dropTarget?.y === y;
 
             return (
-              <div
+              <section
                 key={`cell-${x}-${y}`}
                 className={`dashboard-grid__drop-zone ${isTarget ? "dashboard-grid__drop-zone--active" : ""}`}
                 style={{
                   gridColumn: x + 1,
                   gridRow: y + 1,
                 }}
-                role="region"
                 aria-label={`Drop zone at column ${x + 1}, row ${y + 1}`}
                 onDragOver={(e) => handleDragOver(e, x, y)}
                 onDrop={(e) => handleDrop(e, x, y)}
@@ -164,14 +163,13 @@ export function DashboardGrid({
         const isDragging = draggedWidget === widget.id;
 
         return (
-          <div
+          <article
             key={widget.id}
             className={`dashboard-grid__item ${isDragging ? "dashboard-grid__item--dragging" : ""}`}
             style={{
               gridColumn: `${x + 1} / span ${w}`,
               gridRow: `${y + 1} / span ${h}`,
             }}
-            role="article"
             aria-label={`Widget: ${widget.title || widget.type}`}
             draggable={isEditing}
             onDragStart={(e) => handleDragStart(e, widget.id)}
@@ -193,7 +191,7 @@ export function DashboardGrid({
                 ? { onRefresh: () => onWidgetRefresh(widget.id) }
                 : {})}
             />
-          </div>
+          </article>
         );
       })}
 

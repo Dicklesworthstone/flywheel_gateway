@@ -76,7 +76,7 @@ const OutputRow = memo(function OutputRow({
   onHeightChange?: (index: number, height: number) => void;
   onClick?: () => void;
 }) {
-  const rowRef = useRef<HTMLDivElement>(null);
+  const rowRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (rowRef.current && onHeightChange) {
@@ -100,18 +100,12 @@ const OutputRow = memo(function OutputRow({
   };
 
   return (
-    <div
+    <button
+      type="button"
       ref={rowRef}
       style={style}
       className={`flex items-start px-3 py-0.5 hover:bg-gray-800/50 cursor-pointer font-mono text-sm ${typeStyles[line.type]}`}
       onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          onClick?.();
-        }
-      }}
-      role="button"
-      tabIndex={0}
     >
       <span className="text-gray-500 text-xs w-20 flex-shrink-0 mr-2">
         {formatTimestamp(line.timestamp)}
@@ -122,7 +116,7 @@ const OutputRow = memo(function OutputRow({
       <span className="whitespace-pre-wrap break-all flex-1">
         {line.content}
       </span>
-    </div>
+    </button>
   );
 });
 
