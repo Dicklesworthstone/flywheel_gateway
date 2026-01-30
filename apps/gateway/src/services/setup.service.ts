@@ -774,14 +774,15 @@ export async function installTool(
     let stderr: string;
     let exitCode: number;
 
-    try {
-      const resultPromise = (async () => {
-        const stdout = await new Response(proc.stdout).text();
-        const stderrOutput = await new Response(proc.stderr).text();
-        const code = await proc.exited;
-        return { stdout, stderr: stderrOutput, exitCode: code };
-      })();
+    // Declare outside try so it's accessible in catch for cleanup
+    const resultPromise = (async () => {
+      const stdout = await new Response(proc.stdout).text();
+      const stderrOutput = await new Response(proc.stderr).text();
+      const code = await proc.exited;
+      return { stdout, stderr: stderrOutput, exitCode: code };
+    })();
 
+    try {
       const result = await Promise.race([resultPromise, timeoutPromise]);
       _stdout = result.stdout;
       stderr = result.stderr;
