@@ -262,6 +262,10 @@ describe("AcpDriver", () => {
     });
 
     it("should preserve the first message when pruning", async () => {
+      if (!shellAvailable) {
+        console.log("Skipping preserve-first-message test: /bin/sh not available");
+        return;
+      }
       const driver = await createAcpDriver({
         agentBinary: "/bin/sh",
         agentArgs: ["-c", "cat > /dev/null"],
@@ -301,6 +305,10 @@ describe("AcpDriver", () => {
     });
 
     it("should not prune when history is under the limit", async () => {
+      if (!shellAvailable) {
+        console.log("Skipping no-prune test: /bin/sh not available");
+        return;
+      }
       const driver = await createAcpDriver({
         agentBinary: "/bin/sh",
         agentArgs: ["-c", "cat > /dev/null"],
@@ -334,6 +342,10 @@ describe("AcpDriver", () => {
     });
 
     it("should not prune when history is exactly at the limit", async () => {
+      if (!shellAvailable) {
+        console.log("Skipping at-limit test: /bin/sh not available");
+        return;
+      }
       const driver = await createAcpDriver({
         agentBinary: "/bin/sh",
         agentArgs: ["-c", "cat > /dev/null"],
@@ -366,6 +378,10 @@ describe("AcpDriver", () => {
     });
 
     it("should isolate pruning between multiple sessions", async () => {
+      if (!shellAvailable) {
+        console.log("Skipping multi-session test: /bin/sh not available");
+        return;
+      }
       const driver = await createAcpDriver({
         agentBinary: "/bin/sh",
         agentArgs: ["-c", "cat > /dev/null"],
