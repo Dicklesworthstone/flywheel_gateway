@@ -172,7 +172,9 @@ export function NTMPage() {
   const ntmTool = diagnostics?.tools?.["ntm"];
 
   const tabs: Array<{ id: typeof tab; label: string; badge?: number }> = [
-    { id: "sessions", label: "Sessions", ...(ntmAgents.length > 0 && { badge: ntmAgents.length }) },
+    ntmAgents.length > 0
+      ? { id: "sessions" as const, label: "Sessions", badge: ntmAgents.length }
+      : { id: "sessions" as const, label: "Sessions" },
     { id: "health", label: "Health" },
     { id: "diagnostics", label: "Diagnostics" },
   ];

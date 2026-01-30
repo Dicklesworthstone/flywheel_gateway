@@ -65,9 +65,7 @@ class TestableNtmDriver extends NtmDriver {
       ...options,
       // Override the runner to prevent actual NTM commands
       runner: {
-        runCommand: mock(() =>
-          Promise.resolve({ success: true, stdout: "{}", stderr: "" }),
-        ),
+        run: mock(() => Promise.resolve({ stdout: "{}", stderr: "", exitCode: 0 })),
       },
     });
     this.mockClient = mockClient;

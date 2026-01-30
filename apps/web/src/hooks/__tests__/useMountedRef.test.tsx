@@ -192,7 +192,7 @@ describe("useMountedRef", () => {
       });
 
       expect(stateSkipped).not.toBeNull();
-      expect(stateSkipped).toBe(false);
+      expect(stateSkipped as boolean).toBe(false);
       expect(getByTestId("value").textContent).toBe("updated");
     });
 
@@ -217,7 +217,7 @@ describe("useMountedRef", () => {
       });
 
       expect(stateSkipped).not.toBeNull();
-      expect(stateSkipped).toBe(true);
+      expect(stateSkipped as boolean).toBe(true);
     });
   });
 
@@ -243,7 +243,7 @@ describe("useMountedRef", () => {
 
       // The ref should be false during cleanup
       expect(refDuringCleanup).not.toBeNull();
-      expect(refDuringCleanup).toBe(false);
+      expect(refDuringCleanup as boolean).toBe(false);
     });
   });
 

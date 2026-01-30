@@ -152,9 +152,13 @@ export function SLBPage() {
   const sessionList = sessions?.data ?? [];
 
   const tabs: Array<{ id: TabId; label: string; badge?: number }> = [
-    { id: "pending", label: "Pending", ...(pendingList.length > 0 && { badge: pendingList.length }) },
+    pendingList.length > 0
+      ? { id: "pending" as const, label: "Pending", badge: pendingList.length }
+      : { id: "pending" as const, label: "Pending" },
     { id: "history", label: "History" },
-    { id: "sessions", label: "Sessions", ...(sessionList.length > 0 && { badge: sessionList.length }) },
+    sessionList.length > 0
+      ? { id: "sessions" as const, label: "Sessions", badge: sessionList.length }
+      : { id: "sessions" as const, label: "Sessions" },
     { id: "check", label: "Check Command" },
   ];
 

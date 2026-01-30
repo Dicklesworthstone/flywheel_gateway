@@ -5,7 +5,7 @@
  * and managing the setup flow.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 // ============================================================================
 // Types
@@ -661,18 +661,15 @@ export function useToolRegistry() {
   }, [refresh]);
 
   // Build a lookup map for quick access
-  const toolMap = registry?.tools.reduce(
-    (acc, tool) => {
-      acc[tool.name] = tool;
-      return acc;
-    },
-    {} as Record<string, ToolRegistryDefinition>,
-  );
+  const toolMap = useMemo(() => {
+    if (!registry?.tools) return new Map<string, ToolRegistryDefinition>();
+    return new Map(registry.tools.map((tool) => [tool.name, tool]));
+  }, [registry?.tools]);
 
   return {
     registry,
     tools: registry?.tools ?? [],
-    toolMap: toolMap ?? {},
+    toolMap,
     loading,
     error,
     refresh,

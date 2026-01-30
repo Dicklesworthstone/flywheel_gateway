@@ -199,8 +199,9 @@ interface ToolCardProps {
   installing?: boolean;
   index?: number;
   priority?: ToolPriority;
+  // Allow undefined for exactOptionalPropertyTypes compatibility
   phase?: number | undefined;
-  registryTool?: ToolRegistryDefinition;
+  registryTool?: ToolRegistryDefinition | undefined;
 }
 
 function ToolCard({
