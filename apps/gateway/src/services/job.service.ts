@@ -253,6 +253,10 @@ export class JobService {
         baseLogger.error({ error: err }, "Error processing job queue");
       });
     }, this.config.worker.pollIntervalMs);
+    // Ensure interval doesn't prevent process exit
+    if (this.pollInterval.unref) {
+      this.pollInterval.unref();
+    }
 
     // Process immediately
     this.processQueue().catch((err) => {

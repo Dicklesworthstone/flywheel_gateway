@@ -218,6 +218,10 @@ export class GraphBridgeService {
       if (!this.isRunning) return;
       await this.pollEvents();
     }, this.config.pollIntervalMs);
+    // Ensure interval doesn't prevent process exit
+    if (this.pollInterval.unref) {
+      this.pollInterval.unref();
+    }
 
     // Initial poll
     this.pollEvents();

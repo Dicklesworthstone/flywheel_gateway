@@ -214,15 +214,58 @@ export function WebSocketProvider({ children, url }: WebSocketProviderProps) {
         if (wsRef.current !== ws) return;
 
         try {
-          const data = JSON.parse(event.data);
+          const data = JSON.parse(event.data) as {
+            type?: unknown;
+            channel?: unknown;
+            payload?: unknown;
+            id?: unknown;
+            ackRequired?: unknown;
+            message?: {
+              id?: unknown;
+              channel?: unknown;
+              payload?: unknown;
+            };
+          };
 
           // Handle heartbeat
           if (data.type === "heartbeat") {
             return;
           }
 
+          // Hub envelope: { type: "message", message: HubMessage, ackRequired? }
+          const hubMessage = data.message;
+          if (
+            data.type === "message" &&
+            hubMessage &&
+            typeof hubMessage.channel === "string"
+          ) {
+            const channel = hubMessage.channel;
+
+            if (subscriptionsRef.current.has(channel)) {
+              const handlers = subscriptionsRef.current.get(channel);
+              handlers?.forEach((handler) => {
+                try {
+                  handler(hubMessage.payload ?? hubMessage);
+                } catch {
+                  // Handler error, don't propagate
+                }
+              });
+            }
+
+            if (data.ackRequired === true && typeof hubMessage.id === "string") {
+              ws.send(
+                JSON.stringify({ type: "ack", messageIds: [hubMessage.id] }),
+              );
+            }
+
+            return;
+          }
+
           // Route message to subscribers
-          if (data.channel && subscriptionsRef.current.has(data.channel)) {
+          if (
+            typeof data.channel === "string" &&
+            subscriptionsRef.current.has(data.channel)
+          ) {
             const handlers = subscriptionsRef.current.get(data.channel);
             handlers?.forEach((handler) => {
               try {
@@ -234,7 +277,7 @@ export function WebSocketProvider({ children, url }: WebSocketProviderProps) {
           }
 
           // Handle ack requirement
-          if (data.ackRequired && data.id) {
+          if (data.ackRequired === true && typeof data.id === "string") {
             ws.send(JSON.stringify({ type: "ack", messageIds: [data.id] }));
           }
         } catch {

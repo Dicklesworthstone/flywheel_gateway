@@ -162,6 +162,10 @@ export class ContextHealthService {
           );
         });
       }, this.config.monitoring.checkIntervalMs);
+      // Ensure interval doesn't prevent process exit
+      if (interval.unref) {
+        interval.unref();
+      }
       this.monitoringIntervals.set(sessionId, interval);
     }
 
