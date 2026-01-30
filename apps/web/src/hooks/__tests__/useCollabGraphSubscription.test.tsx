@@ -48,7 +48,10 @@ const createWebSocket = (url: string) =>
 function SubscriptionProbe({ workspaceId }: { workspaceId?: string }) {
   const subscriptionOptions =
     workspaceId === undefined
-      ? { wsUrl: "ws://example.test/ws", __testCreateWebSocket: createWebSocket }
+      ? {
+          wsUrl: "ws://example.test/ws",
+          __testCreateWebSocket: createWebSocket,
+        }
       : {
           workspaceId,
           wsUrl: "ws://example.test/ws",
@@ -76,7 +79,10 @@ describe("useGraphSubscription", () => {
     expect(MockWebSocket.instances).toHaveLength(1);
     const ws = MockWebSocket.instances[0]!;
 
-    expect(ws.url).toBe("ws://example.test/ws");
+    const url = new URL(ws.url);
+    expect(url.protocol).toBe("ws:");
+    expect(url.host).toBe("example.test");
+    expect(url.pathname).toBe("/ws");
     expect(getByTestId("connected").textContent).toBe("disconnected");
 
     act(() => {
