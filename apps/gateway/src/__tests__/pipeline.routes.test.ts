@@ -658,6 +658,20 @@ describe("Pipeline Routes", () => {
       expect(body.data.triggeredBy.type).toBe("user");
     });
 
+    test("returns 400 for invalid JSON body", async () => {
+      const pipeline = createPipeline(createTestPipelineInput());
+
+      const res = await app.request(`/pipelines/${pipeline.id}/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{invalid-json",
+      });
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error.code).toBe("INVALID_REQUEST");
+    });
+
     test("returns 404 for unknown pipeline", async () => {
       const res = await app.request("/pipelines/pipe_unknown/run", {
         method: "POST",

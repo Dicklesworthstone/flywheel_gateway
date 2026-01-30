@@ -10,6 +10,7 @@
  */
 
 import { type Context, Hono } from "hono";
+import type { AuthContext } from "../ws/hub";
 import { z } from "zod";
 import { getLogger } from "../middleware/correlation";
 import type {
@@ -215,6 +216,47 @@ function serializeNotification(notification: Notification) {
   };
 }
 
+function resolveUserId(
+  c: Context,
+  paramName: "user_id" | "recipient_id",
+): string | Response {
+  const auth = c.get("auth") as AuthContext | undefined;
+  const requested = c.req.query(paramName);
+
+  if (!auth) {
+    if (!requested) {
+      return sendError(c, "INVALID_REQUEST", `${paramName} is required`, 400);
+    }
+    return requested;
+  }
+
+  if (auth.isAdmin) {
+    if (requested) return requested;
+    if (auth.userId) return auth.userId;
+    return sendError(c, "INVALID_REQUEST", `${paramName} is required`, 400);
+  }
+
+  if (!auth.userId) {
+    return sendError(
+      c,
+      "AUTH_INSUFFICIENT_SCOPE",
+      "User identity required",
+      403,
+    );
+  }
+
+  if (requested && requested !== auth.userId) {
+    return sendError(
+      c,
+      "AUTH_INSUFFICIENT_SCOPE",
+      "Cannot access another user's data",
+      403,
+    );
+  }
+
+  return auth.userId;
+}
+
 // ============================================================================
 // Routes
 // ============================================================================
@@ -235,10 +277,8 @@ function serializeNotification(notification: Notification) {
  */
 notifications.get("/", (c) => {
   try {
-    const recipientId = c.req.query("recipient_id");
-    if (!recipientId) {
-      return sendError(c, "INVALID_REQUEST", "recipient_id is required", 400);
-    }
+    const recipientId = resolveUserId(c, "recipient_id");
+    if (recipientId instanceof Response) return recipientId;
 
     // Build filter
     const filter: NotificationFilter = {
@@ -301,11 +341,8 @@ notifications.get("/", (c) => {
  */
 notifications.get("/preferences", (c) => {
   try {
-    const userId = c.req.query("user_id");
-
-    if (!userId) {
-      return sendError(c, "INVALID_REQUEST", "user_id is required", 400);
-    }
+    const userId = resolveUserId(c, "user_id");
+    if (userId instanceof Response) return userId;
 
     const prefs = getPreferences(userId);
 
@@ -323,11 +360,8 @@ notifications.get("/preferences", (c) => {
  */
 notifications.put("/preferences", async (c) => {
   try {
-    const userId = c.req.query("user_id");
-
-    if (!userId) {
-      return sendError(c, "INVALID_REQUEST", "user_id is required", 400);
-    }
+    const userId = resolveUserId(c, "user_id");
+    if (userId instanceof Response) return userId;
 
     const body = await c.req.json();
     const parsed = PreferencesUpdateSchema.safeParse(body);
@@ -356,11 +390,8 @@ notifications.put("/preferences", async (c) => {
 notifications.get("/:id", (c) => {
   try {
     const id = c.req.param("id");
-    const recipientId = c.req.query("recipient_id");
-
-    if (!recipientId) {
-      return sendError(c, "INVALID_REQUEST", "recipient_id is required", 400);
-    }
+    const recipientId = resolveUserId(c, "recipient_id");
+    if (recipientId instanceof Response) return recipientId;
 
     const notification = getNotification(recipientId, id);
     if (!notification) {
@@ -379,11 +410,8 @@ notifications.get("/:id", (c) => {
 notifications.post("/:id/read", (c) => {
   try {
     const id = c.req.param("id");
-    const recipientId = c.req.query("recipient_id");
-
-    if (!recipientId) {
-      return sendError(c, "INVALID_REQUEST", "recipient_id is required", 400);
-    }
+    const recipientId = resolveUserId(c, "recipient_id");
+    if (recipientId instanceof Response) return recipientId;
 
     const notification = markAsRead(recipientId, id);
     if (!notification) {
@@ -401,11 +429,8 @@ notifications.post("/:id/read", (c) => {
  */
 notifications.post("/read-all", (c) => {
   try {
-    const recipientId = c.req.query("recipient_id");
-
-    if (!recipientId) {
-      return sendError(c, "INVALID_REQUEST", "recipient_id is required", 400);
-    }
+    const recipientId = resolveUserId(c, "recipient_id");
+    if (recipientId instanceof Response) return recipientId;
 
     const count = markAllAsRead(recipientId);
 
@@ -424,11 +449,8 @@ notifications.post("/read-all", (c) => {
 notifications.post("/:id/action", async (c) => {
   try {
     const id = c.req.param("id");
-    const recipientId = c.req.query("recipient_id");
-
-    if (!recipientId) {
-      return sendError(c, "INVALID_REQUEST", "recipient_id is required", 400);
-    }
+    const recipientId = resolveUserId(c, "recipient_id");
+    if (recipientId instanceof Response) return recipientId;
 
     const body = await c.req.json();
     const parsed = ActionSchema.safeParse(body);
@@ -456,11 +478,8 @@ notifications.post("/:id/action", async (c) => {
  */
 notifications.post("/test", async (c) => {
   try {
-    const recipientId = c.req.query("recipient_id");
-
-    if (!recipientId) {
-      return sendError(c, "INVALID_REQUEST", "recipient_id is required", 400);
-    }
+    const recipientId = resolveUserId(c, "recipient_id");
+    if (recipientId instanceof Response) return recipientId;
 
     const body = await c.req.json().catch(() => ({}));
     const parsed = TestNotificationSchema.safeParse(body);

@@ -9,6 +9,7 @@
  */
 
 import { type Context, Hono } from "hono";
+import type { AuthContext } from "../ws/hub";
 import { z } from "zod";
 import { getLogger } from "../middleware/correlation";
 import {
@@ -432,6 +433,61 @@ function safeParseInt(value: string | undefined, defaultValue: number): number {
   return Number.isNaN(parsed) ? defaultValue : parsed;
 }
 
+function resolveOptionalUserId(c: Context): { userId?: string } | Response {
+  const auth = c.get("auth") as AuthContext | undefined;
+  const requested = c.req.query("user_id");
+
+  if (!auth) {
+    return { userId: requested };
+  }
+
+  if (auth.isAdmin) {
+    return { userId: requested ?? auth.userId };
+  }
+
+  if (!auth.userId) {
+    return sendError(
+      c,
+      "AUTH_INSUFFICIENT_SCOPE",
+      "User identity required",
+      403,
+    );
+  }
+
+  if (requested && requested !== auth.userId) {
+    return sendError(
+      c,
+      "AUTH_INSUFFICIENT_SCOPE",
+      "Cannot act on behalf of another user",
+      403,
+    );
+  }
+
+  return { userId: auth.userId };
+}
+
+function resolveRequiredUserId(c: Context): string | Response {
+  const resolved = resolveOptionalUserId(c);
+  if (resolved instanceof Response) return resolved;
+  if (!resolved.userId) {
+    return sendError(c, "INVALID_REQUEST", "user_id is required", 400);
+  }
+  return resolved.userId;
+}
+
+async function parseOptionalJson(c: Context): Promise<unknown | Response> {
+  try {
+    const raw = await c.req.text();
+    if (!raw.trim()) return {};
+    return JSON.parse(raw) as unknown;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return sendError(c, "INVALID_REQUEST", "Invalid JSON in request body", 400);
+    }
+    return sendInternalError(c);
+  }
+}
+
 // ============================================================================
 // Pipeline CRUD Routes
 // ============================================================================
@@ -569,14 +625,17 @@ pipelines.delete("/:id", (c) => {
 pipelines.post("/:id/run", async (c) => {
   try {
     const id = c.req.param("id");
-    const body = await c.req.json().catch(() => ({}));
+    const body = await parseOptionalJson(c);
+    if (body instanceof Response) return body;
     const parsed = RunPipelineSchema.safeParse(body);
 
     if (!parsed.success) {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const userId = c.req.query("user_id");
+    const resolvedUser = resolveOptionalUserId(c);
+    if (resolvedUser instanceof Response) return resolvedUser;
+    const userId = resolvedUser.userId;
 
     const options: Parameters<typeof runPipeline>[1] = {
       triggeredBy: userId ? { type: "user", id: userId } : { type: "api" },
@@ -778,15 +837,13 @@ pipelines.post("/:id/runs/:runId/approve", async (c) => {
     const pipelineId = c.req.param("id");
     const runId = c.req.param("runId");
     const stepId = c.req.query("step_id");
-    const userId = c.req.query("user_id");
 
     if (!stepId) {
       return sendError(c, "INVALID_REQUEST", "step_id is required", 400);
     }
 
-    if (!userId) {
-      return sendError(c, "INVALID_REQUEST", "user_id is required", 400);
-    }
+    const userId = resolveRequiredUserId(c);
+    if (userId instanceof Response) return userId;
 
     const body = await c.req.json();
     const parsed = ApprovalSchema.safeParse(body);
