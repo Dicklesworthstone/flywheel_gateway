@@ -513,6 +513,14 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
         setIdempotencyRecord(record);
         pendingRequests.get(scopedKey)?.resolve(record);
         log.debug({ idempotencyKey, status }, "Cached idempotent response");
+      } else {
+        // Ensure concurrent duplicates don't hang waiting on an unresolved promise.
+        // If we didn't cache, downstream duplicates should proceed with a new attempt.
+        pendingRequests
+          .get(scopedKey)
+          ?.reject(
+            new Error(`Idempotency response not cached (status ${status})`),
+          );
       }
     } catch (error) {
       pendingRequests.get(scopedKey)?.reject(error as Error);
