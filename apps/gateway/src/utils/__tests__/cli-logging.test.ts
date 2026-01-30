@@ -214,7 +214,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
       const truncated = truncateOutput(output);
 
       expect(truncated).toBe(
-        "y".repeat(500) + "... [truncated, 600 total bytes]",
+        `${"y".repeat(500)}... [truncated, 600 total bytes]`,
       );
     });
 

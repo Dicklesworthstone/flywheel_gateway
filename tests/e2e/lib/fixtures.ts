@@ -38,7 +38,7 @@ export interface LoggingFixtures {
  * ```
  */
 export const test = base.extend<LoggingFixtures>({
-  testLogger: async ({}, use, testInfo) => {
+  testLogger: async (_fixtures, use, testInfo) => {
     const logger = new TestLogger(
       testInfo.testId,
       testInfo.title,
