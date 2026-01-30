@@ -1198,6 +1198,53 @@ export function getReservationStats(): {
   };
 }
 
+/**
+ * Get conflict statistics for a specific agent.
+ * Useful for agent analytics and performance tracking.
+ */
+export function getAgentConflictStats(agentId: string): {
+  totalReservations: number;
+  activeReservations: number;
+  conflictsCaused: number;
+  conflictsResolved: number;
+  conflictRate: number;
+} {
+  const now = new Date();
+
+  // Count reservations for this agent
+  const agentReservations = Array.from(reservationStore.values()).filter(
+    (r) => r.agentId === agentId,
+  );
+  const activeReservations = agentReservations.filter(
+    (r) => r.expiresAt > now,
+  ).length;
+
+  // Count conflicts caused by this agent (they requested and conflicted)
+  const conflictsCaused = Array.from(conflictStore.values()).filter(
+    (c) => c.requesterId === agentId,
+  ).length;
+
+  // Count conflicts resolved by this agent
+  const conflictsResolved = Array.from(conflictStore.values()).filter(
+    (c) => c.status === "resolved" && c.resolvedBy === agentId,
+  ).length;
+
+  // Calculate conflict rate (conflicts caused / total reservations attempted)
+  // Note: reservationStore only contains successful reservations, so we estimate
+  // total attempts as reservations + conflicts caused
+  const totalAttempts = agentReservations.length + conflictsCaused;
+  const conflictRate =
+    totalAttempts > 0 ? (conflictsCaused / totalAttempts) * 100 : 0;
+
+  return {
+    totalReservations: agentReservations.length,
+    activeReservations,
+    conflictsCaused,
+    conflictsResolved,
+    conflictRate,
+  };
+}
+
 // ============================================================================
 // Testing Utilities (only for tests)
 // ============================================================================
