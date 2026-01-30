@@ -21,7 +21,7 @@ import { createBeadsRoutes } from "../routes/beads";
 import { createBeadsService } from "../services/beads.service";
 
 // Test configuration
-const TEST_TIMEOUT = 30000; // 30 seconds for br CLI calls
+const TEST_TIMEOUT = 60000; // 60 seconds for br CLI calls (br can be slow on large repos)
 const LOG_PREFIX = "[beads-integration]";
 
 // Check if br CLI is available
