@@ -50,23 +50,28 @@ describe("GraphBridgeService", () => {
         version: 1,
       };
 
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream<Uint8Array>({
-        start(controller) {
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
-          );
-          // Leave the stream open; `service.stop()` should abort the read loop.
-        },
-      });
+      globalThis.fetch = mock((_url: string, init?: RequestInit) => {
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
+            );
 
-      globalThis.fetch = mock(() =>
-        Promise.resolve(
+            // Keep the stream open, but make sure `service.stop()` (which aborts
+            // the fetch signal) deterministically terminates the read loop.
+            init?.signal?.addEventListener("abort", () => controller.close(), {
+              once: true,
+            });
+          },
+        });
+
+        return Promise.resolve(
           new Response(stream, {
             headers: { "content-type": "text/event-stream" },
           }),
-        ),
-      ) as unknown as typeof fetch;
+        );
+      }) as unknown as typeof fetch;
 
       const service = new GraphBridgeService({
         controlPlaneUrl: "http://localhost:8080",
