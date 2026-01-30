@@ -205,6 +205,12 @@ async function sendEmailNotification(
 /** Slack header block max text length */
 const SLACK_HEADER_MAX_LENGTH = 150;
 
+/** Slack button text max length */
+const SLACK_BUTTON_TEXT_MAX_LENGTH = 75;
+
+/** Slack section text max length */
+const SLACK_SECTION_TEXT_MAX_LENGTH = 3000;
+
 /** Default fetch timeout for external webhook calls (10 seconds) */
 const WEBHOOK_TIMEOUT_MS = 10_000;
 
@@ -258,6 +264,11 @@ function buildSlackPayload(notification: Notification): {
     notification.source.id ??
     notification.source.type;
 
+  const bodyText = truncateText(
+    notification.body,
+    SLACK_SECTION_TEXT_MAX_LENGTH,
+  );
+
   const blocks: Array<Record<string, unknown>> = [
     {
       type: "header",
@@ -271,7 +282,7 @@ function buildSlackPayload(notification: Notification): {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: notification.body,
+        text: bodyText,
       },
     },
     {
@@ -285,7 +296,7 @@ function buildSlackPayload(notification: Notification): {
     },
   ];
 
-  // Add action buttons if present
+  // Add action buttons if present (Slack limits to 5 buttons per actions block)
   if (notification.actions?.length) {
     blocks.push({
       type: "actions",
@@ -293,7 +304,7 @@ function buildSlackPayload(notification: Notification): {
         type: "button",
         text: {
           type: "plain_text",
-          text: action.label,
+          text: truncateText(action.label, SLACK_BUTTON_TEXT_MAX_LENGTH),
           emoji: true,
         },
         action_id: action.id,
