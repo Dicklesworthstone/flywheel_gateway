@@ -38,6 +38,8 @@ export function isPrivateNetworkUrl(url: string): boolean {
     const ipv4Match = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
     if (ipv4Match) {
       const [, a, b] = ipv4Match.map(Number);
+      // 127.0.0.0/8 (loopback range - all of 127.x.x.x)
+      if (a === 127) return true;
       // 10.0.0.0/8
       if (a === 10) return true;
       // 172.16.0.0/12

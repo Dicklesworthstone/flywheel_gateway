@@ -192,11 +192,12 @@ export function WebSocketProvider({ children, url }: WebSocketProviderProps) {
 
     try {
       const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
 
       ws.onopen = () => {
         // Guard against setState after unmount
         if (!isMounted.current) return;
+        // Guard against stale socket callbacks after reconnect
+        if (wsRef.current !== ws) return;
 
         attemptRef.current = 0;
         updateStatus("connected", 0);
@@ -209,6 +210,8 @@ export function WebSocketProvider({ children, url }: WebSocketProviderProps) {
       ws.onmessage = (event) => {
         // Guard against callbacks after unmount
         if (!isMounted.current) return;
+        // Guard against stale socket callbacks after reconnect
+        if (wsRef.current !== ws) return;
 
         try {
           const data = JSON.parse(event.data);
@@ -240,6 +243,8 @@ export function WebSocketProvider({ children, url }: WebSocketProviderProps) {
       };
 
       ws.onclose = (event) => {
+        // Guard against stale socket callbacks after reconnect
+        if (wsRef.current !== ws) return;
         wsRef.current = null;
 
         // Guard against callbacks after unmount
@@ -269,8 +274,12 @@ export function WebSocketProvider({ children, url }: WebSocketProviderProps) {
       };
 
       ws.onerror = () => {
+        // Guard against stale socket callbacks after reconnect
+        if (wsRef.current !== ws) return;
         // Error handling is done in onclose
       };
+
+      wsRef.current = ws;
     } catch {
       updateStatus("failed", attemptRef.current);
     }

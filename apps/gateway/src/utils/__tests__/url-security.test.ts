@@ -18,6 +18,12 @@ describe("isPrivateNetworkUrl", () => {
       expect(isPrivateNetworkUrl("http://127.0.0.1:3000/api")).toBe(true);
     });
 
+    test("blocks entire 127.0.0.0/8 loopback range", () => {
+      expect(isPrivateNetworkUrl("http://127.0.0.2/api")).toBe(true);
+      expect(isPrivateNetworkUrl("http://127.1.1.1/api")).toBe(true);
+      expect(isPrivateNetworkUrl("http://127.255.255.254/api")).toBe(true);
+    });
+
     test("blocks IPv6 loopback", () => {
       expect(isPrivateNetworkUrl("http://[::1]/api")).toBe(true);
       expect(isPrivateNetworkUrl("http://[::1]:8080/api")).toBe(true);
