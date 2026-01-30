@@ -181,8 +181,8 @@ x = 1
 
         expect(result.totalMatches).toBe(1);
         const firstMatch = result.matches.at(0);
-        expect(firstMatch).toBeDefined();
-        const parsed = JSON.parse(firstMatch?.content ?? "");
+        if (!firstMatch) throw new Error("Expected first match to exist");
+        const parsed = JSON.parse(firstMatch.content);
         expect(parsed.name).toBe("test");
       });
 
@@ -193,8 +193,8 @@ x = 1
 
         expect(result.totalMatches).toBe(1);
         const firstMatch = result.matches.at(0);
-        expect(firstMatch).toBeDefined();
-        const parsed = JSON.parse(firstMatch?.content ?? "");
+        if (!firstMatch) throw new Error("Expected first match to exist");
+        const parsed = JSON.parse(firstMatch.content);
         expect(parsed).toEqual([1, 2, 3, 4]);
       });
 
