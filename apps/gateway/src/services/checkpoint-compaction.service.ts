@@ -133,7 +133,17 @@ export class CheckpointCompactionService {
         () => this.runAllAgents(),
         24 * 60 * 60 * 1000,
       );
+
+      // Ensure the interval doesn't prevent process exit
+      if (this.scheduledTimer.unref) {
+        this.scheduledTimer.unref();
+      }
     }, msUntilNextRun);
+
+    // Ensure the timeout doesn't prevent process exit
+    if (this.initialTimeout.unref) {
+      this.initialTimeout.unref();
+    }
   }
 
   /**
@@ -352,6 +362,8 @@ export class CheckpointCompactionService {
 
   /**
    * Delete checkpoints older than retention policy allows.
+   * Respects delta chain dependencies - checkpoints that are parents of other
+   * checkpoints will not be deleted to avoid corrupting delta chains.
    */
   private async deleteExpiredCheckpoints(
     agentId: string,
@@ -376,22 +388,54 @@ export class CheckpointCompactionService {
     }
 
     // Find checkpoints to delete (old ones, beyond minimum retained)
-    const toDelete: string[] = [];
+    const candidateIds: string[] = [];
     for (let i = this.policy.minimumRetained; i < allCheckpoints.length; i++) {
       const chk = allCheckpoints[i];
       if (chk && chk.createdAt < cutoffDate) {
-        toDelete.push(chk.id);
+        candidateIds.push(chk.id);
       }
     }
 
-    if (toDelete.length === 0) {
+    if (candidateIds.length === 0) {
+      return { count: 0, ids: [], estimatedBytes: 0 };
+    }
+
+    // Find checkpoints that are referenced as parents by other checkpoints.
+    // These cannot be safely deleted without corrupting delta chains.
+    const referencedParents = await db
+      .select({
+        parentId: sql<
+          string | null
+        >`json_extract(${checkpointsTable.state}, '$.parentCheckpointId')`,
+      })
+      .from(checkpointsTable)
+      .where(eq(checkpointsTable.agentId, agentId));
+
+    const parentIds = new Set(
+      referencedParents
+        .map((r) => r.parentId)
+        .filter((id): id is string => id != null),
+    );
+
+    // Filter out candidates that are parents of other checkpoints
+    const safeToDelete = candidateIds.filter((id) => !parentIds.has(id));
+
+    if (safeToDelete.length === 0) {
+      log.debug(
+        {
+          agentId,
+          candidates: candidateIds.length,
+          skipped: candidateIds.length,
+        },
+        "[COMPACTION] All delete candidates are delta chain parents, skipping",
+      );
       return { count: 0, ids: [], estimatedBytes: 0 };
     }
 
     // Delete in batches
     const BATCH_SIZE = 100;
-    for (let i = 0; i < toDelete.length; i += BATCH_SIZE) {
-      const batch = toDelete.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < safeToDelete.length; i += BATCH_SIZE) {
+      const batch = safeToDelete.slice(i, i + BATCH_SIZE);
       await db.delete(checkpointsTable).where(
         and(
           eq(checkpointsTable.agentId, agentId),
@@ -404,15 +448,19 @@ export class CheckpointCompactionService {
     }
 
     log.debug(
-      { agentId, deletedCount: toDelete.length },
+      {
+        agentId,
+        deletedCount: safeToDelete.length,
+        skippedDeltaParents: candidateIds.length - safeToDelete.length,
+      },
       "[COMPACTION] Deleted expired checkpoints",
     );
 
     // Rough estimate: 5KB per checkpoint average
     return {
-      count: toDelete.length,
-      ids: toDelete,
-      estimatedBytes: toDelete.length * 5000,
+      count: safeToDelete.length,
+      ids: safeToDelete,
+      estimatedBytes: safeToDelete.length * 5000,
     };
   }
 

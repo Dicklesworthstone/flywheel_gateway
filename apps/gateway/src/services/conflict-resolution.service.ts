@@ -677,7 +677,8 @@ function scoreWaitStrategy(
   const params: WaitParams = {
     type: "wait",
     estimatedWaitMs,
-    pollingIntervalMs: Math.min(estimatedWaitMs / 10, 30000),
+    // Minimum 1s polling to prevent tight loops when estimatedWaitMs is small/zero
+    pollingIntervalMs: Math.max(1000, Math.min(estimatedWaitMs / 10, 30000)),
     timeoutMs: Math.max(estimatedWaitMs * 2, 600000),
     notifyOnProgress: true,
   };

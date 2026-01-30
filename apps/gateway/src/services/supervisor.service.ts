@@ -517,6 +517,11 @@ export class SupervisorService {
       await this.checkHealth(name);
     }, SupervisorService.HEALTH_CHECK_INTERVAL);
 
+    // Ensure the interval doesn't prevent process exit
+    if (interval.unref) {
+      interval.unref();
+    }
+
     this.healthCheckIntervals.set(name, interval);
 
     // Also do an immediate check

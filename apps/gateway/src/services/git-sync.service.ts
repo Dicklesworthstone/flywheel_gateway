@@ -486,9 +486,14 @@ export async function failSyncOperation(
     });
 
     // Schedule retry
-    setTimeout(() => {
+    const retryTimeout = setTimeout(() => {
       processQueue(operation.request.repositoryId);
     }, delay);
+
+    // Ensure the timeout doesn't prevent process exit
+    if (retryTimeout.unref) {
+      retryTimeout.unref();
+    }
 
     return { willRetry: true, nextAttemptAt };
   }
