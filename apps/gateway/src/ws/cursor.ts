@@ -44,8 +44,13 @@ export function decodeCursor(cursor: string): CursorData | undefined {
     const parts = payload.split(":");
     if (parts.length !== 2) return undefined;
 
-    const timestamp = parseInt(parts[0]!, 10);
-    const sequence = parseInt(parts[1]!, 10);
+    const timestampStr = parts[0];
+    const sequenceStr = parts[1];
+    if (timestampStr === undefined || sequenceStr === undefined)
+      return undefined;
+
+    const timestamp = parseInt(timestampStr, 10);
+    const sequence = parseInt(sequenceStr, 10);
 
     if (Number.isNaN(timestamp) || Number.isNaN(sequence)) return undefined;
     if (timestamp < 0 || sequence < 0) return undefined;
