@@ -150,10 +150,9 @@ export function DataTable<T>({
   );
 
   return (
-    <div
+    <section
       className={`data-table ${className}`}
       id={id}
-      role="region"
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledBy}
     >
@@ -259,6 +258,6 @@ export function DataTable<T>({
           onPageSizeChange={handlePageSizeChange}
         />
       )}
-    </div>
+    </section>
   );
 }

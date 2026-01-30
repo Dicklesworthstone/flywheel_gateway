@@ -94,28 +94,25 @@ export function DataTableCards<T>({
           ? getNestedValue(row, String(secondaryColumn.accessor))
           : null;
 
-        return (
-          <div
-            key={rowId}
-            className={`responsive-card ${isSelected ? "responsive-card--selected" : ""}`}
-            onClick={(e) => {
+        const handleRowClick = onRowClick
+          ? (e: React.MouseEvent<HTMLDivElement>) => {
               // Don't trigger if clicking checkbox
               if ((e.target as HTMLElement).closest(".checkbox")) return;
-              onRowClick?.(row, e);
-            }}
-            role={onRowClick ? "button" : undefined}
-            tabIndex={onRowClick ? 0 : undefined}
-            onKeyDown={
-              onRowClick
-                ? (e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onRowClick(row, e as unknown as React.MouseEvent);
-                    }
-                  }
-                : undefined
+              onRowClick(row, e);
             }
-          >
+          : undefined;
+
+        const handleRowKeyDown = onRowClick
+          ? (e: React.KeyboardEvent<HTMLDivElement>) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onRowClick(row, e as unknown as React.MouseEvent);
+              }
+            }
+          : undefined;
+
+        const cardContent = (
+          <>
             <div className="responsive-card__header">
               <div>
                 {primaryValue != null ? (
@@ -163,6 +160,31 @@ export function DataTableCards<T>({
                 })}
               </div>
             )}
+          </>
+        );
+
+        if (onRowClick) {
+          return (
+            // biome-ignore lint/a11y/useSemanticElements: card wraps a checkbox and should not be a button
+            <div
+              key={rowId}
+              className={`responsive-card ${isSelected ? "responsive-card--selected" : ""}`}
+              onClick={handleRowClick}
+              role="button"
+              tabIndex={0}
+              onKeyDown={handleRowKeyDown}
+            >
+              {cardContent}
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={rowId}
+            className={`responsive-card ${isSelected ? "responsive-card--selected" : ""}`}
+          >
+            {cardContent}
           </div>
         );
       })}

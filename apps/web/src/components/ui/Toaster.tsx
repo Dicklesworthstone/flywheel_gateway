@@ -123,9 +123,8 @@ export function Toaster() {
   }, []);
 
   return (
-    <div
+    <section
       className="toaster"
-      role="region"
       aria-label="Notifications"
       aria-live="polite"
       id={regionId}
@@ -139,6 +138,6 @@ export function Toaster() {
           />
         ))}
       </AnimatePresence>
-    </div>
+    </section>
   );
 }

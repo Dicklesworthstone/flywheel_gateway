@@ -62,15 +62,20 @@ export function SkeletonText({
   lastLineWidth?: string;
   className?: string;
 }) {
+  const lineKeys = Array.from(
+    { length: Math.max(lines, 0) },
+    (_, index) => `skeleton-line-${lines}-${index + 1}`,
+  );
+
   return (
     <div className={`skeleton-text ${className}`}>
-      {Array.from({ length: lines }).map((_, i) => (
+      {lineKeys.map((key, index) => (
         <Skeleton
-          key={i}
+          key={key}
           variant="text"
           style={{
-            width: i === lines - 1 ? lastLineWidth : "100%",
-            marginBottom: i < lines - 1 ? 8 : 0,
+            width: index === lines - 1 ? lastLineWidth : "100%",
+            marginBottom: index < lines - 1 ? 8 : 0,
           }}
         />
       ))}
@@ -123,10 +128,10 @@ export function Spinner({
     size === "sm" ? "spinner--sm" : size === "lg" ? "spinner--lg" : "";
 
   return (
-    <span
+    <output
       className={`spinner ${sizeClass} ${className}`}
-      role="status"
       aria-label={label}
+      aria-live="polite"
     />
   );
 }

@@ -82,6 +82,18 @@ export function Dropdown({
     };
   }, [isOpen]);
 
+  const handleTriggerKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLButtonElement>) => {
+      if (disabled) return;
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setIsOpen(true);
+        setFocusedIndex(0);
+      }
+    },
+    [disabled],
+  );
+
   // Handle keyboard navigation
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -168,25 +180,18 @@ export function Dropdown({
     <div
       ref={containerRef}
       className={`dropdown ${isOpen ? "dropdown--open" : ""} ${className}`}
-      onKeyDown={handleKeyDown}
     >
-      <div
+      <button
+        type="button"
         className="dropdown__trigger"
         onClick={toggleOpen}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            toggleOpen();
-          }
-        }}
-        role="button"
-        tabIndex={disabled ? -1 : 0}
+        onKeyDown={handleTriggerKeyDown}
         aria-haspopup="menu"
         aria-expanded={isOpen}
-        aria-disabled={disabled}
+        disabled={disabled}
       >
         {trigger}
-      </div>
+      </button>
 
       <AnimatePresence>
         {isOpen && (
@@ -198,6 +203,7 @@ export function Dropdown({
             animate="visible"
             exit="exit"
             role="menu"
+            onKeyDown={handleKeyDown}
           >
             {items.map((item, _index) => {
               if (item.divider) {

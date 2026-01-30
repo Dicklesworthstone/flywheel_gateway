@@ -11,12 +11,17 @@ import type { DataTableEmptyProps } from "./types";
  * Skeleton row for loading state.
  */
 function SkeletonRow({ columns }: { columns: number }) {
+  const columnKeys = Array.from(
+    { length: Math.max(columns - 1, 0) },
+    (_, index) => `skeleton-col-${columns}-${index + 1}`,
+  );
+
   return (
     <div className="data-table__skeleton-row">
       <div className="skeleton" style={{ width: 18, height: 18 }} />
-      {Array.from({ length: columns - 1 }).map((_, i) => (
+      {columnKeys.map((key) => (
         <div
-          key={i}
+          key={key}
           className="skeleton skeleton--text"
           style={{ width: `${60 + Math.random() * 40}%` }}
         />
@@ -35,10 +40,15 @@ function LoadingState({
   skeletonRows?: number;
   columns?: number;
 }) {
+  const rowKeys = Array.from(
+    { length: Math.max(skeletonRows, 0) },
+    (_, index) => `skeleton-row-${skeletonRows}-${index + 1}`,
+  );
+
   return (
     <div className="data-table__loading">
-      {Array.from({ length: skeletonRows }).map((_, i) => (
-        <SkeletonRow key={i} columns={columns} />
+      {rowKeys.map((key) => (
+        <SkeletonRow key={key} columns={columns} />
       ))}
     </div>
   );

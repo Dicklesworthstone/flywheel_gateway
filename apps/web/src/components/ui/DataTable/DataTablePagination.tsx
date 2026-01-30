@@ -81,6 +81,22 @@ export function DataTablePagination({
   const end = Math.min((page + 1) * pageSize, total);
 
   const visiblePages = getVisiblePages(page, totalPages);
+  const pageItems = visiblePages.map((pageNum, index) => {
+    if (pageNum === "ellipsis") {
+      const prevPage = visiblePages[index - 1];
+      const nextPage = visiblePages[index + 1];
+      return {
+        type: "ellipsis" as const,
+        key: `ellipsis-${prevPage ?? "start"}-${nextPage ?? "end"}`,
+      };
+    }
+
+    return {
+      type: "page" as const,
+      key: `page-${pageNum}`,
+      pageNum,
+    };
+  });
 
   const canGoPrevious = page > 0;
   const canGoNext = page < totalPages - 1;
@@ -137,10 +153,10 @@ export function DataTablePagination({
 
         {/* Page numbers */}
         {totalPages > 1 &&
-          visiblePages.map((pageNum, idx) =>
-            pageNum === "ellipsis" ? (
+          pageItems.map((item) =>
+            item.type === "ellipsis" ? (
               <span
-                key={`ellipsis-${idx}`}
+                key={item.key}
                 className="data-table__page-ellipsis"
                 style={{ padding: "0 4px" }}
               >
@@ -149,15 +165,15 @@ export function DataTablePagination({
             ) : (
               <button
                 type="button"
-                key={pageNum}
+                key={item.key}
                 className={`data-table__page-btn ${
-                  pageNum === page ? "data-table__page-btn--active" : ""
+                  item.pageNum === page ? "data-table__page-btn--active" : ""
                 }`}
-                onClick={() => onPageChange(pageNum)}
-                aria-label={`Go to page ${pageNum + 1}`}
-                aria-current={pageNum === page ? "page" : undefined}
+                onClick={() => onPageChange(item.pageNum)}
+                aria-label={`Go to page ${item.pageNum + 1}`}
+                aria-current={item.pageNum === page ? "page" : undefined}
               >
-                {pageNum + 1}
+                {item.pageNum + 1}
               </button>
             ),
           )}

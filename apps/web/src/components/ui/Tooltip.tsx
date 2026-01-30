@@ -5,7 +5,16 @@
  */
 
 import { AnimatePresence, motion } from "framer-motion";
-import { type ReactNode, useCallback, useRef, useState } from "react";
+import {
+  cloneElement,
+  type HTMLAttributes,
+  isValidElement,
+  type ReactNode,
+  useCallback,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { tooltipVariants } from "../../lib/animations";
 
 export type TooltipPosition = "top" | "bottom" | "left" | "right";
@@ -38,6 +47,7 @@ export function Tooltip({
 }: TooltipProps) {
   const [isVisible, setIsVisible] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tooltipId = useId();
 
   const showTooltip = useCallback(() => {
     if (disabled) return;
@@ -58,15 +68,40 @@ export function Tooltip({
     return <>{children}</>;
   }
 
+  const childElement = isValidElement(children) ? (
+    children
+  ) : (
+    <span>{children}</span>
+  );
+  const childProps = childElement.props as HTMLAttributes<HTMLElement>;
+  const describedBy =
+    [childProps["aria-describedby"], isVisible ? tooltipId : undefined]
+      .filter(Boolean)
+      .join(" ") || undefined;
+
+  const trigger = cloneElement(childElement, {
+    onMouseEnter: (event) => {
+      childProps.onMouseEnter?.(event);
+      showTooltip();
+    },
+    onMouseLeave: (event) => {
+      childProps.onMouseLeave?.(event);
+      hideTooltip();
+    },
+    onFocus: (event) => {
+      childProps.onFocus?.(event);
+      showTooltip();
+    },
+    onBlur: (event) => {
+      childProps.onBlur?.(event);
+      hideTooltip();
+    },
+    "aria-describedby": describedBy,
+  });
+
   return (
-    <div
-      className={`tooltip tooltip--${position} ${className}`}
-      onMouseEnter={showTooltip}
-      onMouseLeave={hideTooltip}
-      onFocus={showTooltip}
-      onBlur={hideTooltip}
-    >
-      {children}
+    <div className={`tooltip tooltip--${position} ${className}`}>
+      {trigger}
       <AnimatePresence>
         {isVisible && (
           <motion.div
@@ -76,6 +111,7 @@ export function Tooltip({
             animate="visible"
             exit="exit"
             role="tooltip"
+            id={tooltipId}
           >
             {content}
           </motion.div>

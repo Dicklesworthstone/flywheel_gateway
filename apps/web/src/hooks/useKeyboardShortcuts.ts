@@ -5,7 +5,7 @@
  */
 
 import { useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useUiStore } from "../stores/ui";
 
 interface ShortcutHandler {
@@ -54,65 +54,68 @@ function useDefaultShortcuts(): ShortcutHandler[] {
   const navigate = useNavigate();
   const { toggleTheme, setPaletteOpen, toggleSidebar } = useUiStore();
 
-  return [
-    {
-      key: "k",
-      meta: true,
-      ctrl: true,
-      handler: () => setPaletteOpen(true),
-      description: "Open command palette",
-    },
-    {
-      key: "\\",
-      meta: true,
-      ctrl: true,
-      handler: toggleSidebar,
-      description: "Toggle sidebar",
-    },
-    {
-      key: "1",
-      meta: true,
-      ctrl: true,
-      handler: () => navigate({ to: "/" }),
-      description: "Go to Dashboard",
-    },
-    {
-      key: "2",
-      meta: true,
-      ctrl: true,
-      handler: () => navigate({ to: "/agents" }),
-      description: "Go to Agents",
-    },
-    {
-      key: "3",
-      meta: true,
-      ctrl: true,
-      handler: () => navigate({ to: "/beads" }),
-      description: "Go to Beads",
-    },
-    {
-      key: "4",
-      meta: true,
-      ctrl: true,
-      handler: () => navigate({ to: "/settings" }),
-      description: "Go to Settings",
-    },
-    {
-      key: ",",
-      meta: true,
-      ctrl: true,
-      handler: () => navigate({ to: "/settings" }),
-      description: "Open Settings",
-    },
-    {
-      key: "d",
-      meta: true,
-      ctrl: true,
-      shift: true,
-      handler: toggleTheme,
-      description: "Toggle dark mode",
-    },
-  ];
+  return useMemo(
+    () => [
+      {
+        key: "k",
+        meta: true,
+        ctrl: true,
+        handler: () => setPaletteOpen(true),
+        description: "Open command palette",
+      },
+      {
+        key: "\\",
+        meta: true,
+        ctrl: true,
+        handler: toggleSidebar,
+        description: "Toggle sidebar",
+      },
+      {
+        key: "1",
+        meta: true,
+        ctrl: true,
+        handler: () => navigate({ to: "/" }),
+        description: "Go to Dashboard",
+      },
+      {
+        key: "2",
+        meta: true,
+        ctrl: true,
+        handler: () => navigate({ to: "/agents" }),
+        description: "Go to Agents",
+      },
+      {
+        key: "3",
+        meta: true,
+        ctrl: true,
+        handler: () => navigate({ to: "/beads" }),
+        description: "Go to Beads",
+      },
+      {
+        key: "4",
+        meta: true,
+        ctrl: true,
+        handler: () => navigate({ to: "/settings" }),
+        description: "Go to Settings",
+      },
+      {
+        key: ",",
+        meta: true,
+        ctrl: true,
+        handler: () => navigate({ to: "/settings" }),
+        description: "Open Settings",
+      },
+      {
+        key: "d",
+        meta: true,
+        ctrl: true,
+        shift: true,
+        handler: toggleTheme,
+        description: "Toggle dark mode",
+      },
+    ],
+    [navigate, setPaletteOpen, toggleSidebar, toggleTheme],
+  );
 }
 
 /**
@@ -126,7 +129,10 @@ export function useKeyboardShortcuts(
   enabled = true,
 ) {
   const defaultShortcuts = useDefaultShortcuts();
-  const allShortcuts = [...defaultShortcuts, ...additionalShortcuts];
+  const allShortcuts = useMemo(
+    () => [...defaultShortcuts, ...additionalShortcuts],
+    [defaultShortcuts, additionalShortcuts],
+  );
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
