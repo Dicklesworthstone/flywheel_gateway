@@ -10,6 +10,7 @@ import {
   DEFAULT_BATCH_WINDOW_MS,
   DEFAULT_DEBOUNCE_MS,
   DEFAULT_MAX_EVENTS_PER_BATCH,
+  NtmWsBridgeService,
   ThrottledEventBatcher,
 } from "../services/ntm-ws-bridge.service";
 
@@ -559,5 +560,217 @@ describe("Throttling Constants", () => {
 
   test("default debounce is 50ms", () => {
     expect(DEFAULT_DEBOUNCE_MS).toBe(50);
+  });
+});
+
+// =============================================================================
+// NtmWsBridgeService Tail Polling Tests
+// =============================================================================
+
+describe("NtmWsBridgeService tail polling", () => {
+  test("does not overlap tail polls while in flight", async () => {
+    const publishCalls: unknown[] = [];
+    const hub = {
+      publish: (...args: unknown[]) => publishCalls.push(args),
+    };
+
+    const pane = "test.0";
+    let activeCalls = 0;
+    let maxActiveCalls = 0;
+    let tailCalls = 0;
+
+    const ntmClient = {
+      tail: async () => {
+        tailCalls += 1;
+        activeCalls += 1;
+        maxActiveCalls = Math.max(maxActiveCalls, activeCalls);
+
+        await sleep(50);
+        activeCalls -= 1;
+
+        return {
+          panes: {
+            [pane]: {
+              type: "agent",
+              state: "working",
+              lines: ["hello"],
+              truncated: false,
+            },
+          },
+        };
+      },
+    };
+
+    let trackedAgents = new Map([
+      [
+        pane,
+        {
+          pane,
+          sessionName: "session-1",
+          agentType: "codex",
+          lastState: "working",
+          lastHealth: "healthy",
+          lastSeenAt: new Date(),
+          gatewayAgentId: "agent-1",
+        },
+      ],
+    ]);
+
+    const ingestService = {
+      onStateChange: () => () => {},
+      getTrackedAgents: () => trackedAgents,
+    };
+
+    const service = new NtmWsBridgeService(
+      hub as never,
+      ingestService as never,
+      ntmClient as never,
+      {
+        enableOutputStreaming: true,
+        enableThrottling: false,
+        tailPollIntervalMs: 5,
+        tailLines: 5,
+      },
+    );
+
+    service.start();
+
+    // Give the interval enough time to fire a few times; the first tail call should still be in flight.
+    await sleep(30);
+
+    expect(tailCalls).toBe(1);
+    expect(maxActiveCalls).toBe(1);
+    expect(publishCalls.length).toBe(0);
+
+    trackedAgents = new Map();
+    service.stop();
+  });
+
+  test("does not publish output after stop() when a tail poll resolves", async () => {
+    const publishCalls: unknown[] = [];
+    const hub = {
+      publish: (...args: unknown[]) => publishCalls.push(args),
+    };
+
+    const pane = "test.0";
+
+    const ntmClient = {
+      tail: async () => {
+        await sleep(30);
+        return {
+          panes: {
+            [pane]: {
+              type: "agent",
+              state: "working",
+              lines: ["hello"],
+              truncated: false,
+            },
+          },
+        };
+      },
+    };
+
+    const trackedAgents = new Map([
+      [
+        pane,
+        {
+          pane,
+          sessionName: "session-1",
+          agentType: "codex",
+          lastState: "working",
+          lastHealth: "healthy",
+          lastSeenAt: new Date(),
+          gatewayAgentId: "agent-1",
+        },
+      ],
+    ]);
+
+    const ingestService = {
+      onStateChange: () => () => {},
+      getTrackedAgents: () => trackedAgents,
+    };
+
+    const service = new NtmWsBridgeService(
+      hub as never,
+      ingestService as never,
+      ntmClient as never,
+      {
+        enableOutputStreaming: true,
+        enableThrottling: false,
+        tailPollIntervalMs: 5,
+        tailLines: 5,
+      },
+    );
+
+    service.start();
+
+    // Ensure the poll starts, then stop before it resolves.
+    await sleep(10);
+    service.stop();
+
+    await sleep(40);
+    expect(publishCalls.length).toBe(0);
+  });
+
+  test("evicts output state for panes no longer tracked", async () => {
+    const hub = {
+      publish: () => {},
+    };
+
+    const pane = "test.0";
+    const ntmClient = {
+      tail: async () => ({
+        panes: {
+          [pane]: {
+            type: "agent",
+            state: "working",
+            lines: ["hello"],
+            truncated: false,
+          },
+        },
+      }),
+    };
+
+    let trackedAgents = new Map([
+      [
+        pane,
+        {
+          pane,
+          sessionName: "session-1",
+          agentType: "codex",
+          lastState: "working",
+          lastHealth: "healthy",
+          lastSeenAt: new Date(),
+          gatewayAgentId: "agent-1",
+        },
+      ],
+    ]);
+
+    const ingestService = {
+      onStateChange: () => () => {},
+      getTrackedAgents: () => trackedAgents,
+    };
+
+    const service = new NtmWsBridgeService(
+      hub as never,
+      ingestService as never,
+      ntmClient as never,
+      {
+        enableOutputStreaming: true,
+        enableThrottling: false,
+        tailPollIntervalMs: 10,
+        tailLines: 5,
+      },
+    );
+
+    service.start();
+    await sleep(30);
+    expect(service.getStatus().trackedOutputStates).toBe(1);
+
+    trackedAgents = new Map();
+    await sleep(30);
+    expect(service.getStatus().trackedOutputStates).toBe(0);
+
+    service.stop();
   });
 });

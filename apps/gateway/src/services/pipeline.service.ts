@@ -10,6 +10,7 @@
  */
 
 import { getLogger } from "../middleware/correlation";
+import { isPrivateNetworkUrl } from "../utils/url-security";
 import {
   type AgentTaskConfig,
   type ApprovalConfig,
@@ -1704,6 +1705,13 @@ async function executeWebhook(
   const log = getLogger();
   const url = substituteVariables(config.url, context);
   const timeout = config.timeout ?? 30000;
+
+  // SECURITY: Prevent SSRF by blocking requests to internal network addresses
+  if (isPrivateNetworkUrl(url)) {
+    throw new Error(
+      "Webhook URL blocked: Cannot make requests to private/internal network addresses",
+    );
+  }
 
   log.info({ method: config.method, url }, "[PIPELINE] Starting webhook step");
 
