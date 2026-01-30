@@ -14,6 +14,12 @@
       "!**/tests/e2e/tests/e2e/report"
     ]
   },
+  "css": {
+    "parser": {
+      "cssModules": true,
+      "tailwindDirectives": true
+    }
+  },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
