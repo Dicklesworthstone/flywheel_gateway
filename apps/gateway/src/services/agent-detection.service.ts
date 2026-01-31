@@ -1170,9 +1170,10 @@ async function detectCLI(def: CLIDefinition): Promise<DetectedCLI> {
     name: def.name,
     available: true,
     path,
-    ...(version != null && { version }),
-    ...(authenticated != null && { authenticated }),
-    ...(authError != null && { authError }),
+    ...(version !== null && version !== undefined && { version }),
+    ...(authenticated !== null &&
+      authenticated !== undefined && { authenticated }),
+    ...(authError !== null && authError !== undefined && { authError }),
     capabilities: def.capabilities,
     detectedAt: new Date(),
     durationMs,

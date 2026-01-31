@@ -104,9 +104,10 @@ class JobExecutionContext implements JobContext {
       total,
       percentage,
       message: message ?? this.job.progress.message,
-      ...(this.job.progress.stage != null && {
-        stage: this.job.progress.stage,
-      }),
+      ...(this.job.progress.stage !== null &&
+        this.job.progress.stage !== undefined && {
+          stage: this.job.progress.stage,
+        }),
     };
 
     await this.service.updateJobProgress(this.job.id, this.job.progress);
@@ -187,7 +188,7 @@ class JobExecution {
     this.job.cancellation = {
       requestedAt: new Date(),
       requestedBy: "user",
-      ...(reason != null && { reason }),
+      ...(reason !== null && reason !== undefined && { reason }),
     };
 
     if (this.handler.onCancel) {
@@ -496,7 +497,7 @@ export class JobService {
     job.cancellation = {
       requestedAt: now,
       requestedBy: "user",
-      ...(reason != null && { reason }),
+      ...(reason !== null && reason !== undefined && { reason }),
     };
     job.completedAt = now;
 

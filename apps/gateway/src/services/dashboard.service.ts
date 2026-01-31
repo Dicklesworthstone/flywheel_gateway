@@ -248,15 +248,23 @@ function rowToDashboard(
     editors,
     requireAuth: row.requireAuth ?? true,
     embedEnabled: row.embedEnabled ?? false,
-    ...(row.teamId != null ? { teamId: row.teamId } : {}),
-    ...(row.publicSlug != null ? { publicSlug: row.publicSlug } : {}),
-    ...(row.embedToken != null ? { embedToken: row.embedToken } : {}),
+    ...(row.teamId !== null && row.teamId !== undefined
+      ? { teamId: row.teamId }
+      : {}),
+    ...(row.publicSlug !== null && row.publicSlug !== undefined
+      ? { publicSlug: row.publicSlug }
+      : {}),
+    ...(row.embedToken !== null && row.embedToken !== undefined
+      ? { embedToken: row.embedToken }
+      : {}),
   };
 
   return {
     id: row.id,
     name: row.name,
-    ...(row.description != null ? { description: row.description } : {}),
+    ...(row.description !== null && row.description !== undefined
+      ? { description: row.description }
+      : {}),
     ownerId: row.ownerId,
     workspaceId: row.workspaceId,
     layout: row.layout as DashboardLayout,
@@ -576,7 +584,9 @@ export async function listDashboards(
   const items: DashboardSummary[] = paginated.map((d) => ({
     id: d.id,
     name: d.name,
-    ...(d.description != null ? { description: d.description } : {}),
+    ...(d.description !== null && d.description !== undefined
+      ? { description: d.description }
+      : {}),
     ownerId: d.ownerId,
     visibility: d.visibility as DashboardVisibility,
     widgetCount: getWidgetCount(d.widgets),
@@ -765,7 +775,7 @@ export async function listFavorites(
   return rows.map(({ dashboard }) => ({
     id: dashboard.id,
     name: dashboard.name,
-    ...(dashboard.description != null
+    ...(dashboard.description !== null && dashboard.description !== undefined
       ? { description: dashboard.description }
       : {}),
     ownerId: dashboard.ownerId,

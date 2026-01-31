@@ -414,7 +414,7 @@ export class CheckpointCompactionService {
     const parentIds = new Set(
       referencedParents
         .map((r) => r.parentId)
-        .filter((id): id is string => id != null),
+        .filter((id): id is string => id !== null && id !== undefined),
     );
 
     // Filter out candidates that are parents of other checkpoints

@@ -510,7 +510,7 @@ export async function getConfig(workspaceId: string): Promise<SafetyConfig> {
     id: configRow.id,
     workspaceId: configRow.workspaceId,
     name: configRow.name,
-    ...(configRow.description != null
+    ...(configRow.description !== null && configRow.description !== undefined
       ? { description: configRow.description }
       : {}),
     enabled: configRow.enabled,
@@ -1179,7 +1179,7 @@ export async function getViolations(
       recentHistory: row.recentHistory
         ? (JSON.parse(row.recentHistory as string) as string[])
         : [],
-      ...(row.taskDescription != null
+      ...(row.taskDescription !== null && row.taskDescription !== undefined
         ? { taskDescription: row.taskDescription }
         : {}),
     };
@@ -1215,7 +1215,7 @@ export async function getViolations(
       },
       action,
       context,
-      ...(row.correlationId != null
+      ...(row.correlationId !== null && row.correlationId !== undefined
         ? { correlationId: row.correlationId }
         : {}),
     };

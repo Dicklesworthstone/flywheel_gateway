@@ -222,29 +222,37 @@ function mapToApprovalRequest(
     workspaceId: row.workspaceId,
     operation: {
       type: row.operationType as SafetyCategory,
-      ...(row.operationCommand != null
+      ...(row.operationCommand !== null && row.operationCommand !== undefined
         ? { command: row.operationCommand }
         : {}),
-      ...(row.operationPath != null ? { path: row.operationPath } : {}),
+      ...(row.operationPath !== null && row.operationPath !== undefined
+        ? { path: row.operationPath }
+        : {}),
       description: row.operationDescription,
       details: operationDetails,
     },
     rule,
     context: {
       recentActions,
-      ...(row.taskDescription != null
+      ...(row.taskDescription !== null && row.taskDescription !== undefined
         ? { taskDescription: row.taskDescription }
         : {}),
     },
     status: row.status as ApprovalStatus,
     requestedAt: row.requestedAt,
     expiresAt: row.expiresAt,
-    ...(row.decidedBy != null ? { decidedBy: row.decidedBy } : {}),
-    ...(row.decidedAt != null ? { decidedAt: row.decidedAt } : {}),
-    ...(row.decisionReason != null
+    ...(row.decidedBy !== null && row.decidedBy !== undefined
+      ? { decidedBy: row.decidedBy }
+      : {}),
+    ...(row.decidedAt !== null && row.decidedAt !== undefined
+      ? { decidedAt: row.decidedAt }
+      : {}),
+    ...(row.decisionReason !== null && row.decisionReason !== undefined
       ? { decisionReason: row.decisionReason }
       : {}),
-    ...(row.correlationId != null ? { correlationId: row.correlationId } : {}),
+    ...(row.correlationId !== null && row.correlationId !== undefined
+      ? { correlationId: row.correlationId }
+      : {}),
     priority: (row.priority as ApprovalRequest["priority"]) ?? "normal",
   };
 }
@@ -309,17 +317,20 @@ export async function createApprovalRequest(
       type: request.operation.type,
       description: request.operation.description,
       details: request.operation.details ?? {},
-      ...(request.operation.command != null
+      ...(request.operation.command !== null &&
+      request.operation.command !== undefined
         ? { command: request.operation.command }
         : {}),
-      ...(request.operation.path != null
+      ...(request.operation.path !== null &&
+      request.operation.path !== undefined
         ? { path: request.operation.path }
         : {}),
     },
     rule: request.rule,
     context: {
       recentActions: request.context?.recentActions ?? [],
-      ...(request.context?.taskDescription != null
+      ...(request.context?.taskDescription !== null &&
+      request.context?.taskDescription !== undefined
         ? { taskDescription: request.context.taskDescription }
         : {}),
     },
@@ -327,7 +338,7 @@ export async function createApprovalRequest(
     requestedAt: now,
     expiresAt,
     priority: request.priority ?? "normal",
-    ...(request.correlationId != null
+    ...(request.correlationId !== null && request.correlationId !== undefined
       ? { correlationId: request.correlationId }
       : {}),
   };
@@ -420,7 +431,9 @@ export async function decideApproval(
       status,
       decidedBy: decision.decidedBy,
       decidedAt,
-      ...(decision.reason != null ? { decisionReason: decision.reason } : {}),
+      ...(decision.reason !== null && decision.reason !== undefined
+        ? { decisionReason: decision.reason }
+        : {}),
     },
   };
 }
