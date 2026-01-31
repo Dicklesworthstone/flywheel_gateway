@@ -62,9 +62,6 @@ const STARTUP_TIME = Date.now();
 /** Build information (computed once at module load) */
 const BUILD_INFO: BuildInfo = computeBuildInfo();
 
-/** Capabilities based on environment */
-const CAPABILITIES: Capabilities = computeCapabilities();
-
 // ============================================================================
 // Private Helpers
 // ============================================================================
@@ -165,7 +162,7 @@ export function getRuntimeInfo(): RuntimeInfo {
  * Get available capabilities.
  */
 export function getCapabilities(): Capabilities {
-  return CAPABILITIES;
+  return computeCapabilities();
 }
 
 /**
