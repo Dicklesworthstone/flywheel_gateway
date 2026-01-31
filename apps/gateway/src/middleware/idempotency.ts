@@ -44,7 +44,12 @@ type PendingRequest = {
   promise: Promise<IdempotencyRecord>;
   resolve: (record: IdempotencyRecord) => void;
   reject: (error: Error) => void;
+  /** When the pending request was created (for stale cleanup) */
+  createdAt: Date;
 };
+
+/** Maximum age for pending requests before they're considered stale (5 minutes) */
+const PENDING_REQUEST_MAX_AGE_MS = 5 * 60 * 1000;
 
 // ============================================================================
 // Key Scoping
@@ -138,6 +143,23 @@ export function pruneExpiredRecords(): number {
   for (const [key, record] of idempotencyStore) {
     if (record.expiresAt <= now) {
       idempotencyStore.delete(key);
+      count++;
+    }
+  }
+  return count;
+}
+
+/**
+ * Prune stale pending requests (safety net for requests that never complete).
+ * Normally the finally block cleans these up, but this catches edge cases.
+ */
+export function pruneStalePendingRequests(): number {
+  const now = Date.now();
+  let count = 0;
+  for (const [key, pending] of pendingRequests) {
+    if (now - pending.createdAt.getTime() > PENDING_REQUEST_MAX_AGE_MS) {
+      pending.reject(new Error("Pending request timed out (stale cleanup)"));
+      pendingRequests.delete(key);
       count++;
     }
   }
@@ -279,6 +301,7 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
     cleanupIntervalHandle = setInterval(() => {
       pruneExpiredRecords();
       enforceMaxRecords(settings.maxRecords);
+      pruneStalePendingRequests();
     }, 60000); // Every minute
 
     // Don't keep the process alive just for cleanup
@@ -473,6 +496,7 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
       promise,
       resolve: resolvePromise!,
       reject: rejectPromise!,
+      createdAt: new Date(),
     });
 
     try {

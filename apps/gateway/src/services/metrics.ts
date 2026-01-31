@@ -42,6 +42,9 @@ interface TimeSeriesPoint {
 /** Maximum time series history to retain */
 const MAX_HISTORY_POINTS = 1440; // 24 hours at 1-minute intervals
 
+/** Maximum unique time series keys (prevents unbounded memory growth) */
+const MAX_TIME_SERIES_KEYS = 5000;
+
 /** Maximum named snapshots to retain */
 const MAX_SNAPSHOTS = 50;
 
@@ -174,6 +177,11 @@ export function recordTimeSeries(
   let series = timeSeries.get(key);
 
   if (!series) {
+    // Enforce max keys limit to prevent unbounded memory growth
+    if (timeSeries.size >= MAX_TIME_SERIES_KEYS) {
+      // Drop new series silently when at capacity
+      return;
+    }
     series = [];
     timeSeries.set(key, series);
   }

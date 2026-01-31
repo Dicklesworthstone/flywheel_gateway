@@ -47,6 +47,9 @@ const COMPLETED_RETENTION_MS = 3_600_000;
 /** Maximum pending handoffs per agent */
 const MAX_PENDING_PER_AGENT = 5;
 
+/** Maximum total handoffs in memory (prevents unbounded growth) */
+const MAX_TOTAL_HANDOFFS = 10_000;
+
 // ============================================================================
 // Storage
 // ============================================================================
@@ -212,6 +215,18 @@ export async function initiateHandoff(params: {
     return {
       success: false,
       error: `Maximum pending handoffs (${MAX_PENDING_PER_AGENT}) reached for source agent`,
+    };
+  }
+
+  // Check global handoff store limit (prevents unbounded memory growth)
+  if (handoffStore.size >= MAX_TOTAL_HANDOFFS) {
+    log.error(
+      { storeSize: handoffStore.size, limit: MAX_TOTAL_HANDOFFS },
+      "Handoff store capacity reached",
+    );
+    return {
+      success: false,
+      error: "Handoff service is at capacity, please retry later",
     };
   }
 

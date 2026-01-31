@@ -32,6 +32,12 @@ import {
 import { getBufferConfig, RingBuffer } from "./ring-buffer";
 
 /**
+ * Maximum pending acknowledgments per connection.
+ * Prevents memory exhaustion from clients that don't acknowledge messages.
+ */
+const MAX_PENDING_ACKS_PER_CONNECTION = 1000;
+
+/**
  * Authentication context for a connection.
  */
 export interface AuthContext {
@@ -354,13 +360,24 @@ export class WebSocketHub {
             // Update the connection's cursor for this channel
             ws.data.subscriptions.set(channelStr, message.cursor);
 
-            // Track pending ack if required
+            // Track pending ack if required (with limit enforcement)
             if (requiresAck) {
-              ws.data.pendingAcks.set(message.id, {
-                message,
-                sentAt: new Date(),
-                replayCount: 0,
-              });
+              if (ws.data.pendingAcks.size >= MAX_PENDING_ACKS_PER_CONNECTION) {
+                logger.warn(
+                  {
+                    connectionId: connId,
+                    pendingCount: ws.data.pendingAcks.size,
+                    limit: MAX_PENDING_ACKS_PER_CONNECTION,
+                  },
+                  "Pending ack limit reached, skipping ack tracking for message",
+                );
+              } else {
+                ws.data.pendingAcks.set(message.id, {
+                  message,
+                  sentAt: new Date(),
+                  replayCount: 0,
+                });
+              }
             }
           } catch (err) {
             this.sendFailureCount++;
