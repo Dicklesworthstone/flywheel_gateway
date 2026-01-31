@@ -101,11 +101,17 @@ function computeBuildInfo(): BuildInfo {
  * Compute available capabilities based on environment.
  */
 function computeCapabilities(): Capabilities {
+  const agentMailEnabled =
+    process.env["AGENT_MAIL_MCP_ENABLED"] === "true" ||
+    Boolean(process.env["AGENT_MAIL_MCP_COMMAND"]) ||
+    // Legacy env var (kept for backward compatibility)
+    Boolean(process.env["AGENTMAIL_URL"]);
+
   return {
     websocket: true,
     checkpoints: process.env["ENABLE_CHECKPOINTS"] !== "false",
     fleet: process.env["ENABLE_FLEET"] !== "false",
-    agentMail: !!process.env["AGENTMAIL_URL"],
+    agentMail: agentMailEnabled,
     cass: process.env["ENABLE_CASS"] !== "false",
     dcg: process.env["ENABLE_DCG"] !== "false",
   };

@@ -82,7 +82,7 @@ The health endpoints expose:
 | Field | Value Type | Example |
 |-------|------------|---------|
 | `environment` | String | "development", "production" |
-| `agentMail` | Boolean | `true` (indicates AGENTMAIL_URL is set) |
+| `agentMail` | Boolean | `true` (indicates `AGENT_MAIL_MCP_ENABLED` / `AGENT_MAIL_MCP_COMMAND` is set) |
 | `version` | String | Package version from npm |
 | `commit` | String | Git short SHA |
 | `branch` | String | Git branch name |
