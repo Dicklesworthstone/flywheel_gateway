@@ -309,6 +309,9 @@ describe("WebSocket Ack Mode", () => {
         [channelStr]: "0", // Start from beginning
       });
 
+      // Should not double-send the same message during reconnect handling
+      expect(sent.length).toBe(1);
+
       // Cursor tracking should reflect what was actually delivered
       expect(ws.data.subscriptions.get(channelStr)).toBe(published.cursor);
 

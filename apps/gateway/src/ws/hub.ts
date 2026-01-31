@@ -433,14 +433,26 @@ export class WebSocketHub {
    * Replay pending acks for a connection (e.g., on reconnect).
    *
    * @param connectionId - The connection ID
+   * @param messageIds - Optional subset of message IDs to replay
    * @returns Number of messages replayed
    */
-  replayPendingAcks(connectionId: string): number {
+  replayPendingAcks(
+    connectionId: string,
+    messageIds?: ReadonlySet<string>,
+  ): number {
     const ws = this.connections.get(connectionId);
     if (!ws) return 0;
 
     let replayed = 0;
-    for (const [msgId, pending] of ws.data.pendingAcks) {
+    const entries = messageIds
+      ? Array.from(
+          messageIds,
+          (id) => [id, ws.data.pendingAcks.get(id)] as const,
+        )
+      : Array.from(ws.data.pendingAcks.entries());
+
+    for (const [msgId, pending] of entries) {
+      if (!pending) continue;
       const serverMessage: ChannelMessage = {
         type: "message",
         message: pending.message,
@@ -548,6 +560,8 @@ export class WebSocketHub {
       };
     }
 
+    const pendingAckIdsBefore = new Set(ws.data.pendingAcks.keys());
+
     const replayed: Record<string, number> = {};
     const expired: string[] = [];
     const newCursors: Record<string, string> = {};
@@ -564,10 +578,17 @@ export class WebSocketHub {
 
       // Track results
       if (result.missedMessages) {
-        replayed[channelStr] = result.missedMessages.length;
+        let sentCount = 0;
 
         // Send missed messages
         for (const msg of result.missedMessages) {
+          if (requiresAck && ws.data.pendingAcks.has(msg.id)) {
+            // Avoid double-sending messages that are already pending ack.
+            // These will be replayed via replayPendingAcks().
+            ws.data.subscriptions.set(channelStr, msg.cursor);
+            continue;
+          }
+
           const serverMessage: ChannelMessage = {
             type: "message",
             message: msg,
@@ -576,6 +597,7 @@ export class WebSocketHub {
           try {
             ws.send(serializeServerMessage(serverMessage));
             ws.data.subscriptions.set(channelStr, msg.cursor);
+            sentCount++;
 
             // Track as pending ack if required
             if (requiresAck) {
@@ -592,6 +614,8 @@ export class WebSocketHub {
             );
           }
         }
+
+        replayed[channelStr] = sentCount;
       }
 
       // Check if cursor was expired
@@ -607,7 +631,10 @@ export class WebSocketHub {
     }
 
     // Also replay any previously pending acks that weren't acknowledged
-    const pendingAcksReplayed = this.replayPendingAcks(connectionId);
+    const pendingAcksReplayed = this.replayPendingAcks(
+      connectionId,
+      pendingAckIdsBefore,
+    );
 
     logger.info(
       { connectionId, replayed, expired: expired.length, pendingAcksReplayed },
