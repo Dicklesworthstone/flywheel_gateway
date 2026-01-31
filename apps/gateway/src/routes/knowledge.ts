@@ -171,7 +171,7 @@ knowledge.get("/health", async (c) => {
       },
       httpStatus,
     );
-  } catch (error) {
+  } catch (_error) {
     // If doctor fails, try basic availability check
     const available = await isMsAvailable();
     return sendResource(

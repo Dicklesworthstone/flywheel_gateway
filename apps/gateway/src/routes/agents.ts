@@ -148,8 +148,12 @@ agents.get("/", async (c) => {
     const cursorParam = c.req.query("cursor");
 
     const result = await listAgents({
-      ...(stateParam && { state: stateParam.split(",").slice(0, MAX_CSV_ITEMS) }),
-      ...(driverParam && { driver: driverParam.split(",").slice(0, MAX_CSV_ITEMS) }),
+      ...(stateParam && {
+        state: stateParam.split(",").slice(0, MAX_CSV_ITEMS),
+      }),
+      ...(driverParam && {
+        driver: driverParam.split(",").slice(0, MAX_CSV_ITEMS),
+      }),
       ...(createdAfterParam && { createdAfter: createdAfterParam }),
       ...(createdBeforeParam && { createdBefore: createdBeforeParam }),
       limit: safeParseInt(limitParam, 50),

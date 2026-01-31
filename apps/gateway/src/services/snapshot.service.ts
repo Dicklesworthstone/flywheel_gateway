@@ -920,13 +920,17 @@ interface AgentMailFileAgent {
 }
 
 interface AgentMailFileMessage {
-  id: string;
-  from: string;
-  to: string;
-  subject: string;
+  id?: string;
+  from?: string;
+  to?: string;
+  from_agent?: string;
+  to_agent?: string;
+  thread_id?: string;
+  subject?: string;
   body?: unknown;
   priority?: "low" | "normal" | "high" | "urgent";
-  timestamp: string;
+  importance?: "low" | "normal" | "high" | "urgent";
+  timestamp?: string;
   read?: boolean;
 }
 
@@ -1080,11 +1084,12 @@ async function collectAgentMailSnapshot(
             const msg = JSON.parse(line) as AgentMailFileMessage;
             messages.total++;
 
-            if (!msg.read) {
+            if (msg.read === false) {
               messages.unread++;
             }
 
-            switch (msg.priority) {
+            const priority = msg.priority ?? msg.importance;
+            switch (priority) {
               case "low":
                 messages.byPriority.low++;
                 break;

@@ -353,7 +353,11 @@ async function runSyncProcess(
               } catch {
                 // Process may have already exited
               }
-              reject(new Error(`Subprocess timed out after ${SUBPROCESS_TIMEOUT_MS}ms`));
+              reject(
+                new Error(
+                  `Subprocess timed out after ${SUBPROCESS_TIMEOUT_MS}ms`,
+                ),
+              );
             }, SUBPROCESS_TIMEOUT_MS);
           });
 

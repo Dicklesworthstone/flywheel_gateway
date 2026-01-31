@@ -27,7 +27,13 @@ import {
 import { transformZodError } from "../utils/validation";
 import type { AuthContext } from "../ws/hub";
 
-const app = new Hono();
+type AuditEnv = {
+  Variables: {
+    auth?: AuthContext;
+  };
+};
+
+const app = new Hono<AuditEnv>();
 
 // In-memory storage for retention policies (in production, this would be in the database)
 const retentionPolicies: Map<string, RetentionPolicy> = new Map();
@@ -426,7 +432,7 @@ app.post("/export", async (c) => {
       recordCount: 0,
       fileSize: 0,
       status: "processing",
-      createdBy,
+      ...(createdBy ? { createdBy } : {}),
       createdAt: new Date(),
     };
 

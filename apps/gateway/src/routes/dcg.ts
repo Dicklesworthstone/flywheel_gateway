@@ -174,7 +174,12 @@ function handleError(error: unknown, c: Context) {
 
   if (error instanceof DCGCommandError) {
     log.error({ error: error.message }, "DCG command failed");
-    return sendError(c, "DCG_COMMAND_FAILED", "DCG command execution failed", 500);
+    return sendError(
+      c,
+      "DCG_COMMAND_FAILED",
+      "DCG command execution failed",
+      500,
+    );
   }
 
   if (error instanceof Error && error.message.includes("Unknown packs")) {

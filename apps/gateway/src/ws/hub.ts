@@ -936,7 +936,12 @@ export class WebSocketHub {
     // Log if there were failures for observability
     if (failed > 0) {
       logger.warn(
-        { messageType: message.type, sent, failed, total: this.connections.size },
+        {
+          messageType: message.type,
+          sent,
+          failed,
+          total: this.connections.size,
+        },
         "Broadcast had send failures",
       );
     }

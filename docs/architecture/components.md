@@ -71,29 +71,34 @@ export const agentsRoutes = new Hono()
 Services contain business logic and are provider-agnostic:
 
 ```typescript
-// Example: apps/gateway/src/services/agent.service.ts
-export class AgentService {
-  constructor(private db: Database, private drivers: DriverRegistry) {}
+// Example: apps/gateway/src/services/agent.ts
+//
+// The gateway's agent lifecycle service is implemented as module-level functions
+// with an in-memory registry and a driver abstraction (SDK/ACP/Tmux/etc).
+//
+// See: spawnAgent(), sendMessage(), terminateAgent(), listAgents()
+export async function spawnAgent(config: {
+  workingDirectory: string;
+  systemPrompt?: string;
+}): Promise<{
+  agentId: string;
+  state: "spawning" | "ready";
+  createdAt: string;
+  driver: string;
+}> {
+  // 1) Select an AgentDriver (defaults to SDK)
+  // 2) Initialize lifecycle state
+  // 3) Persist agent row to DB (status=spawning)
+  // 4) driver.spawn(...) + start event monitoring
+  // 5) Transition to READY
 
-  async create(data: CreateAgentInput): Promise<Agent> {
-    // Validate configuration
-    const config = this.validateConfig(data);
-
-    // Insert to database
-    const agent = await this.db.insert(agents).values(config).returning();
-
-    // Start the agent
-    await this.start(agent.id);
-
-    return agent;
-  }
-
-  async start(id: string): Promise<void> {
-    const agent = await this.getById(id);
-    const driver = this.drivers.get(agent.type);
-    await driver.start(agent.config);
-    await this.updateStatus(id, 'running');
-  }
+  // ...implementation omitted (see source)
+  return {
+    agentId: "agent_...",
+    state: "ready",
+    createdAt: new Date().toISOString(),
+    driver: "sdk",
+  };
 }
 ```
 

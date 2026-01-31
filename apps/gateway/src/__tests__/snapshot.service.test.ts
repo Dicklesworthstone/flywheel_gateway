@@ -12,6 +12,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
 import type { SystemHealthStatus, SystemSnapshot } from "@flywheel/shared";
 import { requestContextStorage } from "../middleware/correlation";
 
@@ -194,6 +197,68 @@ describe("SnapshotService", () => {
       expect(typeof snapshot.agentMail.messages.total).toBe("number");
       expect(typeof snapshot.agentMail.messages.unread).toBe("number");
       expect(snapshot.agentMail.messages.byPriority).toBeDefined();
+    });
+
+    test("Agent Mail unread count only includes explicit unread", async () => {
+      const tempDir = await fs.mkdtemp(
+        path.join(os.tmpdir(), "flywheel_gateway_agentmail_test_"),
+      );
+      const agentMailDir = path.join(tempDir, ".agentmail");
+      await fs.mkdir(agentMailDir, { recursive: true });
+
+      const messagesJsonl = [
+        // No `read` field in file format → should NOT count as unread
+        JSON.stringify({
+          id: "msg-1",
+          from_agent: "alpha",
+          to_agent: "beta",
+          thread_id: "t-1",
+          subject: "No read field",
+          body: "hello",
+          timestamp: "2026-01-01T00:00:00Z",
+          priority: "normal",
+        }),
+        JSON.stringify({
+          id: "msg-2",
+          from: "alpha",
+          to: "beta",
+          subject: "Explicit unread",
+          body: "hi",
+          timestamp: "2026-01-01T00:01:00Z",
+          priority: "high",
+          read: false,
+        }),
+        JSON.stringify({
+          id: "msg-3",
+          from: "alpha",
+          to: "beta",
+          subject: "Explicit read",
+          body: "ok",
+          timestamp: "2026-01-01T00:02:00Z",
+          priority: "low",
+          read: true,
+        }),
+      ].join("\n");
+
+      await fs.writeFile(
+        path.join(agentMailDir, "messages.jsonl"),
+        messagesJsonl,
+        "utf-8",
+      );
+
+      const service = createSnapshotService({
+        cwd: tempDir,
+        cacheTtlMs: 0,
+        collectionTimeoutMs: 250,
+      });
+
+      const snapshot = await service.getSnapshot({ bypassCache: true });
+      expect(snapshot.agentMail.available).toBe(true);
+      expect(snapshot.agentMail.messages.total).toBe(3);
+      expect(snapshot.agentMail.messages.unread).toBe(1);
+      expect(snapshot.agentMail.messages.byPriority.normal).toBe(1);
+      expect(snapshot.agentMail.messages.byPriority.high).toBe(1);
+      expect(snapshot.agentMail.messages.byPriority.low).toBe(1);
     });
 
     test("returns Beads snapshot with correct structure", async () => {
