@@ -302,4 +302,29 @@ describe("buildCompatibilityReport", () => {
     expect(report.manifestDriven).toBe(1);
     expect(report.hardcodedFallback).toBe(1);
   });
+
+  it("clears stale warnings between reports", () => {
+    const toolWithLegacyInstall = makeTool({
+      name: "legacy",
+      install: [{ command: "cargo install legacy" }],
+    });
+    const toolWithVerifiedInstaller = makeTool({
+      name: "modern",
+      verifiedInstaller: { runner: "cargo", args: ["install", "modern"] },
+    });
+
+    const firstReport = buildCompatibilityReport(
+      [toolWithLegacyInstall],
+      "manifest",
+      {},
+    );
+    expect(firstReport.warnings).toHaveLength(1);
+
+    const secondReport = buildCompatibilityReport(
+      [toolWithVerifiedInstaller],
+      "manifest",
+      {},
+    );
+    expect(secondReport.warnings).toHaveLength(0);
+  });
 });

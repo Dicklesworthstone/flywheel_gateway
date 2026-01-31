@@ -190,6 +190,8 @@ export function buildCompatibilityReport(
   registrySource: string,
   hardcodedTools: Record<string, unknown>,
 ): CompatibilityReport {
+  // Reset warnings so this report reflects current registry state only.
+  clearDeprecations();
   let manifestDriven = 0;
   let hardcodedFallback = 0;
 
