@@ -47,9 +47,15 @@ export function createAgentMailServiceFromEnv(): AgentMailService {
   const callTool = getAgentMailToolCaller() ?? createFallbackCaller();
   const toolPrefix = process.env["AGENT_MAIL_TOOL_PREFIX"];
   const defaultTtlRaw = process.env["AGENT_MAIL_DEFAULT_TTL_SECONDS"];
-  const defaultTtlSeconds = defaultTtlRaw
+  const parsedDefaultTtlSeconds = defaultTtlRaw
     ? Number.parseInt(defaultTtlRaw, 10)
     : undefined;
+  const defaultTtlSeconds =
+    parsedDefaultTtlSeconds !== undefined &&
+    Number.isFinite(parsedDefaultTtlSeconds) &&
+    parsedDefaultTtlSeconds > 0
+      ? parsedDefaultTtlSeconds
+      : undefined;
 
   // Build config conditionally (for exactOptionalPropertyTypes)
   const config: AgentMailServiceConfig = { callTool };
