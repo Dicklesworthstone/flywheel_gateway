@@ -2,12 +2,107 @@
  * Tests for Claude SDK Driver.
  */
 
-import { beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { createDriverOptions } from "../base-driver";
 import { ClaudeSDKDriver } from "../sdk/claude-driver";
 import type { AgentConfig } from "../types";
 
 describe("ClaudeSDKDriver", () => {
+  describe("health check", () => {
+    const originalFetch = globalThis.fetch;
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    it("should return false when apiKey is missing", async () => {
+      let called = false;
+      globalThis.fetch = (async () => {
+        called = true;
+        return new Response("{}", { status: 200 });
+      }) as unknown as typeof fetch;
+
+      const config = createDriverOptions("sdk", {
+        driverId: "test-claude-health-missing",
+      });
+      const driver = new ClaudeSDKDriver(config, { apiKey: "" });
+
+      const healthy = await driver.isHealthy();
+      expect(healthy).toBe(false);
+      expect(called).toBe(false);
+    });
+
+    it("should return true when /v1/models returns OK", async () => {
+      let call:
+        | {
+            input: Parameters<typeof fetch>[0];
+            init: Parameters<typeof fetch>[1];
+          }
+        | undefined;
+
+      globalThis.fetch = (async (
+        input: Parameters<typeof fetch>[0],
+        init: Parameters<typeof fetch>[1],
+      ) => {
+        call = { input, init };
+        return new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }) as unknown as typeof fetch;
+
+      const config = createDriverOptions("sdk", {
+        driverId: "test-claude-health-ok",
+      });
+      const driver = new ClaudeSDKDriver(config, {
+        apiKey: "test-key",
+        baseUrl: "https://example.anthropic",
+      });
+
+      const healthy = await driver.isHealthy();
+      expect(healthy).toBe(true);
+      expect(call).toBeDefined();
+      expect(call!.input).toBe("https://example.anthropic/v1/models");
+      expect(call!.init?.method).toBe("GET");
+      expect(call!.init?.signal).toBeDefined();
+
+      const headers = call!.init?.headers as Record<string, string> | undefined;
+      expect(headers?.["x-api-key"]).toBe("test-key");
+      expect(headers?.["anthropic-version"]).toBe("2023-06-01");
+    });
+
+    it("should return false when /v1/models returns non-OK", async () => {
+      globalThis.fetch = (async () => {
+        return new Response("unauthorized", { status: 401 });
+      }) as unknown as typeof fetch;
+
+      const config = createDriverOptions("sdk", {
+        driverId: "test-claude-health-non-ok",
+      });
+      const driver = new ClaudeSDKDriver(config, {
+        apiKey: "test-key",
+        baseUrl: "https://example.anthropic",
+      });
+
+      const healthy = await driver.isHealthy();
+      expect(healthy).toBe(false);
+    });
+
+    it("should return false when fetch throws", async () => {
+      globalThis.fetch = (async () => {
+        throw new Error("network down");
+      }) as unknown as typeof fetch;
+
+      const config = createDriverOptions("sdk", {
+        driverId: "test-claude-health-throw",
+      });
+      const driver = new ClaudeSDKDriver(config, { apiKey: "test-key" });
+
+      const healthy = await driver.isHealthy();
+      expect(healthy).toBe(false);
+    });
+  });
+
   it("should accumulate token usage correctly", async () => {
     const config = createDriverOptions("sdk", { driverId: "test-claude" });
     const driver = new ClaudeSDKDriver(config, { apiKey: "" });

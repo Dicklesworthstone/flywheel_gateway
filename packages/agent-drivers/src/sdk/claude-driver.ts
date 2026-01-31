@@ -89,9 +89,39 @@ export class ClaudeSDKDriver extends BaseDriver {
       return false;
     }
 
-    // TODO: Add actual API health check
-    // For now, just verify configuration is present
-    return true;
+    // Avoid expensive `/v1/messages` calls; `/v1/models` is lightweight and
+    // validates auth + basic API reachability.
+    const controller = new AbortController();
+    const timeoutMs = 5000;
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(`${this.baseUrl}/v1/models`, {
+        method: "GET",
+        headers: {
+          "x-api-key": this.apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        logDriver("warn", this.driverType, "health_check_failed", {
+          status: response.status,
+        });
+        return false;
+      }
+
+      logDriver("debug", this.driverType, "health_check_passed");
+      return true;
+    } catch (err) {
+      logDriver("warn", this.driverType, "health_check_failed", {
+        error: String(err),
+      });
+      return false;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   protected async doSpawn(config: AgentConfig): Promise<Agent> {
