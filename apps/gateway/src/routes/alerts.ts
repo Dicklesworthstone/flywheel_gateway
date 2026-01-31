@@ -289,6 +289,7 @@ alerts.post("/:alertId/acknowledge", async (c) => {
   try {
     const alertId = c.req.param("alertId");
 
+    const log = getLogger();
     let acknowledgedBy: string | undefined;
     try {
       const body = await c.req.json();
@@ -296,6 +297,7 @@ alerts.post("/:alertId/acknowledge", async (c) => {
       acknowledgedBy = validated.acknowledgedBy;
     } catch {
       // No body or invalid body - use defaults
+      log.debug({ alertId }, "Acknowledge request has no body, using defaults");
     }
 
     const alert = acknowledgeAlert(alertId, acknowledgedBy);
@@ -323,6 +325,7 @@ alerts.post("/:alertId/dismiss", async (c) => {
   try {
     const alertId = c.req.param("alertId");
 
+    const log = getLogger();
     let dismissedBy: string | undefined;
     try {
       const body = await c.req.json();
@@ -330,6 +333,7 @@ alerts.post("/:alertId/dismiss", async (c) => {
       dismissedBy = validated.dismissedBy;
     } catch {
       // No body or invalid body - use defaults
+      log.debug({ alertId }, "Dismiss request has no body, using defaults");
     }
 
     const alert = dismissAlert(alertId, dismissedBy);
