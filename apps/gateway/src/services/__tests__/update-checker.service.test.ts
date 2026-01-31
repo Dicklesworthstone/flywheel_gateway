@@ -420,10 +420,8 @@ describe("Checksum Verification Error Context", () => {
       verified: false,
       toolId: "tools.slb",
       filename: "slb-darwin-arm64.tar.gz",
-      actualChecksum:
-        "0000000000000000000000000000000000000000000000000000000000000000",
-      expectedChecksum:
-        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      actualChecksum: "0".repeat(64),
+      expectedChecksum: "f".repeat(64),
       algorithm: "sha256" as const,
       size: 1024,
     };
