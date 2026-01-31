@@ -7,6 +7,7 @@
 
 import { Hono } from "hono";
 import { z } from "zod";
+import { getLogger } from "../middleware/correlation";
 import {
   getUtilityStatus,
   installUtility,
@@ -17,7 +18,12 @@ import {
   updateUtility,
 } from "../services/utilities.service";
 import { createRouteErrorHandler } from "../utils/error-handler";
-import { sendList, sendNotFound, sendResource } from "../utils/response";
+import {
+  sendError,
+  sendList,
+  sendNotFound,
+  sendResource,
+} from "../utils/response";
 
 const utilities = new Hono();
 

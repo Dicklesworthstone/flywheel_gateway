@@ -35,10 +35,10 @@
  */
 
 import type { Context } from "hono";
-import { z } from "zod";
+import type { ZodError } from "zod";
 import { getLogger } from "../middleware/correlation";
 import { sendError, sendInternalError, sendValidationError } from "./response";
-import { transformZodError } from "./validation";
+import { isZodError, transformZodError } from "./validation";
 
 /**
  * Domain-specific error handler definition.
@@ -94,8 +94,8 @@ export function createRouteErrorHandler(
     }
 
     // Handle Zod validation errors
-    if (error instanceof z.ZodError) {
-      return sendValidationError(c, transformZodError(error));
+    if (isZodError(error)) {
+      return sendValidationError(c, transformZodError(error as ZodError));
     }
 
     // Handle JSON parsing errors
