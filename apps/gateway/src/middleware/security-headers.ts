@@ -111,7 +111,9 @@ const defaultConfig: SecurityHeadersConfig = {
     formAction: ["'self'"],
     frameAncestors: ["'none'"],
     baseUri: ["'self'"],
-    upgradeInsecureRequests: true,
+    // Only enable this in production; it breaks local HTTP docs (e.g. `/docs` fetching `/openapi.json`)
+    // by upgrading same-origin requests to https:// when the gateway isn't serving TLS.
+    upgradeInsecureRequests: process.env.NODE_ENV === "production",
   },
   hsts: process.env.NODE_ENV === "production",
   hstsMaxAge: 31536000, // 1 year
@@ -326,7 +328,7 @@ export function apiSecurityHeaders(): (
   c: Context,
   next: Next,
 ) => Promise<Response | undefined> {
-  return securityHeaders({
+  const apiPreset = securityHeaders({
     csp: {
       defaultSrc: ["'none'"],
       frameAncestors: ["'none'"],
@@ -337,4 +339,60 @@ export function apiSecurityHeaders(): (
     coep: "unsafe-none",
     corp: "same-origin",
   });
+
+  // `/docs` and `/redoc` serve HTML that pulls assets from CDNs; use a separate CSP allowlist
+  // so the interactive documentation works while keeping the API CSP strict.
+  const swaggerDocsPreset = securityHeaders({
+    csp: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      fontSrc: ["'self'", "data:", "https://unpkg.com"],
+      connectSrc: ["'self'", "ws:", "wss:"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      objectSrc: ["'none'"],
+      frameSrc: ["'none'"],
+      // Never force HTTPS upgrades for docs pages; local gateway commonly runs over HTTP.
+      upgradeInsecureRequests: false,
+    },
+    frameOptions: "DENY",
+    referrerPolicy: "no-referrer",
+    coop: "same-origin",
+    coep: "unsafe-none",
+    corp: "same-origin",
+  });
+
+  const redocPreset = securityHeaders({
+    csp: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://cdn.redoc.ly"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+      connectSrc: ["'self'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      objectSrc: ["'none'"],
+      frameSrc: ["'none'"],
+      upgradeInsecureRequests: false,
+    },
+    frameOptions: "DENY",
+    referrerPolicy: "no-referrer",
+    coop: "same-origin",
+    coep: "unsafe-none",
+    corp: "same-origin",
+  });
+
+  return async (c: Context, next: Next): Promise<Response | undefined> => {
+    const path = c.req.path;
+    if (path === "/docs" || path.startsWith("/docs/"))
+      return swaggerDocsPreset(c, next);
+    if (path === "/redoc" || path.startsWith("/redoc/"))
+      return redocPreset(c, next);
+    return apiPreset(c, next);
+  };
 }

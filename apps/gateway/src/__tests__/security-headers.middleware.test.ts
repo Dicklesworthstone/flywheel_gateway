@@ -220,6 +220,41 @@ describe("Security Headers Middleware", () => {
       expect(csp).toContain("frame-ancestors 'none'");
     });
 
+    test("apiSecurityHeaders allows Swagger UI assets on /docs", async () => {
+      const app = new Hono();
+      app.use("*", apiSecurityHeaders());
+      app.get("/docs", (c) => c.html("<html><body>docs</body></html>"));
+
+      const res = await app.request("/docs");
+
+      const csp = res.headers.get("Content-Security-Policy");
+      expect(csp).toContain("default-src 'self'");
+      expect(csp).toContain(
+        "script-src 'self' 'unsafe-inline' https://unpkg.com",
+      );
+      expect(csp).toContain(
+        "style-src 'self' 'unsafe-inline' https://unpkg.com",
+      );
+      expect(csp).not.toContain("upgrade-insecure-requests");
+    });
+
+    test("apiSecurityHeaders allows ReDoc assets on /redoc", async () => {
+      const app = new Hono();
+      app.use("*", apiSecurityHeaders());
+      app.get("/redoc", (c) => c.html("<html><body>redoc</body></html>"));
+
+      const res = await app.request("/redoc");
+
+      const csp = res.headers.get("Content-Security-Policy");
+      expect(csp).toContain("default-src 'self'");
+      expect(csp).toContain("script-src 'self' https://cdn.redoc.ly");
+      expect(csp).toContain(
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      );
+      expect(csp).toContain("font-src 'self' data: https://fonts.gstatic.com");
+      expect(csp).not.toContain("upgrade-insecure-requests");
+    });
+
     test("apiSecurityHeaders sets no-referrer policy", async () => {
       const app = new Hono();
       app.use("*", apiSecurityHeaders());
