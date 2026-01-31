@@ -25,6 +25,7 @@ import {
   sendValidationError,
 } from "../utils/response";
 import { transformZodError } from "../utils/validation";
+import type { AuthContext } from "../ws/hub";
 
 const app = new Hono();
 
@@ -49,8 +50,95 @@ function initializeDefaultPolicies() {
 }
 initializeDefaultPolicies();
 
-// Export job tracking
+// Export job tracking with cleanup
 const exportJobs: Map<string, AuditExportResult> = new Map();
+
+/** Maximum number of export jobs to retain */
+const MAX_EXPORT_JOBS = 1000;
+
+/** Export job TTL in milliseconds (24 hours) */
+const EXPORT_JOB_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** Cleanup interval in milliseconds (1 hour) */
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+
+/**
+ * Clean up expired export jobs from the Map.
+ * Removes jobs that have passed their expiresAt time or failed jobs older than TTL.
+ */
+function cleanupExpiredExportJobs(): number {
+  const now = Date.now();
+  let cleanedCount = 0;
+
+  for (const [jobId, job] of exportJobs) {
+    const isExpired = job.expiresAt && new Date(job.expiresAt).getTime() < now;
+    const isStaleFailed =
+      job.status === "failed" &&
+      job.createdAt &&
+      new Date(job.createdAt).getTime() + EXPORT_JOB_TTL_MS < now;
+    const isStaleProcessing =
+      job.status === "processing" &&
+      job.createdAt &&
+      new Date(job.createdAt).getTime() + EXPORT_JOB_TTL_MS < now;
+
+    if (isExpired || isStaleFailed || isStaleProcessing) {
+      exportJobs.delete(jobId);
+      cleanedCount++;
+    }
+  }
+
+  // If we're still over the limit, remove oldest jobs
+  if (exportJobs.size > MAX_EXPORT_JOBS) {
+    const sortedJobs = Array.from(exportJobs.entries()).sort((a, b) => {
+      const timeA = a[1].createdAt
+        ? new Date(a[1].createdAt).getTime()
+        : Date.now();
+      const timeB = b[1].createdAt
+        ? new Date(b[1].createdAt).getTime()
+        : Date.now();
+      return timeA - timeB;
+    });
+
+    const toRemove = exportJobs.size - MAX_EXPORT_JOBS;
+    for (let i = 0; i < toRemove; i++) {
+      const job = sortedJobs[i];
+      if (job) {
+        exportJobs.delete(job[0]);
+        cleanedCount++;
+      }
+    }
+  }
+
+  return cleanedCount;
+}
+
+// Start periodic cleanup (with unref to not block process exit)
+const cleanupInterval = setInterval(
+  cleanupExpiredExportJobs,
+  CLEANUP_INTERVAL_MS,
+);
+cleanupInterval.unref();
+
+/**
+ * Stop the cleanup interval (for testing).
+ */
+export function stopExportJobCleanup(): void {
+  clearInterval(cleanupInterval);
+}
+
+/**
+ * Get export job count (for testing/monitoring).
+ */
+export function getExportJobCount(): number {
+  return exportJobs.size;
+}
+
+/**
+ * Force cleanup of expired export jobs (for testing/monitoring).
+ */
+export function forceExportJobCleanup(): number {
+  return cleanupExpiredExportJobs();
+}
 
 // ============================================================================
 // Validation Schemas
@@ -328,12 +416,18 @@ app.post("/export", async (c) => {
     const validBody = parseResult.data;
     const jobId = crypto.randomUUID();
 
+    // Get the user ID from auth context for authorization checks
+    const auth = c.get("auth") as AuthContext | undefined;
+    const createdBy = auth?.userId;
+
     const exportJob: AuditExportResult = {
       jobId,
       filename: `audit-export-${jobId.slice(0, 8)}.${validBody.format}`,
       recordCount: 0,
       fileSize: 0,
       status: "processing",
+      createdBy,
+      createdAt: new Date(),
     };
 
     exportJobs.set(jobId, exportJob);
@@ -413,6 +507,12 @@ app.get("/export/:jobId", async (c) => {
     return sendNotFound(c, "export_job", jobId);
   }
 
+  // Verify the requester is the creator or an admin
+  const auth = c.get("auth") as AuthContext | undefined;
+  if (job.createdBy && !auth?.isAdmin && auth?.userId !== job.createdBy) {
+    return sendNotFound(c, "export_job", jobId); // Return 404 to prevent enumeration
+  }
+
   return sendResource(c, "export_job", job);
 });
 
@@ -427,6 +527,17 @@ app.get("/export/:jobId/download", async (c) => {
 
   if (!job) {
     return sendNotFound(c, "export_job", jobId);
+  }
+
+  // Verify the requester is the creator or an admin
+  const auth = c.get("auth") as AuthContext | undefined;
+  if (job.createdBy && !auth?.isAdmin && auth?.userId !== job.createdBy) {
+    return sendError(
+      c,
+      "AUTH_INSUFFICIENT_SCOPE",
+      "You are not authorized to download this export",
+      403,
+    );
   }
 
   if (job.status !== "completed") {

@@ -326,10 +326,12 @@ export interface AuditExportResult {
   filename: string;
   downloadUrl?: string;
   expiresAt?: Date;
+  createdAt?: Date; // When the job was created (for cleanup)
   recordCount: number;
   fileSize: number;
   status: "pending" | "processing" | "completed" | "failed";
   error?: string;
+  createdBy?: string; // User ID of the creator for authorization checks
 }
 
 /**

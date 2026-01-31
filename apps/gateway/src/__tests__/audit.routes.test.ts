@@ -405,3 +405,24 @@ describe("Audit Routes", () => {
     });
   });
 });
+
+describe("Export Job Cleanup", () => {
+  test("cleanup functions are exported", async () => {
+    const auditModule = await import("../routes/audit");
+    expect(typeof auditModule.stopExportJobCleanup).toBe("function");
+    expect(typeof auditModule.getExportJobCount).toBe("function");
+    expect(typeof auditModule.forceExportJobCleanup).toBe("function");
+  });
+
+  test("getExportJobCount returns a number", async () => {
+    const auditModule = await import("../routes/audit");
+    expect(typeof auditModule.getExportJobCount()).toBe("number");
+  });
+
+  test("forceExportJobCleanup returns cleaned count", async () => {
+    const auditModule = await import("../routes/audit");
+    const cleanedCount = auditModule.forceExportJobCleanup();
+    expect(typeof cleanedCount).toBe("number");
+    expect(cleanedCount).toBeGreaterThanOrEqual(0);
+  });
+});
