@@ -15,6 +15,7 @@ import { correlationMiddleware } from "./middleware/correlation";
 import { idempotencyMiddleware } from "./middleware/idempotency";
 import { loggingMiddleware } from "./middleware/logging";
 import { apiSecurityHeaders } from "./middleware/security-headers";
+import { globalErrorHandler } from "./middleware/error-handler";
 import { routes } from "./routes";
 import { initializeAgentService } from "./services/agent";
 import { startAgentEvents } from "./services/agent-events";
@@ -57,6 +58,25 @@ app.use(
     excludePaths: ["/health"],
   }),
 );
+
+// Global error handler - catches any uncaught exceptions
+app.onError((error, c) => {
+  const correlationId =
+    c.get("correlationId") ?? c.res.headers.get("X-Correlation-Id") ?? "unknown";
+  logger.error(
+    { error, correlationId, path: c.req.path, method: c.req.method },
+    "Unhandled error in request",
+  );
+  return c.json(
+    {
+      object: "error",
+      code: "INTERNAL_ERROR",
+      message: "An unexpected error occurred",
+      requestId: correlationId,
+    },
+    500,
+  );
+});
 
 // Mount all routes
 app.route("/", routes);
