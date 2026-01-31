@@ -15,6 +15,8 @@ import {
   setRotationConfig,
 } from "../services/context-rotation";
 
+const DEFAULT_MAX_TOKENS = 100000;
+
 async function ensureAgent(agentId: string) {
   try {
     await db.insert(agents).values({
@@ -37,7 +39,8 @@ function createMockAgent(
   tokenUsage: TokenUsage,
   maxTokens = 100000,
 ): Agent {
-  const usagePercent = (tokenUsage.totalTokens / maxTokens) * 100;
+  const safeMaxTokens = maxTokens > 0 ? maxTokens : DEFAULT_MAX_TOKENS;
+  const usagePercent = (tokenUsage.totalTokens / safeMaxTokens) * 100;
   let contextHealth: "healthy" | "warning" | "critical" | "emergency" =
     "healthy";
   if (usagePercent >= 95) {
@@ -132,6 +135,15 @@ describe("Context Rotation Service", () => {
       };
       expect(calculateHealthLevel(tokenUsage, maxTokens)).toBe("emergency");
     });
+
+    test("falls back to default when maxTokens is non-positive", () => {
+      const tokenUsage: TokenUsage = {
+        promptTokens: 20000,
+        completionTokens: 30000,
+        totalTokens: 50000, // 50% of default
+      };
+      expect(calculateHealthLevel(tokenUsage, 0)).toBe("healthy");
+    });
   });
 
   describe("getContextHealth", () => {
@@ -190,6 +202,22 @@ describe("Context Rotation Service", () => {
       expect(health.suggestion).toBe(
         "Immediate rotation required. Context at capacity.",
       );
+    });
+
+    test("uses default maxTokens when configured value is invalid", () => {
+      const agent = createMockAgent(
+        "test-invalid-max",
+        {
+          promptTokens: 20000,
+          completionTokens: 30000,
+          totalTokens: 50000,
+        },
+        0,
+      );
+
+      const health = getContextHealth(agent);
+      expect(health.maxTokens).toBe(DEFAULT_MAX_TOKENS);
+      expect(health.usagePercent).toBe(50);
     });
   });
 

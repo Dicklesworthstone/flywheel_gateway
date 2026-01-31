@@ -123,6 +123,8 @@ const DEFAULT_CONFIG: RotationConfig = {
   autoRotate: true,
 };
 
+const DEFAULT_MAX_TOKENS = 100000;
+
 /** Agent rotation configs */
 const agentConfigs = new Map<string, RotationConfig>();
 
@@ -167,7 +169,8 @@ export function calculateHealthLevel(
   maxTokens: number,
   thresholds = DEFAULT_CONFIG.thresholds,
 ): ContextHealthLevel {
-  const usagePercent = (tokenUsage.totalTokens / maxTokens) * 100;
+  const safeMaxTokens = maxTokens > 0 ? maxTokens : DEFAULT_MAX_TOKENS;
+  const usagePercent = (tokenUsage.totalTokens / safeMaxTokens) * 100;
 
   if (usagePercent >= thresholds.emergency) {
     return "emergency";
@@ -183,7 +186,16 @@ export function calculateHealthLevel(
  * Get context health status for an agent.
  */
 export function getContextHealth(agent: Agent): ContextHealthStatus {
-  const maxTokens = agent.config.maxTokens ?? 100000;
+  const configuredMaxTokens = agent.config.maxTokens ?? DEFAULT_MAX_TOKENS;
+  const maxTokens =
+    configuredMaxTokens > 0 ? configuredMaxTokens : DEFAULT_MAX_TOKENS;
+  if (configuredMaxTokens <= 0) {
+    const log = getLogger();
+    log.warn(
+      { agentId: agent.id, maxTokens: configuredMaxTokens },
+      "Invalid maxTokens; using default",
+    );
+  }
   const config = getRotationConfig(agent.id);
   const level = calculateHealthLevel(
     agent.tokenUsage,
