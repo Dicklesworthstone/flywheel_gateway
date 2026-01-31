@@ -1077,8 +1077,20 @@ async function collectAgentMailSnapshot(
               messages.unread++;
             }
 
-            const priority = msg.priority ?? "normal";
-            messages.byPriority[priority]++;
+            switch (msg.priority) {
+              case "low":
+                messages.byPriority.low++;
+                break;
+              case "high":
+                messages.byPriority.high++;
+                break;
+              case "urgent":
+                messages.byPriority.urgent++;
+                break;
+              default:
+                messages.byPriority.normal++;
+                break;
+            }
           } catch {
             // Skip malformed lines
           }
