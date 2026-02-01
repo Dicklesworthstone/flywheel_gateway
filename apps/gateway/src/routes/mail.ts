@@ -18,6 +18,7 @@ import { serializeGatewayError } from "@flywheel/shared/errors";
 import { type Context, Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
+import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import {
   type AgentMailService,
@@ -189,6 +190,8 @@ function createMailRoutes(
   let cachedService: AgentMailService | undefined = service;
   let cachedConflictEngine: ReservationConflictEngine | undefined =
     conflictEngine;
+
+  mail.use("*", requireAdminMiddleware());
 
   mail.use("*", async (c, next) => {
     if (!cachedService) {

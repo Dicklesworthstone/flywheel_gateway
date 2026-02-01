@@ -9,6 +9,7 @@ import type { GatewayError } from "@flywheel/shared/errors";
 import { createGatewayError, toGatewayError } from "@flywheel/shared/errors";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
+import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import {
   expandSessionContext,
@@ -26,6 +27,7 @@ import {
 import { transformZodError } from "../utils/validation";
 
 const cass = new Hono();
+cass.use("*", requireAdminMiddleware());
 
 // ============================================================================
 // Error Handling

@@ -12,6 +12,7 @@ import {
 } from "@flywheel/shared/api/pagination";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
+import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import {
   CheckpointError,
@@ -39,6 +40,7 @@ import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
 
 const checkpoints = new Hono();
+checkpoints.use("*", requireAdminMiddleware());
 
 // ============================================================================
 // Validation Schemas

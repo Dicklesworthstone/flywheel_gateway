@@ -9,6 +9,7 @@
 
 import { type Context, Hono } from "hono";
 import { z } from "zod";
+import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import {
   createExceptionsForPlan,
@@ -64,6 +65,7 @@ import {
 import { transformZodError } from "../utils/validation";
 
 const ru = new Hono();
+ru.use("*", requireAdminMiddleware());
 
 // ============================================================================
 // Validation Schemas

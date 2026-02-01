@@ -11,6 +11,7 @@
 
 import { type Context, Hono } from "hono";
 import { z } from "zod";
+import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import {
   type FindingFilter,
@@ -29,6 +30,7 @@ import {
 import { transformZodError } from "../utils/validation";
 
 const scanner = new Hono();
+scanner.use("*", requireAdminMiddleware());
 
 // ============================================================================
 // Validation Schemas

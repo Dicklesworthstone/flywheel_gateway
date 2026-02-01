@@ -7,6 +7,7 @@
 
 import { Hono } from "hono";
 import { z } from "zod";
+import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import {
   getUtilityStatus,
@@ -26,6 +27,7 @@ import {
 } from "../utils/response";
 
 const utilities = new Hono();
+utilities.use("*", requireAdminMiddleware());
 
 // ============================================================================
 // Validation Schemas

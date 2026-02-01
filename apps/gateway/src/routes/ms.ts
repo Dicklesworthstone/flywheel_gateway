@@ -9,6 +9,7 @@
 
 import { type Context, Hono } from "hono";
 import { z } from "zod";
+import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import { getMsService } from "../services/ms.service";
 import {
@@ -24,6 +25,7 @@ import {
 import { transformZodError } from "../utils/validation";
 
 const ms = new Hono();
+ms.use("*", requireAdminMiddleware());
 
 // ============================================================================
 // Validation Schemas

@@ -4,6 +4,7 @@
 
 import { Hono, type Context as HonoContext } from "hono";
 import { z } from "zod";
+import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import {
   buildContextPack,
@@ -30,6 +31,7 @@ import {
 import { transformZodError } from "../utils/validation";
 
 const context = new Hono();
+context.use("*", requireAdminMiddleware());
 
 // ============================================================================
 // Utilities

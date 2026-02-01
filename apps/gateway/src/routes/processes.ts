@@ -7,6 +7,7 @@
 
 import { type Context, Hono } from "hono";
 import { z } from "zod";
+import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import { getPtService } from "../services/pt.service";
 import {
@@ -21,6 +22,7 @@ import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
 
 const processes = new Hono();
+processes.use("*", requireAdminMiddleware());
 
 // ============================================================================
 // Validation Schemas

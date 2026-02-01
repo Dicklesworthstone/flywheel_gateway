@@ -19,6 +19,7 @@ import {
 import { type Context, Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
+import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import {
   getCMStatus,
@@ -39,6 +40,7 @@ import {
 import { transformZodError } from "../utils/validation";
 
 const memory = new Hono();
+memory.use("*", requireAdminMiddleware());
 
 // ============================================================================
 // Error Handling

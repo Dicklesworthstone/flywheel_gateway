@@ -7,11 +7,13 @@
  */
 
 import { Hono } from "hono";
+import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import { getSnapshotService } from "../services/snapshot.service";
 import { sendResource } from "../utils/response";
 
 const system = new Hono();
+system.use("*", requireAdminMiddleware());
 
 // ============================================================================
 // Routes

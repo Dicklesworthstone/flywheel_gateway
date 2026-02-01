@@ -6,6 +6,7 @@ import { type ErrorCode, getHttpStatus } from "@flywheel/shared";
 import { type Context, Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
+import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import { isAlive } from "../models/agent-state";
 import {
@@ -35,6 +36,7 @@ import {
 import { transformZodError } from "../utils/validation";
 
 const agents = new Hono();
+agents.use("*", requireAdminMiddleware());
 
 /** Maximum items allowed in comma-separated list parameters */
 const MAX_CSV_ITEMS = 50;

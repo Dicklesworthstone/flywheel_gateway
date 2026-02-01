@@ -10,6 +10,7 @@
 
 import { type Context, Hono } from "hono";
 import { z } from "zod";
+import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import { getRchService } from "../services/rch.service";
 import {
@@ -22,6 +23,7 @@ import {
 import { transformZodError } from "../utils/validation";
 
 const rch = new Hono();
+rch.use("*", requireAdminMiddleware());
 
 // ============================================================================
 // Error Handler

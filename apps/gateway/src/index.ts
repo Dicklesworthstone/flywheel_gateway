@@ -33,7 +33,10 @@ import {
 import { startNtmWsBridge } from "./services/ntm-ws-bridge.service";
 import { startCleanupJob } from "./services/reservation.service";
 import { startCleanupJob as startSafetyCleanupJob } from "./services/safety.service";
-import { logStartupSecurityWarnings } from "./startup-warnings";
+import {
+  enforceStartupSecurity,
+  logStartupSecurityWarnings,
+} from "./startup-warnings";
 import {
   createGuestAuthContext,
   createInternalAuthContext,
@@ -76,6 +79,7 @@ if (import.meta.main) {
   const port = config.server.port;
   const host = config.server.host;
   logStartupSecurityWarnings({ host, port });
+  enforceStartupSecurity({ host, port });
 
   // Start background jobs
   startCleanupJob();

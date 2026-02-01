@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { createHmac } from "node:crypto";
 import { Hono } from "hono";
-import { authMiddleware } from "../middleware/auth";
+import { authMiddleware, requireAdminMiddleware } from "../middleware/auth";
 
 const TEST_JWT_SECRET = "test-secret-please-change";
 const TEST_ADMIN_KEY = "admin-test-key";
@@ -10,6 +10,14 @@ function createApp() {
   const app = new Hono();
   app.use("*", authMiddleware());
   app.get("/protected", (c) => c.text("ok"));
+  return app;
+}
+
+function createAdminApp() {
+  const app = new Hono();
+  app.use("*", authMiddleware());
+  app.use("*", requireAdminMiddleware());
+  app.get("/admin", (c) => c.text("ok"));
   return app;
 }
 
@@ -75,5 +83,31 @@ describe("authMiddleware", () => {
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(res.status).toBe(401);
+  });
+
+  it("rejects non-admin JWT token for admin routes", async () => {
+    const app = createAdminApp();
+    const token = createJwt({ sub: "user-1" }, TEST_JWT_SECRET);
+    const res = await app.request("/admin", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("accepts admin JWT token for admin routes", async () => {
+    const app = createAdminApp();
+    const token = createJwt({ sub: "user-1", isAdmin: true }, TEST_JWT_SECRET);
+    const res = await app.request("/admin", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it("accepts admin key bearer token for admin routes", async () => {
+    const app = createAdminApp();
+    const res = await app.request("/admin", {
+      headers: { Authorization: `Bearer ${TEST_ADMIN_KEY}` },
+    });
+    expect(res.status).toBe(200);
   });
 });

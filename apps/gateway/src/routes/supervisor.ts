@@ -8,6 +8,7 @@
  */
 
 import { type Context, Hono } from "hono";
+import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import {
   DaemonNotFoundError,
@@ -23,6 +24,7 @@ import {
 } from "../utils/response";
 
 const supervisor = new Hono();
+supervisor.use("*", requireAdminMiddleware());
 
 // ============================================================================
 // Error Handler

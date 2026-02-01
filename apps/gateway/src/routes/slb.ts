@@ -7,6 +7,7 @@
 
 import { type Context, Hono } from "hono";
 import { z } from "zod";
+import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import {
   getSlbService,
@@ -24,6 +25,7 @@ import {
 import { transformZodError } from "../utils/validation";
 
 const slb = new Hono();
+slb.use("*", requireAdminMiddleware());
 
 // ============================================================================
 // Validation Schemas

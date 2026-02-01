@@ -218,3 +218,46 @@ export function authMiddleware() {
     await next();
   };
 }
+
+export function isAuthEnabled(): boolean {
+  const adminKey = process.env["GATEWAY_ADMIN_KEY"]?.trim();
+  const jwtSecret = process.env["JWT_SECRET"]?.trim();
+  return Boolean(adminKey || jwtSecret);
+}
+
+/**
+ * Require admin privileges for a route group.
+ *
+ * Note: When auth is disabled (no JWT_SECRET and no GATEWAY_ADMIN_KEY), this
+ * middleware is a no-op to preserve local development workflows. In production,
+ * `authMiddleware()` should be installed globally so `c.get("auth")` is set.
+ */
+export function requireAdminMiddleware() {
+  return async (c: Context, next: Next) => {
+    if (!isAuthEnabled()) {
+      await next();
+      return;
+    }
+
+    const auth = c.get("auth") as AuthContext | undefined;
+    if (!auth) {
+      return sendError(
+        c,
+        "AUTH_TOKEN_INVALID",
+        "Authorization token required",
+        401,
+      );
+    }
+
+    if (!auth.isAdmin) {
+      return sendError(
+        c,
+        "AUTH_INSUFFICIENT_SCOPE",
+        "Admin access required",
+        403,
+      );
+    }
+
+    await next();
+  };
+}

@@ -17,6 +17,7 @@ import {
 import { type Context, Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
+import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import {
   type BeadsService,
@@ -205,6 +206,8 @@ function parseScore(value: string | undefined): number | undefined {
 function createBeadsRoutes(service?: BeadsService) {
   const router = new Hono<{ Variables: { beadsService: BeadsService } }>();
   let cachedService = service;
+
+  router.use("*", requireAdminMiddleware());
 
   router.use("*", async (c, next) => {
     if (!cachedService) {

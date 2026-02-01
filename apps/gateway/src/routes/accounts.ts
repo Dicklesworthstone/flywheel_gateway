@@ -19,6 +19,7 @@ import {
   updateProfile,
 } from "../caam/account.service";
 import { handleRateLimit, peekNextProfile, rotate } from "../caam/rotation";
+import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import {
   sendError,
@@ -31,6 +32,7 @@ import {
 import { transformZodError } from "../utils/validation";
 
 const accounts = new Hono();
+accounts.use("*", requireAdminMiddleware());
 
 // ============================================================================
 // Validation Schemas
