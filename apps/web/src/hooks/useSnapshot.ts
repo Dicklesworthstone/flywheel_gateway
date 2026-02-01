@@ -1,3 +1,5 @@
+"use no memo";
+
 /**
  * System Snapshot hooks for API integration.
  *

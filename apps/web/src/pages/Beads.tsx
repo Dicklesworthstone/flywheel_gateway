@@ -1,3 +1,5 @@
+"use no memo";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal } from "../components/ui/Modal";
 import { StatusPill } from "../components/ui/StatusPill";

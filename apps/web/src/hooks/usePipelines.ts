@@ -1,3 +1,5 @@
+"use no memo";
+
 /**
  * Pipeline hooks for API integration.
  *

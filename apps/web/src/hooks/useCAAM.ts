@@ -1,3 +1,5 @@
+"use no memo";
+
 /**
  * CAAM (Coding Agent Account Manager) hooks for API integration.
  *

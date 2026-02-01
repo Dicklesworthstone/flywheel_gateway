@@ -1,3 +1,5 @@
+"use no memo";
+
 /**
  * Setup hooks for API integration with the setup wizard.
  *

@@ -1,3 +1,5 @@
+"use no memo";
+
 /**
  * useDashboard - Hook for managing dashboard state and operations.
  *
