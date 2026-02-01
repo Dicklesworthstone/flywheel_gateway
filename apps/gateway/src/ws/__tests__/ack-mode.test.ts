@@ -32,6 +32,7 @@ function createMockWS(connectionId: string): {
     subscriptions: new Map(),
     lastHeartbeat: new Date(),
     pendingAcks: new Map(),
+    activeReplays: 0,
   };
 
   const sent: string[] = [];
