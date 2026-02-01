@@ -844,7 +844,7 @@ export async function preFlightCheck(
         ruleCategory: violation.rule.category,
         ruleSeverity: violation.rule.severity,
         operationType: violation.operation.type,
-        operationDetails: JSON.stringify(violation.operation.details),
+        operationDetails: violation.operation.details,
         actionTaken: violation.action,
         taskDescription: violation.context.taskDescription,
         recentHistory: JSON.stringify(violation.context.recentHistory),
