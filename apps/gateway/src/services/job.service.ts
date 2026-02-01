@@ -1049,7 +1049,14 @@ export class JobService {
           this.config.retry.backoffMultiplier ** job.retry.attempts,
         this.config.retry.maxBackoffMs,
       );
-      const nextRetryAt = new Date(Date.now() + backoffMs);
+      const desiredRetryAtMs = Date.now() + backoffMs;
+      // Drizzle SQLite `timestamp` columns store epoch seconds (floor). Round up
+      // so we never make the job eligible *before* the intended retry time.
+      const nextRetryAtSeconds =
+        backoffMs > 0
+          ? Math.ceil(desiredRetryAtMs / 1000)
+          : Math.floor(desiredRetryAtMs / 1000);
+      const nextRetryAt = new Date(nextRetryAtSeconds * 1000);
 
       await db
         .update(jobs)

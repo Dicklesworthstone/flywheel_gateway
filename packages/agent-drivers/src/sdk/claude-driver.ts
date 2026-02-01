@@ -84,9 +84,12 @@ export class ClaudeSDKDriver extends BaseDriver {
   // ============================================================================
 
   protected async doHealthCheck(): Promise<boolean> {
-    // Check if API key is configured
+    const isProd = process.env["NODE_ENV"] === "production";
+
+    // In production, an API key is required. In non-production environments,
+    // the driver can run in a simulation fallback mode (see processRequest).
     if (!this.apiKey) {
-      return false;
+      return !isProd;
     }
 
     // Avoid expensive `/v1/messages` calls; `/v1/models` is lightweight and

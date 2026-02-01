@@ -213,6 +213,18 @@ describe("Output Service", () => {
       expect(result.chunks).toEqual([]);
       expect(result.cursorExpired).toBe(false);
     });
+
+    test("treats future cursor as expired and backfills", () => {
+      pushOutput(testAgentId, "text", "First");
+      pushOutput(testAgentId, "text", "Second");
+
+      const result = backfillOutput(testAgentId, "999", 10);
+
+      expect(result.cursorExpired).toBe(true);
+      expect(result.chunks.length).toBe(2);
+      expect(result.chunks[0]?.content).toBe("First");
+      expect(result.chunks[1]?.content).toBe("Second");
+    });
   });
 
   describe("cleanupOutputBuffer", () => {

@@ -147,7 +147,9 @@ class OutputBuffer {
     const cursorSeq = parseInt(cursor, 10);
     if (Number.isNaN(cursorSeq)) return false;
     const oldest = this.buffer[0];
-    return oldest ? cursorSeq >= oldest.sequence - 1 : true;
+    const latest = this.buffer[this.buffer.length - 1];
+    if (!oldest || !latest) return true;
+    return cursorSeq >= oldest.sequence - 1 && cursorSeq <= latest.sequence;
   }
 
   /**
