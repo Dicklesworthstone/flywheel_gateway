@@ -151,6 +151,20 @@ tools:
     expect(result.error).toBeDefined();
     expect(result.error).toContain("Failed to load overlay manifest");
   });
+
+  it("does not leak YAML content in parse errors", async () => {
+    const secretMarker = "super-secret-value-should-not-appear";
+    // Missing closing quote ensures YAMLParseError, and many YAML parsers include the
+    // offending line in the error message. We must never echo that content.
+    writeFileSync(
+      join(tempDir, "overlay.manifest.yaml"),
+      `schemaVersion: "1.0"\ntools:\n  - name: dcg\n    overrides:\n      docsUrl: "${secretMarker}\n`,
+    );
+    const result = await loadOverlayManifest(tempDir);
+    expect(result.error).toBeDefined();
+    expect(result.error).toContain("Failed to load overlay manifest");
+    expect(result.error).not.toContain(secretMarker);
+  });
 });
 
 describe("loadEnvMapping", () => {
@@ -184,6 +198,18 @@ config:
 
     expect(envMapping.toolSecrets?.["dcg"]).toBe("DCG_API_KEY");
     expect(envMapping.config?.["adminKey"]).toBe("GATEWAY_ADMIN_KEY");
+  });
+
+  it("does not leak YAML content in parse errors", async () => {
+    const secretMarker = "super-secret-value-should-not-appear";
+    writeFileSync(
+      join(tempDir, "env-mapping.yaml"),
+      `toolSecrets:\n  dcg: DCG_API_KEY\nconfig:\n  adminKey: "${secretMarker}\n`,
+    );
+    const result = await loadEnvMapping(tempDir);
+    expect(result.error).toBeDefined();
+    expect(result.error).toContain("Failed to load env mapping");
+    expect(result.error).not.toContain(secretMarker);
   });
 });
 

@@ -109,7 +109,7 @@ export async function loadOverlayManifest(
     return { manifest: parsed };
   } catch (error) {
     return {
-      error: `Failed to load overlay manifest: ${error instanceof Error ? error.message : String(error)}`,
+      error: formatYamlLoadError("overlay manifest", error),
     };
   }
 }
@@ -133,9 +133,39 @@ export async function loadEnvMapping(
     return { envMapping: parsed };
   } catch (error) {
     return {
-      error: `Failed to load env mapping: ${error instanceof Error ? error.message : String(error)}`,
+      error: formatYamlLoadError("env mapping", error),
     };
   }
+}
+
+function formatYamlLoadError(subject: string, error: unknown): string {
+  const prefix = `Failed to load ${subject}`;
+  if (!(error instanceof Error)) return prefix;
+
+  const errorCodeRaw = (error as unknown as { code?: unknown }).code;
+  const errorCode = typeof errorCodeRaw === "string" ? errorCodeRaw : undefined;
+
+  const linePosRaw = (error as unknown as { linePos?: unknown }).linePos;
+  const linePos = Array.isArray(linePosRaw) ? linePosRaw : undefined;
+  const firstPos =
+    linePos &&
+    linePos.length > 0 &&
+    linePos[0] &&
+    typeof linePos[0] === "object"
+      ? (linePos[0] as { line?: unknown; col?: unknown })
+      : undefined;
+  const line =
+    typeof firstPos?.line === "number" ? Math.max(1, firstPos.line) : undefined;
+  const col =
+    typeof firstPos?.col === "number" ? Math.max(1, firstPos.col) : undefined;
+
+  const detailParts: string[] = [error.name];
+  if (errorCode) detailParts.push(errorCode);
+  if (line !== undefined && col !== undefined) {
+    detailParts.push(`line ${line}, col ${col}`);
+  }
+
+  return `${prefix} (${detailParts.join(" ")})`;
 }
 
 /**
