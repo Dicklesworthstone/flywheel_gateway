@@ -6,10 +6,10 @@
  * @see bd-3c0o3 Real-time Alert Channels bead
  */
 
+export * from "./discord.adapter";
+export * from "./slack.adapter";
 export * from "./types";
 export * from "./webhook.adapter";
-export * from "./slack.adapter";
-export * from "./discord.adapter";
 
 import { discordAdapter } from "./discord.adapter";
 import { slackAdapter } from "./slack.adapter";

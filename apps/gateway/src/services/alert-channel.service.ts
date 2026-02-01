@@ -12,13 +12,14 @@
 
 import { getLogger } from "../middleware/correlation";
 import {
-  adapters,
+  type AlertPayload,
+  type DeliveryResult,
   getAdapter,
   getSupportedChannelTypes,
-  type AlertPayload,
-  type ChannelAdapter,
-  type DeliveryResult,
 } from "./alert-adapters";
+
+// Re-export types needed by routes
+export type { AlertPayload };
 
 // ============================================================================
 // Types
@@ -162,9 +163,15 @@ function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${random}`;
 }
 
-function matchesCondition(alert: AlertPayload, condition: RoutingCondition): boolean {
+function matchesCondition(
+  alert: AlertPayload,
+  condition: RoutingCondition,
+): boolean {
   // Check alert types
-  if (condition.alertTypes?.length && !condition.alertTypes.includes(alert.type)) {
+  if (
+    condition.alertTypes?.length &&
+    !condition.alertTypes.includes(alert.type)
+  ) {
     return false;
   }
 
@@ -176,7 +183,10 @@ function matchesCondition(alert: AlertPayload, condition: RoutingCondition): boo
   }
 
   // Check specific severities
-  if (condition.severities?.length && !condition.severities.includes(alert.severity)) {
+  if (
+    condition.severities?.length &&
+    !condition.severities.includes(alert.severity)
+  ) {
     return false;
   }
 
@@ -241,7 +251,8 @@ function isThrottled(rule: AlertRoutingRule): boolean {
 }
 
 function isRateLimited(channel: AlertChannel): boolean {
-  if (!channel.rateLimitPerMinute || channel.rateLimitPerMinute <= 0) return false;
+  if (!channel.rateLimitPerMinute || channel.rateLimitPerMinute <= 0)
+    return false;
 
   const now = new Date();
   const resetTime = channel.lastRateLimitResetAt;
@@ -311,7 +322,10 @@ export function getChannel(id: string): AlertChannel | undefined {
   return channels.get(id);
 }
 
-export function listChannels(filter?: { type?: string; enabled?: boolean }): AlertChannel[] {
+export function listChannels(filter?: {
+  type?: string;
+  enabled?: boolean;
+}): AlertChannel[] {
   let result = Array.from(channels.values());
 
   if (filter?.type) {
@@ -324,7 +338,10 @@ export function listChannels(filter?: { type?: string; enabled?: boolean }): Ale
   return result.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function updateChannel(id: string, update: UpdateChannelRequest): AlertChannel | undefined {
+export function updateChannel(
+  id: string,
+  update: UpdateChannelRequest,
+): AlertChannel | undefined {
   const channel = channels.get(id);
   if (!channel) return undefined;
 
@@ -347,7 +364,9 @@ export function updateChannel(id: string, update: UpdateChannelRequest): AlertCh
   if (update.config !== undefined) {
     const adapter = getAdapter(channel.type);
     if (!adapter?.validateConfig(update.config)) {
-      throw new Error(`Invalid configuration for channel type: ${channel.type}`);
+      throw new Error(
+        `Invalid configuration for channel type: ${channel.type}`,
+      );
     }
     channel.config = update.config;
   }
@@ -399,7 +418,9 @@ export async function testChannel(id: string): Promise<DeliveryResult> {
     };
   }
 
-  return adapter.testConnection(channel.config as Parameters<typeof adapter.testConnection>[0]);
+  return adapter.testConnection(
+    channel.config as Parameters<typeof adapter.testConnection>[0],
+  );
 }
 
 // ============================================================================
@@ -445,7 +466,10 @@ export function createRule(request: CreateRuleRequest): AlertRoutingRule {
 
   rules.set(rule.id, rule);
 
-  log.info({ ruleId: rule.id, name: rule.name }, "[ALERT_CHANNEL] Routing rule created");
+  log.info(
+    { ruleId: rule.id, name: rule.name },
+    "[ALERT_CHANNEL] Routing rule created",
+  );
 
   return rule;
 }
@@ -466,7 +490,9 @@ export function listRules(filter?: { enabled?: boolean }): AlertRoutingRule[] {
 
 export function updateRule(
   id: string,
-  update: Partial<Omit<CreateRuleRequest, "channelIds">> & { channelIds?: string[] },
+  update: Partial<Omit<CreateRuleRequest, "channelIds">> & {
+    channelIds?: string[];
+  },
 ): AlertRoutingRule | undefined {
   const rule = rules.get(id);
   if (!rule) return undefined;
@@ -495,11 +521,14 @@ export function updateRule(
   }
   if (update.throttleWindowSeconds !== undefined)
     rule.throttleWindowSeconds = update.throttleWindowSeconds;
-  if (update.throttleMaxAlerts !== undefined) rule.throttleMaxAlerts = update.throttleMaxAlerts;
-  if (update.aggregateEnabled !== undefined) rule.aggregateEnabled = update.aggregateEnabled;
+  if (update.throttleMaxAlerts !== undefined)
+    rule.throttleMaxAlerts = update.throttleMaxAlerts;
+  if (update.aggregateEnabled !== undefined)
+    rule.aggregateEnabled = update.aggregateEnabled;
   if (update.aggregateWindowSeconds !== undefined)
     rule.aggregateWindowSeconds = update.aggregateWindowSeconds;
-  if (update.aggregateMaxAlerts !== undefined) rule.aggregateMaxAlerts = update.aggregateMaxAlerts;
+  if (update.aggregateMaxAlerts !== undefined)
+    rule.aggregateMaxAlerts = update.aggregateMaxAlerts;
   if (update.enabled !== undefined) rule.enabled = update.enabled;
 
   rule.updatedAt = new Date();
@@ -529,7 +558,9 @@ export function deleteRule(id: string): boolean {
  *
  * Returns the list of delivery records created.
  */
-export async function routeAlert(alert: AlertPayload): Promise<AlertDeliveryRecord[]> {
+export async function routeAlert(
+  alert: AlertPayload,
+): Promise<AlertDeliveryRecord[]> {
   const log = getLogger();
   const records: AlertDeliveryRecord[] = [];
 
@@ -545,7 +576,10 @@ export async function routeAlert(alert: AlertPayload): Promise<AlertDeliveryReco
   }
 
   if (matchedRules.length === 0) {
-    log.debug({ alertId: alert.id, type: alert.type }, "[ALERT_CHANNEL] No matching routing rules");
+    log.debug(
+      { alertId: alert.id, type: alert.type },
+      "[ALERT_CHANNEL] No matching routing rules",
+    );
     return records;
   }
 
@@ -582,7 +616,10 @@ export async function routeAlert(alert: AlertPayload): Promise<AlertDeliveryReco
   for (const channelId of channelIdsToDeliver) {
     const channel = channels.get(channelId);
     if (!channel || !channel.enabled) {
-      log.debug({ channelId }, "[ALERT_CHANNEL] Channel disabled or not found, skipping");
+      log.debug(
+        { channelId },
+        "[ALERT_CHANNEL] Channel disabled or not found, skipping",
+      );
       continue;
     }
 

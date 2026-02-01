@@ -10,7 +10,12 @@
 
 import { getLogger } from "../../middleware/correlation";
 import { isPrivateNetworkUrl } from "../../utils/url-security";
-import type { AlertPayload, ChannelAdapter, ChannelConfig, DeliveryResult } from "./types";
+import type {
+  AlertPayload,
+  ChannelAdapter,
+  ChannelConfig,
+  DeliveryResult,
+} from "./types";
 
 /** Discord embed color by severity (decimal color values) */
 const SEVERITY_COLORS: Record<string, number> = {
@@ -54,7 +59,7 @@ function truncateText(text: string, maxLength: number): string {
  */
 function escapeDiscordMarkdown(text: string): string {
   // Escape: * _ ` ~ | \ < > [ ] ( )
-  return text.replace(/([*_`~|\\<>\[\]()])/g, "\\$1");
+  return text.replace(/([*_`~|\\<>[\]()])/g, "\\$1");
 }
 
 /**
@@ -87,7 +92,7 @@ function buildDiscordPayload(
     timestamp?: string;
   }>;
 } {
-  const color = SEVERITY_COLORS[alert.severity] ?? SEVERITY_COLORS.info;
+  const color = SEVERITY_COLORS[alert.severity] ?? 0x17a2b8; // Default to info color
 
   const severityEmoji: Record<string, string> = {
     critical: ":rotating_light:",
@@ -124,7 +129,7 @@ function buildDiscordPayload(
       value: truncateText(
         typeof alert.source === "string"
           ? alert.source
-          : alert.source.name ?? alert.source.type ?? "unknown",
+          : (alert.source.name ?? alert.source.type ?? "unknown"),
         FIELD_VALUE_MAX_LENGTH,
       ),
       inline: true,
@@ -172,7 +177,10 @@ function buildDiscordPayload(
 export const discordAdapter: ChannelAdapter<DiscordConfig> = {
   type: "discord",
 
-  async send(alert: AlertPayload, config: DiscordConfig): Promise<DeliveryResult> {
+  async send(
+    alert: AlertPayload,
+    config: DiscordConfig,
+  ): Promise<DeliveryResult> {
     const log = getLogger();
     const startTime = Date.now();
 
@@ -212,7 +220,10 @@ export const discordAdapter: ChannelAdapter<DiscordConfig> = {
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        WEBHOOK_TIMEOUT_MS,
+      );
 
       try {
         const response = await fetch(url, {
@@ -285,22 +296,28 @@ export const discordAdapter: ChannelAdapter<DiscordConfig> = {
     if (typeof config !== "object" || config === null) return false;
     const c = config as Record<string, unknown>;
 
-    if (typeof c.webhookUrl !== "string" || !c.webhookUrl) return false;
+    if (typeof c["webhookUrl"] !== "string" || !c["webhookUrl"]) return false;
 
     // Validate URL format
     try {
-      const url = new URL(c.webhookUrl);
+      const url = new URL(c["webhookUrl"]);
       // Discord webhooks should be on discord.com
-      if (!url.hostname.endsWith("discord.com") && !url.hostname.endsWith("discordapp.com")) {
+      if (
+        !url.hostname.endsWith("discord.com") &&
+        !url.hostname.endsWith("discordapp.com")
+      ) {
         return false;
       }
     } catch {
       return false;
     }
 
-    if (c.username !== undefined && typeof c.username !== "string") return false;
-    if (c.avatarUrl !== undefined && typeof c.avatarUrl !== "string") return false;
-    if (c.threadId !== undefined && typeof c.threadId !== "string") return false;
+    if (c["username"] !== undefined && typeof c["username"] !== "string")
+      return false;
+    if (c["avatarUrl"] !== undefined && typeof c["avatarUrl"] !== "string")
+      return false;
+    if (c["threadId"] !== undefined && typeof c["threadId"] !== "string")
+      return false;
 
     return true;
   },

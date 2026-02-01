@@ -9,7 +9,12 @@
 
 import { getLogger } from "../../middleware/correlation";
 import { isPrivateNetworkUrl } from "../../utils/url-security";
-import type { AlertPayload, ChannelAdapter, ChannelConfig, DeliveryResult } from "./types";
+import type {
+  AlertPayload,
+  ChannelAdapter,
+  ChannelConfig,
+  DeliveryResult,
+} from "./types";
 
 /** Default fetch timeout (10 seconds) */
 const WEBHOOK_TIMEOUT_MS = 10_000;
@@ -28,7 +33,10 @@ export interface WebhookConfig extends ChannelConfig {
 /**
  * Compute HMAC-SHA256 signature for webhook payload.
  */
-async function computeHmacSignature(payload: string, secret: string): Promise<string> {
+async function computeHmacSignature(
+  payload: string,
+  secret: string,
+): Promise<string> {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
@@ -37,7 +45,11 @@ async function computeHmacSignature(payload: string, secret: string): Promise<st
     false,
     ["sign"],
   );
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(payload),
+  );
   return Array.from(new Uint8Array(signature))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
@@ -68,8 +80,14 @@ function buildPayload(alert: AlertPayload, config: WebhookConfig): string {
     payload = payload.replace(/\{\{body\}\}/g, alert.body);
     payload = payload.replace(/\{\{severity\}\}/g, alert.severity);
     payload = payload.replace(/\{\{category\}\}/g, alert.category ?? "");
-    payload = payload.replace(/\{\{timestamp\}\}/g, alert.timestamp ?? new Date().toISOString());
-    payload = payload.replace(/\{\{correlationId\}\}/g, alert.correlationId ?? "");
+    payload = payload.replace(
+      /\{\{timestamp\}\}/g,
+      alert.timestamp ?? new Date().toISOString(),
+    );
+    payload = payload.replace(
+      /\{\{correlationId\}\}/g,
+      alert.correlationId ?? "",
+    );
     return payload;
   }
 
@@ -95,7 +113,10 @@ function buildPayload(alert: AlertPayload, config: WebhookConfig): string {
 export const webhookAdapter: ChannelAdapter<WebhookConfig> = {
   type: "webhook",
 
-  async send(alert: AlertPayload, config: WebhookConfig): Promise<DeliveryResult> {
+  async send(
+    alert: AlertPayload,
+    config: WebhookConfig,
+  ): Promise<DeliveryResult> {
     const log = getLogger();
     const startTime = Date.now();
 
@@ -137,13 +158,19 @@ export const webhookAdapter: ChannelAdapter<WebhookConfig> = {
       if (config.secret) {
         const timestamp = Math.floor(Date.now() / 1000).toString();
         const signaturePayload = `${timestamp}.${payloadJson}`;
-        const signature = await computeHmacSignature(signaturePayload, config.secret);
+        const signature = await computeHmacSignature(
+          signaturePayload,
+          config.secret,
+        );
         headers["X-Flywheel-Timestamp"] = timestamp;
         headers["X-Flywheel-Signature"] = `sha256=${signature}`;
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        WEBHOOK_TIMEOUT_MS,
+      );
 
       try {
         const response = await fetch(config.url, {
@@ -223,10 +250,15 @@ export const webhookAdapter: ChannelAdapter<WebhookConfig> = {
       return false;
     }
 
-    if (c.method !== undefined && c.method !== "POST" && c.method !== "PUT") return false;
+    if (c.method !== undefined && c.method !== "POST" && c.method !== "PUT")
+      return false;
     if (c.headers !== undefined && typeof c.headers !== "object") return false;
     if (c.secret !== undefined && typeof c.secret !== "string") return false;
-    if (c.payloadTemplate !== undefined && typeof c.payloadTemplate !== "string") return false;
+    if (
+      c.payloadTemplate !== undefined &&
+      typeof c.payloadTemplate !== "string"
+    )
+      return false;
 
     return true;
   },

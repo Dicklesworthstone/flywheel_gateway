@@ -11,13 +11,15 @@
 
 import { getLogger } from "../../middleware/correlation";
 import { isPrivateNetworkUrl } from "../../utils/url-security";
-import type { AlertPayload, ChannelAdapter, ChannelConfig, DeliveryResult } from "./types";
+import type {
+  AlertPayload,
+  ChannelAdapter,
+  ChannelConfig,
+  DeliveryResult,
+} from "./types";
 
 /** Slack header block max text length */
 const SLACK_HEADER_MAX_LENGTH = 150;
-
-/** Slack button text max length */
-const SLACK_BUTTON_TEXT_MAX_LENGTH = 75;
 
 /** Slack section text max length */
 const SLACK_SECTION_TEXT_MAX_LENGTH = 3000;
@@ -38,7 +40,10 @@ export interface SlackConfig extends ChannelConfig {
  * @see https://api.slack.com/reference/surfaces/formatting#escaping
  */
 function escapeSlackMrkdwn(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 /**
@@ -92,16 +97,11 @@ function buildSlackPayload(
     low: ":grey_question:",
   };
 
-  const severityColor: Record<string, string> = {
-    critical: "danger",
-    error: "danger",
-    warning: "warning",
-    info: "#17a2b8",
-    low: "#6c757d",
-  };
-
   const emoji = severityEmoji[alert.severity] ?? ":bell:";
-  const headerText = truncateText(`${emoji} ${alert.title}`, SLACK_HEADER_MAX_LENGTH);
+  const headerText = truncateText(
+    `${emoji} ${alert.title}`,
+    SLACK_HEADER_MAX_LENGTH,
+  );
   const fallbackText = `${emoji} ${alert.title}: ${alert.body}`;
 
   // Escape user-provided text for Slack mrkdwn
@@ -109,7 +109,9 @@ function buildSlackPayload(
   const bodyText = truncateText(escapedBody, SLACK_SECTION_TEXT_MAX_LENGTH);
 
   const sourceLabel = alert.source
-    ? escapeSlackMrkdwn(alert.source.name ?? alert.source.id ?? alert.source.type)
+    ? escapeSlackMrkdwn(
+        alert.source.name ?? alert.source.id ?? alert.source.type,
+      )
     : "unknown";
   const escapedCategory = escapeSlackMrkdwn(alert.category ?? "general");
   const escapedSeverity = escapeSlackMrkdwn(alert.severity);
@@ -184,7 +186,10 @@ function buildSlackPayload(
 export const slackAdapter: ChannelAdapter<SlackConfig> = {
   type: "slack",
 
-  async send(alert: AlertPayload, config: SlackConfig): Promise<DeliveryResult> {
+  async send(
+    alert: AlertPayload,
+    config: SlackConfig,
+  ): Promise<DeliveryResult> {
     const log = getLogger();
     const startTime = Date.now();
 
@@ -217,7 +222,10 @@ export const slackAdapter: ChannelAdapter<SlackConfig> = {
       const payload = buildSlackPayload(alert, config);
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        WEBHOOK_TIMEOUT_MS,
+      );
 
       try {
         const response = await fetch(config.webhookUrl, {
@@ -290,11 +298,11 @@ export const slackAdapter: ChannelAdapter<SlackConfig> = {
     if (typeof config !== "object" || config === null) return false;
     const c = config as Record<string, unknown>;
 
-    if (typeof c.webhookUrl !== "string" || !c.webhookUrl) return false;
+    if (typeof c["webhookUrl"] !== "string" || !c["webhookUrl"]) return false;
 
     // Validate URL format
     try {
-      const url = new URL(c.webhookUrl);
+      const url = new URL(c["webhookUrl"]);
       // Slack webhooks should be on slack.com or hooks.slack.com
       if (!url.hostname.endsWith("slack.com")) {
         return false;
@@ -303,10 +311,14 @@ export const slackAdapter: ChannelAdapter<SlackConfig> = {
       return false;
     }
 
-    if (c.channel !== undefined && typeof c.channel !== "string") return false;
-    if (c.username !== undefined && typeof c.username !== "string") return false;
-    if (c.iconEmoji !== undefined && typeof c.iconEmoji !== "string") return false;
-    if (c.iconUrl !== undefined && typeof c.iconUrl !== "string") return false;
+    if (c["channel"] !== undefined && typeof c["channel"] !== "string")
+      return false;
+    if (c["username"] !== undefined && typeof c["username"] !== "string")
+      return false;
+    if (c["iconEmoji"] !== undefined && typeof c["iconEmoji"] !== "string")
+      return false;
+    if (c["iconUrl"] !== undefined && typeof c["iconUrl"] !== "string")
+      return false;
 
     return true;
   },

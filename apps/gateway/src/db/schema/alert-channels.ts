@@ -9,7 +9,13 @@
  * @see bd-3c0o3 Real-time Alert Channels bead
  */
 
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  index,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 // ============================================================================
 // Alert Channels
@@ -51,7 +57,9 @@ export const alertChannels = sqliteTable(
 
     // Rate limiting
     rateLimitPerMinute: integer("rate_limit_per_minute").default(60),
-    lastRateLimitResetAt: integer("last_rate_limit_reset_at", { mode: "timestamp" }),
+    lastRateLimitResetAt: integer("last_rate_limit_reset_at", {
+      mode: "timestamp",
+    }),
     currentMinuteCount: integer("current_minute_count").notNull().default(0),
 
     // Timestamps
@@ -105,11 +113,17 @@ export const alertRoutingRules = sqliteTable(
     // Throttling
     throttleWindowSeconds: integer("throttle_window_seconds").default(60),
     throttleMaxAlerts: integer("throttle_max_alerts").default(10),
-    currentThrottleCount: integer("current_throttle_count").notNull().default(0),
-    throttleWindowStart: integer("throttle_window_start", { mode: "timestamp" }),
+    currentThrottleCount: integer("current_throttle_count")
+      .notNull()
+      .default(0),
+    throttleWindowStart: integer("throttle_window_start", {
+      mode: "timestamp",
+    }),
 
     // Aggregation (batch similar alerts)
-    aggregateEnabled: integer("aggregate_enabled", { mode: "boolean" }).notNull().default(false),
+    aggregateEnabled: integer("aggregate_enabled", { mode: "boolean" })
+      .notNull()
+      .default(false),
     aggregateWindowSeconds: integer("aggregate_window_seconds").default(60),
     aggregateMaxAlerts: integer("aggregate_max_alerts").default(5),
 
@@ -153,7 +167,9 @@ export const alertDeliveries = sqliteTable(
     channelId: text("channel_id")
       .notNull()
       .references(() => alertChannels.id, { onDelete: "cascade" }),
-    ruleId: text("rule_id").references(() => alertRoutingRules.id, { onDelete: "set null" }),
+    ruleId: text("rule_id").references(() => alertRoutingRules.id, {
+      onDelete: "set null",
+    }),
 
     // Status: pending | sent | failed | throttled
     status: text("status").notNull().default("pending"),
