@@ -11,10 +11,7 @@
 
 import type { ServerWebSocket } from "bun";
 import { logger } from "../services/logger";
-import {
-  type PersistableEvent,
-  persistEvent,
-} from "../services/ws-event-log.service";
+import { getWsEventLogService } from "../services/ws-event-log.service";
 import {
   type Channel,
   channelRequiresAck,
@@ -22,7 +19,6 @@ import {
   getChannelTypePrefix,
   parseChannel,
 } from "./channels";
-import { decodeCursor } from "./cursor";
 import {
   type AckResponseMessage,
   type ChannelMessage,
@@ -84,6 +80,7 @@ export interface ConnectionData {
   lastHeartbeat: Date;
   /** Messages pending acknowledgment (message ID -> pending ack) */
   pendingAcks: Map<string, PendingAck>;
+  activeReplays: number;
 }
 
 /**
@@ -362,26 +359,14 @@ export class WebSocketHub {
     const buffer = this.getOrCreateBuffer(channelStr);
     message.cursor = buffer.push(message);
 
-    // Persist to durable storage (async, non-blocking)
-    const cursorData = decodeCursor(message.cursor);
-    if (cursorData) {
-      const persistable: PersistableEvent = {
-        id: message.id,
-        channel: channelStr,
-        cursor: message.cursor,
-        sequence: cursorData.sequence,
-        messageType: type,
-        payload,
-        metadata,
-      };
-      // Fire-and-forget persistence - don't block the publish path
-      persistEvent(persistable).catch((err) => {
+    getWsEventLogService()
+      .append(message)
+      .catch((error) => {
         logger.warn(
-          { error: err, messageId: message.id, channel: channelStr },
-          "Failed to persist WebSocket event",
+          { channel: channelStr, messageId: message.id, error },
+          "Failed to persist WebSocket message to event log",
         );
       });
-    }
 
     // Fan out to subscribers
     const subs = this.subscribers.get(channelStr);

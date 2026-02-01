@@ -336,6 +336,7 @@ export interface BackfillResponse {
   lastCursor?: string;
   /** Whether there are more messages */
   hasMore: boolean;
+  cursorExpired?: boolean;
 }
 
 /**

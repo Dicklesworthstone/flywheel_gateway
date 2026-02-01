@@ -1,6 +1,6 @@
 import type { ServerWebSocket } from "bun";
 import { logger } from "../services/logger";
-import { clearConnectionRateLimits } from "../services/ws-event-log.service";
+import { getWsEventLogService } from "../services/ws-event-log.service";
 import { canSubscribe } from "./authorization";
 import { channelRequiresAck, channelToString, parseChannel } from "./channels";
 import { type ConnectionData, getHub } from "./hub";
@@ -12,6 +12,8 @@ import {
   type SubscribedMessage,
   serializeServerMessage,
 } from "./messages";
+
+const MAX_CONCURRENT_REPLAYS_PER_CONNECTION = 2;
 
 function sendMissedMessages(
   ws: ServerWebSocket<ConnectionData>,
@@ -54,6 +56,8 @@ function sendMissedMessages(
 export function handleWSOpen(ws: ServerWebSocket<ConnectionData>): void {
   const hub = getHub();
   const connectionId = ws.data.connectionId;
+
+  ws.data.activeReplays = ws.data.activeReplays ?? 0;
 
   hub.addConnection(ws, ws.data.auth);
 
@@ -307,6 +311,74 @@ export function handleWSMessage(
           clientMsg.limit,
         );
 
+        const wsEventLogEnabled = process.env["WS_EVENT_LOG_ENABLED"] === "true";
+        const shouldUseDbReplay =
+          wsEventLogEnabled &&
+          (replayResult.expired || replayResult.messages.length === 0);
+
+        if (shouldUseDbReplay) {
+          if (ws.data.activeReplays >= MAX_CONCURRENT_REPLAYS_PER_CONNECTION) {
+            ws.send(
+              serializeServerMessage({
+                type: "throttled",
+                message: "Too many concurrent replay requests",
+                resumeAfterMs: 1000,
+                currentCount: ws.data.activeReplays,
+                limit: MAX_CONCURRENT_REPLAYS_PER_CONNECTION,
+              }),
+            );
+            break;
+          }
+
+          ws.data.activeReplays++;
+          void getWsEventLogService()
+            .replay({
+              channel: channelStr,
+              cursor: clientMsg.fromCursor,
+              limit: clientMsg.limit,
+            })
+            .then((dbReplay) => {
+              const backfillResponse: ServerMessage = {
+                type: "backfill_response",
+                channel: channelStr,
+                messages: dbReplay.messages,
+                hasMore: dbReplay.hasMore,
+                ...(dbReplay.lastCursor !== undefined && {
+                  lastCursor: dbReplay.lastCursor,
+                }),
+                cursorExpired: dbReplay.cursorExpired,
+              };
+
+              ws.send(serializeServerMessage(backfillResponse));
+
+              if (
+                dbReplay.lastCursor !== undefined &&
+                ws.data.subscriptions.has(channelStr)
+              ) {
+                ws.data.subscriptions.set(channelStr, dbReplay.lastCursor);
+              }
+            })
+            .catch((error) => {
+              logger.error(
+                { connectionId, channel: channelStr, error },
+                "WS backfill DB replay failed",
+              );
+              ws.send(
+                serializeServerMessage(
+                  createWSError(
+                    "INTERNAL_ERROR",
+                    "Backfill replay failed",
+                    channelStr,
+                  ),
+                ),
+              );
+            })
+            .finally(() => {
+              ws.data.activeReplays = Math.max(0, ws.data.activeReplays - 1);
+            });
+          break;
+        }
+
         const backfillResponse: ServerMessage = {
           type: "backfill_response",
           channel: channelStr,
@@ -315,12 +387,10 @@ export function handleWSMessage(
           ...(replayResult.lastCursor !== undefined && {
             lastCursor: replayResult.lastCursor,
           }),
+          ...(replayResult.expired && { cursorExpired: true }),
         };
         ws.send(serializeServerMessage(backfillResponse));
 
-        // If the channel is currently subscribed, advance the stored cursor to
-        // reflect the last message delivered via backfill. This keeps ping /
-        // introspection cursors aligned with what the client has received.
         if (
           replayResult.lastCursor !== undefined &&
           ws.data.subscriptions.has(channelStr)
@@ -360,8 +430,6 @@ export function handleWSMessage(
 export function handleWSClose(ws: ServerWebSocket<ConnectionData>): void {
   const hub = getHub();
   hub.removeConnection(ws.data.connectionId);
-  // Clear replay rate limit tracking for this connection
-  clearConnectionRateLimits(ws.data.connectionId);
 }
 
 /**

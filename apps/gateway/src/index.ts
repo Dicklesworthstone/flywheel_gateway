@@ -207,6 +207,13 @@ if (import.meta.main) {
           initialSubscriptions.set(`agent:tools:${agentId}`, undefined);
         }
 
+        const initialCursor = url.searchParams.get("cursor")?.trim();
+        if (initialCursor) {
+          for (const channelStr of initialSubscriptions.keys()) {
+            initialSubscriptions.set(channelStr, initialCursor);
+          }
+        }
+
         // Check for authentication
         const authHeader = req.headers.get("Authorization");
         const urlToken = url.searchParams.get("token");
@@ -247,6 +254,7 @@ if (import.meta.main) {
             subscriptions: initialSubscriptions,
             lastHeartbeat: new Date(),
             pendingAcks: new Map(),
+            activeReplays: 0,
           },
         });
         if (upgraded) return undefined;
