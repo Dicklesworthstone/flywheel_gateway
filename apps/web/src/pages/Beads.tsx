@@ -1,5 +1,3 @@
-"use no memo";
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal } from "../components/ui/Modal";
 import { StatusPill } from "../components/ui/StatusPill";
@@ -95,6 +93,8 @@ async function closeBead(id: string, reason?: string): Promise<Bead> {
 }
 
 export function BeadsPage() {
+  "use no memo";
+
   const mockMode = useUiStore((state) => state.mockMode);
   const [beads, setBeads] = useState<Bead[]>([]);
   const [loading, setLoading] = useState(false);

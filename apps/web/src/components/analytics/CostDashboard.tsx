@@ -223,9 +223,9 @@ export function CostDashboard() {
         setError(
           err instanceof Error ? err.message : "Failed to load cost data",
         );
-      } finally {
-        setLoading(false);
       }
+
+      setLoading(false);
     }
 
     fetchData();

@@ -1,5 +1,3 @@
-"use no memo";
-
 import {
   createContext,
   type ReactNode,
@@ -84,6 +82,8 @@ export function WebSocketProvider({
   __testMessageQueue,
   __testCreateWebSocket,
 }: WebSocketProviderProps) {
+  "use no memo";
+
   const mockMode = useUiStore((state) => state.mockMode);
   const [status, setStatus] = useState<ConnectionStatus>(createInitialStatus());
 

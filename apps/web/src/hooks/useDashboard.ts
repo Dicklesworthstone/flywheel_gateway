@@ -1,5 +1,3 @@
-"use no memo";
-
 /**
  * useDashboard - Hook for managing dashboard state and operations.
  *
@@ -59,6 +57,8 @@ export function useDashboard(
   dashboardId?: string,
   options: UseDashboardOptions = {},
 ) {
+  "use no memo";
+
   const { autoRefresh = true, refreshInterval = 60 } = options;
 
   const [state, setState] = useState<DashboardState>({

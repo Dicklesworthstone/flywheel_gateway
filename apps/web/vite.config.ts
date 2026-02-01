@@ -124,7 +124,19 @@ export default defineConfig(({ mode }): UserConfig => {
                 target: "19",
                 logger: createCompilerLogger(compilerStats),
                 // Enable source map support for debugging
-                sources: (filename: string) => filename.includes("src/"),
+                // The compiler is still best-effort: keep it scoped to UI components
+                // until it can reliably lower common hook/page patterns (try/finally, refs, etc).
+                sources: (filename: string) => {
+                  const normalized = filename.replaceAll("\\", "/");
+                  if (!normalized.includes("/src/components/")) return false;
+
+                  // The compiler currently treats cloneElement/ref patterns as invalid "ref access during render".
+                  if (normalized.endsWith("/src/components/ui/Tooltip.tsx")) {
+                    return false;
+                  }
+
+                  return true;
+                },
               },
             ],
           ],
