@@ -251,6 +251,22 @@ describe("NTM Configuration", () => {
       expect(config.ntm.wsBridge.enabled).toBe(false);
       expect(config.ntm.wsBridge.throttling.enabled).toBe(false);
     });
+
+    test("RATE_LIMIT_ENABLED=false disables HTTP rate limiting (config)", async () => {
+      setEnv("RATE_LIMIT_ENABLED", "false");
+      clearConfigCache();
+
+      const config = await loadConfig({ cwd: "/tmp" });
+      expect(config.security.rateLimitEnabled).toBe(false);
+    });
+
+    test("RATE_LIMIT_PER_MINUTE overrides rateLimitPerMinute (config)", async () => {
+      setEnv("RATE_LIMIT_PER_MINUTE", "123");
+      clearConfigCache();
+
+      const config = await loadConfig({ cwd: "/tmp" });
+      expect(config.security.rateLimitPerMinute).toBe(123);
+    });
   });
 
   describe("config caching", () => {

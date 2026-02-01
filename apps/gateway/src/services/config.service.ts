@@ -349,6 +349,18 @@ function applyEnvOverrides(
       allowedOrigins: process.env["ALLOWED_ORIGINS"].split(","),
     };
   }
+  if (process.env["RATE_LIMIT_ENABLED"]) {
+    result.security = {
+      ...result.security,
+      rateLimitEnabled: process.env["RATE_LIMIT_ENABLED"] === "true",
+    };
+  }
+  if (process.env["RATE_LIMIT_PER_MINUTE"]) {
+    result.security = {
+      ...result.security,
+      rateLimitPerMinute: Number(process.env["RATE_LIMIT_PER_MINUTE"]),
+    };
+  }
 
   // Analytics overrides
   if (process.env["CACHE_TTL_MS"]) {

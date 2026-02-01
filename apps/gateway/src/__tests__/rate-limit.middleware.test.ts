@@ -260,17 +260,20 @@ describe("Rate Limit Middleware", () => {
       expect(await res.text()).toBe("ip:unknown");
     });
 
-    test("byAPIKey extracts Bearer token prefix", async () => {
+    test("byAPIKey prefers apiKeyId from auth context", async () => {
       const app = new Hono();
+      app.use("*", (c, next) => {
+        (c.set as (key: string, value: unknown) => void)("auth", {
+          apiKeyId: "api_key_123",
+          workspaceIds: [],
+          isAdmin: false,
+        });
+        return next();
+      });
       app.get("/test", (c) => c.text(byAPIKey(c)));
 
-      const skPrefix = "\u0073\u006b\u005f";
-      const stripeKey = `${skPrefix}test_1234567890abcdef`;
-
-      const res = await app.request("/test", {
-        headers: { Authorization: `Bearer ${stripeKey}` },
-      });
-      expect(await res.text()).toBe(`key:${stripeKey.slice(0, 16)}`);
+      const res = await app.request("/test");
+      expect(await res.text()).toBe("key:api:api_key_123");
     });
 
     test("byAPIKey falls back to IP", async () => {
@@ -295,14 +298,20 @@ describe("Rate Limit Middleware", () => {
       expect(await res.text()).toBe("user:user_123");
     });
 
-    test("byUser falls back to API key", async () => {
+    test("byUser falls back to API key identity when no userId", async () => {
       const app = new Hono();
+      app.use("*", (c, next) => {
+        (c.set as (key: string, value: unknown) => void)("auth", {
+          apiKeyId: "api_key_fallback",
+          workspaceIds: [],
+          isAdmin: false,
+        });
+        return next();
+      });
       app.get("/test", (c) => c.text(byUser(c)));
 
-      const res = await app.request("/test", {
-        headers: { Authorization: "Bearer token_abc" },
-      });
-      expect(await res.text()).toBe("key:token_abc");
+      const res = await app.request("/test");
+      expect(await res.text()).toBe("key:api:api_key_fallback");
     });
 
     test("byWorkspace extracts from context", async () => {

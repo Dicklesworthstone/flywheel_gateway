@@ -10,6 +10,7 @@
 
 import { wrapError } from "@flywheel/shared";
 import type { Context, Next } from "hono";
+import type { AuthContext } from "../ws/hub";
 import { getCorrelationId } from "./correlation";
 
 // ============================================================================
@@ -326,21 +327,15 @@ export function byIP(c: Context): string {
 }
 
 /**
- * Rate limit by API key from Authorization header.
- * Falls back to IP-based limiting if no auth header.
+ * Rate limit by authenticated identity.
+ *
+ * Prefers an authenticated API key ID (when present) and otherwise falls back to
+ * a user ID. When no auth context is available, falls back to IP-based limiting.
  */
 export function byAPIKey(c: Context): string {
-  const auth = c.req.header("Authorization");
-  if (auth) {
-    // Extract token from "Bearer <token>" format
-    const token = auth.replace(/^Bearer\s+/i, "");
-    if (token) {
-      // Use first 16 chars of token as key (for privacy)
-      const keyPrefix = token.substring(0, 16);
-      return `key:${keyPrefix}`;
-    }
-  }
-  // Fall back to IP
+  const auth = c.get("auth") as AuthContext | undefined;
+  if (auth?.apiKeyId) return `key:api:${auth.apiKeyId}`;
+  if (auth?.userId) return `key:user:${auth.userId}`;
   return byIP(c);
 }
 
@@ -349,7 +344,8 @@ export function byAPIKey(c: Context): string {
  * Falls back to API key, then IP if no user ID.
  */
 export function byUser(c: Context): string {
-  const userId = c.get("userId") as string | undefined;
+  const auth = c.get("auth") as AuthContext | undefined;
+  const userId = auth?.userId ?? (c.get("userId") as string | undefined);
   if (userId) return `user:${userId}`;
   return byAPIKey(c);
 }
@@ -361,6 +357,12 @@ export function byUser(c: Context): string {
 export function byWorkspace(c: Context): string {
   const workspaceId = c.get("workspaceId") as string | undefined;
   if (workspaceId) return `ws:${workspaceId}`;
+  const auth = c.get("auth") as unknown;
+  const workspaceIds = (auth as { workspaceIds?: unknown } | undefined)
+    ?.workspaceIds;
+  if (Array.isArray(workspaceIds) && workspaceIds.length === 1) {
+    return `ws:${workspaceIds[0]}`;
+  }
   return byAPIKey(c);
 }
 
