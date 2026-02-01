@@ -8,6 +8,8 @@
  * - lightweight counters for observability (e.g., in-flight HTTP requests)
  */
 
+import type { Channel } from "../ws/channels";
+import { getHub } from "../ws/hub";
 import { logger } from "./logger";
 
 export type MaintenanceMode = "running" | "maintenance" | "draining";
@@ -52,12 +54,59 @@ const DEFAULT_STATE: MaintenanceState = {
 let state: MaintenanceState = { ...DEFAULT_STATE };
 let inflightHttpRequests = 0;
 
+const WS_CLOSE_MAINTENANCE = 1013; // Try Again Later
+const WS_CLOSE_DRAINING = 1012; // Service Restart
+
 function sanitizeReason(reason: string | undefined): string | null {
   if (!reason) return null;
   const trimmed = reason.trim();
   if (trimmed.length === 0) return null;
   // Keep reasons short to avoid accidental log bloat / leakage.
   return trimmed.length > 500 ? `${trimmed.slice(0, 500)}...` : trimmed;
+}
+
+function publishMaintenanceStateChanged(): void {
+  try {
+    const hub = getHub();
+    const channel: Channel = { type: "system:maintenance" };
+    const snapshot = getMaintenanceSnapshot();
+    const wsStats = hub.getStats();
+
+    hub.publish(
+      channel,
+      "maintenance.state_changed",
+      {
+        ...snapshot,
+        ws: { activeConnections: wsStats.activeConnections },
+      },
+      {},
+    );
+  } catch {
+    // Hub may not be initialized in all contexts (e.g. some unit tests).
+  }
+}
+
+function closeActiveWebSocketsForMode(mode: MaintenanceMode): void {
+  let code: number | null = null;
+  let reason: string | undefined;
+
+  if (mode === "maintenance") {
+    code = WS_CLOSE_MAINTENANCE;
+    reason = "maintenance";
+  }
+  if (mode === "draining") {
+    code = WS_CLOSE_DRAINING;
+    reason = "draining";
+  }
+
+  if (code === null) return;
+
+  try {
+    const hub = getHub();
+    hub.closeAllConnections(code, reason);
+  } catch {
+    // Hub may not be initialized in all contexts (e.g. some unit tests).
+  }
 }
 
 export function getMaintenanceState(): MaintenanceState {
@@ -92,6 +141,7 @@ export function enterMaintenance(options?: {
   actor?: MaintenanceActor;
 }): MaintenanceState {
   const now = new Date();
+  const previousMode = state.mode;
   const next = {
     mode: "maintenance",
     startedAt: now,
@@ -105,13 +155,17 @@ export function enterMaintenance(options?: {
   logger.info(
     {
       mode: next.mode,
-      startedAt: next.startedAt.toISOString(),
+      startedAt: now.toISOString(),
       deadlineAt: null,
       updatedBy: next.updatedBy,
     },
     "Maintenance mode enabled",
   );
 
+  publishMaintenanceStateChanged();
+  if (previousMode !== next.mode) {
+    closeActiveWebSocketsForMode(next.mode);
+  }
   return getMaintenanceState();
 }
 
@@ -121,6 +175,7 @@ export function startDraining(options: {
   actor?: MaintenanceActor;
 }): MaintenanceState {
   const now = new Date();
+  const previousMode = state.mode;
   const deadlineAt = new Date(now.getTime() + options.deadlineSeconds * 1000);
 
   const next = {
@@ -136,13 +191,17 @@ export function startDraining(options: {
   logger.info(
     {
       mode: next.mode,
-      startedAt: next.startedAt.toISOString(),
-      deadlineAt: next.deadlineAt.toISOString(),
+      startedAt: now.toISOString(),
+      deadlineAt: deadlineAt.toISOString(),
       updatedBy: next.updatedBy,
     },
     "Drain mode enabled",
   );
 
+  publishMaintenanceStateChanged();
+  if (previousMode !== next.mode) {
+    closeActiveWebSocketsForMode(next.mode);
+  }
   return getMaintenanceState();
 }
 
@@ -163,6 +222,8 @@ export function exitMaintenance(options?: { actor?: MaintenanceActor }): void {
     { mode: state.mode, updatedBy: state.updatedBy },
     "Maintenance mode disabled",
   );
+
+  publishMaintenanceStateChanged();
 }
 
 export function isMaintenanceActive(): boolean {

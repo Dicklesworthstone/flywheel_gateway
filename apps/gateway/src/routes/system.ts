@@ -22,7 +22,11 @@ import { sendResource, sendValidationError } from "../utils/response";
 import type { AuthContext } from "../ws/hub";
 import { getHub } from "../ws/hub";
 
-const system = new Hono<{ Variables: { auth: AuthContext | undefined } }>();
+const system = new Hono<{
+  Variables: {
+    auth?: AuthContext;
+  };
+}>();
 system.use("*", requireAdminMiddleware());
 
 // ============================================================================
@@ -173,11 +177,12 @@ system.post("/maintenance", async (c) => {
     exitMaintenance({ actor });
     log.info({ enabled: false, actor }, "Maintenance disabled via API");
   } else if (typeof input.deadlineSeconds === "number") {
-    startDraining({
+    const drainingOptions: Parameters<typeof startDraining>[0] = {
       deadlineSeconds: input.deadlineSeconds,
-      ...(input.reason !== undefined ? { reason: input.reason } : {}),
       actor,
-    });
+    };
+    if (input.reason !== undefined) drainingOptions.reason = input.reason;
+    startDraining(drainingOptions);
     log.info(
       {
         enabled: true,
@@ -188,10 +193,11 @@ system.post("/maintenance", async (c) => {
       "Drain mode enabled via API",
     );
   } else {
-    enterMaintenance({
-      ...(input.reason !== undefined ? { reason: input.reason } : {}),
+    const maintenanceOptions: Parameters<typeof enterMaintenance>[0] = {
       actor,
-    });
+    };
+    if (input.reason !== undefined) maintenanceOptions.reason = input.reason;
+    enterMaintenance(maintenanceOptions);
     log.info(
       { enabled: true, mode: "maintenance", actor },
       "Maintenance enabled via API",

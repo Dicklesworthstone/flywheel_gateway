@@ -27,6 +27,10 @@ import { getConfig, loadConfig } from "./services/config.service";
 import { startDCGCleanupJob } from "./services/dcg-pending.service";
 import { startCleanupJob as startHandoffCleanupJob } from "./services/handoff.service";
 import { logger } from "./services/logger";
+import {
+  getMaintenanceSnapshot,
+  getMaintenanceState,
+} from "./services/maintenance.service";
 import { registerAgentMailToolCallerFromEnv } from "./services/mcp-agentmail";
 import {
   getNtmIngestService,
@@ -157,6 +161,39 @@ if (import.meta.main) {
       // New generic WS endpoint (e.g. /ws) or keep existing /agents/*/ws for backward compat?
       const agentMatch = url.pathname.match(/^\/agents\/([^/]+)\/ws$/);
       if (agentMatch || url.pathname === "/ws") {
+        const maintenanceMode = getMaintenanceState().mode;
+        if (maintenanceMode !== "running") {
+          const snapshot = getMaintenanceSnapshot();
+          const headers = new Headers({
+            "Content-Type": "application/json",
+          });
+          if (snapshot.retryAfterSeconds !== null) {
+            headers.set("Retry-After", String(snapshot.retryAfterSeconds));
+          }
+
+          const code =
+            maintenanceMode === "draining" ? "DRAINING" : "MAINTENANCE_MODE";
+          const message =
+            maintenanceMode === "draining"
+              ? "Service is draining"
+              : "Service in maintenance mode";
+
+          return new Response(
+            JSON.stringify({
+              error: {
+                code,
+                message,
+                details: {
+                  mode: snapshot.mode,
+                  deadlineAt: snapshot.deadlineAt,
+                  retryAfterSeconds: snapshot.retryAfterSeconds,
+                },
+              },
+            }),
+            { status: 503, headers },
+          );
+        }
+
         const initialSubscriptions = new Map<string, string | undefined>();
 
         // Auto-subscribe if connecting to specific agent endpoint

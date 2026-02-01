@@ -223,6 +223,21 @@ export class WebSocketHub {
   }
 
   /**
+   * Close and remove all active connections from the hub.
+   *
+   * @param code - WebSocket close code (default: 1000 Normal Closure)
+   * @param reason - Close reason message
+   * @returns Number of connections closed
+   */
+  closeAllConnections(code = 1000, reason?: string): number {
+    const connectionIds = Array.from(this.connections.keys());
+    for (const connectionId of connectionIds) {
+      this.closeConnection(connectionId, code, reason);
+    }
+    return connectionIds.length;
+  }
+
+  /**
    * Subscribe a connection to a channel.
    *
    * @param connectionId - The connection ID

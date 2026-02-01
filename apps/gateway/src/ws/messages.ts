@@ -123,6 +123,7 @@ export type MessageType =
   // Circuit breakers
   | "circuit.state_changed"
   // System
+  | "maintenance.state_changed"
   | "health.ping"
   | "error"
   // Processes (pt integration)

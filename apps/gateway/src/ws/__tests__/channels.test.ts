@@ -57,6 +57,9 @@ describe("channel utilities", () => {
       expect(channelToString({ type: "system:metrics" })).toBe(
         "system:metrics",
       );
+      expect(channelToString({ type: "system:maintenance" })).toBe(
+        "system:maintenance",
+      );
       expect(channelToString({ type: "system:circuits" })).toBe(
         "system:circuits",
       );
@@ -116,6 +119,9 @@ describe("channel utilities", () => {
       expect(parseChannel("system:metrics")).toEqual({
         type: "system:metrics",
       });
+      expect(parseChannel("system:maintenance")).toEqual({
+        type: "system:maintenance",
+      });
       expect(parseChannel("system:circuits")).toEqual({
         type: "system:circuits",
       });
@@ -143,6 +149,7 @@ describe("channel utilities", () => {
         { type: "workspace:agents", workspaceId: "test-workspace" },
         { type: "user:mail", userId: "test-user" },
         { type: "system:health" },
+        { type: "system:maintenance" },
         { type: "system:circuits" },
       ];
 
@@ -206,6 +213,9 @@ describe("channel utilities", () => {
     test("returns undefined for system channels", () => {
       expect(getChannelResourceId({ type: "system:health" })).toBeUndefined();
       expect(getChannelResourceId({ type: "system:metrics" })).toBeUndefined();
+      expect(
+        getChannelResourceId({ type: "system:maintenance" }),
+      ).toBeUndefined();
       expect(getChannelResourceId({ type: "system:circuits" })).toBeUndefined();
     });
   });
