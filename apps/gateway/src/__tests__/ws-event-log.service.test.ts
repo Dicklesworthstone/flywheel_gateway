@@ -31,15 +31,6 @@ mock.module("../services/logger", () => ({
   logger: mockLogger,
 }));
 
-// Mock the ring-buffer configs
-mock.module("../ws/ring-buffer", () => ({
-  BUFFER_CONFIGS: {
-    "agent:output": { capacity: 1000, ttlMs: 300_000 },
-    "agent:state": { capacity: 500, ttlMs: 120_000 },
-    "agent:tools": { capacity: 200, ttlMs: 60_000 },
-  },
-}));
-
 afterAll(() => {
   mock.restore();
 });
@@ -93,12 +84,7 @@ function createTestEvent(
 // Helper to clean up test data (safe to call before migrations)
 async function cleanupTestData(): Promise<void> {
   try {
-    await db
-      .delete(wsEventLog)
-      .where(eq(wsEventLog.channel, "agent:output:test-agent-123"));
-    await db
-      .delete(wsEventLog)
-      .where(eq(wsEventLog.channel, "agent:state:test-agent-123"));
+    await db.delete(wsEventLog);
     await db.delete(wsReplayAuditLog);
     await db.delete(wsChannelConfig);
   } catch {
@@ -242,7 +228,7 @@ describe("replayEvents", () => {
     const request: ReplayRequest = {
       connectionId: "conn-123",
       channel: "agent:output:test-agent-123",
-      fromCursor: events[0]?.cursor,
+      fromCursor: events[0]!.cursor,
     };
 
     const result = await replayEvents(request, 10);

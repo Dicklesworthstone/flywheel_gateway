@@ -18,7 +18,11 @@ import {
 } from "../services/ws-event-log.service";
 import { sendResource } from "../utils/response";
 
-const wsReplay = new Hono();
+const wsReplay = new Hono<{
+  Variables: {
+    userId?: string;
+  };
+}>();
 
 /**
  * GET /ws/replay - Replay WebSocket events from a cursor.
@@ -63,8 +67,7 @@ wsReplay.get("/replay", async (c) => {
     c.req.header("X-Connection-Id") || `http-${crypto.randomUUID()}`;
 
   // Get user ID from auth context if available
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const userId = (c as any).get("userId") as string | undefined;
+  const userId = c.get("userId");
 
   // Build request object, omitting undefined properties for exactOptionalPropertyTypes
   const request: ReplayRequest = {

@@ -1,6 +1,6 @@
 import type { ServerWebSocket } from "bun";
 import { logger } from "../services/logger";
-import { getWsEventLogService } from "../services/ws-event-log.service";
+import { replayEvents } from "../services/ws-event-log.service";
 import { canSubscribe } from "./authorization";
 import { channelRequiresAck, channelToString, parseChannel } from "./channels";
 import { type ConnectionData, getHub } from "./hub";
@@ -311,10 +311,8 @@ export function handleWSMessage(
           clientMsg.limit,
         );
 
-        const wsEventLogEnabled = process.env["WS_EVENT_LOG_ENABLED"] === "true";
         const shouldUseDbReplay =
-          wsEventLogEnabled &&
-          (replayResult.expired || replayResult.messages.length === 0);
+          replayResult.expired && replayResult.messages.length === 0;
 
         if (shouldUseDbReplay) {
           if (ws.data.activeReplays >= MAX_CONCURRENT_REPLAYS_PER_CONNECTION) {
@@ -331,12 +329,17 @@ export function handleWSMessage(
           }
 
           ws.data.activeReplays++;
-          void getWsEventLogService()
-            .replay({
+          void replayEvents(
+            {
+              connectionId,
+              ...(ws.data.auth.userId !== undefined && {
+                userId: ws.data.auth.userId,
+              }),
               channel: channelStr,
-              cursor: clientMsg.fromCursor,
-              limit: clientMsg.limit,
-            })
+              fromCursor: clientMsg.fromCursor,
+            },
+            clientMsg.limit ?? 100,
+          )
             .then((dbReplay) => {
               const backfillResponse: ServerMessage = {
                 type: "backfill_response",

@@ -16,12 +16,18 @@ CREATE TABLE IF NOT EXISTS ws_event_log (
   created_at INTEGER NOT NULL,
   expires_at INTEGER
 );
+--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS ws_event_log_channel_cursor_idx ON ws_event_log(channel, cursor);
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS ws_event_log_channel_sequence_idx ON ws_event_log(channel, sequence);
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS ws_event_log_created_at_idx ON ws_event_log(created_at);
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS ws_event_log_expires_at_idx ON ws_event_log(expires_at);
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS ws_event_log_correlation_idx ON ws_event_log(correlation_id);
+--> statement-breakpoint
 
 -- WebSocket replay audit log for authorization and rate limiting
 CREATE TABLE IF NOT EXISTS ws_replay_audit_log (
@@ -38,11 +44,16 @@ CREATE TABLE IF NOT EXISTS ws_replay_audit_log (
   duration_ms INTEGER,
   correlation_id TEXT
 );
+--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS ws_replay_audit_log_connection_idx ON ws_replay_audit_log(connection_id);
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS ws_replay_audit_log_user_idx ON ws_replay_audit_log(user_id);
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS ws_replay_audit_log_channel_idx ON ws_replay_audit_log(channel);
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS ws_replay_audit_log_requested_at_idx ON ws_replay_audit_log(requested_at);
+--> statement-breakpoint
 
 -- WebSocket channel configuration for per-channel settings
 CREATE TABLE IF NOT EXISTS ws_channel_config (
@@ -57,5 +68,6 @@ CREATE TABLE IF NOT EXISTS ws_channel_config (
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
+--> statement-breakpoint
 
 CREATE UNIQUE INDEX IF NOT EXISTS ws_channel_config_pattern_idx ON ws_channel_config(channel_pattern);

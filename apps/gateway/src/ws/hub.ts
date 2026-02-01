@@ -11,7 +11,7 @@
 
 import type { ServerWebSocket } from "bun";
 import { logger } from "../services/logger";
-import { getWsEventLogService } from "../services/ws-event-log.service";
+import { persistEvent } from "../services/ws-event-log.service";
 import {
   type Channel,
   channelRequiresAck,
@@ -19,6 +19,7 @@ import {
   getChannelTypePrefix,
   parseChannel,
 } from "./channels";
+import { decodeCursor } from "./cursor";
 import {
   type AckResponseMessage,
   type ChannelMessage,
@@ -359,14 +360,21 @@ export class WebSocketHub {
     const buffer = this.getOrCreateBuffer(channelStr);
     message.cursor = buffer.push(message);
 
-    getWsEventLogService()
-      .append(message)
-      .catch((error) => {
-        logger.warn(
-          { channel: channelStr, messageId: message.id, error },
-          "Failed to persist WebSocket message to event log",
-        );
-      });
+    const cursorData = decodeCursor(message.cursor);
+    void persistEvent({
+      id: message.id,
+      channel: message.channel,
+      cursor: message.cursor,
+      sequence: cursorData?.sequence ?? 0,
+      messageType: message.type,
+      payload: message.payload,
+      ...(message.metadata !== undefined && { metadata: message.metadata }),
+    }).catch((error) => {
+      logger.warn(
+        { channel: channelStr, messageId: message.id, error },
+        "Failed to persist WebSocket message to event log",
+      );
+    });
 
     // Fan out to subscribers
     const subs = this.subscribers.get(channelStr);
@@ -549,7 +557,9 @@ export class WebSocketHub {
     const buffer = this.buffers.get(channelStr);
 
     if (!buffer) {
-      return { messages: [], hasMore: false, expired: false };
+      // No in-memory history for this channel (e.g. process restart).
+      // Treat as expired so callers can choose a durable replay path.
+      return { messages: [], hasMore: false, expired: true };
     }
 
     // Check if cursor is still valid

@@ -296,7 +296,9 @@ export function createChannel(request: CreateChannelRequest): AlertChannel {
   const channel: AlertChannel = {
     id: generateId("ch"),
     name: request.name,
-    description: request.description,
+    ...(request.description !== undefined && {
+      description: request.description,
+    }),
     type: request.type,
     config: request.config,
     enabled: request.enabled ?? true,
@@ -448,7 +450,9 @@ export function createRule(request: CreateRuleRequest): AlertRoutingRule {
   const rule: AlertRoutingRule = {
     id: generateId("rule"),
     name: request.name,
-    description: request.description,
+    ...(request.description !== undefined && {
+      description: request.description,
+    }),
     priority: request.priority ?? 100,
     condition: request.condition,
     channelIds: request.channelIds,
@@ -630,11 +634,12 @@ export async function routeAlert(
         "[ALERT_CHANNEL] Channel rate limited, throttling",
       );
 
+      const ruleId = rulesByChannel.get(channelId)?.id;
       const record: AlertDeliveryRecord = {
         id: generateId("del"),
         alertId: alert.id,
         channelId,
-        ruleId: rulesByChannel.get(channelId)?.id,
+        ...(ruleId !== undefined && { ruleId }),
         status: "throttled",
         attempts: 0,
         maxAttempts: 3,
@@ -646,11 +651,12 @@ export async function routeAlert(
     }
 
     // Create delivery record
+    const ruleId = rulesByChannel.get(channelId)?.id;
     const record: AlertDeliveryRecord = {
       id: generateId("del"),
       alertId: alert.id,
       channelId,
-      ruleId: rulesByChannel.get(channelId)?.id,
+      ...(ruleId !== undefined && { ruleId }),
       status: "pending",
       attempts: 0,
       maxAttempts: 3,
@@ -709,7 +715,9 @@ async function deliverToChannel(
     );
 
     record.durationMs = result.durationMs;
-    record.responseStatus = result.responseStatus;
+    if (result.responseStatus !== undefined) {
+      record.responseStatus = result.responseStatus;
+    }
 
     if (result.success) {
       record.status = "sent";
@@ -718,8 +726,9 @@ async function deliverToChannel(
       channel.lastSuccessAt = new Date();
       channel.currentMinuteCount++;
     } else {
-      record.lastError = result.error;
-      record.lastErrorCode = result.errorCode;
+      if (result.error !== undefined) record.lastError = result.error;
+      if (result.errorCode !== undefined)
+        record.lastErrorCode = result.errorCode;
 
       // Retry logic
       if (record.attempts < record.maxAttempts) {
@@ -741,7 +750,7 @@ async function deliverToChannel(
         record.status = "failed";
         channel.errorCount++;
         channel.lastErrorAt = new Date();
-        channel.lastError = result.error;
+        if (result.error !== undefined) channel.lastError = result.error;
 
         log.error(
           {
@@ -795,7 +804,7 @@ export function getChannelHealth(id: string): ChannelHealth | undefined {
   const total = channel.successCount + channel.errorCount;
   const successRate = total > 0 ? channel.successCount / total : 1;
 
-  return {
+  const health: ChannelHealth = {
     channelId: channel.id,
     name: channel.name,
     type: channel.type,
@@ -803,12 +812,17 @@ export function getChannelHealth(id: string): ChannelHealth | undefined {
     successCount: channel.successCount,
     errorCount: channel.errorCount,
     successRate,
-    lastSuccessAt: channel.lastSuccessAt,
-    lastErrorAt: channel.lastErrorAt,
-    lastError: channel.lastError,
     currentRateLimit: channel.currentMinuteCount,
     rateLimitPerMinute: channel.rateLimitPerMinute,
   };
+
+  if (channel.lastSuccessAt !== undefined)
+    health.lastSuccessAt = channel.lastSuccessAt;
+  if (channel.lastErrorAt !== undefined)
+    health.lastErrorAt = channel.lastErrorAt;
+  if (channel.lastError !== undefined) health.lastError = channel.lastError;
+
+  return health;
 }
 
 export function getAllChannelHealth(): ChannelHealth[] {

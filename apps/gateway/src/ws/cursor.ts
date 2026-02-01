@@ -90,17 +90,18 @@ export function compareCursors(a: string, b: string): -1 | 0 | 1 | undefined {
  *
  * @param cursor - The cursor to check
  * @param ttlMs - Time-to-live in milliseconds
+ * @param nowMs - Optional "now" timestamp override (useful for tests)
  * @returns true if expired, false if valid, undefined if cursor is invalid
  */
 export function isCursorExpired(
   cursor: string,
   ttlMs: number,
+  nowMs: number = Date.now(),
 ): boolean | undefined {
   const data = decodeCursor(cursor);
   if (!data) return undefined;
 
-  const now = Date.now();
-  return now - data.timestamp > ttlMs;
+  return nowMs - data.timestamp > ttlMs;
 }
 
 /**

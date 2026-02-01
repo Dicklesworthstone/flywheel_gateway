@@ -241,22 +241,28 @@ export const webhookAdapter: ChannelAdapter<WebhookConfig> = {
     if (typeof config !== "object" || config === null) return false;
     const c = config as Record<string, unknown>;
 
-    if (typeof c.url !== "string" || !c.url) return false;
+    if (typeof c["url"] !== "string" || !c["url"]) return false;
 
     // Validate URL format
     try {
-      new URL(c.url);
+      new URL(c["url"]);
     } catch {
       return false;
     }
 
-    if (c.method !== undefined && c.method !== "POST" && c.method !== "PUT")
-      return false;
-    if (c.headers !== undefined && typeof c.headers !== "object") return false;
-    if (c.secret !== undefined && typeof c.secret !== "string") return false;
     if (
-      c.payloadTemplate !== undefined &&
-      typeof c.payloadTemplate !== "string"
+      c["method"] !== undefined &&
+      c["method"] !== "POST" &&
+      c["method"] !== "PUT"
+    )
+      return false;
+    if (c["headers"] !== undefined && typeof c["headers"] !== "object")
+      return false;
+    if (c["secret"] !== undefined && typeof c["secret"] !== "string")
+      return false;
+    if (
+      c["payloadTemplate"] !== undefined &&
+      typeof c["payloadTemplate"] !== "string"
     )
       return false;
 

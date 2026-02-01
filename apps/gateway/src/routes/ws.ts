@@ -1,13 +1,17 @@
 import { type Context, Hono } from "hono";
 import { z } from "zod";
-import { getLogger } from "../middleware/correlation";
+import { getCorrelationId, getLogger } from "../middleware/correlation";
 import { audit } from "../services/audit";
-import { getWsEventLogService } from "../services/ws-event-log.service";
-import { createInternalAuthContext, canSubscribe } from "../ws/authorization";
+import { replayEvents } from "../services/ws-event-log.service";
+import {
+  sendError,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
+import { transformZodError } from "../utils/validation";
+import { canSubscribe, createInternalAuthContext } from "../ws/authorization";
 import { parseChannel } from "../ws/channels";
 import type { AuthContext } from "../ws/hub";
-import { sendError, sendResource, sendValidationError } from "../utils/response";
-import { transformZodError } from "../utils/validation";
 
 const ws = new Hono();
 
@@ -30,6 +34,12 @@ function getClientIp(c: Context): string | undefined {
   return undefined;
 }
 
+function getAuthContext(c: Context): AuthContext {
+  return (
+    (c.get("auth") as AuthContext | undefined) ?? createInternalAuthContext()
+  );
+}
+
 ws.get("/replay", async (c) => {
   const log = getLogger();
   const parsed = ReplayQuerySchema.safeParse({
@@ -48,8 +58,7 @@ ws.get("/replay", async (c) => {
     return sendError(c, "INVALID_REQUEST", "Invalid channel format", 400);
   }
 
-  const auth =
-    (c.get("auth") as AuthContext | undefined) ?? createInternalAuthContext();
+  const auth = getAuthContext(c);
   const authResult = canSubscribe(auth, channel);
   if (!authResult.allowed) {
     return sendError(
@@ -61,21 +70,35 @@ ws.get("/replay", async (c) => {
   }
 
   try {
-    const result = await getWsEventLogService().replay({
-      channel: channelStr,
-      cursor: parsed.data.cursor,
-      limit: parsed.data.limit,
-    });
+    const connectionId =
+      c.req.header("X-Connection-Id")?.trim() ?? `http-${crypto.randomUUID()}`;
+    const correlationId = getCorrelationId();
+
+    const result = await replayEvents(
+      {
+        connectionId,
+        ...(auth.userId !== undefined && { userId: auth.userId }),
+        channel: channelStr,
+        ...(parsed.data.cursor !== undefined && {
+          fromCursor: parsed.data.cursor,
+        }),
+        ...(correlationId !== undefined && { correlationId }),
+      },
+      parsed.data.limit ?? 100,
+    );
+
+    const ipAddress = getClientIp(c);
+    const userAgent = c.req.header("User-Agent") ?? undefined;
 
     audit({
       action: "ws.replay",
       resource: channelStr,
       resourceType: "ws_channel",
       outcome: "success",
-      userId: auth.userId,
-      apiKeyId: auth.apiKeyId,
-      ipAddress: getClientIp(c),
-      userAgent: c.req.header("User-Agent") ?? undefined,
+      ...(auth.userId !== undefined && { userId: auth.userId }),
+      ...(auth.apiKeyId !== undefined && { apiKeyId: auth.apiKeyId }),
+      ...(ipAddress !== undefined && { ipAddress }),
+      ...(userAgent !== undefined && { userAgent }),
       metadata: {
         cursor: parsed.data.cursor,
         limit: parsed.data.limit,
@@ -87,15 +110,19 @@ ws.get("/replay", async (c) => {
     return sendResource(c, "ws_replay", { channel: channelStr, ...result });
   } catch (error) {
     log.error({ error, channel: channelStr }, "WS replay failed");
+
+    const ipAddress = getClientIp(c);
+    const userAgent = c.req.header("User-Agent") ?? undefined;
+
     audit({
       action: "ws.replay",
       resource: channelStr,
       resourceType: "ws_channel",
       outcome: "failure",
-      userId: auth.userId,
-      apiKeyId: auth.apiKeyId,
-      ipAddress: getClientIp(c),
-      userAgent: c.req.header("User-Agent") ?? undefined,
+      ...(auth.userId !== undefined && { userId: auth.userId }),
+      ...(auth.apiKeyId !== undefined && { apiKeyId: auth.apiKeyId }),
+      ...(ipAddress !== undefined && { ipAddress }),
+      ...(userAgent !== undefined && { userAgent }),
       metadata: {
         cursor: parsed.data.cursor,
         limit: parsed.data.limit,

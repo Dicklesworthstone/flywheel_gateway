@@ -79,27 +79,6 @@ export const history = sqliteTable(
   ],
 );
 
-export const wsEventLog = sqliteTable(
-  "ws_event_log",
-  {
-    id: text("id").primaryKey(),
-    channel: text("channel").notNull(),
-    cursor: text("cursor").notNull(),
-    cursorTimestamp: integer("cursor_timestamp").notNull(),
-    cursorSequence: integer("cursor_sequence").notNull(),
-    message: blob("message", { mode: "json" }).notNull(),
-    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-  },
-  (table) => [
-    index("ws_event_log_channel_cursor_idx").on(
-      table.channel,
-      table.cursorTimestamp,
-      table.cursorSequence,
-    ),
-    index("ws_event_log_created_at_idx").on(table.createdAt),
-  ],
-);
-
 export const alerts = sqliteTable(
   "alerts",
   {

@@ -145,7 +145,7 @@ describe("cursor utilities", () => {
       const cursor = encodeCursor({ timestamp: now - 60000, sequence: 1 }); // Exactly at TTL
 
       // At the boundary, should be expired (> TTL, not >=)
-      const expired = isCursorExpired(cursor, 60000);
+      const expired = isCursorExpired(cursor, 60000, now);
       expect(expired).toBe(false); // At exactly TTL, not yet expired
     });
   });
