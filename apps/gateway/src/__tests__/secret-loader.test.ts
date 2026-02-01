@@ -145,10 +145,10 @@ describe("loadSecretsFromDir", () => {
     const result = await loadSecretsFromDir(dir);
     expect(result.entries).toHaveLength(2);
     const firstEntry = result.entries[0];
-    expect(firstEntry).toBeDefined();
-    expect(firstEntry!.tool).toBe("dcg");
-    expect(firstEntry!.key).toBe(apiKeyKey);
-    expect(firstEntry!.value).toBe(apiKeyValue);
+    if (!firstEntry) throw new Error("Expected first secret entry to exist");
+    expect(firstEntry.tool).toBe("dcg");
+    expect(firstEntry.key).toBe(apiKeyKey);
+    expect(firstEntry.value).toBe(apiKeyValue);
     rmSync(dir, { recursive: true });
   });
 
@@ -169,8 +169,8 @@ describe("loadSecretsFromDir", () => {
     const result = await loadSecretsFromDir(dir);
     expect(result.entries).toHaveLength(1);
     const firstEntry = result.entries[0];
-    expect(firstEntry).toBeDefined();
-    expect(firstEntry!.value).toBe(fileSecretValue);
+    if (!firstEntry) throw new Error("Expected first secret entry to exist");
+    expect(firstEntry.value).toBe(fileSecretValue);
     rmSync(dir, { recursive: true });
   });
 
@@ -180,6 +180,24 @@ describe("loadSecretsFromDir", () => {
     const result = await loadSecretsFromDir(dir);
     expect(result.error).toBeDefined();
     expect(result.error).toContain("Failed to load secrets index");
+    rmSync(dir, { recursive: true });
+  });
+
+  it("does not leak secret values in YAML parse errors", async () => {
+    const dir = makeTempDir("sec-bad-secret-");
+    const secretMarker = "super-secret-value-should-not-appear";
+
+    // Missing closing quote ensures YAMLParseError, and many YAML parsers include the
+    // offending line in the error message. We must never echo that content.
+    writeFileSync(
+      join(dir, "secrets.yaml"),
+      `tools:\n  dcg:\n    ${apiKeyKey}: "${secretMarker}\n`,
+    );
+
+    const result = await loadSecretsFromDir(dir);
+    expect(result.error).toBeDefined();
+    expect(result.error).toContain("Failed to load secrets index");
+    expect(result.error).not.toContain(secretMarker);
     rmSync(dir, { recursive: true });
   });
 
