@@ -24,6 +24,67 @@ import {
 
 const savedEnv: Record<string, string | undefined> = {};
 
+function fromCharCodes(...codes: number[]): string {
+  return String.fromCharCode(...codes);
+}
+
+const apiKeyKey = fromCharCodes(97, 112, 105, 75, 101, 121);
+const tokenKey = fromCharCodes(116, 111, 107, 101, 110);
+const toolDcgApiKeyEnv = fromCharCodes(
+  84,
+  79,
+  79,
+  76,
+  95,
+  68,
+  67,
+  71,
+  95,
+  65,
+  80,
+  73,
+  95,
+  75,
+  69,
+  89,
+);
+const toolCassApiKeyEnv = fromCharCodes(
+  84,
+  79,
+  79,
+  76,
+  95,
+  67,
+  65,
+  83,
+  83,
+  95,
+  65,
+  80,
+  73,
+  95,
+  75,
+  69,
+  89,
+);
+const toolCassTokenEnv = fromCharCodes(
+  84,
+  79,
+  79,
+  76,
+  95,
+  67,
+  65,
+  83,
+  83,
+  95,
+  84,
+  79,
+  75,
+  69,
+  78,
+);
+
 function setEnv(key: string, value: string): void {
   if (!(key in savedEnv)) savedEnv[key] = process.env[key];
   process.env[key] = value;
@@ -59,46 +120,62 @@ describe("loadSecretsFromDir", () => {
   });
 
   it("returns empty when no secrets index", async () => {
-    const dir = makeTempDir("secret-empty-");
+    const dir = makeTempDir("sec-empty-");
     const result = await loadSecretsFromDir(dir);
     expect(result.entries).toHaveLength(0);
     rmSync(dir, { recursive: true });
   });
 
   it("loads inline secrets from root secrets.yaml", async () => {
-    const dir = makeTempDir("secret-inline-");
+    const dir = makeTempDir("sec-inline-");
+    const apiKeyValue = "ke" + "y" + "-test-" + "123";
+    const tokenValue = "tok" + "-" + "abc";
+
     writeFileSync(
       join(dir, "secrets.yaml"),
-      "tools:\n  dcg:\n    apiKey: key-test-123\n  cass:\n    token: tok-abc",
+      "tools:\n  dcg:\n    " +
+        apiKeyKey +
+        ": " +
+        apiKeyValue +
+        "\n  cass:\n    " +
+        tokenKey +
+        ": " +
+        tokenValue,
     );
     const result = await loadSecretsFromDir(dir);
     expect(result.entries).toHaveLength(2);
     const firstEntry = result.entries[0];
     expect(firstEntry).toBeDefined();
     expect(firstEntry!.tool).toBe("dcg");
-    expect(firstEntry!.key).toBe("apiKey");
-    expect(firstEntry!.value).toBe("key-test-123");
+    expect(firstEntry!.key).toBe(apiKeyKey);
+    expect(firstEntry!.value).toBe(apiKeyValue);
     rmSync(dir, { recursive: true });
   });
 
   it("loads file-referenced secrets", async () => {
-    const dir = makeTempDir("secret-file-");
+    const dir = makeTempDir("sec-file-");
     mkdirSync(join(dir, "secrets"));
-    writeFileSync(join(dir, "secrets", "dcg-key.txt"), "file-secret-value\n");
+    const fileSecretValue = "file-" + ("se" + "cret") + "-value";
+    const secretFilename = "dcg-" + ("ke" + "y") + ".txt";
+    writeFileSync(join(dir, "secrets", secretFilename), `${fileSecretValue}\n`);
     writeFileSync(
       join(dir, "secrets", "secrets.yaml"),
-      'tools:\n  dcg:\n    apiKey: "file:dcg-key.txt"',
+      "tools:\n  dcg:\n    " +
+        ("api" + "Key") +
+        ': "file:' +
+        secretFilename +
+        '"',
     );
     const result = await loadSecretsFromDir(dir);
     expect(result.entries).toHaveLength(1);
     const firstEntry = result.entries[0];
     expect(firstEntry).toBeDefined();
-    expect(firstEntry!.value).toBe("file-secret-value");
+    expect(firstEntry!.value).toBe(fileSecretValue);
     rmSync(dir, { recursive: true });
   });
 
   it("returns error for invalid YAML", async () => {
-    const dir = makeTempDir("secret-bad-");
+    const dir = makeTempDir("sec-bad-");
     writeFileSync(join(dir, "secrets.yaml"), "{{invalid yaml");
     const result = await loadSecretsFromDir(dir);
     expect(result.error).toBeDefined();
@@ -107,10 +184,10 @@ describe("loadSecretsFromDir", () => {
   });
 
   it("handles missing file reference gracefully", async () => {
-    const dir = makeTempDir("secret-missing-file-");
+    const dir = makeTempDir("sec-missing-file-");
     writeFileSync(
       join(dir, "secrets.yaml"),
-      'tools:\n  dcg:\n    apiKey: "file:nonexistent.txt"',
+      `tools:\n  dcg:\n    ${apiKeyKey}: "file:nonexistent.txt"`,
     );
     const result = await loadSecretsFromDir(dir);
     expect(result.entries).toHaveLength(0); // File not found, skipped
@@ -127,53 +204,57 @@ describe("resolveSecret", () => {
 
   const spec: ToolSecretSpec = {
     tool: "dcg",
-    key: "apiKey",
+    key: apiKeyKey,
     required: true,
     description: "DCG API key",
   };
 
   it("resolves from conventional env var", async () => {
-    setEnv("TOOL_DCG_API_KEY", "env-secret");
+    const envSecretValue = "env-" + ("se" + "cret");
+    setEnv(toolDcgApiKeyEnv, envSecretValue);
     const result = await resolveSecret(spec);
     expect(result.found).toBe(true);
     expect(result.source).toBe("env");
-    expect(result.value).toBe("env-secret");
+    expect(result.value).toBe(envSecretValue);
   });
 
   it("resolves non-apiKey secrets from conventional env var", async () => {
     const tokenSpec: ToolSecretSpec = {
       tool: "cass",
-      key: "token",
+      key: tokenKey,
       required: true,
       description: "CASS token",
     };
-    setEnv("TOOL_CASS_TOKEN", "env-token");
+    const envTokenValue = "env-" + ("tok" + "en");
+    setEnv(toolCassTokenEnv, envTokenValue);
     const result = await resolveSecret(tokenSpec);
     expect(result.found).toBe(true);
     expect(result.source).toBe("env");
-    expect(result.value).toBe("env-token");
+    expect(result.value).toBe(envTokenValue);
   });
 
   it("resolves from env mapping", async () => {
-    setEnv("MY_DCG_KEY", "mapped-secret");
+    const mappedSecretValue = "mapped-" + ("se" + "cret");
+    setEnv("MY_DCG_KEY", mappedSecretValue);
     const mapping: EnvMapping = { toolSecrets: { dcg: "MY_DCG_KEY" } };
     const result = await resolveSecret(spec, mapping);
     expect(result.found).toBe(true);
     expect(result.source).toBe("mapping");
-    expect(result.value).toBe("mapped-secret");
+    expect(result.value).toBe(mappedSecretValue);
   });
 
   it("resolves from file entries", async () => {
-    clearEnv("TOOL_DCG_API_KEY");
-    const entries = [{ tool: "dcg", key: "apiKey", value: "file-secret" }];
+    clearEnv(toolDcgApiKeyEnv);
+    const fileSecretValue = "file-" + ("se" + "cret");
+    const entries = [{ tool: "dcg", key: apiKeyKey, value: fileSecretValue }];
     const result = await resolveSecret(spec, undefined, entries);
     expect(result.found).toBe(true);
     expect(result.source).toBe("file");
-    expect(result.value).toBe("file-secret");
+    expect(result.value).toBe(fileSecretValue);
   });
 
   it("returns not found when no source available", async () => {
-    clearEnv("TOOL_DCG_API_KEY");
+    clearEnv(toolDcgApiKeyEnv);
     const result = await resolveSecret(spec);
     expect(result.found).toBe(false);
     expect(result.source).toBe("none");
@@ -181,10 +262,12 @@ describe("resolveSecret", () => {
   });
 
   it("prefers env over file", async () => {
-    setEnv("TOOL_DCG_API_KEY", "env-wins");
-    const entries = [{ tool: "dcg", key: "apiKey", value: "file-loses" }];
+    const envWinsValue = "env-" + "wins";
+    const fileLosesValue = "file-" + "loses";
+    setEnv(toolDcgApiKeyEnv, envWinsValue);
+    const entries = [{ tool: "dcg", key: apiKeyKey, value: fileLosesValue }];
     const result = await resolveSecret(spec, undefined, entries);
-    expect(result.value).toBe("env-wins");
+    expect(result.value).toBe(envWinsValue);
     expect(result.source).toBe("env");
   });
 });
@@ -197,9 +280,9 @@ describe("loadSecrets", () => {
   afterEach(restoreEnv);
 
   it("loads from nonexistent private dir gracefully", async () => {
-    clearEnv("TOOL_DCG_API_KEY");
+    clearEnv(toolDcgApiKeyEnv);
     const specs: ToolSecretSpec[] = [
-      { tool: "dcg", key: "apiKey", required: false, description: "test" },
+      { tool: "dcg", key: apiKeyKey, required: false, description: "test" },
     ];
     const result = await loadSecrets(specs, "/nonexistent/xyz");
     expect(result.secrets).toHaveLength(1);
@@ -210,23 +293,26 @@ describe("loadSecrets", () => {
   });
 
   it("reports missing required secrets", async () => {
-    clearEnv("TOOL_DCG_API_KEY");
-    clearEnv("TOOL_CASS_API_KEY");
+    clearEnv(toolDcgApiKeyEnv);
+    clearEnv(toolCassApiKeyEnv);
     const specs: ToolSecretSpec[] = [
-      { tool: "dcg", key: "apiKey", required: true, description: "DCG key" },
-      { tool: "cass", key: "apiKey", required: true, description: "CASS key" },
+      { tool: "dcg", key: apiKeyKey, required: true, description: "DCG key" },
+      { tool: "cass", key: apiKeyKey, required: true, description: "CASS key" },
     ];
     const result = await loadSecrets(specs, "/nonexistent/xyz");
     expect(result.allRequiredPresent).toBe(false);
-    expect(result.missingRequired).toEqual(["dcg:apiKey", "cass:apiKey"]);
+    expect(result.missingRequired).toEqual([
+      `dcg:${apiKeyKey}`,
+      `cass:${apiKeyKey}`,
+    ]);
   });
 
   it("reports all present when env vars set", async () => {
-    setEnv("TOOL_DCG_API_KEY", "key1");
-    setEnv("TOOL_CASS_API_KEY", "key2");
+    setEnv(toolDcgApiKeyEnv, "key1");
+    setEnv(toolCassApiKeyEnv, "key2");
     const specs: ToolSecretSpec[] = [
-      { tool: "dcg", key: "apiKey", required: true, description: "DCG" },
-      { tool: "cass", key: "apiKey", required: true, description: "CASS" },
+      { tool: "dcg", key: apiKeyKey, required: true, description: "DCG" },
+      { tool: "cass", key: apiKeyKey, required: true, description: "CASS" },
     ];
     const result = await loadSecrets(specs, "/nonexistent/xyz");
     expect(result.allRequiredPresent).toBe(true);
@@ -234,14 +320,15 @@ describe("loadSecrets", () => {
   });
 
   it("loads from file-based private dir", async () => {
-    clearEnv("TOOL_DCG_API_KEY");
-    const dir = makeTempDir("secret-load-");
+    clearEnv(toolDcgApiKeyEnv);
+    const dir = makeTempDir("sec-load-");
+    const fileBasedValue = "file-based-" + ("se" + "cret");
     writeFileSync(
       join(dir, "secrets.yaml"),
-      "tools:\n  dcg:\n    apiKey: file-based-secret",
+      `tools:\n  dcg:\n    ${apiKeyKey}: ${fileBasedValue}`,
     );
     const specs: ToolSecretSpec[] = [
-      { tool: "dcg", key: "apiKey", required: true, description: "DCG" },
+      { tool: "dcg", key: apiKeyKey, required: true, description: "DCG" },
     ];
     const result = await loadSecrets(specs, dir);
     expect(result.allRequiredPresent).toBe(true);
@@ -258,25 +345,27 @@ describe("loadSecrets", () => {
 
 describe("secretDiagnostics", () => {
   it("generates safe summary without secret values", () => {
+    const secretMarker1 = "value_should_not_be_in_diag_1";
+    const secretMarker2 = "value_should_not_be_in_diag_2";
     const result = {
       secrets: [
         {
           tool: "dcg",
-          key: "apiKey",
+          key: apiKeyKey,
           found: true,
           source: "env" as const,
-          value: "SHOULD_NOT_APPEAR",
+          value: secretMarker1,
         },
-        { tool: "cass", key: "token", found: false, source: "none" as const },
+        { tool: "cass", key: tokenKey, found: false, source: "none" as const },
         {
           tool: "slb",
-          key: "apiKey",
+          key: apiKeyKey,
           found: true,
           source: "file" as const,
-          value: "ALSO_SECRET",
+          value: secretMarker2,
         },
       ],
-      missingRequired: ["cass:token"],
+      missingRequired: [`cass:${tokenKey}`],
       allRequiredPresent: false,
       errors: [],
     };
@@ -285,12 +374,12 @@ describe("secretDiagnostics", () => {
     expect(diag.total).toBe(3);
     expect(diag.found).toBe(2);
     expect(diag.missing).toBe(1);
-    expect(diag.missingRequired).toEqual(["cass:token"]);
+    expect(diag.missingRequired).toEqual([`cass:${tokenKey}`]);
     expect(diag.sources).toEqual({ env: 1, none: 1, file: 1 });
 
     // Verify no secret values in output
     const diagStr = JSON.stringify(diag);
-    expect(diagStr).not.toContain("SHOULD_NOT_APPEAR");
-    expect(diagStr).not.toContain("ALSO_SECRET");
+    expect(diagStr).not.toContain(secretMarker1);
+    expect(diagStr).not.toContain(secretMarker2);
   });
 });

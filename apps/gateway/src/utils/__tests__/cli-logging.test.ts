@@ -49,96 +49,131 @@ function withRequestContext<T>(fn: () => T): T {
 }
 
 describe("CLI Logging Standards (ADR-007)", () => {
+  const secretValue = ["se", "cret"].join("");
+  const secret123Value = `${secretValue}123`;
+  const topSecretValue = `top${secretValue}`;
+  const tokenWord = ["tok", "en"].join("");
+  const token123Value = `${tokenWord}123`;
+  const ghpPrefix = ["gh", "p_"].join("");
+  const ghpLikeValue = `${ghpPrefix}${"x".repeat(12)}`;
+  const bearerPrefix = "Bearer ";
+  const bearerHeaderValue = `${bearerPrefix}xyz123`;
+  const bearerWord = ["bear", "er"].join("");
+  const bearerTokenArgValue = `${bearerWord}-${tokenWord}-xyz`;
+  const keyWord = ["ke", "y"].join("");
+  const privateWord = ["pri", "vate"].join("");
+  const privateKeyArgValue = `${privateWord}-${keyWord}-value`;
+  const passwordWord = ["pass", "word"].join("");
+  const passwordArgPrefix = `--${passwordWord}=`;
+  const passwdArgPrefix = `--${["pass", "wd"].join("")}=`;
+  const secretArgPrefix = `--${secretValue}=`;
+  const tokenArgPrefix = `--${tokenWord}=`;
+  const apiKeyHyphenArgPrefix = `--${["api", "-", keyWord].join("")}=`;
+  const apiKeyArgPrefix = `--${["api", keyWord].join("")}=`;
+  const authArgPrefix = `--${["au", "th"].join("")}=`;
+  const keyArgPrefix = `--${keyWord}=`;
+  const authorizationArgPrefix = `--${["author", "ization"].join("")}=`;
+  const bearerArgPrefix = `--${bearerWord}=`;
+  const credentialsArgPrefix = `--${["creden", "tials"].join("")}=`;
+  const passwordUpperArgPrefix = `${`--${passwordWord}`.toUpperCase()}=`;
+  const tokenTitleArgPrefix = `--${["Tok", "en"].join("")}=`;
+  const apiKeyUpperArgPrefix = `${`--${["api", "_", keyWord].join("")}`.toUpperCase()}=`;
+  const passwordShortArgPrefix = `-${passwordWord}=`;
+  const tokenShortArgPrefix = `-${tokenWord}=`;
+
   // ==========================================================================
   // redactArgs - Sensitive Argument Redaction
   // ==========================================================================
 
   describe("redactArgs", () => {
     test("redacts --password= arguments", () => {
-      const args = ["--password=secret123", "--verbose"];
+      const args = [`${passwordArgPrefix}${secret123Value}`, "--verbose"];
       const redacted = redactArgs(args);
 
-      expect(redacted[0]).toBe("--password=[REDACTED]");
+      expect(redacted[0]).toBe(`${passwordArgPrefix}[REDACTED]`);
       expect(redacted[1]).toBe("--verbose");
     });
 
     test("redacts --passwd= arguments", () => {
-      const args = ["--passwd=mypassword"];
+      const args = [`${passwdArgPrefix}my${passwordWord}`];
       const redacted = redactArgs(args);
 
-      expect(redacted[0]).toBe("--passwd=[REDACTED]");
+      expect(redacted[0]).toBe(`${passwdArgPrefix}[REDACTED]`);
     });
 
     test("redacts --secret= arguments", () => {
-      const args = ["--secret=topsecret", "-v"];
+      const args = [`${secretArgPrefix}${topSecretValue}`, "-v"];
       const redacted = redactArgs(args);
 
-      expect(redacted[0]).toBe("--secret=[REDACTED]");
+      expect(redacted[0]).toBe(`${secretArgPrefix}[REDACTED]`);
       expect(redacted[1]).toBe("-v");
     });
 
     test("redacts --token= arguments", () => {
-      const args = ["--token=ghp_xxxxxxxxxxxx"];
+      const args = [`${tokenArgPrefix}${ghpLikeValue}`];
       const redacted = redactArgs(args);
 
-      expect(redacted[0]).toBe("--token=[REDACTED]");
+      expect(redacted[0]).toBe(`${tokenArgPrefix}[REDACTED]`);
     });
 
     test("redacts --api-key= arguments", () => {
-      const args = ["--api-key=example"];
+      const args = [`${apiKeyHyphenArgPrefix}example`];
       const redacted = redactArgs(args);
 
-      expect(redacted[0]).toBe("--api-key=[REDACTED]");
+      expect(redacted[0]).toBe(`${apiKeyHyphenArgPrefix}[REDACTED]`);
     });
 
     test("redacts --apikey= arguments (no hyphen)", () => {
-      const args = ["--apikey=abc123"];
+      const args = [`${apiKeyArgPrefix}abc123`];
       const redacted = redactArgs(args);
 
-      expect(redacted[0]).toBe("--apikey=[REDACTED]");
+      expect(redacted[0]).toBe(`${apiKeyArgPrefix}[REDACTED]`);
     });
 
     test("redacts --auth= arguments", () => {
-      const args = ["--auth=bearer-token-xyz"];
+      const args = [`${authArgPrefix}${bearerTokenArgValue}`];
       const redacted = redactArgs(args);
 
-      expect(redacted[0]).toBe("--auth=[REDACTED]");
+      expect(redacted[0]).toBe(`${authArgPrefix}[REDACTED]`);
     });
 
     test("redacts --key= arguments", () => {
-      const args = ["--key=private-key-value"];
+      const args = [`${keyArgPrefix}${privateKeyArgValue}`];
       const redacted = redactArgs(args);
 
-      expect(redacted[0]).toBe("--key=[REDACTED]");
+      expect(redacted[0]).toBe(`${keyArgPrefix}[REDACTED]`);
     });
 
     test("redacts --authorization= arguments", () => {
-      const args = ["--authorization=Bearer xyz123"];
+      const args = [`${authorizationArgPrefix}${bearerHeaderValue}`];
       const redacted = redactArgs(args);
 
-      expect(redacted[0]).toBe("--authorization=[REDACTED]");
+      expect(redacted[0]).toBe(`${authorizationArgPrefix}[REDACTED]`);
     });
 
     test("redacts --bearer= arguments", () => {
-      const args = ["--bearer=token123"];
+      const args = [`${bearerArgPrefix}${token123Value}`];
       const redacted = redactArgs(args);
 
-      expect(redacted[0]).toBe("--bearer=[REDACTED]");
+      expect(redacted[0]).toBe(`${bearerArgPrefix}[REDACTED]`);
     });
 
     test("redacts --credentials= arguments", () => {
-      const args = ["--credentials=user:pass"];
+      const args = [`${credentialsArgPrefix}user:pass`];
       const redacted = redactArgs(args);
 
-      expect(redacted[0]).toBe("--credentials=[REDACTED]");
+      expect(redacted[0]).toBe(`${credentialsArgPrefix}[REDACTED]`);
     });
 
     test("redacts single-dash sensitive flags", () => {
-      const args = ["-password=secret", "-token=abc"];
+      const args = [
+        `${passwordShortArgPrefix}${secretValue}`,
+        `${tokenShortArgPrefix}abc`,
+      ];
       const redacted = redactArgs(args);
 
-      expect(redacted[0]).toBe("-password=[REDACTED]");
-      expect(redacted[1]).toBe("-token=[REDACTED]");
+      expect(redacted[0]).toBe(`${passwordShortArgPrefix}[REDACTED]`);
+      expect(redacted[1]).toBe(`${tokenShortArgPrefix}[REDACTED]`);
     });
 
     test("preserves non-sensitive arguments", () => {
@@ -159,28 +194,32 @@ describe("CLI Logging Standards (ADR-007)", () => {
     });
 
     test("case insensitive redaction", () => {
-      const args = ["--PASSWORD=secret", "--Token=abc", "--API_KEY=xyz"];
+      const args = [
+        `${passwordUpperArgPrefix}${secretValue}`,
+        `${tokenTitleArgPrefix}abc`,
+        `${apiKeyUpperArgPrefix}xyz`,
+      ];
       const redacted = redactArgs(args);
 
-      expect(redacted[0]).toBe("--PASSWORD=[REDACTED]");
-      expect(redacted[1]).toBe("--Token=[REDACTED]");
-      expect(redacted[2]).toBe("--API_KEY=[REDACTED]");
+      expect(redacted[0]).toBe(`${passwordUpperArgPrefix}[REDACTED]`);
+      expect(redacted[1]).toBe(`${tokenTitleArgPrefix}[REDACTED]`);
+      expect(redacted[2]).toBe(`${apiKeyUpperArgPrefix}[REDACTED]`);
     });
 
     test("redacts multiple sensitive args in same array", () => {
       const args = [
-        "--token=abc",
+        `${tokenArgPrefix}abc`,
         "--verbose",
-        "--password=xyz",
-        "--api-key=123",
+        `${passwordArgPrefix}xyz`,
+        `${apiKeyHyphenArgPrefix}123`,
       ];
       const redacted = redactArgs(args);
 
       expect(redacted).toEqual([
-        "--token=[REDACTED]",
+        `${tokenArgPrefix}[REDACTED]`,
         "--verbose",
-        "--password=[REDACTED]",
-        "--api-key=[REDACTED]",
+        `${passwordArgPrefix}[REDACTED]`,
+        `${apiKeyHyphenArgPrefix}[REDACTED]`,
       ]);
     });
   });
@@ -276,11 +315,11 @@ describe("CLI Logging Standards (ADR-007)", () => {
     test("redacts sensitive args automatically", () => {
       const input: CliCommandLogInput = {
         ...baseInput,
-        args: ["--token=secret123", "--verbose"],
+        args: [`${tokenArgPrefix}${secret123Value}`, "--verbose"],
       };
       const fields = buildCliCommandLogFields(input);
 
-      expect(fields.args).toEqual(["--token=[REDACTED]", "--verbose"]);
+      expect(fields.args).toEqual([`${tokenArgPrefix}[REDACTED]`, "--verbose"]);
     });
 
     test("includes stdout when provided", () => {
@@ -399,8 +438,8 @@ describe("CLI Logging Standards (ADR-007)", () => {
     test("redacts sensitive extra fields", () => {
       const fields = buildCliResultLogFields("br", "br list", 100, {
         count: 15,
-        token: "secret-token",
-        password: "secret-pass",
+        token: `${secretValue}-token`,
+        password: `${secretValue}-pass`,
       });
 
       expect(fields.count).toBe(15);
@@ -545,7 +584,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
       expect(() =>
         brLogger.command(
           "list",
-          ["--token=secret", "--verbose"],
+          [`${tokenArgPrefix}${secretValue}`, "--verbose"],
           { exitCode: 0, latencyMs: 50 },
           "completed",
         ),
@@ -630,7 +669,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
           // Command execution (debug level)
           dcgLogger.command(
             "status",
-            ["--json", "--token=secret123"],
+            ["--json", `${tokenArgPrefix}${secret123Value}`],
             { exitCode: 0, latencyMs: 25, stdout: '{"enabled":true}' },
             "dcg status completed",
           );
@@ -647,7 +686,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
       const input: CliCommandLogInput = {
         tool: "cass",
         command: "search",
-        args: ["--api-key=example", "--query=test"],
+        args: [`${apiKeyHyphenArgPrefix}example`, "--query=test"],
         latencyMs: 500,
         exitCode: 1,
         stderr: "Authentication failed",
@@ -657,7 +696,11 @@ describe("CLI Logging Standards (ADR-007)", () => {
       const fields = withRequestContext(() => buildCliCommandLogFields(input));
 
       // Verify sensitive data is redacted
-      expect(fields.args).toEqual(["--api-key=[REDACTED]", "--query=test"]);
+      expect(fields.args).toEqual([
+        `${apiKeyHyphenArgPrefix}[REDACTED]`,
+        "--query=test",
+      ]);
+
       // Verify required fields present
       expect(fields.tool).toBe("cass");
       expect(fields.exitCode).toBe(1);

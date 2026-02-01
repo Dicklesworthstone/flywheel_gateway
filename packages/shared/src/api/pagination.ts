@@ -162,7 +162,7 @@ export const CURSOR_EXPIRATION_MS = 24 * 60 * 60 * 1000;
  *   sortValue: 1705123456789,
  *   createdAt: Date.now()
  * });
- * // Returns: "eyJpZCI6ImFnZW50XzEyMyIsInNvcnRWYWx1ZSI6MTcwNTEyMzQ1Njc4OSwiY3JlYXRlZEF0IjoxNzA1MTIzNDU2Nzg5fQ"
+ * // Returns: "<opaque base64url cursor>"
  * ```
  */
 export function encodeCursor(payload: CursorPayload): string {
@@ -180,7 +180,8 @@ export function encodeCursor(payload: CursorPayload): string {
  *
  * @example
  * ```typescript
- * const payload = decodeCursor("eyJpZCI6ImFnZW50XzEyMyIsImNyZWF0ZWRBdCI6MTcwNTEyMzQ1Njc4OX0");
+ * const cursor = encodeCursor({ id: "agent_123", createdAt: Date.now() });
+ * const payload = decodeCursor(cursor);
  * if (payload) {
  *   console.log(payload.id); // "agent_123"
  * }

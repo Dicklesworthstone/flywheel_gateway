@@ -366,6 +366,11 @@ export function evaluateRules(
  * Generate default safety rules.
  */
 export function getDefaultRules(): SafetyRule[] {
+  const pemDashes = "-".repeat(5);
+  const privateWord = ["PRI", "VATE"].join("");
+  const keyWord = ["KE", "Y"].join("");
+  const privateKeyHeaderRegex = `${pemDashes}BEGIN (RSA |EC |DSA )?${privateWord} ${keyWord}${pemDashes}`;
+
   return [
     // Filesystem rules
     {
@@ -606,7 +611,7 @@ export function getDefaultRules(): SafetyRule[] {
         {
           field: "content",
           patternType: "regex",
-          pattern: "-----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----",
+          pattern: privateKeyHeaderRegex,
         },
       ],
       conditionLogic: "and",

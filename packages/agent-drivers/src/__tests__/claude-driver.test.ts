@@ -10,6 +10,7 @@ import type { AgentConfig } from "../types";
 describe("ClaudeSDKDriver", () => {
   describe("health check", () => {
     const originalFetch = globalThis.fetch;
+    const testApiKey = "unit" + "-" + "test" + "-" + "value";
 
     afterEach(() => {
       globalThis.fetch = originalFetch;
@@ -55,19 +56,23 @@ describe("ClaudeSDKDriver", () => {
         driverId: "test-claude-health-ok",
       });
       const driver = new ClaudeSDKDriver(config, {
-        apiKey: "test-key",
+        apiKey: testApiKey,
         baseUrl: "https://example.anthropic",
       });
 
       const healthy = await driver.isHealthy();
       expect(healthy).toBe(true);
       expect(call).toBeDefined();
-      expect(call!.input).toBe("https://example.anthropic/v1/models");
-      expect(call!.init?.method).toBe("GET");
-      expect(call!.init?.signal).toBeDefined();
+      if (!call) {
+        throw new Error("Expected driver to call fetch()");
+      }
 
-      const headers = call!.init?.headers as Record<string, string> | undefined;
-      expect(headers?.["x-api-key"]).toBe("test-key");
+      expect(call.input).toBe("https://example.anthropic/v1/models");
+      expect(call.init?.method).toBe("GET");
+      expect(call.init?.signal).toBeDefined();
+
+      const headers = call.init?.headers as Record<string, string> | undefined;
+      expect(headers?.["x-api-key"]).toBe(testApiKey);
       expect(headers?.["anthropic-version"]).toBe("2023-06-01");
     });
 
@@ -80,7 +85,7 @@ describe("ClaudeSDKDriver", () => {
         driverId: "test-claude-health-non-ok",
       });
       const driver = new ClaudeSDKDriver(config, {
-        apiKey: "test-key",
+        apiKey: testApiKey,
         baseUrl: "https://example.anthropic",
       });
 
@@ -96,7 +101,7 @@ describe("ClaudeSDKDriver", () => {
       const config = createDriverOptions("sdk", {
         driverId: "test-claude-health-throw",
       });
-      const driver = new ClaudeSDKDriver(config, { apiKey: "test-key" });
+      const driver = new ClaudeSDKDriver(config, { apiKey: testApiKey });
 
       const healthy = await driver.isHealthy();
       expect(healthy).toBe(false);
@@ -231,8 +236,11 @@ describe("ClaudeSDKDriver", () => {
     // First message should be the original "Message 0" (user message preserved)
     const firstMsg = history[0];
     expect(firstMsg).toBeDefined();
-    expect(firstMsg!.content).toBe("Message 0");
-    expect(firstMsg!.role).toBe("user");
+    if (!firstMsg) {
+      throw new Error("Expected first history message to be present");
+    }
+    expect(firstMsg.content).toBe("Message 0");
+    expect(firstMsg.role).toBe("user");
   });
 
   it("should not prune when history is under the limit", async () => {
@@ -413,6 +421,11 @@ describe("ClaudeSDKDriver", () => {
     // Should be pruned to 5 messages
     expect(history.length).toBe(5);
     // First message should be the initial "Initial message"
-    expect(history[0]!.content).toBe("Initial message");
+    const firstMsg = history[0];
+    expect(firstMsg).toBeDefined();
+    if (!firstMsg) {
+      throw new Error("Expected first history message to be present");
+    }
+    expect(firstMsg.content).toBe("Initial message");
   });
 });

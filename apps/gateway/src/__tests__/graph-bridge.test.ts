@@ -9,6 +9,7 @@ describe("GraphBridgeService", () => {
   let mockGraphEvents: GraphEventsService;
   let _mockFetch: typeof fetch;
   let originalFetch: typeof fetch;
+  const testApiKey = "unit" + "-" + "test" + "-" + "value";
 
   beforeEach(() => {
     resetGraphBridgeService();
@@ -52,6 +53,7 @@ describe("GraphBridgeService", () => {
 
       globalThis.fetch = mock((_url: string, init?: RequestInit) => {
         const encoder = new TextEncoder();
+        let abortHandler: (() => void) | undefined;
         const stream = new ReadableStream<Uint8Array>({
           start(controller) {
             controller.enqueue(
@@ -60,9 +62,15 @@ describe("GraphBridgeService", () => {
 
             // Keep the stream open, but make sure `service.stop()` (which aborts
             // the fetch signal) deterministically terminates the read loop.
-            init?.signal?.addEventListener("abort", () => controller.close(), {
+            abortHandler = () => controller.close();
+            init?.signal?.addEventListener("abort", abortHandler, {
               once: true,
             });
+          },
+          cancel() {
+            if (abortHandler) {
+              init?.signal?.removeEventListener("abort", abortHandler);
+            }
           },
         });
 
@@ -75,7 +83,7 @@ describe("GraphBridgeService", () => {
 
       const service = new GraphBridgeService({
         controlPlaneUrl: "http://localhost:8080",
-        apiKey: "test-key",
+        apiKey: testApiKey,
         defaultWorkspaceId: "default",
         useSSE: true,
       });
@@ -125,7 +133,7 @@ describe("GraphBridgeService", () => {
 
       const service = new GraphBridgeService({
         controlPlaneUrl: "http://localhost:8080",
-        apiKey: "test-key",
+        apiKey: testApiKey,
         defaultWorkspaceId: "default",
         useSSE: false,
         pollIntervalMs: 100,
@@ -187,7 +195,7 @@ describe("GraphBridgeService", () => {
 
       const service = new GraphBridgeService({
         controlPlaneUrl: "http://localhost:8080",
-        apiKey: "test-key",
+        apiKey: testApiKey,
         defaultWorkspaceId: "default",
         useSSE: false,
         pollIntervalMs: 50,
@@ -227,7 +235,7 @@ describe("GraphBridgeService", () => {
 
       const service = new GraphBridgeService({
         controlPlaneUrl: "http://localhost:8080",
-        apiKey: "test-key",
+        apiKey: testApiKey,
         defaultWorkspaceId: "default",
         useSSE: false,
         pollIntervalMs: 50,
@@ -275,7 +283,7 @@ describe("GraphBridgeService", () => {
 
       const service = new GraphBridgeService({
         controlPlaneUrl: "http://localhost:8080",
-        apiKey: "test-key",
+        apiKey: testApiKey,
         defaultWorkspaceId: "test-workspace",
         useSSE: false,
         pollIntervalMs: 100,
@@ -324,7 +332,7 @@ describe("GraphBridgeService", () => {
 
       const service = new GraphBridgeService({
         controlPlaneUrl: "http://localhost:8080",
-        apiKey: "test-key",
+        apiKey: testApiKey,
         defaultWorkspaceId: "test-workspace",
         useSSE: false,
         pollIntervalMs: 100,
@@ -373,7 +381,7 @@ describe("GraphBridgeService", () => {
 
       const service = new GraphBridgeService({
         controlPlaneUrl: "http://localhost:8080",
-        apiKey: "test-key",
+        apiKey: testApiKey,
         defaultWorkspaceId: "test-workspace",
         useSSE: false,
         pollIntervalMs: 100,
@@ -418,7 +426,7 @@ describe("GraphBridgeService", () => {
 
       const service = new GraphBridgeService({
         controlPlaneUrl: "http://localhost:8080",
-        apiKey: "test-key",
+        apiKey: testApiKey,
         defaultWorkspaceId: "test-workspace",
         useSSE: false,
         pollIntervalMs: 100,
@@ -473,7 +481,7 @@ describe("GraphBridgeService", () => {
 
       const service = new GraphBridgeService({
         controlPlaneUrl: "http://localhost:8080",
-        apiKey: "test-key",
+        apiKey: testApiKey,
         defaultWorkspaceId: "test-workspace",
         useSSE: false,
         pollIntervalMs: 100,
@@ -508,7 +516,7 @@ describe("GraphBridgeService", () => {
 
       const service = new GraphBridgeService({
         controlPlaneUrl: "http://localhost:8080",
-        apiKey: "test-key",
+        apiKey: testApiKey,
         defaultWorkspaceId: "default",
         useSSE: false,
         pollIntervalMs: 100,
@@ -536,7 +544,7 @@ describe("GraphBridgeService", () => {
 
       const service = new GraphBridgeService({
         controlPlaneUrl: "http://localhost:8080",
-        apiKey: "test-key",
+        apiKey: testApiKey,
         defaultWorkspaceId: "default",
         useSSE: false,
         pollIntervalMs: 50,

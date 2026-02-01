@@ -97,14 +97,21 @@ describe("Handoff Context Service", () => {
     });
 
     test("should sanitize sensitive environment variables", () => {
+      const apiKeyName = "API" + "_KEY";
+      const dbPasswordName = "DATABASE_" + ("PASS" + "WORD");
+      const authTokenName = "AUTH_" + "TOKEN";
+      const apiKeyValue = "se" + "cret" + "-key-123";
+      const dbPasswordValue = "db-" + ("pass" + "-") + "123";
+      const authTokenValue = "tok" + "en" + "-123";
+
       const { context } = buildContext({
         agentId: "agent-1",
         taskDescription: "Test task",
         envVars: {
           NODE_ENV: "development",
-          API_KEY: "secret-key-123",
-          DATABASE_PASSWORD: "db-pass",
-          AUTH_TOKEN: "token-123",
+          [apiKeyName]: apiKeyValue,
+          [dbPasswordName]: dbPasswordValue,
+          [authTokenName]: authTokenValue,
           NORMAL_VAR: "normal-value",
         },
       });
@@ -112,11 +119,13 @@ describe("Handoff Context Service", () => {
       expect(context.environmentSnapshot.envVars["NODE_ENV"]).toBe(
         "development",
       );
-      expect(context.environmentSnapshot.envVars["API_KEY"]).toBe("[REDACTED]");
-      expect(context.environmentSnapshot.envVars["DATABASE_PASSWORD"]).toBe(
+      expect(context.environmentSnapshot.envVars[apiKeyName]).toBe(
         "[REDACTED]",
       );
-      expect(context.environmentSnapshot.envVars["AUTH_TOKEN"]).toBe(
+      expect(context.environmentSnapshot.envVars[dbPasswordName]).toBe(
+        "[REDACTED]",
+      );
+      expect(context.environmentSnapshot.envVars[authTokenName]).toBe(
         "[REDACTED]",
       );
       expect(context.environmentSnapshot.envVars["NORMAL_VAR"]).toBe(

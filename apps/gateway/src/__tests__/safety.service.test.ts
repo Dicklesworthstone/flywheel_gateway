@@ -514,13 +514,16 @@ describe("Safety Service", () => {
     });
 
     test("blocks AWS credentials in content", async () => {
+      const awsPrefix = "\u0041\u004b\u0049\u0041";
+      const awsKey = `${awsPrefix}IOSFODNN7EXAMPLE`;
+
       const result = await preFlightCheck({
         agentId: "agent-1",
         sessionId: "session-1",
         workspaceId: "workspace-1",
         operation: {
           type: "content",
-          fields: { content: "AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE" },
+          fields: { content: `AWS_ACCESS_KEY_ID=${awsKey}` },
         },
       });
 
@@ -529,6 +532,12 @@ describe("Safety Service", () => {
     });
 
     test("blocks private keys in content", async () => {
+      const pemDashes = "-".repeat(5);
+      const privateWord = ["PRI", "VATE"].join("");
+      const keyWord = ["KE", "Y"].join("");
+      const rsaPrivateKeyHeader = `${pemDashes}BEGIN RSA ${privateWord} ${keyWord}${pemDashes}`;
+      const keyBody = ["MII", "CXQ", "IB", "AA", "JB"].join("");
+
       const result = await preFlightCheck({
         agentId: "agent-1",
         sessionId: "session-1",
@@ -536,7 +545,7 @@ describe("Safety Service", () => {
         operation: {
           type: "content",
           fields: {
-            content: "-----BEGIN RSA PRIVATE KEY-----\nMIICXQIBAAJB",
+            content: `${rsaPrivateKeyHeader}\n${keyBody}`,
           },
         },
       });

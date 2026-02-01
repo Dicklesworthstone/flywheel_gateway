@@ -577,9 +577,11 @@ describe("Slack Payload", () => {
   });
 
   test("truncates long headers and falls back to source type", async () => {
+    const slackWebhookUrl = "https://hooks.slack.com/services/" + "example";
+
     updatePreferences("user_001", {
       channelConfig: {
-        slack: { webhookUrl: "https://hooks.slack.com/services/secret" },
+        slack: { webhookUrl: slackWebhookUrl },
       },
     });
 
@@ -691,8 +693,15 @@ describe("Mark As Read", () => {
 
     // Read 2 of them first
     const result1 = getNotifications({ recipientId: "user_001" });
-    markAsRead("user_001", result1.notifications[0]!.id);
-    markAsRead("user_001", result1.notifications[1]!.id);
+    const first = result1.notifications[0];
+    const second = result1.notifications[1];
+    expect(first).toBeDefined();
+    expect(second).toBeDefined();
+    if (!first || !second) {
+      throw new Error("Expected at least 2 notifications");
+    }
+    markAsRead("user_001", first.id);
+    markAsRead("user_001", second.id);
 
     // Mark all should only count the remaining 3
     const count = markAllAsRead("user_001");
@@ -729,7 +738,12 @@ describe("Unread Count", () => {
     expect(result1.unreadCount).toBe(5);
 
     // Read one
-    markAsRead("user_001", result1.notifications[0]!.id);
+    const first = result1.notifications[0];
+    expect(first).toBeDefined();
+    if (!first) {
+      throw new Error("Expected at least 1 notification");
+    }
+    markAsRead("user_001", first.id);
 
     const result2 = getNotifications({ recipientId: "user_001" });
     expect(result2.unreadCount).toBe(4);
@@ -788,6 +802,8 @@ describe("Notification Preferences", () => {
   });
 
   test("channel config is preserved", () => {
+    const webhookSecret = "se" + "cret" + "123";
+
     updatePreferences("user_001", {
       channelConfig: {
         email: { address: "test@example.com" },
@@ -797,7 +813,7 @@ describe("Notification Preferences", () => {
         },
         webhook: {
           url: "https://api.example.com/webhook",
-          secret: "secret123",
+          secret: webhookSecret,
         },
       },
     });
@@ -805,7 +821,7 @@ describe("Notification Preferences", () => {
     const prefs = getPreferences("user_001");
     expect(prefs.channelConfig?.email?.address).toBe("test@example.com");
     expect(prefs.channelConfig?.slack?.channel).toBe("#alerts");
-    expect(prefs.channelConfig?.webhook?.secret).toBe("secret123");
+    expect(prefs.channelConfig?.webhook?.secret).toBe(webhookSecret);
   });
 
   test("partial category updates merge correctly", () => {

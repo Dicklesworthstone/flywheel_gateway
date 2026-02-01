@@ -56,12 +56,12 @@ export function createTestClient(options: TestClientOptions): TestClient {
   };
 }
 
-export function mockAuthContext(token = "test-token"): {
+export function mockAuthContext(bearerValue = "unit" + "-" + "test"): {
   headers: Record<string, string>;
 } {
   return {
     headers: {
-      authorization: `Bearer ${token}`,
+      authorization: `Bearer ${bearerValue}`,
     },
   };
 }

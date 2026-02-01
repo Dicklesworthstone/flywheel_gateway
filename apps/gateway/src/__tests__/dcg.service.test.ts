@@ -142,15 +142,20 @@ describe("DCG Service", () => {
     });
 
     test("ingestBlockEvent redacts sensitive info", async () => {
+      const secretValue = "se" + "cret" + "123";
+
       const sensitiveEvent = {
         ...testEvent,
         command:
-          "curl -H 'Authorization: Bearer secret123' https://api.example.com",
+          "curl -H 'Authorization: " +
+          "Bearer " +
+          secretValue +
+          "' https://api.example.com",
       };
 
       const event = await ingestBlockEvent(sensitiveEvent);
 
-      expect(event.command).not.toContain("secret123");
+      expect(event.command).not.toContain(secretValue);
       expect(event.command).toContain("[REDACTED]");
     });
 

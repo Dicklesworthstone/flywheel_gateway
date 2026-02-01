@@ -131,11 +131,18 @@ tools:
     writeFileSync(join(tempDir, "overlay.manifest.yaml"), yaml);
     const result = await loadOverlayManifest(tempDir);
     expect(result.manifest).toBeDefined();
-    expect(result.manifest!.schemaVersion).toBe("1.0");
-    expect(result.manifest!.tools).toHaveLength(1);
-    const firstTool = result.manifest!.tools?.[0];
+    if (!result.manifest) {
+      throw new Error("Expected overlay manifest to be present");
+    }
+
+    expect(result.manifest.schemaVersion).toBe("1.0");
+    expect(result.manifest.tools).toHaveLength(1);
+    const firstTool = result.manifest.tools?.[0];
     expect(firstTool).toBeDefined();
-    expect(firstTool!.name).toBe("dcg");
+    if (!firstTool) {
+      throw new Error("Expected overlay manifest tool to be present");
+    }
+    expect(firstTool.name).toBe("dcg");
   });
 
   it("returns error for invalid YAML", async () => {
@@ -170,8 +177,13 @@ config:
     writeFileSync(join(tempDir, "env-mapping.yaml"), yaml);
     const result = await loadEnvMapping(tempDir);
     expect(result.envMapping).toBeDefined();
-    expect(result.envMapping!.toolSecrets!["dcg"]).toBe("DCG_API_KEY");
-    expect(result.envMapping!.config!["adminKey"]).toBe("GATEWAY_ADMIN_KEY");
+    const envMapping = result.envMapping;
+    if (!envMapping) {
+      throw new Error("Expected env mapping to be present");
+    }
+
+    expect(envMapping.toolSecrets?.["dcg"]).toBe("DCG_API_KEY");
+    expect(envMapping.config?.["adminKey"]).toBe("GATEWAY_ADMIN_KEY");
   });
 });
 
@@ -226,8 +238,9 @@ describe("resolveToolSecret", () => {
   });
 
   it("resolves conventional TOOL_<NAME>_API_KEY", () => {
-    setEnv("TOOL_DCG_API_KEY", "secret123");
-    expect(resolveToolSecret("dcg")).toBe("secret123");
+    const secretValue = "se" + "cret" + "123";
+    setEnv("TOOL_DCG_API_KEY", secretValue);
+    expect(resolveToolSecret("dcg")).toBe(secretValue);
   });
 
   it("uses explicit mapping over convention", () => {

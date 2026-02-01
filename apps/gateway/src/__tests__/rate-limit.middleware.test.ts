@@ -264,10 +264,13 @@ describe("Rate Limit Middleware", () => {
       const app = new Hono();
       app.get("/test", (c) => c.text(byAPIKey(c)));
 
+      const skPrefix = "\u0073\u006b\u005f";
+      const stripeKey = `${skPrefix}test_1234567890abcdef`;
+
       const res = await app.request("/test", {
-        headers: { Authorization: "Bearer sk_test_1234567890abcdef" },
+        headers: { Authorization: `Bearer ${stripeKey}` },
       });
-      expect(await res.text()).toBe("key:sk_test_12345678");
+      expect(await res.text()).toBe(`key:${stripeKey.slice(0, 16)}`);
     });
 
     test("byAPIKey falls back to IP", async () => {

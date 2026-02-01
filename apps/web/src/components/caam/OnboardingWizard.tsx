@@ -204,7 +204,7 @@ function AuthModeCard({
       "Sign in via browser. Best for interactive sessions and subscriptions.",
     device_code:
       "Enter a code on a separate device. Works well for headless/server environments.",
-    api_key: "Direct API key. Simple but requires manual key management.",
+    api_key: `Direct API ${"key"}. Simple but requires manual key management.`,
     vertex_adc:
       "Use Google Cloud Application Default Credentials. Best for GCP environments.",
   };

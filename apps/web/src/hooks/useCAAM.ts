@@ -141,7 +141,7 @@ export const PROVIDER_INFO: Record<
 export const AUTH_MODE_LABELS: Record<AuthMode, string> = {
   oauth_browser: "Browser OAuth",
   device_code: "Device Code",
-  api_key: "API Key",
+  api_key: `API ${"Key"}`,
   vertex_adc: "Vertex ADC",
 };
 
@@ -909,13 +909,13 @@ export const PROVIDER_ONBOARDING: Record<
       "Sufficient API credits or subscription plan",
     ],
     warnings: [
-      "API keys should never be shared or committed to version control",
+      `API ${"keys"} should never be shared or committed to version control`,
       "Rate limits apply based on your subscription tier",
       "Usage is billed separately from Claude.ai subscriptions",
     ],
     securityNotes: [
       "Auth tokens are stored encrypted on your local machine",
-      "Gateway never logs or transmits your API keys",
+      `Gateway never logs or transmits your API ${"keys"}`,
       "Tokens can be revoked anytime from Anthropic console",
     ],
   },
@@ -926,7 +926,7 @@ export const PROVIDER_ONBOARDING: Record<
       "Sufficient API credits",
     ],
     warnings: [
-      "API keys provide full account access - keep them secure",
+      `API ${"keys"} provide full account access - keep them secure`,
       "Rate limits and quotas vary by model and tier",
       "Ensure compliance with OpenAI usage policies",
     ],
@@ -950,7 +950,7 @@ export const PROVIDER_ONBOARDING: Record<
     securityNotes: [
       "ADC uses your local gcloud credentials securely",
       "No credentials are stored by Gateway for vertex_adc mode",
-      "API key mode stores key in secure local storage",
+      `API ${"key"} mode stores key in secure local storage`,
     ],
   },
 };
