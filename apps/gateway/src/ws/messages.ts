@@ -11,6 +11,8 @@
 export type MessageType =
   // Agent output
   | "output.chunk"
+  // Agent health
+  | "health.score"
   // State changes
   | "state.change"
   // Tool execution

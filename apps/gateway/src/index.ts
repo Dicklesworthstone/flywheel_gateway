@@ -19,6 +19,7 @@ import { apiSecurityHeaders } from "./middleware/security-headers";
 import { routes } from "./routes";
 import { initializeAgentService } from "./services/agent";
 import { startAgentEvents } from "./services/agent-events";
+import { startAgentHealthScoreBroadcaster } from "./services/agent-health-score.service";
 import { startStateCleanupJob } from "./services/agent-state-machine";
 import { initCassService } from "./services/cass.service";
 import { getConfig, loadConfig } from "./services/config.service";
@@ -90,6 +91,7 @@ if (import.meta.main) {
   startHeartbeat();
   startAgentEvents(getHub());
   await initializeAgentService();
+  startAgentHealthScoreBroadcaster();
 
   // Initialize CASS service
   initCassService({ cwd: process.cwd() });

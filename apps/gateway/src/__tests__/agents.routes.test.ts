@@ -33,6 +33,30 @@ describe("Agent Routes", () => {
     });
   });
 
+  describe("GET /agents/health-scores", () => {
+    test("returns list envelope", async () => {
+      const res = await app.request("/agents/health-scores");
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.object).toBe("list");
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.requestId).toBeDefined();
+      expect(body.timestamp).toBeDefined();
+      expect(body.url).toBe("/agents/health-scores");
+    });
+  });
+
+  describe("GET /agents/:id/health-score", () => {
+    test("returns 404 for non-existent agent", async () => {
+      const res = await app.request("/agents/nonexistent-agent/health-score");
+      expect(res.status).toBe(404);
+      const body = await res.json();
+      expect(body.object).toBe("error");
+      expect(body.error.code).toBe("AGENT_NOT_FOUND");
+    });
+  });
+
   describe("POST /agents - validation", () => {
     test("rejects empty workingDirectory with canonical error envelope", async () => {
       const res = await app.request("/agents", {

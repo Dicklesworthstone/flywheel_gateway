@@ -54,7 +54,8 @@ export function canSubscribe(
     case "agent:output":
     case "agent:state":
     case "agent:tools":
-    case "agent:checkpoints": {
+    case "agent:checkpoints":
+    case "agent:health": {
       // Agent access is security-critical and must be explicit.
       if (!agentAccess) {
         return {
@@ -181,7 +182,8 @@ export function canPublish(
     case "agent:output":
     case "agent:state":
     case "agent:tools":
-    case "agent:checkpoints": {
+    case "agent:checkpoints":
+    case "agent:health": {
       // Regular users cannot publish to agent channels
       // These are populated by the gateway internals
       return {

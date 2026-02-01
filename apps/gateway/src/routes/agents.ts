@@ -20,6 +20,7 @@ import {
   terminateAgent,
 } from "../services/agent";
 import { getAgentDetectionService } from "../services/agent-detection.service";
+import { getAgentHealthScoreService } from "../services/agent-health-score.service";
 import {
   getAgentState,
   getAgentStateHistory,
@@ -213,6 +214,35 @@ agents.get("/detected", async (c) => {
 });
 
 /**
+ * GET /agents/health-scores - Get health scores for all active agents
+ */
+agents.get("/health-scores", async (c) => {
+  try {
+    const limitParam = c.req.query("limit");
+    const cursorParam = c.req.query("cursor");
+
+    const agentsList = await listAgents({
+      limit: safeParseInt(limitParam, 1000),
+      ...(cursorParam && { cursor: cursorParam }),
+    });
+
+    const agentIds = agentsList.agents.map((a) => a.agentId);
+    const service = getAgentHealthScoreService();
+    const scores = await service.getScoresForAgents(agentIds);
+
+    return sendList(c, scores, {
+      hasMore: agentsList.pagination.hasMore,
+      ...(agentsList.pagination.cursor && {
+        nextCursor: agentsList.pagination.cursor,
+      }),
+      total: agentsList.pagination.total,
+    });
+  } catch (error) {
+    return handleAgentError(error, c);
+  }
+});
+
+/**
  * GET /agents/:agentId - Get agent details
  */
 agents.get("/:agentId", async (c) => {
@@ -225,6 +255,20 @@ agents.get("/:agentId", async (c) => {
     return sendResource(c, "agent", result, 200, {
       links: agentLinks({ agentId }, ctx),
     });
+  } catch (error) {
+    return handleAgentError(error, c);
+  }
+});
+
+/**
+ * GET /agents/:agentId/health-score - Get composite health score for an agent
+ */
+agents.get("/:agentId/health-score", async (c) => {
+  try {
+    const agentId = c.req.param("agentId");
+    const service = getAgentHealthScoreService();
+    const result = await service.getAgentScore(agentId);
+    return sendResource(c, "agent_health_score", result);
   } catch (error) {
     return handleAgentError(error, c);
   }

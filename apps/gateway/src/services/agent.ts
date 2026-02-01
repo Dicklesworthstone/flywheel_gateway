@@ -23,6 +23,10 @@ import {
   pushOutputSample,
 } from "./agent-health.service";
 import {
+  clearAgentErrorEvents,
+  recordAgentErrorEvent,
+} from "./agent-health-score.events";
+import {
   getAgentState,
   hydrateAgentState,
   initializeAgentState,
@@ -94,6 +98,7 @@ async function handleAgentEvents(
         let streamType: "stdout" | "stderr" | "system" = "stdout";
         if (event.output.type === "error") {
           streamType = "stderr";
+          recordAgentErrorEvent(agentId, "output_error");
         } else if (event.output.type === "system") {
           streamType = "system";
         }
@@ -159,6 +164,7 @@ async function handleAgentEvents(
           removeAutoCheckpointService(agentId);
           cleanupOutputBuffer(agentId);
           clearAgentHealth(agentId);
+          clearAgentErrorEvents(agentId);
           agents.delete(agentId);
 
           // Update DB to reflect terminated status (prevents stale "ready"/"executing" rows)
@@ -184,8 +190,19 @@ async function handleAgentEvents(
         }
       }
 
+      // 4b. Tool call completion - record failures for health scoring
+      else if (event.type === "tool_call_end") {
+        if (!event.success) {
+          recordAgentErrorEvent(agentId, "tool_call_failed");
+        }
+      }
+
       // 5. Handle error events from driver
       else if (event.type === "error") {
+        recordAgentErrorEvent(
+          agentId,
+          event.recoverable ? "driver_error_recoverable" : "driver_error",
+        );
         const stateRecord = getAgentState(agentId);
         if (stateRecord && isTerminalState(stateRecord.currentState)) {
           continue;
@@ -393,6 +410,8 @@ export async function spawnAgent(config: {
       activeMonitors.get(agentId)?.abort();
       removeAutoCheckpointService(agentId);
       cleanupOutputBuffer(agentId);
+      clearAgentHealth(agentId);
+      clearAgentErrorEvents(agentId);
       try {
         await drv.terminate(agentId, true);
       } catch {
@@ -687,6 +706,7 @@ export async function terminateAgent(
 
     // Clean up health monitoring data
     clearAgentHealth(agentId);
+    clearAgentErrorEvents(agentId);
 
     // Update DB status - use terminated even on error since we've cleaned up
     try {

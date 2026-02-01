@@ -1261,6 +1261,27 @@ export function getAgentConflictStats(agentId: string): {
   };
 }
 
+/**
+ * Get the count of currently-active (open) reservation conflicts involving an agent.
+ *
+ * This is intended for operational health scoring (bd-1x215), where we want a
+ * simple "how many conflicts are happening right now?" number.
+ */
+export function getActiveReservationConflictCount(agentId: string): number {
+  let count = 0;
+  for (const conflict of conflictStore.values()) {
+    if (conflict.status !== "open") continue;
+    if (conflict.requesterId === agentId) {
+      count++;
+      continue;
+    }
+    if (conflict.conflict.existingReservation.requesterId === agentId) {
+      count++;
+    }
+  }
+  return count;
+}
+
 // ============================================================================
 // Testing Utilities (only for tests)
 // ============================================================================
