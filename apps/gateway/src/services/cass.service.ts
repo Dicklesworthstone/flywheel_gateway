@@ -21,6 +21,13 @@ import {
   createCassClient,
 } from "@flywheel/flywheel-clients";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
+import {
+  CircuitBreakerOpenError,
+  CircuitBreakerTimeoutError,
+  configureBreaker,
+  runThroughCircuitBreaker,
+  withCircuitBreaker,
+} from "./circuit-breaker.service";
 
 // ============================================================================
 // Types
@@ -85,6 +92,11 @@ export function initCassService(config: CassServiceConfig = {}): void {
     clientOptions.cwd = config.cwd;
   }
   _cassClient = createCassClient(clientOptions);
+
+  // CASS operations can legitimately take longer than the breaker defaults.
+  configureBreaker("cass", {
+    timeoutMs: clientOptions.timeout ?? 30_000,
+  });
 }
 
 /**
@@ -120,15 +132,34 @@ export async function getCassStatus(): Promise<CassServiceStatus> {
       error: "CASS is not initialized",
     };
   }
+  const cass = _cassClient;
 
   try {
-    const health = await _cassClient.health({ includeMeta: true });
+    const health = await runThroughCircuitBreaker(
+      "cass",
+      () => cass.health({ includeMeta: true }),
+      { isSuccess: (h) => h.healthy },
+    );
     return {
       available: true,
       healthy: health.healthy,
       latencyMs: health.latency_ms,
     };
   } catch (error) {
+    if (error instanceof CircuitBreakerOpenError) {
+      return {
+        available: false,
+        healthy: false,
+        error: "CASS circuit breaker open",
+      };
+    }
+    if (error instanceof CircuitBreakerTimeoutError) {
+      return {
+        available: true,
+        healthy: false,
+        error: `CASS health check timed out after ${error.timeoutMs}ms`,
+      };
+    }
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
     log.warn(
@@ -150,7 +181,13 @@ export async function isCassAvailable(): Promise<boolean> {
   if (!_cassClient) {
     return false;
   }
-  return _cassClient.isAvailable();
+  const cass = _cassClient;
+  const { result } = await withCircuitBreaker(
+    "cass",
+    () => cass.isAvailable(),
+    false,
+  );
+  return result;
 }
 
 /**
@@ -167,9 +204,12 @@ export async function searchSessions(
   if (!_cassClient) {
     throw new CassClientError("unavailable", "CASS is not initialized");
   }
+  const cass = _cassClient;
 
   try {
-    const result = await _cassClient.search(query, options);
+    const result = await runThroughCircuitBreaker("cass", () =>
+      cass.search(query, options),
+    );
 
     log.info(
       {
@@ -184,6 +224,21 @@ export async function searchSessions(
 
     return result;
   } catch (error) {
+    if (error instanceof CircuitBreakerOpenError) {
+      log.debug(
+        { correlationId, query },
+        "CASS search short-circuited (circuit breaker open)",
+      );
+      throw new CassClientError("unavailable", "CASS circuit breaker open", {
+        operation: "search",
+      });
+    }
+    if (error instanceof CircuitBreakerTimeoutError) {
+      throw new CassClientError("timeout", "CASS request timed out", {
+        operation: "search",
+        timeoutMs: error.timeoutMs,
+      });
+    }
     log.error(
       {
         correlationId,
@@ -210,15 +265,29 @@ export async function viewSessionLine(
   if (!_cassClient) {
     throw new CassClientError("unavailable", "CASS is not initialized");
   }
+  const cass = _cassClient;
 
   try {
-    const result = await _cassClient.view(path, options);
+    const result = await runThroughCircuitBreaker("cass", () =>
+      cass.view(path, options),
+    );
     log.debug(
       { correlationId, path, line: options.line },
       "CASS view completed",
     );
     return result;
   } catch (error) {
+    if (error instanceof CircuitBreakerOpenError) {
+      throw new CassClientError("unavailable", "CASS circuit breaker open", {
+        operation: "view",
+      });
+    }
+    if (error instanceof CircuitBreakerTimeoutError) {
+      throw new CassClientError("timeout", "CASS request timed out", {
+        operation: "view",
+        timeoutMs: error.timeoutMs,
+      });
+    }
     log.error(
       {
         correlationId,
@@ -245,15 +314,29 @@ export async function expandSessionContext(
   if (!_cassClient) {
     throw new CassClientError("unavailable", "CASS is not initialized");
   }
+  const cass = _cassClient;
 
   try {
-    const result = await _cassClient.expand(path, options);
+    const result = await runThroughCircuitBreaker("cass", () =>
+      cass.expand(path, options),
+    );
     log.debug(
       { correlationId, path, line: options.line },
       "CASS expand completed",
     );
     return result;
   } catch (error) {
+    if (error instanceof CircuitBreakerOpenError) {
+      throw new CassClientError("unavailable", "CASS circuit breaker open", {
+        operation: "expand",
+      });
+    }
+    if (error instanceof CircuitBreakerTimeoutError) {
+      throw new CassClientError("timeout", "CASS request timed out", {
+        operation: "expand",
+        timeoutMs: error.timeoutMs,
+      });
+    }
     log.error(
       {
         correlationId,

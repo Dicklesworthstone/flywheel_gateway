@@ -50,9 +50,7 @@ export class EnvSecretsProvider implements SecretsProvider {
 
   constructor(options: EnvSecretsProviderOptions = {}) {
     this.allowPrefixes = options.allowPrefixes ?? [];
-    this.allowNames = options.allowNames
-      ? new Set(options.allowNames)
-      : null;
+    this.allowNames = options.allowNames ? new Set(options.allowNames) : null;
   }
 
   async get(name: string): Promise<SecretResult | null> {

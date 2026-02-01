@@ -92,14 +92,14 @@ export function enterMaintenance(options?: {
   actor?: MaintenanceActor;
 }): MaintenanceState {
   const now = new Date();
-  const next: MaintenanceState = {
+  const next = {
     mode: "maintenance",
     startedAt: now,
     deadlineAt: null,
     reason: sanitizeReason(options?.reason),
     updatedAt: now,
     updatedBy: options?.actor ?? null,
-  };
+  } satisfies MaintenanceState;
   state = next;
 
   logger.info(
@@ -123,14 +123,14 @@ export function startDraining(options: {
   const now = new Date();
   const deadlineAt = new Date(now.getTime() + options.deadlineSeconds * 1000);
 
-  const next: MaintenanceState = {
+  const next = {
     mode: "draining",
     startedAt: now,
     deadlineAt,
     reason: sanitizeReason(options.reason),
     updatedAt: now,
     updatedBy: options.actor ?? null,
-  };
+  } satisfies MaintenanceState;
   state = next;
 
   logger.info(

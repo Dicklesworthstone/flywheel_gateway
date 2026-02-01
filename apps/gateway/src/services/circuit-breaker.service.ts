@@ -1,20 +1,20 @@
 /**
- * Circuit Breaker for Tool Health Checks
+ * Circuit Breaker (tool/service dependency guard)
  *
- * Prevents noisy repeated failures when tools (DCG, NTM, br, bv, etc.)
- * are unavailable. Caches failure state with exponential backoff and
- * exposes breaker status for health/readiness endpoints.
+ * Prevents noisy repeated failures when dependencies (CLI tools, MCP services,
+ * etc.) are unavailable. Uses an OPEN backoff window (optionally exponential)
+ * and a HALF_OPEN probe mode to detect recovery.
  *
  * States:
- *   CLOSED   → normal operation, checks go through
- *   OPEN     → tool is known-bad, checks short-circuit to failure
- *   HALF_OPEN → backoff elapsed, next check is a probe
+ *   CLOSED    → normal operation, checks go through
+ *   OPEN      → dependency is known-bad, calls short-circuit (fail-fast)
+ *   HALF_OPEN → backoff elapsed, allow limited probes to test recovery
  *
  * Transition rules:
  *   CLOSED  + failureThreshold consecutive failures  → OPEN
- *   OPEN    + backoff elapsed                        → HALF_OPEN
- *   HALF_OPEN + probe success                        → CLOSED (reset)
- *   HALF_OPEN + probe failure                        → OPEN (double backoff)
+ *   OPEN    + reset/backoff elapsed                  → HALF_OPEN
+ *   HALF_OPEN + successThreshold successes           → CLOSED (reset)
+ *   HALF_OPEN + any failure                          → OPEN (backoff increased)
  */
 
 import type { Channel } from "../ws/channels";
@@ -28,14 +28,22 @@ import { logger } from "./logger";
 export type CircuitState = "CLOSED" | "OPEN" | "HALF_OPEN";
 
 export interface CircuitBreakerConfig {
-  /** Consecutive failures before opening the circuit. Default: 3 */
+  /** Consecutive failures before opening the circuit. Default: 5 */
   failureThreshold?: number;
+  /** Alias for initialBackoffMs (preferred name). Default: 30_000 (30s) */
+  resetTimeoutMs?: number;
+  /** Successes needed in HALF_OPEN to close the circuit. Default: 2 */
+  successThreshold?: number;
+  /** Per-attempt timeout (ms) applied by the breaker. Default: 10_000 (10s) */
+  timeoutMs?: number;
   /** Initial backoff in ms when circuit opens. Default: 30_000 (30s) */
   initialBackoffMs?: number;
   /** Maximum backoff in ms. Default: 300_000 (5min) */
   maxBackoffMs?: number;
   /** Backoff multiplier. Default: 2 */
   backoffMultiplier?: number;
+  /** Max concurrent probes in HALF_OPEN. Default: 1 */
+  halfOpenMaxConcurrent?: number;
 }
 
 export interface CircuitBreakerStatus {
@@ -48,6 +56,7 @@ export interface CircuitBreakerStatus {
   lastSucceededAt: Date | null;
   nextRetryAt: Date | null;
   currentBackoffMs: number;
+  halfOpenInFlight: number;
   totalChecks: number;
   totalFailures: number;
   totalSuccesses: number;
@@ -65,25 +74,53 @@ interface BreakerState {
   lastSucceededAt: Date | null;
   nextRetryAt: Date | null;
   currentBackoffMs: number;
+  halfOpenInFlight: number;
   totalChecks: number;
   totalFailures: number;
   totalSuccesses: number;
 }
 
-const DEFAULT_CONFIG: Required<CircuitBreakerConfig> = {
-  failureThreshold: 3,
+interface NormalizedCircuitBreakerConfig {
+  failureThreshold: number;
+  successThreshold: number;
+  timeoutMs: number;
+  initialBackoffMs: number;
+  maxBackoffMs: number;
+  backoffMultiplier: number;
+  halfOpenMaxConcurrent: number;
+}
+
+const DEFAULT_CONFIG: NormalizedCircuitBreakerConfig = {
+  failureThreshold: 5,
+  successThreshold: 2,
+  timeoutMs: 10_000,
   initialBackoffMs: 30_000,
   maxBackoffMs: 300_000,
   backoffMultiplier: 2,
+  halfOpenMaxConcurrent: 1,
 };
 
 /** Per-tool circuit breaker states. */
 const breakers = new Map<string, BreakerState>();
 
 /** Global config (can be overridden per-tool). */
-const toolConfigs = new Map<string, Required<CircuitBreakerConfig>>();
+const toolConfigs = new Map<string, NormalizedCircuitBreakerConfig>();
 
-function getConfig(tool: string): Required<CircuitBreakerConfig> {
+function normalizeConfig(
+  config: CircuitBreakerConfig,
+): NormalizedCircuitBreakerConfig {
+  const resetTimeoutMs = config.resetTimeoutMs;
+  const initialBackoffMs = config.initialBackoffMs;
+
+  return {
+    ...DEFAULT_CONFIG,
+    ...config,
+    initialBackoffMs:
+      resetTimeoutMs ?? initialBackoffMs ?? DEFAULT_CONFIG.initialBackoffMs,
+  };
+}
+
+function getConfig(tool: string): NormalizedCircuitBreakerConfig {
   return toolConfigs.get(tool) ?? DEFAULT_CONFIG;
 }
 
@@ -98,6 +135,7 @@ function getOrCreateBreaker(tool: string): BreakerState {
       lastSucceededAt: null,
       nextRetryAt: null,
       currentBackoffMs: getConfig(tool).initialBackoffMs,
+      halfOpenInFlight: 0,
       totalChecks: 0,
       totalFailures: 0,
       totalSuccesses: 0,
@@ -105,6 +143,23 @@ function getOrCreateBreaker(tool: string): BreakerState {
     breakers.set(tool, b);
   }
   return b;
+}
+
+export class CircuitBreakerOpenError extends Error {
+  override readonly name = "CircuitBreakerOpenError";
+  constructor(public readonly tool: string) {
+    super(`Circuit breaker OPEN for ${tool}`);
+  }
+}
+
+export class CircuitBreakerTimeoutError extends Error {
+  override readonly name = "CircuitBreakerTimeoutError";
+  constructor(
+    public readonly tool: string,
+    public readonly timeoutMs: number,
+  ) {
+    super(`Circuit breaker timeout for ${tool} after ${timeoutMs}ms`);
+  }
 }
 
 function publishCircuitStateChanged(
@@ -136,7 +191,7 @@ export function configureBreaker(
   tool: string,
   config: CircuitBreakerConfig,
 ): void {
-  toolConfigs.set(tool, { ...DEFAULT_CONFIG, ...config });
+  toolConfigs.set(tool, normalizeConfig(config));
 }
 
 /**
@@ -147,6 +202,7 @@ export function configureBreaker(
  */
 export function shouldCheck(tool: string): boolean {
   const b = getOrCreateBreaker(tool);
+  const cfg = getConfig(tool);
 
   if (b.state === "CLOSED") return true;
 
@@ -155,6 +211,9 @@ export function shouldCheck(tool: string): boolean {
     if (b.nextRetryAt && Date.now() >= b.nextRetryAt.getTime()) {
       const previousState = b.state;
       b.state = "HALF_OPEN";
+      b.consecutiveSuccesses = 0;
+      // Keep failure counters for observability, but don't let them affect
+      // HALF_OPEN probe gating.
       logger.info(
         { tool, previousBackoffMs: b.currentBackoffMs },
         "circuit-breaker: transitioning to HALF_OPEN",
@@ -165,8 +224,8 @@ export function shouldCheck(tool: string): boolean {
     return false;
   }
 
-  // HALF_OPEN: allow the probe
-  return true;
+  // HALF_OPEN: allow limited concurrent probes
+  return b.halfOpenInFlight < cfg.halfOpenMaxConcurrent;
 }
 
 /**
@@ -182,6 +241,21 @@ export function recordSuccess(tool: string): void {
   b.consecutiveSuccesses++;
   b.consecutiveFailures = 0;
   b.lastSucceededAt = new Date();
+
+  if (prevState === "HALF_OPEN") {
+    if (b.consecutiveSuccesses < cfg.successThreshold) {
+      // Stay HALF_OPEN until we see enough consecutive successes.
+      logger.info(
+        {
+          tool,
+          consecutiveSuccesses: b.consecutiveSuccesses,
+          successThreshold: cfg.successThreshold,
+        },
+        "circuit-breaker: HALF_OPEN success (waiting for threshold)",
+      );
+      return;
+    }
+  }
 
   if (prevState === "HALF_OPEN" || prevState === "OPEN") {
     b.state = "CLOSED";
@@ -240,6 +314,77 @@ export function recordFailure(tool: string): void {
   }
 }
 
+async function runWithTimeout<T>(
+  tool: string,
+  fn: () => Promise<T>,
+  timeoutMs: number,
+): Promise<T> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return fn();
+  }
+
+  const opPromise = fn();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let timedOut = false;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      timedOut = true;
+      reject(new CircuitBreakerTimeoutError(tool, timeoutMs));
+    }, timeoutMs);
+  });
+
+  try {
+    return (await Promise.race([opPromise, timeoutPromise])) as T;
+  } catch (error) {
+    // Prevent an unhandled rejection if the underlying promise rejects after timeout.
+    if (timedOut) {
+      void opPromise.catch(() => undefined);
+    }
+    throw error;
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+export async function runThroughCircuitBreaker<T>(
+  tool: string,
+  checkFn: () => Promise<T>,
+  options?: { isSuccess?: (result: T) => boolean; timeoutMs?: number },
+): Promise<T> {
+  if (!shouldCheck(tool)) {
+    throw new CircuitBreakerOpenError(tool);
+  }
+
+  const b = getOrCreateBreaker(tool);
+  const acquiredHalfOpenPermit = b.state === "HALF_OPEN";
+  if (acquiredHalfOpenPermit) {
+    b.halfOpenInFlight++;
+  }
+
+  const cfg = getConfig(tool);
+  const timeoutMs = options?.timeoutMs ?? cfg.timeoutMs;
+
+  try {
+    const result = await runWithTimeout(tool, checkFn, timeoutMs);
+    const isSuccess = options?.isSuccess?.(result) ?? true;
+    if (isSuccess) {
+      recordSuccess(tool);
+    } else {
+      recordFailure(tool);
+    }
+    return result;
+  } catch (error) {
+    recordFailure(tool);
+    throw error;
+  } finally {
+    if (acquiredHalfOpenPermit) {
+      b.halfOpenInFlight = Math.max(0, b.halfOpenInFlight - 1);
+    }
+  }
+}
+
 /**
  * Execute a health check function through the circuit breaker.
  *
@@ -251,20 +396,12 @@ export async function withCircuitBreaker<T>(
   checkFn: () => Promise<T>,
   fallbackValue: T,
   options?: { isSuccess?: (result: T) => boolean },
-): Promise<{ result: T; fromCache: boolean }> {
-  if (!shouldCheck(tool)) {
-    return { result: fallbackValue, fromCache: true };
-  }
-
+): Promise<{ result: T; fromCache: boolean; error?: unknown }> {
   try {
-    const result = await checkFn();
-    const isSuccess = options?.isSuccess?.(result) ?? true;
-    if (isSuccess) recordSuccess(tool);
-    else recordFailure(tool);
+    const result = await runThroughCircuitBreaker(tool, checkFn, options);
     return { result, fromCache: false };
-  } catch {
-    recordFailure(tool);
-    return { result: fallbackValue, fromCache: true };
+  } catch (error) {
+    return { result: fallbackValue, fromCache: true, error };
   }
 }
 
@@ -283,6 +420,7 @@ export function getBreakerStatus(tool: string): CircuitBreakerStatus {
     lastSucceededAt: b.lastSucceededAt,
     nextRetryAt: b.nextRetryAt,
     currentBackoffMs: b.currentBackoffMs,
+    halfOpenInFlight: b.halfOpenInFlight,
     totalChecks: b.totalChecks,
     totalFailures: b.totalFailures,
     totalSuccesses: b.totalSuccesses,
@@ -311,6 +449,7 @@ export function resetBreaker(tool: string): void {
     b.state = "CLOSED";
     b.consecutiveFailures = 0;
     b.consecutiveSuccesses = 0;
+    b.halfOpenInFlight = 0;
     b.currentBackoffMs = cfg.initialBackoffMs;
     b.nextRetryAt = null;
     logger.info({ tool }, "circuit-breaker: manually reset to CLOSED");

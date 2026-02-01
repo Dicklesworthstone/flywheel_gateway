@@ -23,6 +23,7 @@ import {
   getRuntimeInfo,
 } from "../services/build-info";
 import {
+  CircuitBreakerOpenError,
   getAllBreakerStatuses,
   withCircuitBreaker,
 } from "../services/circuit-breaker.service";
@@ -516,7 +517,7 @@ health.get("/detailed", async (c) => {
   // Run all checks in parallel with circuit breakers for CLI tools
   const unhealthyFallback: ComponentHealth = {
     status: "unhealthy",
-    message: "Circuit breaker open (cached failure)",
+    message: "Dependency check failed (circuit breaker fallback)",
     latencyMs: 0,
   };
 
@@ -558,12 +559,24 @@ health.get("/detailed", async (c) => {
   const ubs = ubsResult.result;
 
   // Add circuit breaker metadata to cached results
-  if (dcgResult.fromCache)
-    dcg.details = { ...dcg.details, circuitBreakerOpen: true };
-  if (cassResult.fromCache)
-    cass.details = { ...cass.details, circuitBreakerOpen: true };
-  if (ubsResult.fromCache)
-    ubs.details = { ...ubs.details, circuitBreakerOpen: true };
+  if (dcgResult.fromCache) {
+    dcg.details = { ...dcg.details, fallbackUsed: true };
+    if (dcgResult.error instanceof CircuitBreakerOpenError) {
+      dcg.details = { ...dcg.details, circuitBreakerOpen: true };
+    }
+  }
+  if (cassResult.fromCache) {
+    cass.details = { ...cass.details, fallbackUsed: true };
+    if (cassResult.error instanceof CircuitBreakerOpenError) {
+      cass.details = { ...cass.details, circuitBreakerOpen: true };
+    }
+  }
+  if (ubsResult.fromCache) {
+    ubs.details = { ...ubs.details, fallbackUsed: true };
+    if (ubsResult.error instanceof CircuitBreakerOpenError) {
+      ubs.details = { ...ubs.details, circuitBreakerOpen: true };
+    }
+  }
 
   // Compute dependency-aware diagnostics if detection succeeded
   let diagnostics: HealthDiagnostics | undefined;

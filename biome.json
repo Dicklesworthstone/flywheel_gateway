@@ -8,9 +8,14 @@
       "!**/.turbo",
       "!**/.beads",
       "!**/test-results",
+      "!logs",
+      "!**/logs",
+      "!**/results",
       "!**/tests/e2e/logs",
+      "!**/tests/e2e/results",
       "!**/tests/e2e/report",
       "!**/tests/e2e/test-results",
+      "!**/tests/e2e/tests/e2e/results",
       "!**/tests/e2e/tests/e2e/report"
     ]
   },

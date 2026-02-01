@@ -44,6 +44,8 @@ describe("Circuit Breaker State Machine", () => {
     recordFailure("test-tool");
     recordFailure("test-tool");
     recordFailure("test-tool");
+    recordFailure("test-tool");
+    recordFailure("test-tool");
     expect(getBreakerStatus("test-tool").state).toBe("OPEN");
   });
 
@@ -53,13 +55,15 @@ describe("Circuit Breaker State Machine", () => {
     recordSuccess("test-tool");
     expect(getBreakerStatus("test-tool").consecutiveFailures).toBe(0);
 
-    // Now 3 more failures needed to open
+    // Now 5 more failures needed to open (default threshold)
     recordFailure("test-tool");
     recordFailure("test-tool");
     expect(getBreakerStatus("test-tool").state).toBe("CLOSED");
   });
 
   test("OPEN circuit blocks checks", () => {
+    recordFailure("test-tool");
+    recordFailure("test-tool");
     recordFailure("test-tool");
     recordFailure("test-tool");
     recordFailure("test-tool");
@@ -74,7 +78,7 @@ describe("Circuit Breaker State Machine", () => {
   test("OPEN transitions to HALF_OPEN after backoff", async () => {
     configureBreaker("fast-tool", {
       failureThreshold: 1,
-      initialBackoffMs: 5,
+      resetTimeoutMs: 5,
     });
 
     recordFailure("fast-tool");
@@ -94,7 +98,8 @@ describe("Circuit Breaker State Machine", () => {
   test("HALF_OPEN + success → CLOSED", async () => {
     configureBreaker("recover-tool", {
       failureThreshold: 1,
-      initialBackoffMs: 5,
+      resetTimeoutMs: 5,
+      successThreshold: 2,
     });
 
     recordFailure("recover-tool");
@@ -105,13 +110,16 @@ describe("Circuit Breaker State Machine", () => {
     expect(getBreakerStatus("recover-tool").state).toBe("HALF_OPEN");
 
     recordSuccess("recover-tool");
+    expect(getBreakerStatus("recover-tool").state).toBe("HALF_OPEN");
+
+    recordSuccess("recover-tool");
     expect(getBreakerStatus("recover-tool").state).toBe("CLOSED");
   });
 
   test("HALF_OPEN + failure → OPEN with increased backoff", async () => {
     configureBreaker("stubborn-tool", {
       failureThreshold: 1,
-      initialBackoffMs: 5,
+      resetTimeoutMs: 5,
       backoffMultiplier: 2,
       maxBackoffMs: 1000,
     });
@@ -145,7 +153,7 @@ describe("Circuit Breaker Configuration", () => {
   test("backoff respects maxBackoffMs", async () => {
     configureBreaker("max-tool", {
       failureThreshold: 1,
-      initialBackoffMs: 5,
+      resetTimeoutMs: 5,
       backoffMultiplier: 10,
       maxBackoffMs: 20,
     });
@@ -198,7 +206,7 @@ describe("withCircuitBreaker wrapper", () => {
   test("records failure when isSuccess predicate returns false (without falling back)", async () => {
     configureBreaker("predicate-tool", {
       failureThreshold: 1,
-      initialBackoffMs: 5,
+      resetTimeoutMs: 5,
     });
 
     const { result, fromCache } = await withCircuitBreaker(
@@ -228,6 +236,8 @@ describe("withCircuitBreaker wrapper", () => {
 
   test("returns fallback when circuit is open", async () => {
     // Open the circuit
+    recordFailure("open-tool");
+    recordFailure("open-tool");
     recordFailure("open-tool");
     recordFailure("open-tool");
     recordFailure("open-tool");
@@ -264,6 +274,8 @@ describe("resetBreaker", () => {
     recordFailure("reset-tool");
     recordFailure("reset-tool");
     recordFailure("reset-tool");
+    recordFailure("reset-tool");
+    recordFailure("reset-tool");
     expect(getBreakerStatus("reset-tool").state).toBe("OPEN");
 
     resetBreaker("reset-tool");
@@ -276,6 +288,8 @@ describe("resetBreaker", () => {
 
 describe("Independent per-tool breakers", () => {
   test("different tools have independent state", () => {
+    recordFailure("tool-x");
+    recordFailure("tool-x");
     recordFailure("tool-x");
     recordFailure("tool-x");
     recordFailure("tool-x");

@@ -3,6 +3,7 @@
  */
 
 import { afterEach, describe, expect, it } from "bun:test";
+import { randomUUID } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -59,12 +60,13 @@ describe("formatToolSecretName/parseToolSecretName", () => {
 
 describe("EnvSecretsProvider", () => {
   it("returns env secrets and lists by prefix", async () => {
-    setEnv("APP_TOKEN", "token-123");
-    setEnv("OTHER_SECRET", "nope");
+    const token = `token-${randomUUID()}`;
+    setEnv("APP_TOKEN", token);
+    setEnv("OTHER_SECRET", `other-${randomUUID()}`);
     const provider = new EnvSecretsProvider({ allowPrefixes: ["APP_"] });
 
     const result = await provider.get("APP_TOKEN");
-    expect(result?.value).toBe("token-123");
+    expect(result?.value).toBe(token);
     expect(result?.source).toBe("env");
 
     const listed = await provider.list("APP_");
@@ -78,9 +80,10 @@ describe("EnvSecretsProvider", () => {
 describe("FileSecretsProvider", () => {
   it("loads tool secrets from secrets.yaml", async () => {
     const dir = makeTempDir("sec-provider-");
+    const apiKey = `test-${randomUUID()}`;
     writeFileSync(
       join(dir, "secrets.yaml"),
-      "tools:\n  dcg:\n    apiKey: test-123\n",
+      `tools:\n  dcg:\n    apiKey: ${apiKey}\n`,
     );
 
     const provider = new FileSecretsProvider({
@@ -89,7 +92,7 @@ describe("FileSecretsProvider", () => {
     });
     const name = formatToolSecretName("dcg", "apiKey");
     const result = await provider.get(name);
-    expect(result?.value).toBe("test-123");
+    expect(result?.value).toBe(apiKey);
     expect(result?.source).toBe("file");
 
     const listed = await provider.list("tool:dcg");
@@ -101,10 +104,12 @@ describe("FileSecretsProvider", () => {
   it("handles file-referenced secrets", async () => {
     const dir = makeTempDir("sec-provider-file-");
     mkdirSync(join(dir, "secrets"));
-    writeFileSync(join(dir, "secrets", "dcg-key.txt"), "file-value\n");
+    const fileName = `dcg-key-${randomUUID()}.txt`;
+    const fileValue = `file-${randomUUID()}`;
+    writeFileSync(join(dir, "secrets", fileName), `${fileValue}\n`);
     writeFileSync(
       join(dir, "secrets", "secrets.yaml"),
-      "tools:\n  dcg:\n    apiKey: \"file:dcg-key.txt\"\n",
+      `tools:\n  dcg:\n    apiKey: "file:${fileName}"\n`,
     );
 
     const provider = new FileSecretsProvider({
@@ -113,7 +118,7 @@ describe("FileSecretsProvider", () => {
     });
     const name = formatToolSecretName("dcg", "apiKey");
     const result = await provider.get(name);
-    expect(result?.value).toBe("file-value");
+    expect(result?.value).toBe(fileValue);
 
     rmSync(dir, { recursive: true });
   });
@@ -121,30 +126,29 @@ describe("FileSecretsProvider", () => {
 
 describe("CompositeSecretsProvider", () => {
   it("returns the first matching provider", async () => {
-    setEnv("APP_TOKEN", "env-token");
+    const envToken = `env-${randomUUID()}`;
+    setEnv("APP_TOKEN", envToken);
     const envProvider = new EnvSecretsProvider({ allowPrefixes: ["APP_"] });
 
     const dir = makeTempDir("sec-provider-composite-");
+    const apiKey = `test-${randomUUID()}`;
     writeFileSync(
       join(dir, "secrets.yaml"),
-      "tools:\n  dcg:\n    apiKey: test-123\n",
+      `tools:\n  dcg:\n    apiKey: ${apiKey}\n`,
     );
     const fileProvider = new FileSecretsProvider({
       privateDir: dir,
       refreshIntervalMs: 0,
     });
 
-    const composite = new CompositeSecretsProvider([
-      envProvider,
-      fileProvider,
-    ]);
+    const composite = new CompositeSecretsProvider([envProvider, fileProvider]);
 
     const envResult = await composite.get("APP_TOKEN");
-    expect(envResult?.value).toBe("env-token");
+    expect(envResult?.value).toBe(envToken);
 
     const toolName = formatToolSecretName("dcg", "apiKey");
     const fileResult = await composite.get(toolName);
-    expect(fileResult?.value).toBe("test-123");
+    expect(fileResult?.value).toBe(apiKey);
 
     rmSync(dir, { recursive: true });
   });

@@ -14,6 +14,7 @@ import {
   enterMaintenance,
   exitMaintenance,
   getMaintenanceSnapshot,
+  type MaintenanceActor,
   startDraining,
 } from "../services/maintenance.service";
 import { getSnapshotService } from "../services/snapshot.service";
@@ -21,7 +22,7 @@ import { sendResource, sendValidationError } from "../utils/response";
 import type { AuthContext } from "../ws/hub";
 import { getHub } from "../ws/hub";
 
-const system = new Hono();
+const system = new Hono<{ Variables: { auth: AuthContext | undefined } }>();
 system.use("*", requireAdminMiddleware());
 
 // ============================================================================
@@ -163,12 +164,10 @@ system.post("/maintenance", async (c) => {
   }
   const input = parsed.data;
 
-  const auth = c.get("auth") as AuthContext | undefined;
-  const actor = {
-    actor: auth?.userId ?? "admin",
-    userId: auth?.userId,
-    apiKeyId: auth?.apiKeyId,
-  };
+  const auth = c.get("auth");
+  const actor: MaintenanceActor = { actor: auth?.userId ?? "admin" };
+  if (auth?.userId !== undefined) actor.userId = auth.userId;
+  if (auth?.apiKeyId !== undefined) actor.apiKeyId = auth.apiKeyId;
 
   if (!input.enabled) {
     exitMaintenance({ actor });
@@ -176,7 +175,7 @@ system.post("/maintenance", async (c) => {
   } else if (typeof input.deadlineSeconds === "number") {
     startDraining({
       deadlineSeconds: input.deadlineSeconds,
-      reason: input.reason,
+      ...(input.reason !== undefined ? { reason: input.reason } : {}),
       actor,
     });
     log.info(
@@ -189,7 +188,10 @@ system.post("/maintenance", async (c) => {
       "Drain mode enabled via API",
     );
   } else {
-    enterMaintenance({ reason: input.reason, actor });
+    enterMaintenance({
+      ...(input.reason !== undefined ? { reason: input.reason } : {}),
+      actor,
+    });
     log.info(
       { enabled: true, mode: "maintenance", actor },
       "Maintenance enabled via API",
