@@ -1,7 +1,41 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import {
+  context as otelContext,
+  propagation,
+  SpanKind,
+  SpanStatusCode,
+  type TextMapGetter,
+  trace,
+} from "@opentelemetry/api";
 import type { Context, Next } from "hono";
 import type { Logger } from "../services/logger";
 import { createChildLogger, logger } from "../services/logger";
+import { isAuthEnabled } from "./auth";
+
+const TRUST_TRACE_ENV_KEY = "OTEL_TRUST_INCOMING_TRACE_CONTEXT";
+
+const headersGetter: TextMapGetter<Headers> = {
+  get(carrier, key) {
+    const value = carrier.get(key);
+    return value ?? undefined;
+  },
+  keys(carrier) {
+    const out: string[] = [];
+    carrier.forEach((_, headerKey) => {
+      out.push(headerKey);
+    });
+    return out;
+  },
+};
+
+function shouldTrustIncomingTraceContext(): boolean {
+  // When auth is enabled, do not trust user-provided trace IDs unless explicitly allowed.
+  if (isAuthEnabled()) {
+    return process.env[TRUST_TRACE_ENV_KEY]?.trim().toLowerCase() === "true";
+  }
+  // In local/dev (auth disabled), allow trace context propagation by default.
+  return true;
+}
 
 /**
  * Request context stored in AsyncLocalStorage.
@@ -84,9 +118,63 @@ export function correlationMiddleware() {
     c.set("correlationId", correlationId);
     c.set("requestId", requestId);
 
-    // Run the rest of the middleware chain within the context
+    const tracer = trace.getTracer("flywheel-gateway");
+    const parentContext = shouldTrustIncomingTraceContext()
+      ? propagation.extract(
+          otelContext.active(),
+          c.req.raw.headers,
+          headersGetter,
+        )
+      : otelContext.active();
+
+    const span = tracer.startSpan(
+      `HTTP ${c.req.method} ${c.req.path}`,
+      {
+        kind: SpanKind.SERVER,
+        attributes: {
+          "http.method": c.req.method,
+          "http.route": c.req.path,
+          "flywheel.correlation_id": correlationId,
+          "flywheel.request_id": requestId,
+        },
+      },
+      parentContext,
+    );
+
+    // Run the rest of the middleware chain within the request context and span context.
     await requestContextStorage.run(context, async () => {
-      await next();
+      const spanContext = trace.setSpan(parentContext, span);
+      await otelContext.with(spanContext, async () => {
+        let status = 500;
+        let caughtError: unknown | undefined;
+
+        try {
+          await next();
+          status = c.res.status;
+        } catch (err) {
+          caughtError = err;
+          throw err;
+        } finally {
+          const durationMs = Math.round(performance.now() - startTime);
+          span.setAttribute("http.status_code", status);
+          span.setAttribute("http.duration_ms", durationMs);
+
+          if (caughtError) {
+            span.setStatus({ code: SpanStatusCode.ERROR });
+            const error =
+              caughtError instanceof Error
+                ? caughtError
+                : new Error(String(caughtError));
+            span.recordException(error);
+          } else if (status >= 500) {
+            span.setStatus({ code: SpanStatusCode.ERROR });
+          } else {
+            span.setStatus({ code: SpanStatusCode.OK });
+          }
+
+          span.end();
+        }
+      });
     });
   };
 }
