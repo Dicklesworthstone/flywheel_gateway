@@ -16,7 +16,7 @@ The gateway runtime is **Bun** (not Node.js), and the HTTP ingress is primarily 
 
 This ADR chooses an OTel approach that:
 
-- works reliably in Bun 1.3+
+- targets Bun 1.3+ with explicit compatibility guards
 - avoids depending on Node-specific HTTP auto-instrumentation (since Bun does not use Node’s `http` server for ingress)
 - keeps overhead low and makes enablement optional via config
 
@@ -76,6 +76,7 @@ Add explicit config flags so telemetry can be disabled (default) and tuned:
 - `OTEL_SERVICE_NAME` (default `flywheel-gateway`)
 - `OTEL_EXPORTER_OTLP_ENDPOINT` (e.g. `http://localhost:4318`)
 - `OTEL_EXPORTER_OTLP_HEADERS` (optional, for auth)
+- `OTEL_EXPORTER_OTLP_PROTOCOL` / `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL` (`http/protobuf` preferred; `http/json` acceptable)
 - `OTEL_TRACES_EXPORTER` (`otlp-proto|otlp-http|none`)
 - `OTEL_TRACES_SAMPLER` + sampling ratio (e.g. parent-based traceidratio)
 - timeouts / batch sizes (export timeout, queue size, flush interval)
@@ -122,6 +123,8 @@ Mitigations:
 
 The OTel `context-async-hooks` package inherits limitations and bugs from the underlying `async_hooks` / `AsyncLocalStorage` implementation. In Bun, `node:async_hooks` is implemented, but some promise-hook behavior differs from Node.
 
+In particular, Bun documents that while `AsyncLocalStorage`/`AsyncResource` exist, some V8 promise hooks are not invoked, which can reduce compatibility for context propagation across certain async patterns.
+
 Workarounds / guards:
 
 - add an integration test that validates context propagation for our typical patterns:
@@ -166,10 +169,10 @@ Cons:
 
 ## References
 
-- Bun `node:async_hooks`: https://bun.sh/docs/api/node/async_hooks
+- Bun `node:async_hooks`: https://bun.com/reference/node/async_hooks
 - OTel JS `@opentelemetry/context-async-hooks`: https://www.npmjs.com/package/@opentelemetry/context-async-hooks
 - OTel JS `@opentelemetry/sdk-node`: https://open-telemetry.github.io/opentelemetry-js/modules/_opentelemetry_sdk-node.html
 - OTel JS OTLP exporters:
   - https://www.npmjs.com/package/@opentelemetry/exporter-trace-otlp-http
   - https://open-telemetry.github.io/opentelemetry-js/modules/_opentelemetry_exporter-trace-otlp-proto.html
-
+- OTel spec (OTLP protocols + headers env vars): https://opentelemetry.io/docs/specs/otel/protocol/exporter/
