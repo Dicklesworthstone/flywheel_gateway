@@ -39,6 +39,34 @@ const DEFAULT_CONFIG: BackpressureConfig = {
   batchSize: 100,
 };
 
+function clampNumber(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeConfig(config: BackpressureConfig): BackpressureConfig {
+  const maxQueueSize = Math.max(1, Math.floor(config.maxQueueSize));
+
+  const highWaterMark = Math.floor(
+    clampNumber(config.highWaterMark, 0, maxQueueSize),
+  );
+  const lowWaterMark = Math.floor(
+    clampNumber(config.lowWaterMark, 0, highWaterMark),
+  );
+
+  const processingInterval = Math.max(1, Math.floor(config.processingInterval));
+  const batchSize = Math.max(1, Math.floor(config.batchSize));
+
+  return {
+    ...config,
+    maxQueueSize,
+    highWaterMark,
+    lowWaterMark,
+    processingInterval,
+    batchSize,
+  };
+}
+
 export class BackpressureManager<T = unknown> {
   private queue: T[] = [];
   private isPaused = false;
@@ -52,7 +80,7 @@ export class BackpressureManager<T = unknown> {
   private messageHandler?: (messages: T[]) => void;
 
   constructor(config: Partial<BackpressureConfig> = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    this.config = normalizeConfig({ ...DEFAULT_CONFIG, ...config });
   }
 
   /**
@@ -105,12 +133,22 @@ export class BackpressureManager<T = unknown> {
     // Check for overflow
     if (this.queue.length >= this.config.maxQueueSize) {
       // Drop oldest messages to make room, keeping the most recent
-      const dropCount = this.queue.length - this.config.lowWaterMark + 1;
-      this.queue.splice(0, dropCount);
-      this.droppedCount += dropCount;
-      console.warn(
-        `[BackpressureManager] Queue overflow, dropped ${dropCount} old messages`,
+      const keepCountBeforePush = clampNumber(
+        this.config.lowWaterMark - 1,
+        0,
+        this.config.maxQueueSize - 1,
       );
+      const dropCount = Math.max(
+        0,
+        this.queue.length - Math.floor(keepCountBeforePush),
+      );
+      if (dropCount > 0) {
+        this.queue.splice(0, dropCount);
+        this.droppedCount += dropCount;
+        console.warn(
+          `[BackpressureManager] Queue overflow, dropped ${dropCount} old messages`,
+        );
+      }
     }
 
     this.queue.push(message);
@@ -229,7 +267,7 @@ export class BackpressureManager<T = unknown> {
    * Update configuration at runtime
    */
   updateConfig(config: Partial<BackpressureConfig>): void {
-    this.config = { ...this.config, ...config };
+    this.config = normalizeConfig({ ...this.config, ...config });
   }
 
   /**

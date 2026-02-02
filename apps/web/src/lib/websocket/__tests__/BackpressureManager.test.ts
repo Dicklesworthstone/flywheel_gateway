@@ -54,6 +54,30 @@ describe("BackpressureManager", () => {
       expect(state.queueLength).toBeLessThanOrEqual(20);
       expect(state.droppedCount).toBeGreaterThan(0);
     });
+
+    it("should not grow unbounded when watermarks are misconfigured", () => {
+      const originalWarn = console.warn;
+      console.warn = () => {};
+
+      try {
+        const misconfigured = new BackpressureManager<string>({
+          highWaterMark: 10,
+          lowWaterMark: 50,
+          maxQueueSize: 20,
+        });
+
+        for (let i = 0; i < 200; i++) {
+          misconfigured.enqueue(`message${i}`);
+          const state = misconfigured.getState();
+          expect(state.queueLength).toBeLessThanOrEqual(20);
+          expect(state.droppedCount).toBeGreaterThanOrEqual(0);
+        }
+
+        misconfigured.dispose();
+      } finally {
+        console.warn = originalWarn;
+      }
+    });
   });
 
   describe("enqueueAll", () => {
