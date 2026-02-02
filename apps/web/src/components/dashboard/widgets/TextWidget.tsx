@@ -73,7 +73,9 @@ function renderMarkdown(markdown: string): string {
   html = html.replace(/(<li>.*<\/li>\n?)+/g, "<ul>$&</ul>");
 
   // Ordered lists
-  html = html.replace(/^\d+\. (.+)$/gm, "<li>$1</li>");
+  html = html.replace(/^\d+\. (.+)$/gm, '<li data-fw-ol="1">$1</li>');
+  html = html.replace(/(<li data-fw-ol="1">.*<\/li>\n?)+/g, "<ol>$&</ol>");
+  html = html.replace(/ data-fw-ol="1"/g, "");
 
   // Horizontal rule
   html = html.replace(/^---$/gm, "<hr />");
@@ -88,6 +90,8 @@ function renderMarkdown(markdown: string): string {
   html = html.replace(/(<\/h[234]>)<\/p>/g, "$1");
   html = html.replace(/<p>(<ul>)/g, "$1");
   html = html.replace(/(<\/ul>)<\/p>/g, "$1");
+  html = html.replace(/<p>(<ol>)/g, "$1");
+  html = html.replace(/(<\/ol>)<\/p>/g, "$1");
   html = html.replace(/<p>(<hr \/>)<\/p>/g, "$1");
 
   // Line breaks within paragraphs

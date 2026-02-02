@@ -34,7 +34,7 @@ function renderWithContent(content: string) {
 
 describe("TextWidget", () => {
   it("blocks javascript: href links", () => {
-    const { container } = renderWithContent("[click](javascript:alert(1))");
+    const { container } = renderWithContent("[click](javascript:owned)");
     const scoped = within(container);
 
     expect(scoped.getByText("click")).toBeInTheDocument();
@@ -64,5 +64,17 @@ describe("TextWidget", () => {
     const href = link.getAttribute("href");
     expect(href).toContain("https://example.com/path?x=1");
     expect(href).toContain("y=2");
+  });
+
+  it("wraps ordered lists in <ol>", () => {
+    const { container } = renderWithContent("1. One\n2. Two");
+
+    const ol = container.querySelector("ol");
+    expect(ol).not.toBeNull();
+    expect(ol!.querySelectorAll("li")).toHaveLength(2);
+
+    const scoped = within(ol as HTMLElement);
+    expect(scoped.getByText("One")).toBeInTheDocument();
+    expect(scoped.getByText("Two")).toBeInTheDocument();
   });
 });

@@ -25,14 +25,21 @@ const baseLogger = pino({
   timestamp: pino.stdTimeFunctions.isoTime,
 });
 
+// Capture the native child() function before we override it below.
+// Otherwise, `ensureChild()` would call itself in non-Bun runtimes.
+const nativeChild =
+  typeof baseLogger.child === "function"
+    ? baseLogger.child.bind(baseLogger)
+    : undefined;
+
 /**
  * Defensive wrapper that ensures child() method is always available.
  * If the base logger doesn't have child() for some reason, we return
  * a new logger instance with the bindings as base.
  */
 function ensureChild(bindings: pino.Bindings): pino.Logger {
-  if (!isBun && typeof baseLogger.child === "function") {
-    return baseLogger.child(bindings);
+  if (!isBun && nativeChild) {
+    return nativeChild(bindings);
   }
   // Fallback: create a new logger with the bindings.
   // In Bun, baseLogger.child can hang, so we always use the safe path.
