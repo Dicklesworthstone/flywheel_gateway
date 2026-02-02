@@ -78,6 +78,26 @@ const analyticsConfigSchema = z.object({
 });
 
 /**
+ * OpenTelemetry configuration schema.
+ *
+ * Tracing is opt-in: disabled by default unless configured via env or config file.
+ */
+const otelConfigSchema = z.object({
+  /** Enable/disable OTel globally (default: false). */
+  enabled: z.boolean().default(false),
+  /** Service name used in OTel resource attributes. */
+  serviceName: z.string().min(1).default("flywheel-gateway"),
+  /** Which trace exporter to use. `none` keeps tracing disabled unless `enabled=true`. */
+  tracesExporter: z.enum(["none", "otlp-proto", "otlp-http"]).default("none"),
+  /** OTLP endpoint base URL (e.g. http://localhost:4318). */
+  otlpEndpoint: z.string().min(1).optional(),
+  /** Optional OTLP headers (e.g. "Authorization=Bearer ...,x-foo=bar"). */
+  otlpHeaders: z.string().min(1).optional(),
+  /** Export timeout for BatchSpanProcessor in milliseconds. */
+  exportTimeoutMs: z.number().min(100).default(10_000),
+});
+
+/**
  * NTM throttling configuration schema.
  */
 const ntmThrottlingConfigSchema = z.object({
@@ -149,6 +169,9 @@ export const flywheelConfigSchema = z.object({
   analytics: analyticsConfigSchema
     .optional()
     .transform((v) => analyticsConfigSchema.parse(v ?? {})),
+  otel: otelConfigSchema
+    .optional()
+    .transform((v) => otelConfigSchema.parse(v ?? {})),
   ntm: ntmConfigSchema
     .optional()
     .transform((v) => ntmConfigSchema.parse(v ?? {})),
@@ -161,6 +184,7 @@ export type AgentConfig = z.infer<typeof agentConfigSchema>;
 export type SecurityConfig = z.infer<typeof securityConfigSchema>;
 export type WebsocketConfig = z.infer<typeof websocketConfigSchema>;
 export type AnalyticsConfig = z.infer<typeof analyticsConfigSchema>;
+export type OtelConfig = z.infer<typeof otelConfigSchema>;
 export type NtmConfig = z.infer<typeof ntmConfigSchema>;
 export type NtmWsBridgeConfig = z.infer<typeof ntmWsBridgeConfigSchema>;
 export type NtmThrottlingConfig = z.infer<typeof ntmThrottlingConfigSchema>;
@@ -367,6 +391,62 @@ function applyEnvOverrides(
     result.analytics = {
       ...result.analytics,
       cacheTtlMs: Number(process.env["CACHE_TTL_MS"]),
+    };
+  }
+
+  // OpenTelemetry overrides
+  if (process.env["OTEL_SERVICE_NAME"]?.trim()) {
+    result.otel = {
+      ...result.otel,
+      serviceName: process.env["OTEL_SERVICE_NAME"].trim(),
+    };
+  }
+
+  if (process.env["OTEL_EXPORTER_OTLP_ENDPOINT"]?.trim()) {
+    result.otel = {
+      ...result.otel,
+      otlpEndpoint: process.env["OTEL_EXPORTER_OTLP_ENDPOINT"].trim(),
+    };
+  }
+
+  if (process.env["OTEL_EXPORTER_OTLP_HEADERS"]?.trim()) {
+    result.otel = {
+      ...result.otel,
+      otlpHeaders: process.env["OTEL_EXPORTER_OTLP_HEADERS"].trim(),
+    };
+  }
+
+  if (process.env["OTEL_TRACES_EXPORTER"]?.trim()) {
+    const raw = process.env["OTEL_TRACES_EXPORTER"].trim();
+    const tracesExporter =
+      raw === "otlp-proto" || raw === "otlp-http" || raw === "none"
+        ? raw
+        : undefined;
+
+    if (tracesExporter) {
+      result.otel = { ...result.otel, tracesExporter };
+    }
+  }
+
+  if (process.env["OTEL_ENABLED"]?.trim()) {
+    const enabled = process.env["OTEL_ENABLED"].trim() === "true";
+    result.otel = { ...result.otel, enabled };
+    // Explicit disable wins even if exporter was configured.
+    if (!enabled) {
+      result.otel = { ...result.otel, tracesExporter: "none" };
+    } else if (
+      result.otel?.tracesExporter === undefined ||
+      result.otel.tracesExporter === "none"
+    ) {
+      // If enabled without an explicit exporter, default to OTLP/proto.
+      result.otel = { ...result.otel, tracesExporter: "otlp-proto" };
+    }
+  }
+
+  if (process.env["OTEL_EXPORT_TIMEOUT_MS"]?.trim()) {
+    result.otel = {
+      ...result.otel,
+      exportTimeoutMs: Number(process.env["OTEL_EXPORT_TIMEOUT_MS"]),
     };
   }
 

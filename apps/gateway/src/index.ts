@@ -60,6 +60,7 @@ import {
   startNtmWsBridge,
   stopNtmWsBridge,
 } from "./services/ntm-ws-bridge.service";
+import { initTracing, shutdownTracing } from "./services/otel.service";
 import {
   startCleanupJob as startReservationCleanupJob,
   stopCleanupJob as stopReservationCleanupJob,
@@ -115,6 +116,9 @@ if (import.meta.main) {
   // Load configuration (async but we block on it during startup)
   await loadConfig({ cwd: process.cwd() });
   const config = getConfig();
+
+  // Initialize tracing early so subsequent services can create spans.
+  initTracing(config.otel);
 
   const port = config.server.port;
   const host = config.server.host;
@@ -310,16 +314,16 @@ if (import.meta.main) {
     pending: number;
   }> {
     try {
-      const [runningRow, pendingRow] = await Promise.all([
-        db
-          .select({ count: sql<number>`count(*)` })
-          .from(jobs)
-          .where(eq(jobs.status, "running")),
-        db
-          .select({ count: sql<number>`count(*)` })
-          .from(jobs)
-          .where(eq(jobs.status, "pending")),
-      ]);
+      const runningRow = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobs)
+        .where(eq(jobs.status, "running"));
+
+      const pendingRow = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobs)
+        .where(eq(jobs.status, "pending"));
+
       return {
         running: Number(runningRow[0]?.count ?? 0),
         pending: Number(pendingRow[0]?.count ?? 0),
@@ -398,6 +402,10 @@ if (import.meta.main) {
 
     // If anything is still active, force-close remaining connections.
     await bunServer.stop(true);
+
+    // Best-effort flush/shutdown of telemetry before exit (bounded).
+    const remainingMs = Math.max(0, shutdownDeadlineAt - Date.now());
+    await shutdownTracing({ timeoutMs: Math.min(5_000, remainingMs) });
 
     const finalJobCounts = await getJobCountsForShutdown();
     const durationMs = Date.now() - startedAt;
