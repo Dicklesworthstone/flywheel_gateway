@@ -3,6 +3,7 @@
  *
  * This package provides a unified interface for multiple agent execution backends:
  * - SDK Driver: Direct API calls to Claude/Codex/Gemini SDKs (primary)
+ * - Claude Code WS Driver: Claude CLI `--sdk-url` websocket protocol
  * - ACP Driver: Agent Client Protocol for IDE-compatible structured events
  * - NTM Driver: Named Tmux Manager for multi-agent orchestration
  * - Tmux Driver: Visual terminal access for power users
@@ -41,6 +42,8 @@ export {
   type BaseDriverConfig,
   createDriverOptions,
 } from "./base-driver";
+// Claude Code WS driver
+export * from "./claude-code-ws";
 // Interface and driver contract
 export * from "./interface";
 // Naming utilities for deterministic session names

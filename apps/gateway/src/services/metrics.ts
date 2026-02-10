@@ -298,7 +298,7 @@ export function getMetricsSnapshot(): MetricSnapshot {
   }
 
   const byDriver: Record<string, number> = {};
-  for (const driver of ["sdk", "acp", "tmux"]) {
+  for (const driver of ["sdk", "claude_code_ws", "acp", "ntm", "tmux"]) {
     byDriver[driver] = getGauge("flywheel_agents_active", { driver });
   }
 

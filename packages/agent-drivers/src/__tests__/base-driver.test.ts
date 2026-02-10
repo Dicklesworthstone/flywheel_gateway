@@ -141,6 +141,15 @@ describe("BaseDriver", () => {
       expect(opts.capabilities.diffRendering).toBe(true);
     });
 
+    it("should create default options for Claude Code WS driver", () => {
+      const opts = createDriverOptions("claude_code_ws");
+
+      expect(opts.driverType).toBe("claude_code_ws");
+      expect(opts.capabilities.streaming).toBe(true);
+      expect(opts.capabilities.toolCalls).toBe(true);
+      expect(opts.capabilities.checkpoint).toBe(false);
+    });
+
     it("should create default options for Tmux driver", () => {
       const opts = createDriverOptions("tmux");
 

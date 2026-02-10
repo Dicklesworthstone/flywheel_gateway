@@ -4,6 +4,7 @@
  * This interface defines the contract that all agent drivers must implement,
  * enabling Flywheel Gateway to work with multiple execution backends:
  * - SDK Driver: Direct API calls to Claude/Codex/Gemini SDKs
+ * - Claude Code WS Driver: Claude CLI --sdk-url websocket transport
  * - ACP Driver: Agent Client Protocol for IDE-compatible structured events
  * - Tmux Driver: Visual terminal access for power users
  *
@@ -33,7 +34,7 @@ export interface AgentDriver {
   readonly driverId: string;
 
   /**
-   * The type of this driver (sdk, acp, tmux, mock).
+   * The type of this driver (sdk, claude_code_ws, acp, tmux, ntm, mock).
    */
   readonly driverType: AgentDriverType;
 

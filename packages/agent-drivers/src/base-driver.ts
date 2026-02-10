@@ -645,6 +645,17 @@ function getDefaultCapabilities(type: AgentDriverType): DriverCapabilities {
         interrupt: true,
         streaming: true,
       };
+    case "claude_code_ws":
+      return {
+        structuredEvents: true,
+        toolCalls: true,
+        fileOperations: true,
+        terminalAttach: false,
+        diffRendering: false,
+        checkpoint: false,
+        interrupt: true,
+        streaming: true,
+      };
     case "acp":
       return {
         structuredEvents: true,

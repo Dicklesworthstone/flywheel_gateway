@@ -43,6 +43,9 @@ const databaseConfigSchema = z.object({
  */
 const agentConfigSchema = z.object({
   defaultModel: z.string().default("claude-sonnet-4-20250514"),
+  defaultDriver: z
+    .enum(["sdk", "claude_code_ws", "acp", "ntm", "tmux"])
+    .default("sdk"),
   maxConcurrent: z.number().min(1).max(100).default(10),
   timeoutMs: z.number().min(1000).default(300_000), // 5 minutes
   checkpointEnabled: z.boolean().default(true),
@@ -339,6 +342,17 @@ function applyEnvOverrides(
     result.agent = {
       ...result.agent,
       defaultModel: process.env["DEFAULT_MODEL"],
+    };
+  }
+  if (process.env["AGENT_DRIVER"]) {
+    result.agent = {
+      ...result.agent,
+      defaultDriver: process.env["AGENT_DRIVER"] as
+        | "sdk"
+        | "claude_code_ws"
+        | "acp"
+        | "ntm"
+        | "tmux",
     };
   }
   if (process.env["MAX_CONCURRENT_AGENTS"]) {

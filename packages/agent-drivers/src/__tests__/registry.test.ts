@@ -23,12 +23,14 @@ import type {
  */
 function createMockDriver(type: AgentDriverType, healthy = true): AgentDriver {
   const capabilities: DriverCapabilities = {
-    structuredEvents: type === "sdk" || type === "acp",
-    toolCalls: type === "sdk" || type === "acp",
-    fileOperations: type === "sdk" || type === "acp",
+    structuredEvents:
+      type === "sdk" || type === "acp" || type === "claude_code_ws",
+    toolCalls: type === "sdk" || type === "acp" || type === "claude_code_ws",
+    fileOperations:
+      type === "sdk" || type === "acp" || type === "claude_code_ws",
     terminalAttach: type === "tmux",
     diffRendering: type === "acp",
-    checkpoint: type !== "tmux",
+    checkpoint: type !== "tmux" && type !== "claude_code_ws",
     interrupt: true,
     streaming: true,
   };
@@ -156,6 +158,13 @@ describe("DriverRegistry", () => {
         defaultCapabilities: createMockDriver("sdk").getCapabilities(),
       });
       registry.register({
+        type: "claude_code_ws",
+        factory: async () => createMockDriver("claude_code_ws"),
+        description: "Mock Claude Code WS driver",
+        defaultCapabilities:
+          createMockDriver("claude_code_ws").getCapabilities(),
+      });
+      registry.register({
         type: "acp",
         factory: async () => createMockDriver("acp"),
         description: "Mock ACP driver",
@@ -172,6 +181,13 @@ describe("DriverRegistry", () => {
     it("should select preferred type when available and healthy", async () => {
       const result = await registry.selectDriver({ preferredType: "acp" });
       expect(result.type).toBe("acp");
+    });
+
+    it("should select Claude Code WS when explicitly preferred", async () => {
+      const result = await registry.selectDriver({
+        preferredType: "claude_code_ws",
+      });
+      expect(result.type).toBe("claude_code_ws");
     });
 
     it("should fall back to SDK when no preference given", async () => {

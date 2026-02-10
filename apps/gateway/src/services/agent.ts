@@ -49,6 +49,7 @@ import {
   removeAutoCheckpointService,
 } from "./auto-checkpoint.service";
 import { createErrorCheckpoint } from "./checkpoint";
+import { getConfig } from "./config.service";
 import {
   cleanupOutputBuffer,
   getOutput as getOutputFromBuffer,
@@ -259,7 +260,8 @@ async function refreshAgentRecord(
  */
 async function getDriver(): Promise<AgentDriver> {
   if (!driver) {
-    const result = await selectDriver({ preferredType: "sdk" });
+    const preferredType = getConfig().agent.defaultDriver;
+    const result = await selectDriver({ preferredType });
     driver = result.driver;
   }
   return driver;

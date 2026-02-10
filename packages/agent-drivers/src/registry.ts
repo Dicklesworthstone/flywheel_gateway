@@ -146,8 +146,9 @@ export class DriverRegistry {
    * Selection priority:
    * 1. Preferred type if specified and available
    * 2. SDK driver if capabilities match
-   * 3. ACP driver if capabilities match
-   * 4. Tmux driver as fallback
+   * 3. Claude Code WS driver if capabilities match
+   * 4. ACP driver if capabilities match
+   * 5. Tmux driver as fallback
    *
    * @param requirements - Driver requirements
    * @param options - Driver options
@@ -190,8 +191,14 @@ export class DriverRegistry {
       }
     }
 
-    // Selection order: sdk > acp > ntm > tmux
-    const selectionOrder: AgentDriverType[] = ["sdk", "acp", "ntm", "tmux"];
+    // Selection order: sdk > claude_code_ws > acp > ntm > tmux
+    const selectionOrder: AgentDriverType[] = [
+      "sdk",
+      "claude_code_ws",
+      "acp",
+      "ntm",
+      "tmux",
+    ];
 
     for (const type of selectionOrder) {
       if (!this.entries.has(type)) continue;
