@@ -1,24 +1,24 @@
-# Flywheel Gateway - Agent Guidelines
+# AGENTS.md — flywheel_gateway
 
-## RULE 0 - THE FUNDAMENTAL OVERRIDE PEROGATIVE
+> Guidelines for AI coding agents working in this TypeScript/Bun codebase.
+
+---
+
+## RULE 0 - THE FUNDAMENTAL OVERRIDE PREROGATIVE
 
 If I tell you to do something, even if it goes against what follows below, YOU MUST LISTEN TO ME. I AM IN CHARGE, NOT YOU.
 
 ---
 
-## RULE 1 – ABSOLUTE (DO NOT EVER VIOLATE THIS)
+## RULE NUMBER 1: NO FILE DELETION
 
-You may NOT delete any file or directory unless I explicitly give the exact command **in this session**.
+**YOU ARE NEVER ALLOWED TO DELETE A FILE WITHOUT EXPRESS PERMISSION.** Even a new file that you yourself created, such as a test code file. You have a horrible track record of deleting critically important files or otherwise throwing away tons of expensive work. As a result, you have permanently lost any and all rights to determine that a file or folder should be deleted.
 
-- This includes files you just created (tests, tmp files, scripts, etc.).
-- You do not get to decide that something is "safe" to remove.
-- If you think something should be removed, stop and ask. You must receive clear written approval **before** any deletion command is even proposed.
-
-Treat "never delete files without permission" as a hard invariant.
+**YOU MUST ALWAYS ASK AND RECEIVE CLEAR, WRITTEN PERMISSION BEFORE EVER DELETING A FILE OR FOLDER OF ANY KIND.**
 
 ---
 
-## RULE 2 – PUBLIC/PRIVATE SEPARATION
+## RULE 2 - PUBLIC/PRIVATE SEPARATION
 
 This is a **PUBLIC open source repository**. Never add business content here.
 
@@ -37,26 +37,13 @@ If you're unsure whether something is business content, ask first.
 
 ---
 
-### IRREVERSIBLE GIT & FILESYSTEM ACTIONS
+## Irreversible Git & Filesystem Actions — DO NOT EVER BREAK GLASS
 
-Absolutely forbidden unless I give the **exact command and explicit approval** in the same message:
-
-- `git reset --hard`
-- `git clean -fd`
-- `rm -rf`
-- Any command that can delete or overwrite code/data
-
-Rules:
-
-1. If you are not 100% sure what a command will delete, do not propose or run it. Ask first.
-2. Prefer safe tools: `git status`, `git diff`, `git stash`, copying to backups, etc.
-3. After approval, restate the command verbatim, list what it will affect, and wait for confirmation.
-4. When a destructive command is run, record in your response:
-   - The exact user text authorizing it
-   - The command run
-   - When you ran it
-
-If that audit trail is missing, then you must act as if the operation never happened.
+1. **Absolutely forbidden commands:** `git reset --hard`, `git clean -fd`, `rm -rf`, or any command that can delete or overwrite code/data must never be run unless the user explicitly provides the exact command and states, in the same message, that they understand and want the irreversible consequences.
+2. **No guessing:** If there is any uncertainty about what a command might delete or overwrite, stop immediately and ask the user for specific approval. "I think it's safe" is never acceptable.
+3. **Safer alternatives first:** When cleanup or rollbacks are needed, request permission to use non-destructive options (`git status`, `git diff`, `git stash`, copying to backups) before ever considering a destructive command.
+4. **Mandatory explicit plan:** Even after explicit user authorization, restate the command verbatim, list exactly what will be affected, and wait for a confirmation that your understanding is correct. Only then may you execute it—if anything remains ambiguous, refuse and escalate.
+5. **Document the confirmation:** When running any approved destructive command, record (in the session notes / final response) the exact user text that authorized it, the command actually run, and the execution time. If that record is absent, the operation did not happen.
 
 ### DCG (Destructive Command Guard)
 
@@ -79,32 +66,56 @@ DCG is your safety net—work with it, not against it.
 
 ---
 
-## Tech Stack
+## Git Branch: ONLY Use `main`, NEVER `master`
 
-Flywheel Gateway is a **TypeScript/Bun** monorepo with the following stack:
+**The default branch is `main`. The `master` branch exists only for legacy URL compatibility.**
 
-### Runtime & Tooling
-- **Bun 1.3+** — Runtime, package manager, bundler, test runner (now part of Anthropic)
-- **TypeScript 5.9+** — Strict mode enabled (7.0 Go port coming)
-- **Biome 2.0+** — Linting, formatting, and type inference
+- **All work happens on `main`** — commits, PRs, feature branches all merge to `main`
+- **Never reference `master` in code or docs** — if you see `master` anywhere, it's a bug that needs fixing
+- **The `master` branch must stay synchronized with `main`** — after pushing to `main`, also push to `master`:
+  ```bash
+  git push origin main:master
+  ```
 
-### Backend (apps/gateway)
-- **Hono 4.11+** — HTTP framework (ultrafast, Bun-native)
-- **tRPC 11+** — End-to-end type-safe API
-- **Drizzle ORM 0.45+** — TypeScript-native ORM (1.0 beta available)
-- **bun:sqlite** — Native SQLite (fast, zero-config)
-- **Bun WebSocket** — Native WebSocket support
+**If you see `master` referenced anywhere:**
+1. Update it to `main`
+2. Ensure `master` is synchronized: `git push origin main:master`
 
-### Frontend (apps/web)
-- **Vite 7.3+** — Build tool (Vite 8 beta with Rolldown available)
-- **React 19.2+** — With React Compiler
-- **TanStack Router 1.145+** — Type-safe routing
-- **TanStack Query 5.90+** — Server state management
-- **Zustand** — Client state
-- **Tailwind CSS 4.1+** — Styling (CSS-based config)
-- **Framer Motion** — Animation
+---
 
-### Conventions
+## Toolchain: TypeScript & Bun
+
+We only use **Bun** in this project, NEVER any other package manager or runtime.
+
+- **Runtime:** Bun 1.3+ (package manager, bundler, test runner — now part of Anthropic)
+- **Language:** TypeScript 5.9+ (strict mode enabled; 7.0 Go port coming)
+- **Linting/Formatting:** Biome 2.0+ (linting, formatting, and type inference)
+- **Module system:** ESM (`"type": "module"`)
+- **Target:** ES2022
+
+### Key Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| `hono` (4.11+) | HTTP framework (ultrafast, Bun-native) |
+| `drizzle-orm` (0.40+) | TypeScript-native ORM |
+| `bun:sqlite` | Native SQLite (fast, zero-config) |
+| `pino` | Structured logging |
+| `@modelcontextprotocol/sdk` | MCP client/server integration |
+| `@opentelemetry/*` | Distributed tracing (OTLP export) |
+| `react` (19.2+) | UI framework (with React Compiler) |
+| `@tanstack/react-router` (1.145+) | Type-safe routing |
+| `@tanstack/react-query` (5.90+) | Server state management |
+| `zustand` | Client state |
+| `tailwindcss` (4.0+) | Styling (CSS-based config) |
+| `framer-motion` | Animation |
+| `vite` (7.3+) | Frontend build tool |
+| `zod` (4.3+) | Schema validation |
+| `@asteasolutions/zod-to-openapi` | OpenAPI generation from Zod |
+| `ulid` | Unique ID generation |
+| `playwright` | E2E testing |
+
+### Development Commands
 
 ```bash
 # Development
@@ -115,11 +126,16 @@ bun dev:web          # Frontend only
 # Testing
 bun run test         # Run all tests
 bun run test -- --watch  # Watch mode
+bun test:e2e         # Playwright E2E tests
+bun test:contract    # Contract tests
 
 # Linting/Formatting
 bun lint             # Check with Biome
 bun lint:fix         # Auto-fix
 bun format           # Format code
+
+# Type checking
+bun typecheck        # tsc --noEmit
 
 # Database
 bun db:generate      # Generate migrations
@@ -129,57 +145,194 @@ bun db:studio        # Drizzle Studio
 
 ---
 
-### Code Editing Discipline
+## Code Editing Discipline
 
-- Do **not** run scripts that bulk-modify code (codemods, invented one-off scripts, giant regex refactors).
-- Large mechanical changes: break into smaller, explicit edits and review diffs.
-- Subtle/complex changes: edit by hand, file-by-file, with careful reasoning.
+### No Script-Based Changes
+
+**NEVER** run a script that processes/changes code files in this repo. Brittle regex-based transformations create far more problems than they solve.
+
+- **Always make code changes manually**, even when there are many instances
+- For many simple changes: use parallel subagents
+- For subtle/complex changes: do them methodically yourself
+
+### No File Proliferation
+
+If you want to change something or add a feature, **revise existing code files in place**.
+
+**NEVER** create variations like:
+- `mainV2.ts`
+- `main_improved.ts`
+- `main_enhanced.ts`
+
+New files are reserved for **genuinely new functionality** that makes zero sense to include in any existing file. The bar for creating new files is **incredibly high**.
 
 ---
 
-### Backwards Compatibility & File Sprawl
+## Backwards Compatibility
 
-We optimize for a clean architecture now, not backwards compatibility.
+We do not care about backwards compatibility—we're in early development with no users. We want to do things the **RIGHT** way with **NO TECH DEBT**.
 
-- No "compat shims" or "v2" file clones.
-- When changing behavior, migrate callers and remove old code **inside the same file**.
-- New files are only for genuinely new domains that don't fit existing modules.
-- The bar for adding files is very high.
+- Never create "compatibility shims"
+- Never create wrapper functions for deprecated APIs
+- Just fix the code directly
 
 ---
 
-### Logging & Console Output
+## Compiler Checks (CRITICAL)
 
-- Use structured logging (consider `pino` or similar for production).
-- No random `console.log` in library code; if needed, make them debug-only and clean them up.
+**After any substantive code changes, you MUST verify no errors were introduced:**
+
+```bash
+# Type checking (workspace-wide)
+bun typecheck
+
+# Linting
+bun lint
+
+# Formatting
+bun format
+
+# Run all tests
+bun run test
+```
+
+If you see errors, **carefully understand and resolve each issue**. Read sufficient context to fix them the RIGHT way.
+
+---
+
+## Testing
+
+### Testing Policy
+
+Every service and utility includes colocated unit tests alongside the implementation. Tests must cover:
+- Happy path
+- Edge cases (empty input, max values, boundary conditions)
+- Error conditions
+
+### Unit Tests
+
+```bash
+# Run all tests across the workspace
+bun run test
+
+# Run with output
+bun run test -- --verbose
+
+# Run tests for a specific app/package
+bun test apps/gateway
+bun test apps/web
+bun test packages/shared
+bun test packages/agent-drivers
+bun test packages/flywheel-clients
+bun test packages/test-utils
+```
+
+### Test Categories
+
+| Area | Focus |
+|------|-------|
+| `apps/gateway/src/__tests__/` | Service unit tests, route handlers, middleware |
+| `apps/web/src/__tests__/` | Component tests, hook tests, store tests |
+| `tests/integration/` | Cross-service integration tests with real database |
+| `tests/contract/` | API response validation against OpenAPI spec |
+| `tests/e2e/` | Playwright browser tests for critical user paths |
+| `tests/load/` | k6 load tests for API and WebSocket |
+
+### Test Coverage Requirements
+
+- **Unit tests**: 80% coverage on services and utilities
+- **Integration tests**: Cover all API endpoints
+- **E2E tests**: Cover critical user paths
+
+Run coverage: `bun run test -- --coverage`
+
+---
+
+## Logging & Console Output
+
+- Use structured logging (`pino` is the project standard)
+- No random `console.log` in library code; if needed, make them debug-only and clean them up
 - Log structured context: IDs, session names, agent types, etc.
-- If a logging pattern exists in the codebase, follow it; do not invent a different pattern.
+- If a logging pattern exists in the codebase, follow it; do not invent a different pattern
 
 ---
 
-### Third-Party Libraries
+## Third-Party Library Usage
 
-When unsure of an API, look up current docs (2025-2026) rather than guessing.
+If you aren't 100% sure how to use a third-party library, **SEARCH ONLINE** to find the latest documentation and current best practices.
 
 ---
 
-## Agent Driver Architecture
+## flywheel_gateway — This Project
+
+**This is the project you're working on.** Flywheel Gateway is a TypeScript/Bun monorepo that provides a web-based command center for managing AI coding agents.
+
+### What It Does
+
+Orchestrates multiple AI coding agent backends (SDK, ACP, Tmux) through a unified web interface with real-time monitoring, cost analytics, fleet management, and multi-agent coordination via MCP Agent Mail.
+
+### Architecture
+
+```
+Browser ─── Vite (React 19) ─── TanStack Router ─┐
+                                                   │
+                                          WebSocket + REST
+                                                   │
+                                    Hono HTTP Framework (Bun)
+                                                   │
+                              ┌────────────────────┼────────────────────┐
+                              │                    │                    │
+                     Agent Drivers          Service Layer          Drizzle ORM
+                     (SDK/ACP/Tmux)    (Cost, Budget, Forecast)   (bun:sqlite)
+                              │                    │                    │
+                     MCP Agent Mail        OpenTelemetry          Migrations
+                     (coordination)         (tracing)
+```
+
+### Workspace Structure
+
+```
+flywheel_gateway/
+├── package.json                           # Workspace root (Bun workspaces)
+├── tsconfig.json                          # Root TypeScript config
+├── biome.json                             # Biome linting/formatting
+├── bunfig.toml                            # Bun configuration
+├── apps/
+│   ├── gateway/                           # Backend: Hono + Drizzle + bun:sqlite
+│   └── web/                               # Frontend: React 19 + Vite + TanStack
+├── packages/
+│   ├── shared/                            # Shared types, schemas, utilities
+│   ├── agent-drivers/                     # Agent execution backends (SDK/ACP/Tmux)
+│   ├── flywheel-clients/                  # Client libraries
+│   └── test-utils/                        # Shared test helpers
+├── tests/
+│   ├── contract/                          # API contract tests
+│   ├── e2e/                               # Playwright E2E tests
+│   ├── integration/                       # Cross-service integration tests
+│   └── load/                              # k6 load tests
+├── reference/
+│   └── ntm/                               # Reference implementations from NTM project
+├── docs/                                  # Project documentation
+└── scripts/                               # Build/dev scripts
+```
+
+### Agent Driver Architecture
 
 Flywheel Gateway supports multiple agent execution backends via the **Agent Driver** abstraction:
 
-### SDK Driver (Primary)
+**SDK Driver (Primary)**
 - Uses `@anthropic-ai/claude-agent-sdk` directly
 - Structured events: `tool_call`, `tool_result`, `text_delta`
 - No terminal overhead
 - Best for web-native workflows
 
-### ACP Driver (Emerging Standard)
+**ACP Driver (Emerging Standard)**
 - JSON-RPC 2.0 over stdio to ACP-compatible agents
 - Works with Claude Code, Codex, Gemini via adapters
 - IDE integration compatibility
 - Future-proof as standard matures
 
-### Tmux Driver (Power User Fallback)
+**Tmux Driver (Power User Fallback)**
 - For users who *want* visual terminals
 - Uses `node-pty` or tmux IPC
 - Can "attach" for visual debugging
@@ -187,444 +340,27 @@ Flywheel Gateway supports multiple agent execution backends via the **Agent Driv
 
 When implementing features, always work through the `AgentDriver` interface, never directly with a specific backend.
 
----
-
-## MCP Agent Mail — Multi-Agent Coordination
-
-Agent Mail is already available as an MCP server; do not treat it as a CLI you must shell out to. MCP Agent Mail *should* be available to you as an MCP server; if it's not, then flag to the user.
-
-What Agent Mail gives:
-
-- Identities, inbox/outbox, searchable threads.
-- Advisory file reservations (leases) to avoid agents clobbering each other.
-- Persistent artifacts in git (human-auditable).
-
-Core patterns:
-
-1. **Same repo**
-   - Register identity:
-     - `ensure_project` then `register_agent` with the repo's absolute path as `project_key`.
-   - Reserve files before editing:
-     - `file_reservation_paths(project_key, agent_name, ["src/**"], ttl_seconds=3600, exclusive=true)`.
-   - Communicate:
-     - `send_message(..., thread_id="FEAT-123")`.
-     - `fetch_inbox`, then `acknowledge_message`.
-   - Fast reads:
-     - `resource://inbox/{Agent}?project=<abs-path>&limit=20`.
-     - `resource://thread/{id}?project=<abs-path>&include_bodies=true`.
-
-2. **Multiple repos in one product**
-   - Option A: Same `project_key` for all; use specific reservations (`frontend/**`, `backend/**`).
-   - Option B: Different projects linked via:
-     - `macro_contact_handshake` or `request_contact` / `respond_contact`.
-     - Use a shared `thread_id` (e.g., ticket key) for cross-repo threads.
-
-Macros vs granular:
-
-- Prefer macros when speed is more important than fine-grained control:
-  - `macro_start_session`, `macro_prepare_thread`, `macro_file_reservation_cycle`, `macro_contact_handshake`.
-- Use granular tools when you need explicit behavior.
-
-Common pitfalls:
-
-- "from_agent not registered" → call `register_agent` with correct `project_key`.
-- `FILE_RESERVATION_CONFLICT` → adjust patterns, wait for expiry, or use non-exclusive reservation.
-
----
-
-## Issue Tracking with br (beads_rust)
-
-All issue tracking goes through **br** (beads_rust). No other TODO systems.
-
-**Note:** br (beads_rust) is non-invasive and never executes git commands. You must manually stage and commit `.beads/` changes after using br commands.
-
-Key invariants:
-
-- `.beads/` is authoritative state and **must always be committed** with code changes.
-- Do not edit `.beads/*.jsonl` directly; only via `br`.
-
-### Basics
-
-Check ready work:
-
-```bash
-br ready --json
-```
-
-Create issues:
-
-```bash
-br create "Issue title" -t bug|feature|task -p 0-4 --json
-br create "Issue title" -p 1 --deps discovered-from:br-123 --json
-```
-
-Update:
-
-```bash
-br update br-42 --status in_progress --json
-br update br-42 --priority 1 --json
-```
-
-Complete:
-
-```bash
-br close br-42 --reason "Completed" --json
-```
-
-Sync (flush only, no git):
-
-```bash
-br sync --flush-only  # Flush changes to .beads/ (does NOT run git)
-```
-
-Types:
-
-- `bug`, `feature`, `task`, `epic`, `chore`
-
-Priorities:
-
-- `0` critical (security, data loss, broken builds)
-- `1` high
-- `2` medium (default)
-- `3` low
-- `4` backlog
-
-Agent workflow:
-
-1. `br ready` to find unblocked work.
-2. Claim: `br update <id> --status in_progress`.
-3. Implement + test.
-4. If you discover new work, create a new bead with `discovered-from:<parent-id>`.
-5. Close when done.
-6. Run `br sync --flush-only`, then `git add .beads/` and commit with code changes.
-
-Never:
-
-- Use markdown TODO lists.
-- Use other trackers.
-- Duplicate tracking.
-
----
-
-### Using bv as an AI sidecar
-
-bv is a graph-aware triage engine for Beads projects (.beads/beads.jsonl). Instead of parsing JSONL or hallucinating graph traversal, use robot flags for deterministic, dependency-aware outputs with precomputed metrics (PageRank, betweenness, critical path, cycles, HITS, eigenvector, k-core).
-
-**Scope boundary:** bv handles *what to work on* (triage, priority, planning). For agent-to-agent coordination (messaging, work claiming, file reservations), use MCP Agent Mail.
-
-**⚠️ CRITICAL: Use ONLY `--robot-*` flags. Bare `bv` launches an interactive TUI that blocks your session.**
-
-#### The Workflow: Start With Triage
-
-**`bv --robot-triage` is your single entry point.** It returns everything you need in one call:
-- `quick_ref`: at-a-glance counts + top 3 picks
-- `recommendations`: ranked actionable items with scores, reasons, unblock info
-- `quick_wins`: low-effort high-impact items
-- `blockers_to_clear`: items that unblock the most downstream work
-- `project_health`: status/type/priority distributions, graph metrics
-- `commands`: copy-paste shell commands for next steps
-
-```bash
-bv --robot-triage        # THE MEGA-COMMAND: start here
-bv --robot-next          # Minimal: just the single top pick + claim command
-```
-
-#### Other bv Commands
-
-**Planning:**
-| Command | Returns |
-|---------|---------|
-| `--robot-plan` | Parallel execution tracks with `unblocks` lists |
-| `--robot-priority` | Priority misalignment detection with confidence |
-
-**Graph Analysis:**
-| Command | Returns |
-|---------|---------|
-| `--robot-insights` | Full metrics: PageRank, betweenness, HITS, eigenvector, critical path, cycles |
-| `--robot-label-health` | Per-label health: `health_level`, `velocity_score`, `staleness`, `blocked_count` |
-| `--robot-label-flow` | Cross-label dependency: `flow_matrix`, `dependencies`, `bottleneck_labels` |
-
-Use bv instead of parsing beads.jsonl—it computes PageRank, critical paths, cycles, and parallel tracks deterministically.
-
----
-
-## cass — Cross-Agent Search
-
-`cass` indexes prior agent conversations (Claude Code, Codex, Cursor, Gemini, ChatGPT, etc.) so we can reuse solved problems.
-
-Rules:
-
-- Never run bare `cass` (TUI). Always use `--robot` or `--json`.
-
-Examples:
-
-```bash
-cass health
-cass search "authentication error" --robot --limit 5
-cass view /path/to/session.jsonl -n 42 --json
-cass expand /path/to/session.jsonl -n 42 -C 3 --json
-```
-
-Tips:
-
-- Use `--fields minimal` for lean output.
-- Filter by agent with `--agent`.
-- Use `--days N` to limit to recent history.
-
-stdout is data-only, stderr is diagnostics; exit code 0 means success.
-
-Treat cass as a way to avoid re-solving problems other agents already handled.
-
----
-
-## Memory System: cass-memory
-
-The Cass Memory System (cm) is a tool for giving agents an effective memory based on the ability to quickly search across previous coding agent sessions.
-
-### Quick Start
-
-```bash
-# 1. Check status and see recommendations
-cm onboard status
-
-# 2. Get sessions to analyze (filtered by gaps in your playbook)
-cm onboard sample --fill-gaps
-
-# 3. Read a session with rich context
-cm onboard read /path/to/session.jsonl --template
-
-# 4. Add extracted rules
-cm playbook add "Your rule content" --category "debugging"
-
-# 5. Mark session as processed
-cm onboard mark-done /path/to/session.jsonl
-```
-
-Before starting complex tasks, retrieve relevant context:
-
-```bash
-cm context "<task description>" --json
-```
-
-This returns:
-- **relevantBullets**: Rules that may help with your task
-- **antiPatterns**: Pitfalls to avoid
-- **historySnippets**: Past sessions that solved similar problems
-- **suggestedCassQueries**: Searches for deeper investigation
-
-### Protocol
-
-1. **START**: Run `cm context "<task>" --json` before non-trivial work
-2. **WORK**: Reference rule IDs when following them
-3. **FEEDBACK**: Leave inline comments when rules help/hurt
-4. **END**: Just finish your work. Learning happens automatically.
-
----
-
-## UBS Quick Reference for AI Agents
-
-UBS stands for "Ultimate Bug Scanner": **The AI Coding Agent's Secret Weapon**
-
-**Golden Rule:** `ubs <changed-files>` before every commit. Exit 0 = safe. Exit >0 = fix & re-run.
-
-**Commands:**
-```bash
-ubs src/file.ts                              # Specific files (< 1s) — USE THIS
-ubs $(git diff --name-only --cached)         # Staged files — before commit
-ubs --only=typescript apps/                  # Language filter
-ubs --ci --fail-on-warning .                 # CI mode — before PR
-```
-
-**Output Format:**
-```
-⚠️  Category (N errors)
-    file.ts:42:5 – Issue description
-    💡 Suggested fix
-Exit code: 1
-```
-
-**Fix Workflow:**
-1. Read finding → category + fix suggestion
-2. Navigate `file:line:col` → view context
-3. Verify real issue (not false positive)
-4. Fix root cause (not symptom)
-5. Re-run `ubs <file>` → exit 0
-6. Commit
-
-**Speed Critical:** Scope to changed files. Never full scan for small edits.
-
----
-
-## Reference Architecture
-
-See `/reference/ntm/` for reference implementations from the NTM project that inform Flywheel Gateway's design:
-
-- `agentmail/` — MCP client patterns (protocol is language-agnostic)
-- `bv/` — BV integration patterns
-- `robot/` — JSON schema patterns for structured API responses
-- `pipeline/` — Pipeline execution model
-- `context/` — Context pack building algorithms
-
-When implementing features, consult these references for patterns and data structures, but implement in idiomatic TypeScript.
-
----
-
-## RU (Repo Updater) — Fleet Management
-
-RU is a production-grade Bash CLI for managing large collections of GitHub repositories with AI-assisted review and agent automation.
-
-**Key Commands:**
-```bash
-ru sync                     # Clone missing + pull updates for all repos
-ru sync --parallel 4        # Parallel sync (4 workers)
-ru status                   # Show repo status across fleet
-ru review --plan            # AI-assisted PR/issue review (via ntm)
-ru agent-sweep              # Three-phase automated maintenance
-```
-
-**Agent-sweep workflow:**
-- Phase 1: Agent reads AGENTS.md, README.md, git log (300s)
-- Phase 2: Agent produces commit/release plans in JSON (600s)
-- Phase 3: RU validates and executes plans deterministically (300s)
-
-**Integration with Gateway:**
-- Gateway displays fleet status dashboard
-- Gateway spawns agents for ru review/agent-sweep sessions
-- Gateway routes agent-sweep plans through SLB approval workflow
-- Gateway archives results to CASS for learning
-
----
-
-## Developer Utilities
-
-These utilities enhance AI agent workflows and should be available in all agent environments.
-
-### giil — Get Image from Internet Link
-
-Zero-setup CLI for downloading full-resolution images from cloud photo services.
-
-**Use case:** Debugging UI issues remotely—paste an iCloud/Dropbox/Google Photos link, run one command, analyze the screenshot.
-
-```bash
-giil "https://share.icloud.com/photos/xxx"           # Download image
-giil "https://share.icloud.com/photos/xxx" --json    # Get metadata + path
-giil "https://share.icloud.com/photos/xxx" --base64  # Base64 for API submission
-```
-
-**Supported platforms:** iCloud, Dropbox, Google Photos, Google Drive
-
-**4-tier capture strategy:** Download button → CDN interception → element screenshot → viewport (always succeeds)
-
-### csctf — Chat Shared Conversation to File
-
-Single-binary CLI for converting public AI chat share links into clean Markdown and HTML transcripts.
-
-**Use case:** Archiving valuable AI conversations for knowledge management and CASS indexing.
-
-```bash
-csctf "https://chatgpt.com/share/xxx"                # Convert to .md + .html
-csctf "https://chatgpt.com/share/xxx" --md-only      # Markdown only
-csctf "https://chatgpt.com/share/xxx" --publish-to-gh-pages  # Publish to GitHub Pages
-```
-
-**Supported providers:** ChatGPT, Gemini, Grok, Claude.ai
-
-**Features:**
-- Code-preserving export with language-tagged fences
-- Deterministic, collision-proof filenames
-- Optional GitHub Pages publishing for team sharing
-
-## Landing the Plane (Session Completion)
-
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
-
-**MANDATORY WORKFLOW:**
-
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   br sync --flush-only
-   git add .beads/
-   git commit -m "Update beads"
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
-
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
-
----
-
-## Documentation
-
-The project maintains documentation in the `/docs` directory:
-
-| File | Description |
-|------|-------------|
-| `getting-started.md` | Setup guide, prerequisites, first steps |
-| `architecture.md` | System architecture overview with diagrams |
-| `api-guide.md` | REST API patterns, endpoints, WebSocket usage |
-
-Additional documentation:
-- `AGENTS.md` (this file) - Agent guidelines and conventions
-- `README.md` - Project overview and quick start
-- `/docs/openapi.json` - OpenAPI 3.1 specification (generated)
-
-Interactive API documentation is available at runtime:
-- Swagger UI: `/docs`
-- ReDoc: `/redoc`
-
----
-
-## Recent Feature Areas
-
-### Cost Analytics (apps/gateway + apps/web)
-
-The cost analytics system provides comprehensive AI usage tracking:
-
-**Backend Services** (`apps/gateway/src/services/`):
-- `cost-tracker.service.ts` - Token usage tracking, rate cards
-- `budget.service.ts` - Budget creation, alerts, thresholds
-- `cost-forecast.service.ts` - 30-day forecasting, scenarios
-- `cost-optimization.service.ts` - AI-powered recommendations
-
-**Frontend Components** (`apps/web/src/components/analytics/`):
-- `CostDashboard.tsx` - Main dashboard assembling all components
-- `BudgetGauge.tsx` - Circular progress gauge for budget status
-- `CostTrendChart.tsx` - Line chart with period selection
-- `CostBreakdownChart.tsx` - Horizontal bar chart by dimension
-- `CostForecastChart.tsx` - 30-day forecast visualization
-- `OptimizationRecommendations.tsx` - Expandable recommendation cards
-
-**Routes**: `/cost-analytics` (frontend), `/cost-analytics/*` (API)
-
-### Notification System (apps/web)
-
-Real-time notification UI components:
-- `NotificationBell.tsx` - Topbar notification indicator
-- `NotificationPanel.tsx` - Slide-out notification list
+### Recent Feature Areas
+
+**Cost Analytics** (`apps/gateway/src/services/` + `apps/web/src/components/analytics/`):
+- `cost-tracker.service.ts` — Token usage tracking, rate cards
+- `budget.service.ts` — Budget creation, alerts, thresholds
+- `cost-forecast.service.ts` — 30-day forecasting, scenarios
+- `cost-optimization.service.ts` — AI-powered recommendations
+- Frontend: `CostDashboard.tsx`, `BudgetGauge.tsx`, `CostTrendChart.tsx`, `CostBreakdownChart.tsx`, `CostForecastChart.tsx`, `OptimizationRecommendations.tsx`
+- Routes: `/cost-analytics` (frontend), `/cost-analytics/*` (API)
+
+**Notification System** (`apps/web/`):
+- `NotificationBell.tsx` — Topbar notification indicator
+- `NotificationPanel.tsx` — Slide-out notification list
 - Integration with WebSocket for real-time updates
 
-### OpenAPI Generation
+**OpenAPI Generation**:
+- `apps/gateway/src/api/generate-openapi.ts` — Generation logic (Zod to OpenAPI 3.1)
+- `apps/gateway/src/routes/openapi.ts` — Serving endpoints
+- Swagger UI: `/docs`, ReDoc: `/redoc`
 
-Auto-generated OpenAPI 3.1 schemas from Zod validators:
-- `apps/gateway/src/api/generate-openapi.ts` - Generation logic
-- `apps/gateway/src/routes/openapi.ts` - Serving endpoints
-
----
-
-## Code Patterns and Conventions
-
-### Component Patterns
+### Code Patterns and Conventions
 
 **Functional components with explicit props:**
 
@@ -685,8 +421,6 @@ export function useRestartAgent() {
 }
 ```
 
-### Service Patterns
-
 **Services are stateless classes with dependency injection:**
 
 ```typescript
@@ -710,8 +444,6 @@ export class AgentService {
   }
 }
 ```
-
-### Route Patterns
 
 **Thin route handlers that delegate to services:**
 
@@ -738,9 +470,7 @@ export const agentsRoutes = new Hono()
   });
 ```
 
-### Error Handling
-
-**Use consistent error responses:**
+**Consistent error responses:**
 
 ```typescript
 // apps/gateway/src/utils/errors.ts
@@ -766,146 +496,143 @@ if (!agent) {
 }
 ```
 
+### Common Tasks
+
+**Adding a New API Endpoint:**
+1. Define Zod schema in `apps/gateway/src/models/`
+2. Add service method in `apps/gateway/src/services/`
+3. Add route handler in `apps/gateway/src/routes/`
+4. Register route in `apps/gateway/src/routes/index.ts`
+5. Add tests in `apps/gateway/src/__tests__/`
+6. Update OpenAPI spec if needed
+
+**Adding a New Page:**
+1. Create page component in `apps/web/src/pages/`
+2. Add route in `apps/web/src/router.tsx`
+3. Add navigation link in `apps/web/src/components/layout/Sidebar.tsx`
+4. Create hooks if needed in `apps/web/src/hooks/`
+5. Add E2E test in `tests/e2e/`
+
+**Adding Database Migration:**
+```bash
+# 1. Modify schema
+vim apps/gateway/src/db/schema.ts
+
+# 2. Generate migration
+bun db:generate
+
+# 3. Review migration in apps/gateway/src/db/migrations/
+
+# 4. Apply migration
+bun db:migrate
+
+# 5. Commit both schema and migration files
+```
+
+**Running Quality Checks:**
+```bash
+bun typecheck        # Type checking
+bun lint             # Linting
+bun lint:fix         # Auto-fix lint issues
+bun run test         # All tests
+bun test:e2e         # E2E tests
+bun test:contract    # Contract tests
+```
+
+### Reference Architecture
+
+See `/reference/ntm/` for reference implementations from the NTM project that inform Flywheel Gateway's design:
+
+- `agentmail/` — MCP client patterns (protocol is language-agnostic)
+- `bv/` — BV integration patterns
+- `robot/` — JSON schema patterns for structured API responses
+- `pipeline/` — Pipeline execution model
+- `context/` — Context pack building algorithms
+
+When implementing features, consult these references for patterns and data structures, but implement in idiomatic TypeScript.
+
+### Documentation
+
+The project maintains documentation in the `/docs` directory:
+
+| File | Description |
+|------|-------------|
+| `getting-started.md` | Setup guide, prerequisites, first steps |
+| `architecture.md` | System architecture overview with diagrams |
+| `api-guide.md` | REST API patterns, endpoints, WebSocket usage |
+
+Additional documentation:
+- `AGENTS.md` (this file) — Agent guidelines and conventions
+- `README.md` — Project overview and quick start
+- `/docs/openapi.json` — OpenAPI 3.1 specification (generated)
+
+Interactive API documentation is available at runtime:
+- Swagger UI: `/docs`
+- ReDoc: `/redoc`
+
 ---
 
-## Testing Requirements
+## MCP Agent Mail — Multi-Agent Coordination
 
-### Unit Tests
+A mail-like layer that lets coding agents coordinate asynchronously via MCP tools and resources. Provides identities, inbox/outbox, searchable threads, and advisory file reservations with human-auditable artifacts in Git.
 
-Run with `bun run test`:
+Agent Mail is already available as an MCP server; do not treat it as a CLI you must shell out to. MCP Agent Mail *should* be available to you as an MCP server; if it's not, then flag to the user.
 
-```typescript
-// apps/gateway/src/__tests__/agent.service.test.ts
-import { describe, it, expect, beforeEach } from 'bun:test';
-import { AgentService } from '../services/agent.service';
-import { createTestDb } from '@flywheel/test-utils';
+### Why It's Useful
 
-describe('AgentService', () => {
-  let service: AgentService;
-  let db: TestDatabase;
+- **Prevents conflicts:** Explicit file reservations (leases) for files/globs
+- **Token-efficient:** Messages stored in per-project archive, not in context
+- **Quick reads:** `resource://inbox/...`, `resource://thread/...`
 
-  beforeEach(async () => {
-    db = await createTestDb();
-    service = new AgentService(db);
-  });
+### Same Repository Workflow
 
-  describe('create', () => {
-    it('should create agent with valid input', async () => {
-      const agent = await service.create({
-        name: 'Test Agent',
-        type: 'sdk',
-      });
+1. **Register identity:**
+   ```
+   ensure_project(project_key=<abs-path>)
+   register_agent(project_key, program, model)
+   ```
 
-      expect(agent.id).toBeDefined();
-      expect(agent.name).toBe('Test Agent');
-      expect(agent.status).toBe('stopped');
-    });
+2. **Reserve files before editing:**
+   ```
+   file_reservation_paths(project_key, agent_name, ["src/**"], ttl_seconds=3600, exclusive=true)
+   ```
 
-    it('should reject invalid type', async () => {
-      await expect(
-        service.create({ name: 'Test', type: 'invalid' })
-      ).rejects.toThrow('Invalid agent type');
-    });
-  });
-});
-```
+3. **Communicate with threads:**
+   ```
+   send_message(..., thread_id="FEAT-123")
+   fetch_inbox(project_key, agent_name)
+   acknowledge_message(project_key, agent_name, message_id)
+   ```
 
-### Integration Tests
+4. **Quick reads:**
+   ```
+   resource://inbox/{Agent}?project=<abs-path>&limit=20
+   resource://thread/{id}?project=<abs-path>&include_bodies=true
+   ```
 
-Test API endpoints with real database:
+### Multiple Repos in One Product
 
-```typescript
-// tests/integration/api/agents.test.ts
-import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
-import { createTestApp } from '../../helpers';
+- Option A: Same `project_key` for all; use specific reservations (`frontend/**`, `backend/**`).
+- Option B: Different projects linked via `macro_contact_handshake` or `request_contact` / `respond_contact`. Use a shared `thread_id` (e.g., ticket key) for cross-repo threads.
 
-describe('Agents API', () => {
-  let app: TestApp;
+### Macros vs Granular Tools
 
-  beforeAll(async () => {
-    app = await createTestApp();
-  });
+- **Prefer macros for speed:** `macro_start_session`, `macro_prepare_thread`, `macro_file_reservation_cycle`, `macro_contact_handshake`
+- **Use granular tools for control:** `register_agent`, `file_reservation_paths`, `send_message`, `fetch_inbox`, `acknowledge_message`
 
-  afterAll(async () => {
-    await app.cleanup();
-  });
+### Common Pitfalls
 
-  it('GET /api/agents returns empty list', async () => {
-    const response = await app.request('/api/agents');
-    expect(response.status).toBe(200);
-    const body = await response.json();
-    expect(body.agents).toEqual([]);
-  });
-
-  it('POST /api/agents creates agent', async () => {
-    const response = await app.request('/api/agents', {
-      method: 'POST',
-      body: JSON.stringify({ name: 'Test', type: 'sdk' }),
-    });
-    expect(response.status).toBe(201);
-  });
-});
-```
-
-### E2E Tests
-
-Run with `bun test:e2e` (Playwright):
-
-```typescript
-// tests/e2e/agents.spec.ts
-import { test, expect } from '@playwright/test';
-
-test.describe('Agent Management', () => {
-  test('should display agents list', async ({ page }) => {
-    await page.goto('/fleet');
-    await expect(page.locator('h1')).toHaveText('Fleet');
-    await expect(page.locator('[data-testid="agent-card"]')).toBeVisible();
-  });
-
-  test('should create new agent', async ({ page }) => {
-    await page.goto('/fleet');
-    await page.click('[data-testid="create-agent"]');
-    await page.fill('[data-testid="agent-name"]', 'E2E Test Agent');
-    await page.click('[data-testid="submit"]');
-    await expect(page.locator('text=E2E Test Agent')).toBeVisible();
-  });
-});
-```
-
-### Test Coverage Requirements
-
-- **Unit tests**: 80% coverage on services and utilities
-- **Integration tests**: Cover all API endpoints
-- **E2E tests**: Cover critical user paths
-
-Run coverage: `bun run test -- --coverage`
-
-### Contract Tests
-
-Validate API responses match OpenAPI spec:
-
-```typescript
-// tests/contract/api-schemas.test.ts
-import { describe, it, expect } from 'bun:test';
-import { validateResponse } from '../helpers/openapi';
-
-describe('API Contract Tests', () => {
-  it('GET /api/agents matches schema', async () => {
-    const response = await fetch('/api/agents');
-    const body = await response.json();
-    const result = validateResponse('GET /api/agents', 200, body);
-    expect(result.valid).toBe(true);
-  });
-});
-```
+- `"from_agent not registered"`: Always `register_agent` in the correct `project_key` first
+- `"FILE_RESERVATION_CONFLICT"`: Adjust patterns, wait for expiry, or use non-exclusive reservation
+- **Auth errors:** If JWT+JWKS enabled, include bearer token with matching `kid`
 
 ---
 
 ## Beads (br) — Dependency-Aware Issue Tracking
 
-Beads provides a lightweight, dependency-aware issue database and CLI (`br` / beads_rust) for selecting "ready work," setting priorities, and tracking status. It complements MCP Agent Mail's messaging and file reservations.
+Beads provides a lightweight, dependency-aware issue database and CLI (`br` - beads_rust) for selecting "ready work," setting priorities, and tracking status. It complements MCP Agent Mail's messaging and file reservations.
 
-**Note:** br (beads_rust) is non-invasive and never executes git commands. You must manually stage and commit `.beads/` changes after using br commands.
+**Important:** `br` is non-invasive—it NEVER runs git commands automatically. You must manually commit changes after `br sync --flush-only`.
 
 ### Conventions
 
@@ -934,7 +661,8 @@ Beads provides a lightweight, dependency-aware issue database and CLI (`br` / be
 
 5. **Complete and release:**
    ```bash
-   br close br-123 --reason "Completed"
+   br close 123 --reason "Completed"
+   br sync --flush-only  # Export to JSONL (no git operations)
    ```
    ```
    release_file_reservations(project_key, agent_name, paths=["src/**"])
@@ -1050,36 +778,177 @@ bv --robot-insights | jq '.Cycles'                         # Circular deps (must
 ```bash
 ubs src/file.ts                              # Specific files (< 1s) — USE THIS
 ubs $(git diff --name-only --cached)         # Staged files — before commit
-ubs --only=typescript apps/                  # Language filter
+ubs --only=typescript apps/                  # Language filter (3-5x faster)
 ubs --ci --fail-on-warning .                 # CI mode — before PR
-ubs .                                        # Whole project
+ubs .                                        # Whole project (ignores node_modules/, dist/)
 ```
 
 ### Output Format
 
 ```
-⚠️  Category (N errors)
+Warning  Category (N errors)
     file.ts:42:5 – Issue description
-    💡 Suggested fix
+    Suggested fix
 Exit code: 1
 ```
 
-Parse: `file:line:col` → location | 💡 → how to fix | Exit 0/1 → pass/fail
+Parse: `file:line:col` -> location | Suggested fix -> how to fix | Exit 0/1 -> pass/fail
 
 ### Fix Workflow
 
-1. Read finding → category + fix suggestion
-2. Navigate `file:line:col` → view context
+1. Read finding -> category + fix suggestion
+2. Navigate `file:line:col` -> view context
 3. Verify real issue (not false positive)
 4. Fix root cause (not symptom)
-5. Re-run `ubs <file>` → exit 0
+5. Re-run `ubs <file>` -> exit 0
 6. Commit
 
 ### Bug Severity
 
 - **Critical (always fix):** Memory safety, use-after-free, data races, SQL injection
 - **Important (production):** Unwrap panics, resource leaks, overflow checks
-- **Contextual (judgment):** TODO/FIXME, println! debugging
+- **Contextual (judgment):** TODO/FIXME, console.log debugging
+
+---
+
+## RU (Repo Updater) — Fleet Management
+
+RU is a production-grade Bash CLI for managing large collections of GitHub repositories with AI-assisted review and agent automation.
+
+### Key Commands
+
+```bash
+ru sync                     # Clone missing + pull updates for all repos
+ru sync --parallel 4        # Parallel sync (4 workers)
+ru status                   # Show repo status across fleet
+ru review --plan            # AI-assisted PR/issue review (via ntm)
+ru agent-sweep              # Three-phase automated maintenance
+```
+
+### Agent-Sweep Workflow
+
+- Phase 1: Agent reads AGENTS.md, README.md, git log (300s)
+- Phase 2: Agent produces commit/release plans in JSON (600s)
+- Phase 3: RU validates and executes plans deterministically (300s)
+
+### Integration with Gateway
+
+- Gateway displays fleet status dashboard
+- Gateway spawns agents for ru review/agent-sweep sessions
+- Gateway routes agent-sweep plans through SLB approval workflow
+- Gateway archives results to CASS for learning
+
+---
+
+## cass — Cross-Agent Search
+
+`cass` indexes prior agent conversations (Claude Code, Codex, Cursor, Gemini, ChatGPT, etc.) so we can reuse solved problems.
+
+Rules:
+- Never run bare `cass` (TUI). Always use `--robot` or `--json`.
+
+Examples:
+
+```bash
+cass health
+cass search "authentication error" --robot --limit 5
+cass view /path/to/session.jsonl -n 42 --json
+cass expand /path/to/session.jsonl -n 42 -C 3 --json
+```
+
+Tips:
+- Use `--fields minimal` for lean output.
+- Filter by agent with `--agent`.
+- Use `--days N` to limit to recent history.
+
+stdout is data-only, stderr is diagnostics; exit code 0 means success.
+
+Treat cass as a way to avoid re-solving problems other agents already handled.
+
+---
+
+## Memory System: cass-memory
+
+The Cass Memory System (cm) is a tool for giving agents an effective memory based on the ability to quickly search across previous coding agent sessions.
+
+### Quick Start
+
+```bash
+# 1. Check status and see recommendations
+cm onboard status
+
+# 2. Get sessions to analyze (filtered by gaps in your playbook)
+cm onboard sample --fill-gaps
+
+# 3. Read a session with rich context
+cm onboard read /path/to/session.jsonl --template
+
+# 4. Add extracted rules
+cm playbook add "Your rule content" --category "debugging"
+
+# 5. Mark session as processed
+cm onboard mark-done /path/to/session.jsonl
+```
+
+Before starting complex tasks, retrieve relevant context:
+
+```bash
+cm context "<task description>" --json
+```
+
+This returns:
+- **relevantBullets**: Rules that may help with your task
+- **antiPatterns**: Pitfalls to avoid
+- **historySnippets**: Past sessions that solved similar problems
+- **suggestedCassQueries**: Searches for deeper investigation
+
+### Protocol
+
+1. **START**: Run `cm context "<task>" --json` before non-trivial work
+2. **WORK**: Reference rule IDs when following them
+3. **FEEDBACK**: Leave inline comments when rules help/hurt
+4. **END**: Just finish your work. Learning happens automatically.
+
+---
+
+## Developer Utilities
+
+These utilities enhance AI agent workflows and should be available in all agent environments.
+
+### giil — Get Image from Internet Link
+
+Zero-setup CLI for downloading full-resolution images from cloud photo services.
+
+**Use case:** Debugging UI issues remotely—paste an iCloud/Dropbox/Google Photos link, run one command, analyze the screenshot.
+
+```bash
+giil "https://share.icloud.com/photos/xxx"           # Download image
+giil "https://share.icloud.com/photos/xxx" --json    # Get metadata + path
+giil "https://share.icloud.com/photos/xxx" --base64  # Base64 for API submission
+```
+
+**Supported platforms:** iCloud, Dropbox, Google Photos, Google Drive
+
+**4-tier capture strategy:** Download button -> CDN interception -> element screenshot -> viewport (always succeeds)
+
+### csctf — Chat Shared Conversation to File
+
+Single-binary CLI for converting public AI chat share links into clean Markdown and HTML transcripts.
+
+**Use case:** Archiving valuable AI conversations for knowledge management and CASS indexing.
+
+```bash
+csctf "https://chatgpt.com/share/xxx"                # Convert to .md + .html
+csctf "https://chatgpt.com/share/xxx" --md-only      # Markdown only
+csctf "https://chatgpt.com/share/xxx" --publish-to-gh-pages  # Publish to GitHub Pages
+```
+
+**Supported providers:** ChatGPT, Gemini, Grok, Claude.ai
+
+**Features:**
+- Code-preserving export with language-tagged fences
+- Deterministic, collision-proof filenames
+- Optional GitHub Pages publishing for team sharing
 
 ---
 
@@ -1098,8 +967,8 @@ Parse: `file:line:col` → location | 💡 → how to fix | Exit 0/1 → pass/fa
 
 ### Rule of Thumb
 
-- Need correctness or **applying changes** → `ast-grep`
-- Need raw speed or **hunting text** → `rg`
+- Need correctness or **applying changes** -> `ast-grep`
+- Need raw speed or **hunting text** -> `rg`
 - Often combine: `rg` to shortlist files, then `ast-grep` to match/modify
 
 ### TypeScript Examples
@@ -1142,7 +1011,7 @@ rg -l -t ts 'useQuery\(' | xargs ast-grep run -l TypeScript -p 'useQuery($A)' --
 
 ```
 mcp__morph-mcp__warp_grep(
-  repoPath: "/data/projects/flywheel_gateway",
+  repoPath: "/dp/flywheel_gateway",
   query: "How does the agent driver abstraction work?"
 )
 ```
@@ -1151,9 +1020,9 @@ Returns structured results with file paths, line ranges, and extracted code snip
 
 ### Anti-Patterns
 
-- **Don't** use `warp_grep` to find a specific function name → use `ripgrep`
-- **Don't** use `ripgrep` to understand "how does X work" → wastes time with manual reads
-- **Don't** use `ripgrep` for codemods → risks collateral edits
+- **Don't** use `warp_grep` to find a specific function name -> use `ripgrep`
+- **Don't** use `ripgrep` to understand "how does X work" -> wastes time with manual reads
+- **Don't** use `ripgrep` for codemods -> risks collateral edits
 
 <!-- bv-agent-instructions-v1 -->
 
@@ -1161,7 +1030,9 @@ Returns structured results with file paths, line ranges, and extracted code snip
 
 ## Beads Workflow Integration
 
-This project uses [beads_viewer](https://github.com/Dicklesworthstone/beads_viewer) for issue tracking. Issues are stored in `.beads/` and tracked in git.
+This project uses [beads_rust](https://github.com/Dicklesworthstone/beads_rust) (`br`) for issue tracking. Issues are stored in `.beads/` and tracked in git.
+
+**Important:** `br` is non-invasive—it NEVER executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/ && git commit`.
 
 ### Essential Commands
 
@@ -1175,9 +1046,9 @@ br list --status=open # All open issues
 br show <id>          # Full issue details with dependencies
 br create --title="..." --type=task --priority=2
 br update <id> --status=in_progress
-br close <id> --reason="Completed"
+br close <id> --reason "Completed"
 br close <id1> <id2>  # Close multiple issues at once
-br sync --flush-only  # Flush changes to .beads/ (does NOT run git)
+br sync --flush-only  # Export to JSONL (does NOT run git)
 ```
 
 ### Workflow Pattern
@@ -1186,7 +1057,7 @@ br sync --flush-only  # Flush changes to .beads/ (does NOT run git)
 2. **Claim**: Use `br update <id> --status=in_progress`
 3. **Work**: Implement the task
 4. **Complete**: Use `br close <id>`
-5. **Sync**: Run `br sync --flush-only`, then manually `git add .beads/ && git commit`
+5. **Sync**: Run `br sync --flush-only` then manually commit
 
 ### Key Concepts
 
@@ -1202,21 +1073,33 @@ br sync --flush-only  # Flush changes to .beads/ (does NOT run git)
 ```bash
 git status              # Check what changed
 git add <files>         # Stage code changes
-br sync --flush-only    # Flush beads changes to .beads/
+br sync --flush-only    # Export beads to JSONL
 git add .beads/         # Stage beads changes
-git commit -m "..."     # Commit code and beads together
+git commit -m "..."     # Commit everything together
 git push                # Push to remote
 ```
 
 ### Best Practices
 
 - Check `br ready` at session start to find available work
-- Update status as you work (in_progress → closed)
+- Update status as you work (in_progress -> closed)
 - Create new issues with `br create` when you discover tasks
 - Use descriptive titles and set appropriate priority/type
-- Always `br sync --flush-only` then `git add .beads/` before ending session
+- Always `br sync --flush-only && git add .beads/` before ending session
 
 <!-- end-bv-agent-instructions -->
+
+## Landing the Plane (Session Completion)
+
+**When ending a work session**, you MUST complete ALL steps below.
+
+**MANDATORY WORKFLOW:**
+
+1. **File issues for remaining work** - Create issues for anything that needs follow-up
+2. **Run quality gates** (if code changed) - Tests, linters, builds
+3. **Update issue status** - Close finished work, update in-progress items
+4. **Sync beads** - `br sync --flush-only` to export to JSONL
+5. **Hand off** - Provide context for next session
 
 ---
 
@@ -1233,70 +1116,10 @@ Next steps (pick one)
 
 1. Decide how to handle the unrelated modified files above so we can resume cleanly.
 2. Triage beads_rust-orko (clippy/cargo warnings) and beads_rust-ydqr (rustfmt failures).
-3. If you want a full suite run later, fix conformance/clippy blockers and re‑run cargo test --all.
+3. If you want a full suite run later, fix conformance/clippy blockers and re-run cargo test --all.
 ```
 
 NEVER EVER DO THAT AGAIN. The answer is literally ALWAYS the same: those are changes created by the potentially dozen of other agents working on the project at the same time. This is not only a common occurence, it happens multiple times PER MINUTE. The way to deal with it is simple: you NEVER, under ANY CIRCUMSTANCE, stash, revert, overwrite, or otherwise disturb in ANY way the work of other agents. Just treat those changes identically to changes that you yourself made. Just fool yourself into thinking YOU made the changes and simply don't recall it for some reason.
-
----
-
-## Common Tasks
-
-### Adding a New API Endpoint
-
-1. Define Zod schema in `apps/gateway/src/models/`
-2. Add service method in `apps/gateway/src/services/`
-3. Add route handler in `apps/gateway/src/routes/`
-4. Register route in `apps/gateway/src/routes/index.ts`
-5. Add tests in `apps/gateway/src/__tests__/`
-6. Update OpenAPI spec if needed
-
-### Adding a New Page
-
-1. Create page component in `apps/web/src/pages/`
-2. Add route in `apps/web/src/router.tsx`
-3. Add navigation link in `apps/web/src/components/layout/Sidebar.tsx`
-4. Create hooks if needed in `apps/web/src/hooks/`
-5. Add E2E test in `tests/e2e/`
-
-### Adding Database Migration
-
-```bash
-# 1. Modify schema
-vim apps/gateway/src/db/schema.ts
-
-# 2. Generate migration
-bun db:generate
-
-# 3. Review migration in apps/gateway/src/db/migrations/
-
-# 4. Apply migration
-bun db:migrate
-
-# 5. Commit both schema and migration files
-```
-
-### Running Quality Checks
-
-```bash
-# Type checking
-bun typecheck
-
-# Linting
-bun lint
-
-# Auto-fix lint issues
-bun lint:fix
-
-# Run all tests
-bun run test
-
-# Run E2E tests
-bun test:e2e
-
-# Run contract tests
-bun test:contract
-```
 
 ---
 
