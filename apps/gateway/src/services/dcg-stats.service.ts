@@ -160,9 +160,7 @@ export async function getOverviewStats(): Promise<DCGOverviewStats> {
       pendingResult,
     ] = await Promise.all([
       // Total blocks
-      db
-        .select({ count: count() })
-        .from(dcgBlocks),
+      db.select({ count: count() }).from(dcgBlocks),
       // Blocks in last 24h
       db
         .select({ count: count() })
@@ -184,9 +182,7 @@ export async function getOverviewStats(): Promise<DCGOverviewStats> {
         .from(dcgBlocks)
         .where(eq(dcgBlocks.falsePositive, true)),
       // Allowlist size
-      db
-        .select({ count: count() })
-        .from(dcgAllowlist),
+      db.select({ count: count() }).from(dcgAllowlist),
       // Pending exceptions
       db
         .select({ count: count() })

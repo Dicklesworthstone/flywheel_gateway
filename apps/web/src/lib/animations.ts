@@ -454,7 +454,7 @@ export function createStaggerDelay(index: number, baseDelay = 0.05): number {
 
 export function createTransition(
   duration: keyof typeof DURATION = "normal",
-  ease: keyof typeof EASE = "out",
+  ease: "out" | "inOut" = "out",
 ): Transition {
   return {
     duration: DURATION[duration],
