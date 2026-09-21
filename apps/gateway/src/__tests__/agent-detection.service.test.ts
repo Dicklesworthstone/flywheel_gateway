@@ -8,15 +8,7 @@
  * - MCP server capability detection
  */
 
-import {
-  afterAll,
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  mock,
-} from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import pino from "pino";
 import { requestContextStorage } from "../middleware/correlation";
 import type { Logger } from "../services/logger";
@@ -30,10 +22,7 @@ type LogEvent = { level: "info" | "warn" | "debug" | "error"; args: unknown[] };
 
 let logEvents: LogEvent[] = [];
 let spawnCalls: Array<{ cmd: string[]; env?: Record<string, string> }> = [];
-let spawnResults: Map<
-  string,
-  { exitCode: number; stdout: string; stderr: string }
-> = new Map();
+let spawnResults: Map<string, { exitCode: number; stdout: string; stderr: string }> = new Map();
 let defaultSpawnResult = {
   exitCode: 1,
   stdout: "",
@@ -54,8 +43,7 @@ let registryTools: Array<{
   };
   mcp?: { available: boolean; capabilities?: string; toolCount?: number };
 }> = [];
-let registryMetadata: { schemaVersion: string; manifestHash: string } | null =
-  null;
+let registryMetadata: { schemaVersion: string; manifestHash: string } | null = null;
 
 // ============================================================================
 // Mock Setup
@@ -213,17 +201,14 @@ describe("PATH probing: CLI not found", () => {
   });
 
   it("logs cli_not_found error category when tool is missing", async () => {
-    registryTools = [
-      { id: "tools.missing", name: "missing-tool", category: "tool" },
-    ];
+    registryTools = [{ id: "tools.missing", name: "missing-tool", category: "tool" }];
 
     spawnResults.set("which missing-tool", createMockSpawnResult(1, "", ""));
 
     await detectCLIByName("missing-tool");
 
     const debugLog = logEvents.find(
-      (e) =>
-        e.level === "debug" && JSON.stringify(e.args).includes("cli_not_found"),
+      (e) => e.level === "debug" && JSON.stringify(e.args).includes("cli_not_found"),
     );
     expect(debugLog).toBeDefined();
   });
@@ -274,10 +259,7 @@ describe("PATH probing: CLI found", () => {
       },
     ];
 
-    spawnResults.set(
-      "which complex-tool",
-      createMockSpawnResult(0, "/usr/bin/complex-tool\n", ""),
-    );
+    spawnResults.set("which complex-tool", createMockSpawnResult(0, "/usr/bin/complex-tool\n", ""));
     // Version buried in complex output
     spawnResults.set(
       "/usr/bin/complex-tool --version",
@@ -345,10 +327,7 @@ describe("PATH probing: Manifest installed_check", () => {
     ];
 
     // installed_check fails
-    spawnResults.set(
-      "command -v fallback-tool",
-      createMockSpawnResult(1, "", ""),
-    );
+    spawnResults.set("command -v fallback-tool", createMockSpawnResult(1, "", ""));
     // which succeeds
     spawnResults.set(
       "which fallback-tool",
@@ -380,14 +359,8 @@ describe("PATH probing: Manifest installed_check", () => {
     ];
 
     // which succeeds (fallback)
-    spawnResults.set(
-      "which root-tool",
-      createMockSpawnResult(0, "/usr/sbin/root-tool\n", ""),
-    );
-    spawnResults.set(
-      "/usr/sbin/root-tool --version",
-      createMockSpawnResult(0, "v1.0.0\n", ""),
-    );
+    spawnResults.set("which root-tool", createMockSpawnResult(0, "/usr/sbin/root-tool\n", ""));
+    spawnResults.set("/usr/sbin/root-tool --version", createMockSpawnResult(0, "v1.0.0\n", ""));
 
     const result = await detectCLIByName("root-tool");
 
@@ -414,22 +387,12 @@ describe("Auth/permission errors", () => {
     ];
 
     // Tool is found
-    spawnResults.set(
-      "which auth-test",
-      createMockSpawnResult(0, "/usr/bin/auth-test\n", ""),
-    );
-    spawnResults.set(
-      "/usr/bin/auth-test --version",
-      createMockSpawnResult(0, "v1.0.0\n", ""),
-    );
+    spawnResults.set("which auth-test", createMockSpawnResult(0, "/usr/bin/auth-test\n", ""));
+    spawnResults.set("/usr/bin/auth-test --version", createMockSpawnResult(0, "v1.0.0\n", ""));
     // Auth check fails with "not logged in" pattern
     spawnResults.set(
       "/usr/bin/auth-test auth status",
-      createMockSpawnResult(
-        1,
-        "",
-        "Error: Not logged in. Please run 'auth-test auth login'.\n",
-      ),
+      createMockSpawnResult(1, "", "Error: Not logged in. Please run 'auth-test auth login'.\n"),
     );
 
     // Need to set up fallback auth check - agents have authCheckCmd in fallback
@@ -447,10 +410,7 @@ describe("Auth/permission errors", () => {
     registryTools = []; // Empty forces fallback
 
     // claude is found
-    spawnResults.set(
-      "which claude",
-      createMockSpawnResult(0, "/usr/local/bin/claude\n", ""),
-    );
+    spawnResults.set("which claude", createMockSpawnResult(0, "/usr/local/bin/claude\n", ""));
     spawnResults.set(
       "/usr/local/bin/claude --version",
       createMockSpawnResult(0, "claude-cli v1.5.0\n", ""),
@@ -458,11 +418,7 @@ describe("Auth/permission errors", () => {
     // Auth check fails
     spawnResults.set(
       "/usr/local/bin/claude auth status",
-      createMockSpawnResult(
-        1,
-        "",
-        "Not authenticated. Run 'claude auth login'.\n",
-      ),
+      createMockSpawnResult(1, "", "Not authenticated. Run 'claude auth login'.\n"),
     );
 
     const result = await detectCLIByName("claude");
@@ -475,14 +431,8 @@ describe("Auth/permission errors", () => {
   it("detects 'no api key' auth error", async () => {
     registryTools = [];
 
-    spawnResults.set(
-      "which codex",
-      createMockSpawnResult(0, "/usr/local/bin/codex\n", ""),
-    );
-    spawnResults.set(
-      "/usr/local/bin/codex --version",
-      createMockSpawnResult(0, "v2.0.0\n", ""),
-    );
+    spawnResults.set("which codex", createMockSpawnResult(0, "/usr/local/bin/codex\n", ""));
+    spawnResults.set("/usr/local/bin/codex --version", createMockSpawnResult(0, "v2.0.0\n", ""));
     spawnResults.set(
       "/usr/local/bin/codex auth whoami",
       createMockSpawnResult(1, "", "Error: No API key configured.\n"),
@@ -498,14 +448,8 @@ describe("Auth/permission errors", () => {
   it("marks as authenticated when auth check succeeds", async () => {
     registryTools = [];
 
-    spawnResults.set(
-      "which claude",
-      createMockSpawnResult(0, "/usr/local/bin/claude\n", ""),
-    );
-    spawnResults.set(
-      "/usr/local/bin/claude --version",
-      createMockSpawnResult(0, "v1.5.0\n", ""),
-    );
+    spawnResults.set("which claude", createMockSpawnResult(0, "/usr/local/bin/claude\n", ""));
+    spawnResults.set("/usr/local/bin/claude --version", createMockSpawnResult(0, "v1.5.0\n", ""));
     spawnResults.set(
       "/usr/local/bin/claude auth status",
       createMockSpawnResult(0, "Logged in as user@example.com\n", ""),
@@ -522,14 +466,8 @@ describe("Auth/permission errors", () => {
     registryTools = [];
 
     // claude found but not authenticated
-    spawnResults.set(
-      "which claude",
-      createMockSpawnResult(0, "/usr/local/bin/claude\n", ""),
-    );
-    spawnResults.set(
-      "/usr/local/bin/claude --version",
-      createMockSpawnResult(0, "v1.5.0\n", ""),
-    );
+    spawnResults.set("which claude", createMockSpawnResult(0, "/usr/local/bin/claude\n", ""));
+    spawnResults.set("/usr/local/bin/claude --version", createMockSpawnResult(0, "v1.5.0\n", ""));
     spawnResults.set(
       "/usr/local/bin/claude auth status",
       createMockSpawnResult(1, "", "Unauthorized\n"),
@@ -587,14 +525,8 @@ describe("Robot mode capability detection", () => {
       },
     ];
 
-    spawnResults.set(
-      "which robot-tool",
-      createMockSpawnResult(0, "/usr/bin/robot-tool\n", ""),
-    );
-    spawnResults.set(
-      "/usr/bin/robot-tool --version",
-      createMockSpawnResult(0, "v1.0.0\n", ""),
-    );
+    spawnResults.set("which robot-tool", createMockSpawnResult(0, "/usr/bin/robot-tool\n", ""));
+    spawnResults.set("/usr/bin/robot-tool --version", createMockSpawnResult(0, "v1.0.0\n", ""));
 
     const result = await detectCLIByName("robot-tool");
 
@@ -602,24 +534,15 @@ describe("Robot mode capability detection", () => {
     expect(result?.capabilities.robotMode).toBeDefined();
     expect(result?.capabilities.robotMode?.supported).toBe(true);
     expect(result?.capabilities.robotMode?.flag).toBe("--format json");
-    expect(result?.capabilities.robotMode?.outputFormats).toEqual([
-      "json",
-      "jsonl",
-    ]);
+    expect(result?.capabilities.robotMode?.outputFormats).toEqual(["json", "jsonl"]);
     expect(result?.capabilities.robotMode?.envelopeCompliant).toBe(true);
   });
 
   it("uses fallback robot mode for dcg", async () => {
     registryTools = []; // Use fallback
 
-    spawnResults.set(
-      "which dcg",
-      createMockSpawnResult(0, "/usr/local/bin/dcg\n", ""),
-    );
-    spawnResults.set(
-      "/usr/local/bin/dcg --version",
-      createMockSpawnResult(0, "v1.0.0\n", ""),
-    );
+    spawnResults.set("which dcg", createMockSpawnResult(0, "/usr/local/bin/dcg\n", ""));
+    spawnResults.set("/usr/local/bin/dcg --version", createMockSpawnResult(0, "v1.0.0\n", ""));
 
     const result = await detectCLIByName("dcg");
 
@@ -631,14 +554,8 @@ describe("Robot mode capability detection", () => {
   it("uses fallback robot mode for bv with robot-triage flag", async () => {
     registryTools = []; // Use fallback
 
-    spawnResults.set(
-      "which bv",
-      createMockSpawnResult(0, "/usr/local/bin/bv\n", ""),
-    );
-    spawnResults.set(
-      "/usr/local/bin/bv --version",
-      createMockSpawnResult(0, "v1.0.0\n", ""),
-    );
+    spawnResults.set("which bv", createMockSpawnResult(0, "/usr/local/bin/bv\n", ""));
+    spawnResults.set("/usr/local/bin/bv --version", createMockSpawnResult(0, "v1.0.0\n", ""));
 
     const result = await detectCLIByName("bv");
 
@@ -650,14 +567,8 @@ describe("Robot mode capability detection", () => {
   it("does not include robot mode for tools without it", async () => {
     registryTools = []; // Use fallback - giil has no robot mode
 
-    spawnResults.set(
-      "which giil",
-      createMockSpawnResult(0, "/usr/bin/giil\n", ""),
-    );
-    spawnResults.set(
-      "/usr/bin/giil --version",
-      createMockSpawnResult(0, "v1.0.0\n", ""),
-    );
+    spawnResults.set("which giil", createMockSpawnResult(0, "/usr/bin/giil\n", ""));
+    spawnResults.set("/usr/bin/giil --version", createMockSpawnResult(0, "v1.0.0\n", ""));
 
     const result = await detectCLIByName("giil");
 
@@ -686,14 +597,8 @@ describe("MCP server capability detection", () => {
       },
     ];
 
-    spawnResults.set(
-      "which mcp-enabled",
-      createMockSpawnResult(0, "/usr/bin/mcp-enabled\n", ""),
-    );
-    spawnResults.set(
-      "/usr/bin/mcp-enabled --version",
-      createMockSpawnResult(0, "v1.0.0\n", ""),
-    );
+    spawnResults.set("which mcp-enabled", createMockSpawnResult(0, "/usr/bin/mcp-enabled\n", ""));
+    spawnResults.set("/usr/bin/mcp-enabled --version", createMockSpawnResult(0, "v1.0.0\n", ""));
 
     const result = await detectCLIByName("mcp-enabled");
 
@@ -707,14 +612,8 @@ describe("MCP server capability detection", () => {
   it("uses fallback MCP info for cm", async () => {
     registryTools = []; // Use fallback
 
-    spawnResults.set(
-      "which cm",
-      createMockSpawnResult(0, "/usr/local/bin/cm\n", ""),
-    );
-    spawnResults.set(
-      "/usr/local/bin/cm --version",
-      createMockSpawnResult(0, "v1.0.0\n", ""),
-    );
+    spawnResults.set("which cm", createMockSpawnResult(0, "/usr/local/bin/cm\n", ""));
+    spawnResults.set("/usr/local/bin/cm --version", createMockSpawnResult(0, "v1.0.0\n", ""));
 
     const result = await detectCLIByName("cm");
 
@@ -727,14 +626,8 @@ describe("MCP server capability detection", () => {
   it("does not include MCP for tools without it", async () => {
     registryTools = []; // Use fallback - dcg has no MCP
 
-    spawnResults.set(
-      "which dcg",
-      createMockSpawnResult(0, "/usr/bin/dcg\n", ""),
-    );
-    spawnResults.set(
-      "/usr/bin/dcg --version",
-      createMockSpawnResult(0, "v1.0.0\n", ""),
-    );
+    spawnResults.set("which dcg", createMockSpawnResult(0, "/usr/bin/dcg\n", ""));
+    spawnResults.set("/usr/bin/dcg --version", createMockSpawnResult(0, "v1.0.0\n", ""));
 
     const result = await detectCLIByName("dcg");
 
@@ -754,14 +647,8 @@ describe("MCP server capability detection", () => {
       },
     ];
 
-    spawnResults.set(
-      "which no-mcp",
-      createMockSpawnResult(0, "/usr/bin/no-mcp\n", ""),
-    );
-    spawnResults.set(
-      "/usr/bin/no-mcp --version",
-      createMockSpawnResult(0, "v1.0.0\n", ""),
-    );
+    spawnResults.set("which no-mcp", createMockSpawnResult(0, "/usr/bin/no-mcp\n", ""));
+    spawnResults.set("/usr/bin/no-mcp --version", createMockSpawnResult(0, "v1.0.0\n", ""));
 
     const result = await detectCLIByName("no-mcp");
 
@@ -777,18 +664,10 @@ describe("MCP server capability detection", () => {
  */
 describe("Environment sanitization", () => {
   it("passes NO_COLOR to disable terminal colors", async () => {
-    registryTools = [
-      { id: "tools.env-test", name: "env-test", category: "tool" },
-    ];
+    registryTools = [{ id: "tools.env-test", name: "env-test", category: "tool" }];
 
-    spawnResults.set(
-      "which env-test",
-      createMockSpawnResult(0, "/usr/bin/env-test\n", ""),
-    );
-    spawnResults.set(
-      "/usr/bin/env-test --version",
-      createMockSpawnResult(0, "v1.0.0\n", ""),
-    );
+    spawnResults.set("which env-test", createMockSpawnResult(0, "/usr/bin/env-test\n", ""));
+    spawnResults.set("/usr/bin/env-test --version", createMockSpawnResult(0, "v1.0.0\n", ""));
 
     await detectCLIByName("env-test");
 
@@ -888,14 +767,8 @@ describe("Registry fallback behavior", () => {
     registryTools = [];
     registryMetadata = { schemaVersion: "1.0.0", manifestHash: "abc123" };
 
-    spawnResults.set(
-      "which dcg",
-      createMockSpawnResult(0, "/usr/local/bin/dcg\n", ""),
-    );
-    spawnResults.set(
-      "/usr/local/bin/dcg --version",
-      createMockSpawnResult(0, "v1.0.0\n", ""),
-    );
+    spawnResults.set("which dcg", createMockSpawnResult(0, "/usr/local/bin/dcg\n", ""));
+    spawnResults.set("/usr/local/bin/dcg --version", createMockSpawnResult(0, "v1.0.0\n", ""));
 
     const result = await detectCLIByName("dcg");
 
@@ -935,8 +808,7 @@ describe("Registry fallback behavior", () => {
     await detectAllCLIs(true);
 
     const warnLog = logEvents.find(
-      (e) =>
-        e.level === "warn" && JSON.stringify(e.args).includes("registry_empty"),
+      (e) => e.level === "warn" && JSON.stringify(e.args).includes("registry_empty"),
     );
     expect(warnLog).toBeDefined();
   });
@@ -949,18 +821,10 @@ describe("Registry fallback behavior", () => {
  */
 describe("Detection timing", () => {
   it("includes durationMs in detection result", async () => {
-    registryTools = [
-      { id: "tools.timing", name: "timing-tool", category: "tool" },
-    ];
+    registryTools = [{ id: "tools.timing", name: "timing-tool", category: "tool" }];
 
-    spawnResults.set(
-      "which timing-tool",
-      createMockSpawnResult(0, "/usr/bin/timing-tool\n", ""),
-    );
-    spawnResults.set(
-      "/usr/bin/timing-tool --version",
-      createMockSpawnResult(0, "v1.0.0\n", ""),
-    );
+    spawnResults.set("which timing-tool", createMockSpawnResult(0, "/usr/bin/timing-tool\n", ""));
+    spawnResults.set("/usr/bin/timing-tool --version", createMockSpawnResult(0, "v1.0.0\n", ""));
 
     const result = await detectCLIByName("timing-tool");
 

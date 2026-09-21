@@ -18,11 +18,7 @@ import { checkpoints as checkpointsTable, db } from "../db";
 import { getLogger } from "../middleware/correlation";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
-import {
-  type DeltaCheckpoint,
-  getAgentCheckpoints,
-  getCheckpoint,
-} from "./checkpoint";
+import { type DeltaCheckpoint, getAgentCheckpoints, getCheckpoint } from "./checkpoint";
 
 // ============================================================================
 // Types
@@ -129,10 +125,7 @@ export class CheckpointCompactionService {
       this.initialTimeout = null;
       this.runAllAgents();
       // Then run every 24 hours
-      this.scheduledTimer = setInterval(
-        () => this.runAllAgents(),
-        24 * 60 * 60 * 1000,
-      );
+      this.scheduledTimer = setInterval(() => this.runAllAgents(), 24 * 60 * 60 * 1000);
 
       // Ensure the interval doesn't prevent process exit
       if (this.scheduledTimer.unref) {
@@ -178,10 +171,7 @@ export class CheckpointCompactionService {
       // Get all unique agent IDs with checkpoints
       const agentIds = await this.getAgentIdsWithCheckpoints();
 
-      log.info(
-        { agentCount: agentIds.length },
-        "[COMPACTION] Starting compaction for all agents",
-      );
+      log.info({ agentCount: agentIds.length }, "[COMPACTION] Starting compaction for all agents");
 
       const results: CompactionResult[] = [];
 
@@ -480,9 +470,7 @@ export class CheckpointCompactionService {
 
     for (const meta of checkpoints) {
       if (meta.createdAt < cutoffDate) {
-        const full = (await getCheckpoint(meta.id)) as
-          | DeltaCheckpoint
-          | undefined;
+        const full = (await getCheckpoint(meta.id)) as DeltaCheckpoint | undefined;
         if (full?.isDelta && full.parentCheckpointId) {
           oldDeltas.push(meta.id);
         }

@@ -19,12 +19,7 @@ import {
   updateUtility,
 } from "../services/utilities.service";
 import { createRouteErrorHandler } from "../utils/error-handler";
-import {
-  sendError,
-  sendList,
-  sendNotFound,
-  sendResource,
-} from "../utils/response";
+import { sendError, sendList, sendNotFound, sendResource } from "../utils/response";
 
 const utilities = new Hono();
 utilities.use("*", requireAdminMiddleware());
@@ -111,12 +106,7 @@ utilities.post("/:name/install", async (c) => {
     const result = await installUtility(name);
 
     if (!result.success) {
-      return sendError(
-        c,
-        "INSTALL_FAILED",
-        result.error ?? "Installation failed",
-        500,
-      );
+      return sendError(c, "INSTALL_FAILED", result.error ?? "Installation failed", 500);
     }
 
     return sendResource(c, "installation_result", {
@@ -142,12 +132,7 @@ utilities.post("/:name/update", async (c) => {
     const result = await updateUtility(name);
 
     if (!result.success) {
-      return sendError(
-        c,
-        "UPDATE_FAILED",
-        result.error ?? "Update failed",
-        500,
-      );
+      return sendError(c, "UPDATE_FAILED", result.error ?? "Update failed", 500);
     }
 
     return sendResource(c, "update_result", {
@@ -178,20 +163,14 @@ utilities.post("/giil/run", async (c) => {
     const giilRequest: Parameters<typeof runGiil>[0] = {
       url: validated.url,
     };
-    if (validated.outputDir !== undefined)
-      giilRequest.outputDir = validated.outputDir;
+    if (validated.outputDir !== undefined) giilRequest.outputDir = validated.outputDir;
     if (validated.format !== undefined) giilRequest.format = validated.format;
 
     log.info({ format: validated.format }, "Running giil");
     const result = await runGiil(giilRequest);
 
     if (!result.success) {
-      return sendError(
-        c,
-        "GIIL_FAILED",
-        result.error ?? "GIIL execution failed",
-        500,
-      );
+      return sendError(c, "GIIL_FAILED", result.error ?? "GIIL execution failed", 500);
     }
 
     // Destructure to avoid duplicate 'success' property
@@ -215,10 +194,8 @@ utilities.post("/csctf/run", async (c) => {
     const csctfRequest: Parameters<typeof runCsctf>[0] = {
       url: validated.url,
     };
-    if (validated.outputDir !== undefined)
-      csctfRequest.outputDir = validated.outputDir;
-    if (validated.formats !== undefined)
-      csctfRequest.formats = validated.formats;
+    if (validated.outputDir !== undefined) csctfRequest.outputDir = validated.outputDir;
+    if (validated.formats !== undefined) csctfRequest.formats = validated.formats;
     if (validated.publishToGhPages !== undefined)
       csctfRequest.publishToGhPages = validated.publishToGhPages;
 
@@ -226,12 +203,7 @@ utilities.post("/csctf/run", async (c) => {
     const result = await runCsctf(csctfRequest);
 
     if (!result.success) {
-      return sendError(
-        c,
-        "CSCTF_FAILED",
-        result.error ?? "CSCTF execution failed",
-        500,
-      );
+      return sendError(c, "CSCTF_FAILED", result.error ?? "CSCTF execution failed", 500);
     }
 
     // Destructure to avoid duplicate 'success' property

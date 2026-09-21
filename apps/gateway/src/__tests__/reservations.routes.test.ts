@@ -1,12 +1,4 @@
-import {
-  afterAll,
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  test,
-} from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 // Mock the logger with child method
 const mockLogger = {
@@ -27,10 +19,7 @@ afterAll(() => {
 
 import { Hono } from "hono";
 import { reservations } from "../routes/reservations";
-import {
-  _clearAllReservations,
-  stopCleanupJob,
-} from "../services/reservation.service";
+import { _clearAllReservations, stopCleanupJob } from "../services/reservation.service";
 
 function createTestApp() {
   const app = new Hono();
@@ -76,9 +65,7 @@ describe("reservations routes", () => {
     });
     expect(second.status).toBe(409);
 
-    const res = await app.request(
-      "/reservations/conflicts?projectId=project-1&status=open",
-    );
+    const res = await app.request("/reservations/conflicts?projectId=project-1&status=open");
     expect(res.status).toBe(200);
     const data = await res.json();
     // Canonical envelope format - list response
@@ -113,9 +100,7 @@ describe("reservations routes", () => {
       }),
     });
 
-    const listRes = await app.request(
-      "/reservations/conflicts?projectId=project-1",
-    );
+    const listRes = await app.request("/reservations/conflicts?projectId=project-1");
     const listData = await listRes.json();
     // Canonical envelope format - list response
     const conflictId = listData.data[0]?.conflictId;
@@ -124,14 +109,11 @@ describe("reservations routes", () => {
       throw new Error("Expected conflict id");
     }
 
-    const resolveRes = await app.request(
-      `/reservations/conflicts/${conflictId}/resolve`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ resolvedBy: "agent-2", reason: "manual" }),
-      },
-    );
+    const resolveRes = await app.request(`/reservations/conflicts/${conflictId}/resolve`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ resolvedBy: "agent-2", reason: "manual" }),
+    });
     expect(resolveRes.status).toBe(200);
 
     const resolvedList = await app.request(

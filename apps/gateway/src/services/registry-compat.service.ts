@@ -56,9 +56,7 @@ const deprecationLog: DeprecationWarning[] = [];
  */
 export function recordDeprecation(warning: DeprecationWarning): void {
   // Deduplicate by tool+field
-  const exists = deprecationLog.some(
-    (w) => w.tool === warning.tool && w.field === warning.field,
-  );
+  const exists = deprecationLog.some((w) => w.tool === warning.tool && w.field === warning.field);
   if (!exists) {
     // Cap at 500 entries to prevent unbounded growth in long-running processes
     if (deprecationLog.length >= 500) {
@@ -93,13 +91,7 @@ export function analyzeToolMigration(
   tool: ToolDefinition,
   fallback: Record<string, unknown> | undefined,
 ): FieldMigrationStatus[] {
-  const fields = [
-    "displayName",
-    "description",
-    "installCommand",
-    "installUrl",
-    "docsUrl",
-  ] as const;
+  const fields = ["displayName", "description", "installCommand", "installUrl", "docsUrl"] as const;
 
   return fields.map((field) => {
     const manifestValue = getToolField(tool, field);
@@ -198,9 +190,7 @@ export function buildCompatibilityReport(
   let hardcodedFallback = 0;
 
   for (const tool of tools) {
-    const fallback = hardcodedTools[tool.name] as
-      | Record<string, unknown>
-      | undefined;
+    const fallback = hardcodedTools[tool.name] as Record<string, unknown> | undefined;
     const fields = analyzeToolMigration(tool, fallback);
     const usedFallback = fields.some((f) => f.source === "fallback");
 

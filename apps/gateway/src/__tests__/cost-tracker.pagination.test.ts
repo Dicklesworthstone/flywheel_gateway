@@ -1,10 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createCursor } from "@flywheel/shared/api/pagination";
 import { costRecords, db } from "../db";
-import {
-  clearCostData,
-  getCostRecords,
-} from "../services/cost-tracker.service";
+import { clearCostData, getCostRecords } from "../services/cost-tracker.service";
 
 async function insertCostRecord(input: { id: string; timestamp: Date }) {
   await db.insert(costRecords).values({
@@ -59,10 +56,7 @@ describe("getCostRecords pagination", () => {
     });
 
     const page1 = await getCostRecords({ limit: 2 });
-    expect(page1.records.map((r) => r.id)).toEqual([
-      "cost_1000_cccc",
-      "cost_1000_bbbb",
-    ]);
+    expect(page1.records.map((r) => r.id)).toEqual(["cost_1000_cccc", "cost_1000_bbbb"]);
 
     expect(page1.nextCursor).toBeDefined();
 
@@ -70,10 +64,7 @@ describe("getCostRecords pagination", () => {
       limit: 2,
       startingAfter: page1.nextCursor!,
     });
-    expect(page2.records.map((r) => r.id)).toEqual([
-      "cost_1000_aaaa",
-      "cost_0900_zzzz",
-    ]);
+    expect(page2.records.map((r) => r.id)).toEqual(["cost_1000_aaaa", "cost_0900_zzzz"]);
   });
 
   test("startingAfter remains compatible with legacy cursors (id-only)", async () => {
@@ -92,9 +83,6 @@ describe("getCostRecords pagination", () => {
       limit: 2,
       startingAfter: legacyCursor,
     });
-    expect(page2.records.map((r) => r.id)).toEqual([
-      "cost_1000_aaaa",
-      "cost_0900_zzzz",
-    ]);
+    expect(page2.records.map((r) => r.id)).toEqual(["cost_1000_aaaa", "cost_0900_zzzz"]);
   });
 });

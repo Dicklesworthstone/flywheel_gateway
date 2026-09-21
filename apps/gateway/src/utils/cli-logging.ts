@@ -146,9 +146,7 @@ export function truncateOutput(
  * Build standardized CLI command log fields.
  * Automatically includes correlation ID from request context.
  */
-export function buildCliCommandLogFields(
-  input: CliCommandLogInput,
-): CliCommandLogFields {
+export function buildCliCommandLogFields(input: CliCommandLogInput): CliCommandLogFields {
   const fields: CliCommandLogFields = {
     tool: input.tool,
     command: input.command,
@@ -203,10 +201,7 @@ export function buildCliResultLogFields(
  * Log a CLI command execution at debug level.
  * Use this for low-level command execution details.
  */
-export function logCliCommand(
-  input: CliCommandLogInput,
-  message: string,
-): void {
+export function logCliCommand(input: CliCommandLogInput, message: string): void {
   const log = getLogger();
   const fields = buildCliCommandLogFields(input);
   log.debug(fields, message);
@@ -231,10 +226,7 @@ export function logCliResult(
 /**
  * Log a CLI command warning (e.g., timeout, non-zero exit).
  */
-export function logCliWarning(
-  input: CliCommandLogInput,
-  message: string,
-): void {
+export function logCliWarning(input: CliCommandLogInput, message: string): void {
   const log = getLogger();
   const fields = buildCliCommandLogFields(input);
   log.warn(fields, message);
@@ -243,11 +235,7 @@ export function logCliWarning(
 /**
  * Log a CLI command error.
  */
-export function logCliError(
-  input: CliCommandLogInput,
-  message: string,
-  error?: Error,
-): void {
+export function logCliError(input: CliCommandLogInput, message: string, error?: Error): void {
   const log = getLogger();
   const fields = buildCliCommandLogFields(input);
   if (error) {

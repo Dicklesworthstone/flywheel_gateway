@@ -85,9 +85,7 @@ export const alerts = sqliteTable(
     id: text("id").primaryKey(),
     severity: text("severity").notNull(),
     message: text("message").notNull(),
-    acknowledged: integer("acknowledged", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    acknowledged: integer("acknowledged", { mode: "boolean" }).notNull().default(false),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [index("alerts_severity_idx").on(table.severity)],
@@ -121,9 +119,7 @@ export const dcgBlocks = sqliteTable(
     command: text("command"), // Redacted command content
     reason: text("reason").notNull(),
     createdBy: text("created_by"),
-    falsePositive: integer("false_positive", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    falsePositive: integer("false_positive", { mode: "boolean" }).notNull().default(false),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 
     // Enhanced details
@@ -263,9 +259,7 @@ export const fleetRepos = sqliteTable(
 
     // Local state
     localPath: text("local_path"),
-    isCloned: integer("is_cloned", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    isCloned: integer("is_cloned", { mode: "boolean" }).notNull().default(false),
 
     // Git state
     currentBranch: text("current_branch"),
@@ -545,9 +539,7 @@ export const accountProfiles = sqliteTable(
     planType: text("plan_type"), // 'free' | 'pro' | 'enterprise'
 
     // Auth artifacts metadata (no secrets)
-    authFilesPresent: integer("auth_files_present", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    authFilesPresent: integer("auth_files_present", { mode: "boolean" }).notNull().default(false),
     authFileHash: text("auth_file_hash"),
     storageMode: text("storage_mode"), // 'file' | 'keyring' | 'unknown'
 
@@ -561,10 +553,7 @@ export const accountProfiles = sqliteTable(
     index("account_profiles_workspace_idx").on(table.workspaceId),
     index("account_profiles_provider_idx").on(table.provider),
     index("account_profiles_status_idx").on(table.status),
-    index("account_profiles_workspace_provider_idx").on(
-      table.workspaceId,
-      table.provider,
-    ),
+    index("account_profiles_workspace_provider_idx").on(table.workspaceId, table.provider),
   ],
 );
 
@@ -578,9 +567,7 @@ export const accountPools = sqliteTable(
     workspaceId: text("workspace_id").notNull(),
     provider: text("provider").notNull(), // 'claude' | 'codex' | 'gemini'
     rotationStrategy: text("rotation_strategy").notNull().default("smart"), // 'smart' | 'round_robin' | 'least_recent' | 'random'
-    cooldownMinutesDefault: integer("cooldown_minutes_default")
-      .notNull()
-      .default(15),
+    cooldownMinutesDefault: integer("cooldown_minutes_default").notNull().default(15),
     maxRetries: integer("max_retries").notNull().default(3),
     activeProfileId: text("active_profile_id"),
     lastRotatedAt: integer("last_rotated_at", { mode: "timestamp" }),
@@ -589,10 +576,7 @@ export const accountPools = sqliteTable(
   },
   (table) => [
     index("account_pools_workspace_idx").on(table.workspaceId),
-    uniqueIndex("account_pools_workspace_provider_idx").on(
-      table.workspaceId,
-      table.provider,
-    ),
+    uniqueIndex("account_pools_workspace_provider_idx").on(table.workspaceId, table.provider),
   ],
 );
 
@@ -615,10 +599,7 @@ export const accountPoolMembers = sqliteTable(
   (table) => [
     index("account_pool_members_pool_idx").on(table.poolId),
     index("account_pool_members_profile_idx").on(table.profileId),
-    uniqueIndex("account_pool_members_unique_idx").on(
-      table.poolId,
-      table.profileId,
-    ),
+    uniqueIndex("account_pool_members_unique_idx").on(table.poolId, table.profileId),
   ],
 );
 
@@ -781,10 +762,7 @@ export const branchAssignments = sqliteTable(
     index("branch_assignments_agent_idx").on(table.agentId),
     index("branch_assignments_repository_idx").on(table.repositoryId),
     index("branch_assignments_status_idx").on(table.status),
-    uniqueIndex("branch_assignments_repo_branch_idx").on(
-      table.repositoryId,
-      table.branchName,
-    ),
+    uniqueIndex("branch_assignments_repo_branch_idx").on(table.repositoryId, table.branchName),
   ],
 );
 
@@ -802,9 +780,7 @@ export const conflictPredictions = sqliteTable(
     branchB: text("branch_b").notNull(),
 
     // Prediction result
-    hasConflicts: integer("has_conflicts", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    hasConflicts: integer("has_conflicts", { mode: "boolean" }).notNull().default(false),
     conflictingFiles: text("conflicting_files"), // JSON array
     severity: text("severity").notNull().default("none"), // none | low | medium | high
     recommendation: text("recommendation"),
@@ -917,10 +893,7 @@ export const safetyConfigs = sqliteTable(
   },
   (table) => [
     index("safety_configs_workspace_idx").on(table.workspaceId),
-    uniqueIndex("safety_configs_workspace_name_idx").on(
-      table.workspaceId,
-      table.name,
-    ),
+    uniqueIndex("safety_configs_workspace_name_idx").on(table.workspaceId, table.name),
   ],
 );
 
@@ -1094,11 +1067,7 @@ export const budgetUsage = sqliteTable(
   (table) => [
     index("budget_usage_workspace_idx").on(table.workspaceId),
     index("budget_usage_scope_idx").on(table.scope, table.scopeId),
-    uniqueIndex("budget_usage_scope_period_idx").on(
-      table.scope,
-      table.scopeId,
-      table.periodStart,
-    ),
+    uniqueIndex("budget_usage_scope_period_idx").on(table.scope, table.scopeId, table.periodStart),
   ],
 );
 
@@ -1130,9 +1099,7 @@ export const pipelines = sqliteTable(
     // Trigger configuration (JSON blob)
     triggerType: text("trigger_type").notNull(), // manual | schedule | webhook | bead_event
     triggerConfig: blob("trigger_config", { mode: "json" }).notNull(),
-    triggerEnabled: integer("trigger_enabled", { mode: "boolean" })
-      .notNull()
-      .default(true),
+    triggerEnabled: integer("trigger_enabled", { mode: "boolean" }).notNull().default(true),
     nextTriggerAt: integer("next_trigger_at", { mode: "timestamp" }),
     lastTriggeredAt: integer("last_triggered_at", { mode: "timestamp" }),
 
@@ -1193,9 +1160,7 @@ export const pipelineRuns = sqliteTable(
 
     // Execution state
     currentStepIndex: integer("current_step_index").notNull().default(0),
-    executedStepIds: blob("executed_step_ids", { mode: "json" })
-      .notNull()
-      .$type<string[]>(),
+    executedStepIds: blob("executed_step_ids", { mode: "json" }).notNull().$type<string[]>(),
 
     // Context (shared variables between steps)
     context: blob("context", { mode: "json" }).notNull(),
@@ -1272,10 +1237,7 @@ export const pipelineStepResults = sqliteTable(
     index("pipeline_step_results_run_idx").on(table.runId),
     index("pipeline_step_results_step_idx").on(table.stepId),
     index("pipeline_step_results_status_idx").on(table.status),
-    uniqueIndex("pipeline_step_results_run_step_idx").on(
-      table.runId,
-      table.stepId,
-    ),
+    uniqueIndex("pipeline_step_results_run_step_idx").on(table.runId, table.stepId),
   ],
 );
 
@@ -1328,10 +1290,7 @@ export const pipelineApprovals = sqliteTable(
     index("pipeline_approvals_run_idx").on(table.runId),
     index("pipeline_approvals_status_idx").on(table.status),
     index("pipeline_approvals_timeout_idx").on(table.timeoutAt),
-    uniqueIndex("pipeline_approvals_run_step_idx").on(
-      table.runId,
-      table.stepId,
-    ),
+    uniqueIndex("pipeline_approvals_run_step_idx").on(table.runId, table.stepId),
   ],
 );
 
@@ -1437,10 +1396,7 @@ export const costRecords = sqliteTable(
     index("cost_records_model_idx").on(table.model),
     index("cost_records_provider_idx").on(table.provider),
     index("cost_records_correlation_idx").on(table.correlationId),
-    index("cost_records_org_timestamp_idx").on(
-      table.organizationId,
-      table.timestamp,
-    ),
+    index("cost_records_org_timestamp_idx").on(table.organizationId, table.timestamp),
   ],
 );
 
@@ -1563,9 +1519,7 @@ export const budgetAlerts = sqliteTable(
     periodEnd: integer("period_end", { mode: "timestamp" }).notNull(),
 
     // Status
-    acknowledged: integer("acknowledged", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    acknowledged: integer("acknowledged", { mode: "boolean" }).notNull().default(false),
     acknowledgedBy: text("acknowledged_by"),
     acknowledgedAt: integer("acknowledged_at", { mode: "timestamp" }),
 
@@ -1677,9 +1631,7 @@ export const optimizationRecommendations = sqliteTable(
   (table) => [
     index("optimization_recommendations_category_idx").on(table.category),
     index("optimization_recommendations_status_idx").on(table.status),
-    index("optimization_recommendations_organization_idx").on(
-      table.organizationId,
-    ),
+    index("optimization_recommendations_organization_idx").on(table.organizationId),
     index("optimization_recommendations_project_idx").on(table.projectId),
     index("optimization_recommendations_priority_idx").on(table.priority),
     index("optimization_recommendations_created_at_idx").on(table.createdAt),
@@ -1700,9 +1652,7 @@ export const modelRateCards = sqliteTable(
 
     // Rates (in millicents per 1k tokens)
     promptCostPer1kTokens: integer("prompt_cost_per_1k_tokens").notNull(),
-    completionCostPer1kTokens: integer(
-      "completion_cost_per_1k_tokens",
-    ).notNull(),
+    completionCostPer1kTokens: integer("completion_cost_per_1k_tokens").notNull(),
     cachedPromptCostPer1kTokens: integer("cached_prompt_cost_per_1k_tokens"),
 
     // Validity period
@@ -1757,12 +1707,8 @@ export const dashboards = sqliteTable(
     visibility: text("visibility").notNull().default("private"), // 'private' | 'team' | 'public'
     teamId: text("team_id"),
     publicSlug: text("public_slug"),
-    requireAuth: integer("require_auth", { mode: "boolean" })
-      .notNull()
-      .default(true),
-    embedEnabled: integer("embed_enabled", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    requireAuth: integer("require_auth", { mode: "boolean" }).notNull().default(true),
+    embedEnabled: integer("embed_enabled", { mode: "boolean" }).notNull().default(false),
     embedToken: text("embed_token"),
 
     // Refresh settings
@@ -1806,10 +1752,7 @@ export const dashboardPermissions = sqliteTable(
   (table) => [
     index("dashboard_permissions_dashboard_idx").on(table.dashboardId),
     index("dashboard_permissions_user_idx").on(table.userId),
-    uniqueIndex("dashboard_permissions_unique_idx").on(
-      table.dashboardId,
-      table.userId,
-    ),
+    uniqueIndex("dashboard_permissions_unique_idx").on(table.dashboardId, table.userId),
   ],
 );
 
@@ -1833,10 +1776,7 @@ export const dashboardFavorites = sqliteTable(
   (table) => [
     index("dashboard_favorites_user_idx").on(table.userId),
     index("dashboard_favorites_dashboard_idx").on(table.dashboardId),
-    uniqueIndex("dashboard_favorites_unique_idx").on(
-      table.userId,
-      table.dashboardId,
-    ),
+    uniqueIndex("dashboard_favorites_unique_idx").on(table.userId, table.dashboardId),
   ],
 );
 
@@ -1884,10 +1824,7 @@ export const wsEventLog = sqliteTable(
   },
   (table) => [
     index("ws_event_log_channel_cursor_idx").on(table.channel, table.cursor),
-    index("ws_event_log_channel_sequence_idx").on(
-      table.channel,
-      table.sequence,
-    ),
+    index("ws_event_log_channel_sequence_idx").on(table.channel, table.sequence),
     index("ws_event_log_created_at_idx").on(table.createdAt),
     index("ws_event_log_expires_at_idx").on(table.expiresAt),
     index("ws_event_log_correlation_idx").on(table.correlationId),
@@ -1919,12 +1856,8 @@ export const wsReplayAuditLog = sqliteTable(
 
     // Result
     messagesReplayed: integer("messages_replayed").notNull(),
-    cursorExpired: integer("cursor_expired", { mode: "boolean" })
-      .notNull()
-      .default(false),
-    usedSnapshot: integer("used_snapshot", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    cursorExpired: integer("cursor_expired", { mode: "boolean" }).notNull().default(false),
+    usedSnapshot: integer("used_snapshot", { mode: "boolean" }).notNull().default(false),
 
     // Timing
     requestedAt: integer("requested_at", { mode: "timestamp" }).notNull(),
@@ -1958,30 +1891,22 @@ export const wsChannelConfig = sqliteTable(
     channelPattern: text("channel_pattern").notNull().unique(),
 
     // Persistence settings
-    persistEvents: integer("persist_events", { mode: "boolean" })
-      .notNull()
-      .default(true),
+    persistEvents: integer("persist_events", { mode: "boolean" }).notNull().default(true),
     retentionMs: integer("retention_ms").notNull().default(300000), // 5 minutes default
     maxEvents: integer("max_events").notNull().default(10000),
 
     // Snapshot settings for long-offline reconnects
-    snapshotEnabled: integer("snapshot_enabled", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    snapshotEnabled: integer("snapshot_enabled", { mode: "boolean" }).notNull().default(false),
     snapshotIntervalMs: integer("snapshot_interval_ms"),
 
     // Rate limiting
-    maxReplayRequestsPerMinute: integer("max_replay_requests_per_minute")
-      .notNull()
-      .default(10),
+    maxReplayRequestsPerMinute: integer("max_replay_requests_per_minute").notNull().default(10),
 
     // Timestamps
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
-  (table) => [
-    uniqueIndex("ws_channel_config_pattern_idx").on(table.channelPattern),
-  ],
+  (table) => [uniqueIndex("ws_channel_config_pattern_idx").on(table.channelPattern)],
 );
 
 // ============================================================================

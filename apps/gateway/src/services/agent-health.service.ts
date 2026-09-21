@@ -246,10 +246,7 @@ export function clearOutputSample(agentId: string): void {
 /**
  * Detect work state from agent output.
  */
-export function detectWorkState(
-  output: string,
-  _agentType?: string,
-): LocalStateInfo {
+export function detectWorkState(output: string, _agentType?: string): LocalStateInfo {
   const indicators: WorkIndicators = {
     work: [],
     limit: [],
@@ -282,9 +279,7 @@ export function detectWorkState(
   // Check context patterns
   for (const pattern of CONTEXT_PATTERNS) {
     // Create global regex to find all matches (latest is most relevant)
-    const flags = pattern.flags.includes("g")
-      ? pattern.flags
-      : `${pattern.flags}g`;
+    const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
     const globalPattern = new RegExp(pattern.source, flags);
     const matches = Array.from(output.matchAll(globalPattern));
 
@@ -306,8 +301,7 @@ export function detectWorkState(
 
   // Calculate confidence
   const totalMatches = workScore + idleScore + limitScore + contextLowScore;
-  const confidence =
-    totalMatches === 0 ? 0.1 : Math.min(0.95, 0.3 + totalMatches * 0.1);
+  const confidence = totalMatches === 0 ? 0.1 : Math.min(0.95, 0.3 + totalMatches * 0.1);
 
   // Determine states
   const is_rate_limited = limitScore > 0;
@@ -526,9 +520,7 @@ export function getAgentHealth(
 /**
  * Get cached health status for an agent.
  */
-export function getCachedAgentHealth(
-  agentId: string,
-): AgentHealthStatus | undefined {
+export function getCachedAgentHealth(agentId: string): AgentHealthStatus | undefined {
   return healthCache.get(agentId);
 }
 
@@ -557,10 +549,7 @@ export function isSafeToRestart(
     };
   }
 
-  if (
-    health.recommendation === "RESTART" ||
-    health.recommendation === "SEND_PROMPT"
-  ) {
+  if (health.recommendation === "RESTART" || health.recommendation === "SEND_PROMPT") {
     return {
       safe: true,
       reason: health.recommendation_reason,

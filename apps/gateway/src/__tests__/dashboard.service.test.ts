@@ -3,11 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it } from "bun:test";
-import type {
-  CreateDashboardInput,
-  Widget,
-  WidgetType,
-} from "@flywheel/shared";
+import type { CreateDashboardInput, Widget, WidgetType } from "@flywheel/shared";
 import {
   addWidget,
   clearDashboardStore,
@@ -107,9 +103,7 @@ describe("Dashboard Service", () => {
       const dashboard = await createDashboard(input, "user-1");
 
       expect(dashboard.sharing.visibility).toBe("team");
-      expect([...dashboard.sharing.viewers].sort()).toEqual(
-        ["user-2", "user-3"].sort(),
-      );
+      expect([...dashboard.sharing.viewers].sort()).toEqual(["user-2", "user-3"].sort());
       expect([...dashboard.sharing.editors].sort()).toEqual(["user-4"]);
     });
   });
@@ -245,10 +239,7 @@ describe("Dashboard Service", () => {
 
     it("should filter by visibility", async () => {
       await createDashboard({ name: "Private" }, "user-1");
-      await createDashboard(
-        { name: "Public", sharing: { visibility: "public" } },
-        "user-2",
-      );
+      await createDashboard({ name: "Public", sharing: { visibility: "public" } }, "user-2");
 
       const { items, total } = await listDashboards({ visibility: "public" });
       expect(items).toHaveLength(1);
@@ -285,11 +276,7 @@ describe("Dashboard Service", () => {
 
     it("should allow custom name for duplicate", async () => {
       const original = await createDashboard({ name: "Original" }, "user-1");
-      const duplicate = await duplicateDashboard(
-        original.id,
-        "user-1",
-        "Custom Copy Name",
-      );
+      const duplicate = await duplicateDashboard(original.id, "user-1", "Custom Copy Name");
 
       expect(duplicate?.name).toBe("Custom Copy Name");
     });

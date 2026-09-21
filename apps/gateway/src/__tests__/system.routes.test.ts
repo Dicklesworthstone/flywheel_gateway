@@ -158,9 +158,7 @@ describe("System Routes", () => {
 
         // Check summary
         expect(body.data.summary).toBeDefined();
-        expect(["healthy", "degraded", "unhealthy", "unknown"]).toContain(
-          body.data.summary.status,
-        );
+        expect(["healthy", "degraded", "unhealthy", "unknown"]).toContain(body.data.summary.status);
         expect(typeof body.data.summary.healthyCount).toBe("number");
         expect(typeof body.data.summary.degradedCount).toBe("number");
         expect(typeof body.data.summary.unhealthyCount).toBe("number");
@@ -231,9 +229,7 @@ describe("System Routes", () => {
         const body2 = (await res2.json()) as SystemSnapshotEnvelope;
 
         // Should have different generatedAt (fresh)
-        expect(body1.data.meta.generatedAt).not.toBe(
-          body2.data.meta.generatedAt,
-        );
+        expect(body1.data.meta.generatedAt).not.toBe(body2.data.meta.generatedAt);
       },
       ROUTES_TEST_TIMEOUT_MS,
     );
@@ -312,9 +308,7 @@ describe("System Routes", () => {
         expect(deleteRes.status).toBe(200);
         const deleteBody = (await deleteRes.json()) as CacheClearedEnvelope;
         expect(deleteBody.object).toBe("snapshot_cache_cleared");
-        expect(deleteBody.data.message).toBe(
-          "Snapshot cache cleared successfully",
-        );
+        expect(deleteBody.data.message).toBe("Snapshot cache cleared successfully");
         expect(typeof deleteBody.data.timestamp).toBe("string");
 
         // Verify cache is now empty
@@ -383,9 +377,7 @@ function validateSchemaWithLog<T extends z.ZodTypeAny>(
       code: e.code,
       message: e.message,
       received:
-        e.code === "invalid_type"
-          ? (e as unknown as { received: unknown }).received
-          : undefined,
+        e.code === "invalid_type" ? (e as unknown as { received: unknown }).received : undefined,
     }));
   }
 
@@ -442,8 +434,7 @@ describe("System Routes Contract Tests (bd-2ek6)", () => {
     test("meta section has required schema version", async () => {
       const res = await app.request("/system/snapshot");
       const body = (await res.json()) as SystemSnapshotEnvelope;
-      const requestId =
-        (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
+      const requestId = (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
 
       // Validate meta schema version
       const metaSchema = z.object({
@@ -475,8 +466,7 @@ describe("System Routes Contract Tests (bd-2ek6)", () => {
     test("summary section matches SystemHealthSummary structure", async () => {
       const res = await app.request("/system/snapshot");
       const body = (await res.json()) as SystemSnapshotEnvelope;
-      const requestId =
-        (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
+      const requestId = (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
 
       const summarySchema = z.object({
         status: z.enum(["healthy", "degraded", "unhealthy", "unknown"]),
@@ -514,8 +504,7 @@ describe("System Routes Contract Tests (bd-2ek6)", () => {
     test("tools section matches ToolHealthSnapshot structure", async () => {
       const res = await app.request("/system/snapshot");
       const body = (await res.json()) as SystemSnapshotEnvelope;
-      const requestId =
-        (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
+      const requestId = (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
 
       const toolHealthSchema = z.object({
         installed: z.boolean(),
@@ -657,8 +646,7 @@ describe("System Routes Contract Tests (bd-2ek6)", () => {
           body: JSON.stringify({ enabled: false }),
         });
         expect(disable.status).toBe(200);
-        const disabledBody =
-          (await disable.json()) as MaintenanceStatusEnvelope;
+        const disabledBody = (await disable.json()) as MaintenanceStatusEnvelope;
         expect(disabledBody.data.mode).toBe("running");
       },
       ROUTES_TEST_TIMEOUT_MS,
@@ -746,8 +734,7 @@ describe("System Routes Performance Tests (bd-xiy5)", () => {
       const latencyMs = Math.round(endTime - startTime);
 
       const body = (await res.json()) as SystemSnapshotEnvelope;
-      const requestId =
-        (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
+      const requestId = (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
 
       const performanceLog: PerformanceLog = {
         testName: "initial snapshot generation",
@@ -786,8 +773,7 @@ describe("System Routes Performance Tests (bd-xiy5)", () => {
       const latencyMs = Math.round(endTime - startTime);
 
       const body = (await res.json()) as SystemSnapshotEnvelope;
-      const requestId =
-        (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
+      const requestId = (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
 
       const cachedBudgetMs = 100; // Cached response should be very fast
       const performanceLog: PerformanceLog = {
@@ -817,8 +803,7 @@ describe("System Routes Performance Tests (bd-xiy5)", () => {
       const latencyMs = Math.round(endTime - startTime);
 
       const body = (await res.json()) as SystemSnapshotEnvelope;
-      const requestId =
-        (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
+      const requestId = (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
 
       const performanceLog: PerformanceLog = {
         testName: "bypass_cache snapshot generation",
@@ -842,8 +827,7 @@ describe("System Routes Performance Tests (bd-xiy5)", () => {
     test("meta includes generation duration", async () => {
       const res = await app.request("/system/snapshot");
       const body = (await res.json()) as SystemSnapshotEnvelope;
-      const requestId =
-        (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
+      const requestId = (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
 
       // Verify timing metadata is present
       expect(body.data.meta.generationDurationMs).toBeDefined();
@@ -867,8 +851,7 @@ describe("System Routes Performance Tests (bd-xiy5)", () => {
     test("summary includes component health status", async () => {
       const res = await app.request("/system/snapshot");
       const body = (await res.json()) as SystemSnapshotEnvelope;
-      const requestId =
-        (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
+      const requestId = (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
 
       // Verify summary has per-component status (for diagnosing slow sources)
       expect(body.data.summary.ntm).toBeDefined();
@@ -907,8 +890,7 @@ describe("System Routes Performance Tests (bd-xiy5)", () => {
       // even if some data sources are unavailable or slow
       const res = await app.request("/system/snapshot");
       const body = (await res.json()) as SystemSnapshotEnvelope;
-      const requestId =
-        (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
+      const requestId = (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
 
       // Should always return a snapshot structure
       expect(body.object).toBe("system_snapshot");
@@ -940,12 +922,10 @@ describe("System Routes Performance Tests (bd-xiy5)", () => {
     test("degraded status when sources unavailable", async () => {
       const res = await app.request("/system/snapshot");
       const body = (await res.json()) as SystemSnapshotEnvelope;
-      const requestId =
-        (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
+      const requestId = (body as { requestId?: string }).requestId ?? `test-${Date.now()}`;
 
       // If there are unhealthy or unknown components, status should reflect that
-      const { healthyCount, degradedCount, unhealthyCount, unknownCount } =
-        body.data.summary;
+      const { healthyCount, degradedCount, unhealthyCount, unknownCount } = body.data.summary;
 
       // Log the component health distribution
       console.log(
@@ -1003,8 +983,7 @@ describe("System Routes Performance Tests (bd-xiy5)", () => {
     test("cache endpoint reports accurate status", async () => {
       // Get cache status before any snapshot
       const cacheResBefore = await app.request("/system/snapshot/cache");
-      const cacheBodyBefore =
-        (await cacheResBefore.json()) as CacheStatusEnvelope;
+      const cacheBodyBefore = (await cacheResBefore.json()) as CacheStatusEnvelope;
 
       expect(cacheBodyBefore.data.cached).toBe(false);
       expect(cacheBodyBefore.data.ageMs).toBeNull();
@@ -1014,8 +993,7 @@ describe("System Routes Performance Tests (bd-xiy5)", () => {
 
       // Cache should now report as cached
       const cacheResAfter = await app.request("/system/snapshot/cache");
-      const cacheBodyAfter =
-        (await cacheResAfter.json()) as CacheStatusEnvelope;
+      const cacheBodyAfter = (await cacheResAfter.json()) as CacheStatusEnvelope;
 
       expect(cacheBodyAfter.data.cached).toBe(true);
       expect(cacheBodyAfter.data.ageMs).toBeGreaterThanOrEqual(0);

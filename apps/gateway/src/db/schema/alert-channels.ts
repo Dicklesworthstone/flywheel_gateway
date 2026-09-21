@@ -9,13 +9,7 @@
  * @see bd-3c0o3 Real-time Alert Channels bead
  */
 
-import {
-  index,
-  integer,
-  sqliteTable,
-  text,
-  uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 // ============================================================================
 // Alert Channels
@@ -113,17 +107,13 @@ export const alertRoutingRules = sqliteTable(
     // Throttling
     throttleWindowSeconds: integer("throttle_window_seconds").default(60),
     throttleMaxAlerts: integer("throttle_max_alerts").default(10),
-    currentThrottleCount: integer("current_throttle_count")
-      .notNull()
-      .default(0),
+    currentThrottleCount: integer("current_throttle_count").notNull().default(0),
     throttleWindowStart: integer("throttle_window_start", {
       mode: "timestamp",
     }),
 
     // Aggregation (batch similar alerts)
-    aggregateEnabled: integer("aggregate_enabled", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    aggregateEnabled: integer("aggregate_enabled", { mode: "boolean" }).notNull().default(false),
     aggregateWindowSeconds: integer("aggregate_window_seconds").default(60),
     aggregateMaxAlerts: integer("aggregate_max_alerts").default(5),
 

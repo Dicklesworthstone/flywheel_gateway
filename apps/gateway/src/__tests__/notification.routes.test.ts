@@ -54,9 +54,7 @@ describe("Notification Service", () => {
       expect(notification.category).toBe("agents");
       expect(notification.priority).toBe("normal");
       expect(notification.title).toBe("Agent Completed");
-      expect(notification.body).toBe(
-        "Your agent session has completed successfully.",
-      );
+      expect(notification.body).toBe("Your agent session has completed successfully.");
       expect(notification.recipientId).toBe("user_123");
       expect(notification.source.type).toBe("agent");
       expect(notification.channels).toContain("in_app");
@@ -154,11 +152,7 @@ describe("Notification Service", () => {
         },
       });
 
-      expect(prefs.categories.costs.channels).toEqual([
-        "in_app",
-        "email",
-        "slack",
-      ]);
+      expect(prefs.categories.costs.channels).toEqual(["in_app", "email", "slack"]);
       expect(prefs.categories.costs.minPriority).toBe("low");
     });
   });
@@ -229,9 +223,7 @@ describe("Notification Routes", () => {
         source: { type: "system" },
       });
 
-      const res = await app.request(
-        "/notifications?recipient_id=user_123&category=agents",
-      );
+      const res = await app.request("/notifications?recipient_id=user_123&category=agents");
 
       expect(res.status).toBe(200);
       const body = await res.json();
@@ -252,9 +244,7 @@ describe("Notification Routes", () => {
         source: { type: "system" },
       });
 
-      const res = await app.request(
-        `/notifications/${notification.id}?recipient_id=user_123`,
-      );
+      const res = await app.request(`/notifications/${notification.id}?recipient_id=user_123`);
 
       expect(res.status).toBe(200);
       const body = await res.json();
@@ -263,9 +253,7 @@ describe("Notification Routes", () => {
     });
 
     test("returns 404 for unknown notification", async () => {
-      const res = await app.request(
-        "/notifications/notif_unknown?recipient_id=user_123",
-      );
+      const res = await app.request("/notifications/notif_unknown?recipient_id=user_123");
 
       expect(res.status).toBe(404);
     });
@@ -316,10 +304,9 @@ describe("Notification Routes", () => {
         source: { type: "system" },
       });
 
-      const res = await app.request(
-        "/notifications/read-all?recipient_id=user_123",
-        { method: "POST" },
-      );
+      const res = await app.request("/notifications/read-all?recipient_id=user_123", {
+        method: "POST",
+      });
 
       expect(res.status).toBe(200);
       const body = await res.json();
@@ -365,9 +352,7 @@ describe("Notification Routes", () => {
 
   describe("GET /notifications/preferences", () => {
     test("returns user preferences", async () => {
-      const res = await app.request(
-        "/notifications/preferences?user_id=user_123",
-      );
+      const res = await app.request("/notifications/preferences?user_id=user_123");
 
       expect(res.status).toBe(200);
       const body = await res.json();
@@ -378,21 +363,18 @@ describe("Notification Routes", () => {
 
   describe("PUT /notifications/preferences", () => {
     test("updates user preferences", async () => {
-      const res = await app.request(
-        "/notifications/preferences?user_id=user_123",
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            enabled: false,
-            quietHours: {
-              enabled: true,
-              start: "23:00",
-              end: "07:00",
-            },
-          }),
-        },
-      );
+      const res = await app.request("/notifications/preferences?user_id=user_123", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: false,
+          quietHours: {
+            enabled: true,
+            start: "23:00",
+            end: "07:00",
+          },
+        }),
+      });
 
       expect(res.status).toBe(200);
       const body = await res.json();
@@ -402,18 +384,15 @@ describe("Notification Routes", () => {
     });
 
     test("validates time format", async () => {
-      const res = await app.request(
-        "/notifications/preferences?user_id=user_123",
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            quietHours: {
-              start: "invalid",
-            },
-          }),
-        },
-      );
+      const res = await app.request("/notifications/preferences?user_id=user_123", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quietHours: {
+            start: "invalid",
+          },
+        }),
+      });
 
       expect(res.status).toBe(400);
       const body = await res.json();
@@ -423,14 +402,11 @@ describe("Notification Routes", () => {
 
   describe("POST /notifications/test", () => {
     test("sends test notification", async () => {
-      const res = await app.request(
-        "/notifications/test?recipient_id=user_123",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
-        },
-      );
+      const res = await app.request("/notifications/test?recipient_id=user_123", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
 
       expect(res.status).toBe(201);
       const body = await res.json();

@@ -27,11 +27,7 @@ import type {
 import { and, desc, eq } from "drizzle-orm";
 import { ulid } from "ulid";
 import { db } from "../db";
-import {
-  dashboardFavorites,
-  dashboardPermissions,
-  dashboards,
-} from "../db/schema";
+import { dashboardFavorites, dashboardPermissions, dashboards } from "../db/schema";
 import { getLogger } from "../middleware/correlation";
 
 // ============================================================================
@@ -53,18 +49,14 @@ const DEFAULT_SHARING_CONFIG: DashboardSharing = {
   embedEnabled: false,
 };
 
-const ALLOWED_REFRESH_INTERVALS = new Set<RefreshInterval>([
-  0, 15, 30, 60, 300, 900,
-]);
+const ALLOWED_REFRESH_INTERVALS = new Set<RefreshInterval>([0, 15, 30, 60, 300, 900]);
 
 function getWidgetCount(value: unknown): number {
   return Array.isArray(value) ? value.length : 0;
 }
 
 function coerceRefreshInterval(value: number): RefreshInterval {
-  return ALLOWED_REFRESH_INTERVALS.has(value as RefreshInterval)
-    ? (value as RefreshInterval)
-    : 60;
+  return ALLOWED_REFRESH_INTERVALS.has(value as RefreshInterval) ? (value as RefreshInterval) : 60;
 }
 
 // ============================================================================
@@ -142,15 +134,10 @@ async function syncDashboardPermissions(options: {
     .select()
     .from(dashboardPermissions)
     .where(eq(dashboardPermissions.dashboardId, dashboardId));
-  const existingByUser = new Map(
-    existing.map((row) => [row.userId, row.permission]),
-  );
+  const existingByUser = new Map(existing.map((row) => [row.userId, row.permission]));
   const now = new Date();
 
-  const upsertBatch = async (
-    userIds: string[] | undefined,
-    permission: DashboardPermission,
-  ) => {
+  const upsertBatch = async (userIds: string[] | undefined, permission: DashboardPermission) => {
     if (!userIds || userIds.length === 0) return;
     await db
       .insert(dashboardPermissions)
@@ -248,9 +235,7 @@ function rowToDashboard(
     editors,
     requireAuth: row.requireAuth ?? true,
     embedEnabled: row.embedEnabled ?? false,
-    ...(row.teamId !== null && row.teamId !== undefined
-      ? { teamId: row.teamId }
-      : {}),
+    ...(row.teamId !== null && row.teamId !== undefined ? { teamId: row.teamId } : {}),
     ...(row.publicSlug !== null && row.publicSlug !== undefined
       ? { publicSlug: row.publicSlug }
       : {}),
@@ -322,10 +307,7 @@ export async function createDashboard(
 
   await db.insert(dashboards).values(newDashboard);
 
-  if (
-    input.sharing?.viewers !== undefined ||
-    input.sharing?.editors !== undefined
-  ) {
+  if (input.sharing?.viewers !== undefined || input.sharing?.editors !== undefined) {
     await syncDashboardPermissions({
       dashboardId: id,
       viewers: sharing.viewers,
@@ -337,20 +319,14 @@ export async function createDashboard(
   log.info({ dashboardId: id, name: input.name }, "Dashboard created");
 
   const created = await getDashboard(id);
-  return (
-    created ?? rowToDashboard(newDashboard as typeof dashboards.$inferSelect)
-  );
+  return created ?? rowToDashboard(newDashboard as typeof dashboards.$inferSelect);
 }
 
 /**
  * Get a dashboard by ID.
  */
 export async function getDashboard(id: string): Promise<Dashboard | undefined> {
-  const row = await db
-    .select()
-    .from(dashboards)
-    .where(eq(dashboards.id, id))
-    .get();
+  const row = await db.select().from(dashboards).where(eq(dashboards.id, id)).get();
   if (!row) return undefined;
   const permissions = await listPermissions(row.id);
   return rowToDashboard(row, permissions);
@@ -359,14 +335,8 @@ export async function getDashboard(id: string): Promise<Dashboard | undefined> {
 /**
  * Get a dashboard by public slug.
  */
-export async function getDashboardBySlug(
-  slug: string,
-): Promise<Dashboard | undefined> {
-  const row = await db
-    .select()
-    .from(dashboards)
-    .where(eq(dashboards.publicSlug, slug))
-    .get();
+export async function getDashboardBySlug(slug: string): Promise<Dashboard | undefined> {
+  const row = await db.select().from(dashboards).where(eq(dashboards.publicSlug, slug)).get();
   if (!row) return undefined;
   const permissions = await listPermissions(row.id);
   return rowToDashboard(row, permissions);
@@ -392,25 +362,17 @@ export async function updateDashboard(
 
   if (input.name !== undefined) updates.name = input.name;
   if (input.description !== undefined) updates.description = input.description;
-  if (input.layout !== undefined)
-    updates.layout = { ...existing.layout, ...input.layout };
+  if (input.layout !== undefined) updates.layout = { ...existing.layout, ...input.layout };
   if (input.widgets !== undefined) updates.widgets = input.widgets;
-  if (input.refreshInterval !== undefined)
-    updates.refreshInterval = input.refreshInterval;
+  if (input.refreshInterval !== undefined) updates.refreshInterval = input.refreshInterval;
 
   if (input.sharing) {
-    if (input.sharing.visibility !== undefined)
-      updates.visibility = input.sharing.visibility;
-    if (input.sharing.teamId !== undefined)
-      updates.teamId = input.sharing.teamId;
-    if (input.sharing.publicSlug !== undefined)
-      updates.publicSlug = input.sharing.publicSlug;
-    if (input.sharing.requireAuth !== undefined)
-      updates.requireAuth = input.sharing.requireAuth;
-    if (input.sharing.embedEnabled !== undefined)
-      updates.embedEnabled = input.sharing.embedEnabled;
-    if (input.sharing.embedToken !== undefined)
-      updates.embedToken = input.sharing.embedToken;
+    if (input.sharing.visibility !== undefined) updates.visibility = input.sharing.visibility;
+    if (input.sharing.teamId !== undefined) updates.teamId = input.sharing.teamId;
+    if (input.sharing.publicSlug !== undefined) updates.publicSlug = input.sharing.publicSlug;
+    if (input.sharing.requireAuth !== undefined) updates.requireAuth = input.sharing.requireAuth;
+    if (input.sharing.embedEnabled !== undefined) updates.embedEnabled = input.sharing.embedEnabled;
+    if (input.sharing.embedToken !== undefined) updates.embedToken = input.sharing.embedToken;
   }
 
   await db.update(dashboards).set(updates).where(eq(dashboards.id, id));
@@ -418,17 +380,12 @@ export async function updateDashboard(
   const sharingUpdates = input.sharing;
   if (
     sharingUpdates &&
-    (sharingUpdates.viewers !== undefined ||
-      sharingUpdates.editors !== undefined)
+    (sharingUpdates.viewers !== undefined || sharingUpdates.editors !== undefined)
   ) {
     await syncDashboardPermissions({
       dashboardId: id,
-      ...(sharingUpdates.viewers !== undefined
-        ? { viewers: sharingUpdates.viewers }
-        : {}),
-      ...(sharingUpdates.editors !== undefined
-        ? { editors: sharingUpdates.editors }
-        : {}),
+      ...(sharingUpdates.viewers !== undefined ? { viewers: sharingUpdates.viewers } : {}),
+      ...(sharingUpdates.editors !== undefined ? { editors: sharingUpdates.editors } : {}),
     });
   }
 
@@ -480,9 +437,7 @@ export async function duplicateDashboard(
       ...DEFAULT_SHARING_CONFIG,
     },
     refreshInterval: original.refreshInterval,
-    ...(original.description !== undefined
-      ? { description: original.description }
-      : {}),
+    ...(original.description !== undefined ? { description: original.description } : {}),
   };
 
   return createDashboard(createInput, ownerId);
@@ -512,14 +467,7 @@ interface ListDashboardsResult {
 export async function listDashboards(
   options: ListDashboardsOptions = {},
 ): Promise<ListDashboardsResult> {
-  const {
-    workspaceId,
-    ownerId,
-    visibility,
-    userId,
-    limit = 50,
-    offset = 0,
-  } = options;
+  const { workspaceId, ownerId, visibility, userId, limit = 50, offset = 0 } = options;
 
   const conditions = [];
 
@@ -605,10 +553,7 @@ export async function listDashboards(
 /**
  * Check if a user can access a dashboard.
  */
-export async function canUserAccess(
-  dashboard: Dashboard,
-  userId: string,
-): Promise<boolean> {
+export async function canUserAccess(dashboard: Dashboard, userId: string): Promise<boolean> {
   if (dashboard.ownerId === userId) return true;
   if (dashboard.sharing.visibility === "public") return true;
 
@@ -619,16 +564,11 @@ export async function canUserAccess(
 /**
  * Check if a user can edit a dashboard.
  */
-export async function canUserEdit(
-  dashboard: Dashboard,
-  userId: string,
-): Promise<boolean> {
+export async function canUserEdit(dashboard: Dashboard, userId: string): Promise<boolean> {
   if (dashboard.ownerId === userId) return true;
 
   const permissions = await listPermissions(dashboard.id);
-  return permissions.some(
-    (p) => p.userId === userId && p.permission === "edit",
-  );
+  return permissions.some((p) => p.userId === userId && p.permission === "edit");
 }
 
 /**
@@ -675,10 +615,7 @@ export async function grantPermission(
 /**
  * Revoke permission from a user.
  */
-export async function revokePermission(
-  dashboardId: string,
-  userId: string,
-): Promise<boolean> {
+export async function revokePermission(dashboardId: string, userId: string): Promise<boolean> {
   const result = await db
     .delete(dashboardPermissions)
     .where(
@@ -695,9 +632,7 @@ export async function revokePermission(
 /**
  * List permissions for a dashboard.
  */
-export async function listPermissions(
-  dashboardId: string,
-): Promise<DashboardPermissionEntry[]> {
+export async function listPermissions(dashboardId: string): Promise<DashboardPermissionEntry[]> {
   const rows = await db
     .select()
     .from(dashboardPermissions)
@@ -718,10 +653,7 @@ export async function listPermissions(
 /**
  * Add a dashboard to user's favorites.
  */
-export async function addFavorite(
-  userId: string,
-  dashboardId: string,
-): Promise<boolean> {
+export async function addFavorite(userId: string, dashboardId: string): Promise<boolean> {
   const dashboard = await getDashboard(dashboardId);
   if (!dashboard) return false;
 
@@ -741,17 +673,11 @@ export async function addFavorite(
 /**
  * Remove a dashboard from user's favorites.
  */
-export async function removeFavorite(
-  userId: string,
-  dashboardId: string,
-): Promise<boolean> {
+export async function removeFavorite(userId: string, dashboardId: string): Promise<boolean> {
   const result = await db
     .delete(dashboardFavorites)
     .where(
-      and(
-        eq(dashboardFavorites.userId, userId),
-        eq(dashboardFavorites.dashboardId, dashboardId),
-      ),
+      and(eq(dashboardFavorites.userId, userId), eq(dashboardFavorites.dashboardId, dashboardId)),
     )
     .returning();
 
@@ -761,9 +687,7 @@ export async function removeFavorite(
 /**
  * List user's favorite dashboards.
  */
-export async function listFavorites(
-  userId: string,
-): Promise<DashboardSummary[]> {
+export async function listFavorites(userId: string): Promise<DashboardSummary[]> {
   const rows = await db
     .select({
       dashboard: dashboards,
@@ -802,9 +726,7 @@ export async function addWidget(
   if (!dashboard) return undefined;
 
   const resolvedWidgetId =
-    typeof widget.id === "string" && widget.id.trim().length > 0
-      ? widget.id
-      : `widget_${ulid()}`;
+    typeof widget.id === "string" && widget.id.trim().length > 0 ? widget.id : `widget_${ulid()}`;
 
   const widgetWithId: Widget = {
     ...widget,
@@ -918,35 +840,22 @@ export async function updateSharing(
   if (sharing.visibility !== undefined) updates.visibility = sharing.visibility;
   if (sharing.teamId !== undefined) updates.teamId = sharing.teamId;
 
-  if (
-    sharing.visibility === "public" &&
-    !dashboard.sharing.publicSlug &&
-    !sharing.publicSlug
-  ) {
+  if (sharing.visibility === "public" && !dashboard.sharing.publicSlug && !sharing.publicSlug) {
     updates.publicSlug = `${generateSlug(dashboard.name)}-${ulid().slice(-6).toLowerCase()}`;
   } else if (sharing.publicSlug !== undefined) {
     updates.publicSlug = sharing.publicSlug;
   }
 
-  if (sharing.requireAuth !== undefined)
-    updates.requireAuth = sharing.requireAuth;
+  if (sharing.requireAuth !== undefined) updates.requireAuth = sharing.requireAuth;
 
-  if (sharing.embedEnabled !== undefined)
-    updates.embedEnabled = sharing.embedEnabled;
-  if (
-    sharing.embedEnabled &&
-    !dashboard.sharing.embedToken &&
-    !sharing.embedToken
-  ) {
+  if (sharing.embedEnabled !== undefined) updates.embedEnabled = sharing.embedEnabled;
+  if (sharing.embedEnabled && !dashboard.sharing.embedToken && !sharing.embedToken) {
     updates.embedToken = generateEmbedToken();
   } else if (sharing.embedToken !== undefined) {
     updates.embedToken = sharing.embedToken;
   }
 
-  await db
-    .update(dashboards)
-    .set(updates)
-    .where(eq(dashboards.id, dashboardId));
+  await db.update(dashboards).set(updates).where(eq(dashboards.id, dashboardId));
 
   if (sharing.viewers !== undefined || sharing.editors !== undefined) {
     await syncDashboardPermissions({
@@ -967,10 +876,7 @@ export async function updateSharing(
 /**
  * Fetch data for a widget.
  */
-export async function fetchWidgetData(
-  dashboardId: string,
-  widgetId: string,
-): Promise<WidgetData> {
+export async function fetchWidgetData(dashboardId: string, widgetId: string): Promise<WidgetData> {
   const dashboard = await getDashboard(dashboardId);
 
   if (!dashboard) {
@@ -1019,9 +925,7 @@ function getMockDataForWidget(widget: Widget): unknown {
         datasets: [
           {
             label: "Usage",
-            data: Array.from({ length: 7 }, () =>
-              Math.floor(Math.random() * 100),
-            ),
+            data: Array.from({ length: 7 }, () => Math.floor(Math.random() * 100)),
           },
         ],
       };
@@ -1032,9 +936,7 @@ function getMockDataForWidget(widget: Widget): unknown {
         datasets: [
           {
             label: "Requests",
-            data: Array.from({ length: 4 }, () =>
-              Math.floor(Math.random() * 500),
-            ),
+            data: Array.from({ length: 4 }, () => Math.floor(Math.random() * 500)),
           },
         ],
       };
@@ -1137,8 +1039,7 @@ export async function getDashboardStats(): Promise<{
     totalDashboards: allDashboards.length,
     byVisibility,
     totalWidgets,
-    averageWidgetsPerDashboard:
-      allDashboards.length > 0 ? totalWidgets / allDashboards.length : 0,
+    averageWidgetsPerDashboard: allDashboards.length > 0 ? totalWidgets / allDashboards.length : 0,
   };
 }
 
@@ -1149,18 +1050,12 @@ export async function getDashboardStats(): Promise<{
 /**
  * Toggle favorite status for a dashboard.
  */
-export async function toggleFavorite(
-  dashboardId: string,
-  userId: string,
-): Promise<boolean> {
+export async function toggleFavorite(dashboardId: string, userId: string): Promise<boolean> {
   const existing = await db
     .select()
     .from(dashboardFavorites)
     .where(
-      and(
-        eq(dashboardFavorites.userId, userId),
-        eq(dashboardFavorites.dashboardId, dashboardId),
-      ),
+      and(eq(dashboardFavorites.userId, userId), eq(dashboardFavorites.dashboardId, dashboardId)),
     )
     .get();
 

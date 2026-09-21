@@ -30,13 +30,7 @@ describe("AuditRedactionService", () => {
   const awsKeyPrefix = "\u0041\u004b\u0049\u0041";
   const pemDashes = "-".repeat(5);
   const rsaPrivateKeyHeader =
-    pemDashes +
-    "BEGIN " +
-    "RSA " +
-    ("PRI" + "VATE") +
-    " " +
-    ("KE" + "Y") +
-    pemDashes;
+    pemDashes + "BEGIN " + "RSA " + ("PRI" + "VATE") + " " + ("KE" + "Y") + pemDashes;
 
   describe("redact", () => {
     test("returns null/undefined unchanged", () => {
@@ -178,8 +172,7 @@ describe("AuditRedactionService", () => {
   describe("API key masking", () => {
     test("masks apiKey field", () => {
       const data: Record<string, unknown> = {
-        [apiKeyField]:
-          "test" + "_" + "fake" + "_" + ("ke" + "y") + "_" + "abcdef" + "12345",
+        [apiKeyField]: "test" + "_" + "fake" + "_" + ("ke" + "y") + "_" + "abcdef" + "12345",
       };
       const result = service.redact(data) as Record<string, unknown>;
       expect(result[apiKeyField]).toBe("test_***345");
@@ -187,8 +180,7 @@ describe("AuditRedactionService", () => {
 
     test("masks api_key field", () => {
       const data: Record<string, unknown> = {
-        [apiKeySnakeField]:
-          "fake" + "_" + ("ke" + "y") + "_" + "xyz" + "987654321" + "abc",
+        [apiKeySnakeField]: "fake" + "_" + ("ke" + "y") + "_" + "xyz" + "987654321" + "abc",
       };
       const result = service.redact(data) as Record<string, unknown>;
       expect(result[apiKeySnakeField]).toBe("fake_***abc");
@@ -271,10 +263,7 @@ describe("AuditRedactionService", () => {
 
     test("redacts api_key= patterns in strings", () => {
       const data =
-        "Config: " +
-        apiKeySnakeField +
-        "=" +
-        ("abc123" + "def456" + "ghi789" + "jkl012");
+        "Config: " + apiKeySnakeField + "=" + ("abc123" + "def456" + "ghi789" + "jkl012");
       const result = service.redact(data);
       expect(result).toContain("[REDACTED]");
     });
@@ -354,10 +343,7 @@ describe("AuditRedactionService", () => {
     });
 
     test("processes arrays of objects", () => {
-      const data = [
-        { [passwordField]: "se" + "cret1" },
-        { [passwordField]: "se" + "cret2" },
-      ];
+      const data = [{ [passwordField]: "se" + "cret1" }, { [passwordField]: "se" + "cret2" }];
       const result = service.redact(data) as Array<Record<string, unknown>>;
       expect(result[0]?.[passwordField]).toBe("[REMOVED]");
       expect(result[1]?.[passwordField]).toBe("[REMOVED]");
@@ -455,9 +441,7 @@ describe("Convenience functions", () => {
   });
 
   test("containsSensitiveData works", () => {
-    expect(
-      containsSensitiveData({ [("pass" + "word") as string]: "se" + "cret" }),
-    ).toBe(true);
+    expect(containsSensitiveData({ [("pass" + "word") as string]: "se" + "cret" })).toBe(true);
     expect(containsSensitiveData({ name: "John" })).toBe(false);
   });
 });

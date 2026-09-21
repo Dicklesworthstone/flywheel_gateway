@@ -3,10 +3,7 @@
  */
 
 import { afterAll, describe, expect, it, mock } from "bun:test";
-import {
-  restoreBvService,
-  restoreCassService,
-} from "./test-utils/db-mock-restore";
+import { restoreBvService, restoreCassService } from "./test-utils/db-mock-restore";
 
 // Mock BV service to avoid spawning external commands
 mock.module("../services/bv.service", () => ({
@@ -108,18 +105,10 @@ describe("Token Budget Allocation", () => {
       const totalTokens = 100000;
       const breakdown = allocateBudget(totalTokens, DEFAULT_BUDGET_STRATEGY);
 
-      expect(breakdown.triage).toBeGreaterThanOrEqual(
-        DEFAULT_BUDGET_STRATEGY.minimums.triage,
-      );
-      expect(breakdown.memory).toBeGreaterThanOrEqual(
-        DEFAULT_BUDGET_STRATEGY.minimums.memory,
-      );
-      expect(breakdown.search).toBeGreaterThanOrEqual(
-        DEFAULT_BUDGET_STRATEGY.minimums.search,
-      );
-      expect(breakdown.history).toBeGreaterThanOrEqual(
-        DEFAULT_BUDGET_STRATEGY.minimums.history,
-      );
+      expect(breakdown.triage).toBeGreaterThanOrEqual(DEFAULT_BUDGET_STRATEGY.minimums.triage);
+      expect(breakdown.memory).toBeGreaterThanOrEqual(DEFAULT_BUDGET_STRATEGY.minimums.memory);
+      expect(breakdown.search).toBeGreaterThanOrEqual(DEFAULT_BUDGET_STRATEGY.minimums.search);
+      expect(breakdown.history).toBeGreaterThanOrEqual(DEFAULT_BUDGET_STRATEGY.minimums.history);
     });
 
     it("should never exceed total budget", () => {

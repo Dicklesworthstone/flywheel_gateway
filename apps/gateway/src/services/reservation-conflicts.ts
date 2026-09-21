@@ -242,8 +242,7 @@ export class ReservationConflictEngine {
    * @param reservation - The reservation to register
    */
   registerReservation(reservation: Reservation): void {
-    const projectReservations =
-      this.reservations.get(reservation.projectId) || [];
+    const projectReservations = this.reservations.get(reservation.projectId) || [];
     projectReservations.push(reservation);
     this.reservations.set(reservation.projectId, projectReservations);
   }
@@ -374,10 +373,7 @@ export class ReservationConflictEngine {
     }
 
     // Suggest narrowing patterns if possible
-    const narrowed = this.suggestNarrowerPatterns(
-      requestedPatterns,
-      existing.patterns,
-    );
+    const narrowed = this.suggestNarrowerPatterns(requestedPatterns, existing.patterns);
     if (narrowed.length > 0) {
       resolutions.push({
         type: "narrow",
@@ -409,10 +405,7 @@ export class ReservationConflictEngine {
   /**
    * Suggest narrower patterns that don't overlap with existing ones.
    */
-  private suggestNarrowerPatterns(
-    requested: string[],
-    existing: string[],
-  ): string[] {
+  private suggestNarrowerPatterns(requested: string[], existing: string[]): string[] {
     const suggestions: string[] = [];
 
     for (const pattern of requested) {
@@ -420,10 +413,7 @@ export class ReservationConflictEngine {
       if (pattern.includes("**")) {
         // Suggest removing ** and being more specific
         const withoutGlobstar = pattern.replace(/\*\*\/?/g, "");
-        if (
-          withoutGlobstar &&
-          !existing.some((e) => patternsOverlap(withoutGlobstar, e))
-        ) {
+        if (withoutGlobstar && !existing.some((e) => patternsOverlap(withoutGlobstar, e))) {
           suggestions.push(withoutGlobstar);
         }
       }

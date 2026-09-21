@@ -48,9 +48,7 @@ describe("Handoff Context Service", () => {
         ],
         filesCreated: ["src/new.ts"],
         filesDeleted: ["src/old.ts"],
-        uncommittedChanges: [
-          { path: "src/test.ts", diff: "+line", reason: "Feature" },
-        ],
+        uncommittedChanges: [{ path: "src/test.ts", diff: "+line", reason: "Feature" }],
         decisionsMade: [
           {
             timestamp: new Date(),
@@ -116,21 +114,11 @@ describe("Handoff Context Service", () => {
         },
       });
 
-      expect(context.environmentSnapshot.envVars["NODE_ENV"]).toBe(
-        "development",
-      );
-      expect(context.environmentSnapshot.envVars[apiKeyName]).toBe(
-        "[REDACTED]",
-      );
-      expect(context.environmentSnapshot.envVars[dbPasswordName]).toBe(
-        "[REDACTED]",
-      );
-      expect(context.environmentSnapshot.envVars[authTokenName]).toBe(
-        "[REDACTED]",
-      );
-      expect(context.environmentSnapshot.envVars["NORMAL_VAR"]).toBe(
-        "normal-value",
-      );
+      expect(context.environmentSnapshot.envVars["NODE_ENV"]).toBe("development");
+      expect(context.environmentSnapshot.envVars[apiKeyName]).toBe("[REDACTED]");
+      expect(context.environmentSnapshot.envVars[dbPasswordName]).toBe("[REDACTED]");
+      expect(context.environmentSnapshot.envVars[authTokenName]).toBe("[REDACTED]");
+      expect(context.environmentSnapshot.envVars["NORMAL_VAR"]).toBe("normal-value");
     });
 
     test("should trim decisions list if too many", () => {
@@ -158,8 +146,7 @@ describe("Handoff Context Service", () => {
           { role: "user", content: "Please implement feature X" },
           {
             role: "assistant",
-            content:
-              "I will implement feature X with the following approach...",
+            content: "I will implement feature X with the following approach...",
           },
           { role: "user", content: "Make sure to add tests" },
           {
@@ -179,9 +166,7 @@ describe("Handoff Context Service", () => {
       const { context } = buildContext({
         agentId: "agent-1",
         taskDescription: "Test task",
-        conversationHistory: [
-          { role: "user", content: "Summary conversation" },
-        ],
+        conversationHistory: [{ role: "user", content: "Summary conversation" }],
         decisionsMade: [
           {
             timestamp: new Date(),
@@ -388,10 +373,7 @@ index 111222..333444 100644
 
   describe("createMinimalContext", () => {
     test("should create a minimal valid context", () => {
-      const context = createMinimalContext(
-        "Quick task",
-        "Brief summary of work done",
-      );
+      const context = createMinimalContext("Quick task", "Brief summary of work done");
 
       expect(context.taskDescription).toBe("Quick task");
       expect(context.conversationSummary).toBe("Brief summary of work done");

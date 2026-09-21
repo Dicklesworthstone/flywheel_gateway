@@ -79,9 +79,7 @@ function escapeRegExp(value: string): string {
 
 function matchesChannelPattern(pattern: string, channel: string): boolean {
   if (!pattern.includes("*")) return pattern === channel;
-  const regex = new RegExp(
-    `^${pattern.split("*").map(escapeRegExp).join(".*")}$`,
-  );
+  const regex = new RegExp(`^${pattern.split("*").map(escapeRegExp).join(".*")}$`);
   return regex.test(channel);
 }
 
@@ -104,9 +102,7 @@ const CHANNEL_CONFIG_CACHE_TTL_MS = isTestEnvironment() ? 0 : 5000;
 let cachedChannelConfigs: (typeof wsChannelConfig.$inferSelect)[] | undefined;
 let cachedChannelConfigsAt = 0;
 
-async function getChannelConfigs(): Promise<
-  (typeof wsChannelConfig.$inferSelect)[]
-> {
+async function getChannelConfigs(): Promise<(typeof wsChannelConfig.$inferSelect)[]> {
   if (CHANNEL_CONFIG_CACHE_TTL_MS > 0) {
     const ageMs = Date.now() - cachedChannelConfigsAt;
     if (cachedChannelConfigs && ageMs < CHANNEL_CONFIG_CACHE_TTL_MS) {
@@ -135,9 +131,7 @@ function getDefaultConfigForChannel(channel: string): ResolvedChannelConfig {
   return { ...DEFAULT_CONFIG, retentionMs, maxEvents };
 }
 
-async function resolveChannelConfig(
-  channel: string,
-): Promise<ResolvedChannelConfig> {
+async function resolveChannelConfig(channel: string): Promise<ResolvedChannelConfig> {
   const configs = await getChannelConfigs();
 
   let best: typeof wsChannelConfig.$inferSelect | undefined;
@@ -215,9 +209,7 @@ export async function persistEvent(event: PersistableEvent): Promise<boolean> {
 
   const createdAt = new Date(cursorData.timestamp);
   const expiresAt =
-    config.retentionMs > 0
-      ? new Date(createdAt.getTime() + config.retentionMs)
-      : null;
+    config.retentionMs > 0 ? new Date(createdAt.getTime() + config.retentionMs) : null;
 
   try {
     await db
@@ -244,17 +236,12 @@ export async function persistEvent(event: PersistableEvent): Promise<boolean> {
       .onConflictDoNothing();
     return true;
   } catch (error) {
-    logger.warn(
-      { channel: event.channel, error },
-      "ws_event_log: persist failed",
-    );
+    logger.warn({ channel: event.channel, error }, "ws_event_log: persist failed");
     return false;
   }
 }
 
-export async function persistEventBatch(
-  events: PersistableEvent[],
-): Promise<number> {
+export async function persistEventBatch(events: PersistableEvent[]): Promise<number> {
   if (!isEnabled()) return 0;
   if (events.length === 0) return 0;
 
@@ -294,10 +281,7 @@ function isRateLimited(connectionId: string, maxPerMinute: number): boolean {
   return false;
 }
 
-export async function replayEvents(
-  request: ReplayRequest,
-  limit = 100,
-): Promise<ReplayResult> {
+export async function replayEvents(request: ReplayRequest, limit = 100): Promise<ReplayResult> {
   const startedAt = Date.now();
   const safeLimit = Math.max(1, Math.min(limit, 1000));
 
@@ -346,12 +330,7 @@ export async function replayEvents(
       const exists = await db
         .select({ id: wsEventLog.id })
         .from(wsEventLog)
-        .where(
-          and(
-            eq(wsEventLog.channel, request.channel),
-            eq(wsEventLog.cursor, fromCursor),
-          ),
-        )
+        .where(and(eq(wsEventLog.channel, request.channel), eq(wsEventLog.cursor, fromCursor)))
         .limit(1);
       if (exists.length === 0) {
         cursorExpired = true;
@@ -501,9 +480,7 @@ export async function trimChannelEvents(channel: string): Promise<number> {
 }
 
 export async function getStats(): Promise<WsEventLogStats> {
-  const totalRows = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(wsEventLog);
+  const totalRows = await db.select({ count: sql<number>`count(*)` }).from(wsEventLog);
   const totalEvents = totalRows[0]?.count ?? 0;
 
   const eventsByChannel: Record<string, number> = {};

@@ -59,17 +59,11 @@ function broadcastStateChange(event: StateChangeEvent): void {
   for (const ws of connections) {
     const data = ws.data;
     // Send if subscribed to this agent or subscribed to all
-    if (
-      data.subscriptions.size === 0 ||
-      data.subscriptions.has(event.agentId)
-    ) {
+    if (data.subscriptions.size === 0 || data.subscriptions.has(event.agentId)) {
       try {
         ws.send(message);
       } catch (error) {
-        logger.warn(
-          { connectionId: data.connectionId, error },
-          "Failed to send WebSocket message",
-        );
+        logger.warn({ connectionId: data.connectionId, error }, "Failed to send WebSocket message");
       }
     }
   }
@@ -94,10 +88,7 @@ function generateConnectionId(): string {
 export function handleWSOpen(ws: ServerWebSocket<WSData>): void {
   ensureListenerRegistered();
   connections.add(ws);
-  logger.info(
-    { connectionId: ws.data.connectionId },
-    "WebSocket client connected",
-  );
+  logger.info({ connectionId: ws.data.connectionId }, "WebSocket client connected");
 
   // Send welcome message
   ws.send(
@@ -113,10 +104,7 @@ export function handleWSOpen(ws: ServerWebSocket<WSData>): void {
  * Handle WebSocket message event.
  * Clients can send subscription commands.
  */
-export function handleWSMessage(
-  ws: ServerWebSocket<WSData>,
-  message: string | Buffer,
-): void {
+export function handleWSMessage(ws: ServerWebSocket<WSData>, message: string | Buffer): void {
   try {
     const data = typeof message === "string" ? message : message.toString();
     const parsed = JSON.parse(data) as {
@@ -128,8 +116,7 @@ export function handleWSMessage(
     switch (parsed.type) {
       case "subscribe": {
         // Subscribe to specific agent(s)
-        const agentIds =
-          parsed.agentIds ?? (parsed.agentId ? [parsed.agentId] : []);
+        const agentIds = parsed.agentIds ?? (parsed.agentId ? [parsed.agentId] : []);
         for (const id of agentIds) {
           ws.data.subscriptions.add(id);
         }
@@ -149,8 +136,7 @@ export function handleWSMessage(
 
       case "unsubscribe": {
         // Unsubscribe from specific agent(s)
-        const agentIds =
-          parsed.agentIds ?? (parsed.agentId ? [parsed.agentId] : []);
+        const agentIds = parsed.agentIds ?? (parsed.agentId ? [parsed.agentId] : []);
         for (const id of agentIds) {
           ws.data.subscriptions.delete(id);
         }
@@ -177,10 +163,7 @@ export function handleWSMessage(
             timestamp: new Date().toISOString(),
           }),
         );
-        logger.debug(
-          { connectionId: ws.data.connectionId },
-          "WebSocket subscribed to all agents",
-        );
+        logger.debug({ connectionId: ws.data.connectionId }, "WebSocket subscribed to all agents");
         break;
       }
 
@@ -204,10 +187,7 @@ export function handleWSMessage(
         );
     }
   } catch (error) {
-    logger.warn(
-      { connectionId: ws.data.connectionId, error },
-      "Invalid WebSocket message",
-    );
+    logger.warn({ connectionId: ws.data.connectionId, error }, "Invalid WebSocket message");
     ws.send(
       JSON.stringify({
         type: "error",
@@ -223,20 +203,14 @@ export function handleWSMessage(
  */
 export function handleWSClose(ws: ServerWebSocket<WSData>): void {
   connections.delete(ws);
-  logger.info(
-    { connectionId: ws.data.connectionId },
-    "WebSocket client disconnected",
-  );
+  logger.info({ connectionId: ws.data.connectionId }, "WebSocket client disconnected");
 }
 
 /**
  * Handle WebSocket error event.
  */
 export function handleWSError(ws: ServerWebSocket<WSData>, error: Error): void {
-  logger.error(
-    { connectionId: ws.data.connectionId, error },
-    "WebSocket error",
-  );
+  logger.error({ connectionId: ws.data.connectionId, error }, "WebSocket error");
   connections.delete(ws);
 }
 

@@ -171,9 +171,7 @@ export const LATENCY_BUCKETS = [
 /**
  * Standard histogram bucket boundaries for size metrics.
  */
-export const SIZE_BUCKETS = [
-  100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000,
-] as const;
+export const SIZE_BUCKETS = [100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000] as const;
 
 /**
  * Core metric definitions for Flywheel Gateway.

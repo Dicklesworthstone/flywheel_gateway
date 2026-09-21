@@ -38,9 +38,7 @@ describe("mapNtmStateToLifecycle", () => {
     });
 
     test("tool_calling maps to EXECUTING", () => {
-      expect(mapNtmStateToLifecycle("tool_calling")).toBe(
-        LifecycleState.EXECUTING,
-      );
+      expect(mapNtmStateToLifecycle("tool_calling")).toBe(LifecycleState.EXECUTING);
     });
 
     test("error maps to FAILED", () => {
@@ -70,11 +68,7 @@ describe("mapNtmStateToLifecycle", () => {
 
   describe("state mapping consistency", () => {
     test("all working-related states map to EXECUTING", () => {
-      const workingStates: NtmAgentState[] = [
-        "working",
-        "thinking",
-        "tool_calling",
-      ];
+      const workingStates: NtmAgentState[] = ["working", "thinking", "tool_calling"];
       for (const state of workingStates) {
         expect(mapNtmStateToLifecycle(state)).toBe(LifecycleState.EXECUTING);
       }
@@ -109,9 +103,9 @@ describe("mapNtmHealthToLifecycle", () => {
     });
 
     test("unhealthy with EXECUTING state triggers FAILED", () => {
-      expect(
-        mapNtmHealthToLifecycle("unhealthy", LifecycleState.EXECUTING),
-      ).toBe(LifecycleState.FAILED);
+      expect(mapNtmHealthToLifecycle("unhealthy", LifecycleState.EXECUTING)).toBe(
+        LifecycleState.FAILED,
+      );
     });
 
     test("unhealthy with PAUSED state triggers FAILED", () => {
@@ -127,46 +121,28 @@ describe("mapNtmHealthToLifecycle", () => {
     });
 
     test("unhealthy with already FAILED state returns null (no change)", () => {
-      expect(mapNtmHealthToLifecycle("unhealthy", LifecycleState.FAILED)).toBe(
-        null,
-      );
+      expect(mapNtmHealthToLifecycle("unhealthy", LifecycleState.FAILED)).toBe(null);
     });
   });
 
   describe("healthy and degraded dont trigger changes", () => {
     test("healthy returns null regardless of current state", () => {
-      expect(
-        mapNtmHealthToLifecycle("healthy", LifecycleState.READY),
-      ).toBeNull();
-      expect(
-        mapNtmHealthToLifecycle("healthy", LifecycleState.EXECUTING),
-      ).toBeNull();
-      expect(
-        mapNtmHealthToLifecycle("healthy", LifecycleState.FAILED),
-      ).toBeNull();
+      expect(mapNtmHealthToLifecycle("healthy", LifecycleState.READY)).toBeNull();
+      expect(mapNtmHealthToLifecycle("healthy", LifecycleState.EXECUTING)).toBeNull();
+      expect(mapNtmHealthToLifecycle("healthy", LifecycleState.FAILED)).toBeNull();
       expect(mapNtmHealthToLifecycle("healthy", undefined)).toBeNull();
     });
 
     test("degraded returns null regardless of current state", () => {
-      expect(
-        mapNtmHealthToLifecycle("degraded", LifecycleState.READY),
-      ).toBeNull();
-      expect(
-        mapNtmHealthToLifecycle("degraded", LifecycleState.EXECUTING),
-      ).toBeNull();
-      expect(
-        mapNtmHealthToLifecycle("degraded", LifecycleState.FAILED),
-      ).toBeNull();
+      expect(mapNtmHealthToLifecycle("degraded", LifecycleState.READY)).toBeNull();
+      expect(mapNtmHealthToLifecycle("degraded", LifecycleState.EXECUTING)).toBeNull();
+      expect(mapNtmHealthToLifecycle("degraded", LifecycleState.FAILED)).toBeNull();
       expect(mapNtmHealthToLifecycle("degraded", undefined)).toBeNull();
     });
   });
 
   describe("all health statuses", () => {
-    const healthStatuses: NtmHealthStatus[] = [
-      "healthy",
-      "degraded",
-      "unhealthy",
-    ];
+    const healthStatuses: NtmHealthStatus[] = ["healthy", "degraded", "unhealthy"];
 
     test("all health statuses are handled", () => {
       for (const health of healthStatuses) {
@@ -278,9 +254,9 @@ describe("State transition scenarios", () => {
     });
 
     test("unhealthy health -> FAILED", () => {
-      expect(
-        mapNtmHealthToLifecycle("unhealthy", LifecycleState.EXECUTING),
-      ).toBe(LifecycleState.FAILED);
+      expect(mapNtmHealthToLifecycle("unhealthy", LifecycleState.EXECUTING)).toBe(
+        LifecycleState.FAILED,
+      );
     });
 
     test("stalled -> PAUSED to allow recovery", () => {
@@ -290,26 +266,17 @@ describe("State transition scenarios", () => {
 
   describe("warning scenarios (no state change)", () => {
     test("rate_limited does not change state", () => {
-      const result = mapNtmStateToLifecycle(
-        "rate_limited",
-        LifecycleState.EXECUTING,
-      );
+      const result = mapNtmStateToLifecycle("rate_limited", LifecycleState.EXECUTING);
       expect(result).toBeNull();
     });
 
     test("context_low does not change state", () => {
-      const result = mapNtmStateToLifecycle(
-        "context_low",
-        LifecycleState.EXECUTING,
-      );
+      const result = mapNtmStateToLifecycle("context_low", LifecycleState.EXECUTING);
       expect(result).toBeNull();
     });
 
     test("degraded health does not change state", () => {
-      const result = mapNtmHealthToLifecycle(
-        "degraded",
-        LifecycleState.EXECUTING,
-      );
+      const result = mapNtmHealthToLifecycle("degraded", LifecycleState.EXECUTING);
       expect(result).toBeNull();
     });
   });

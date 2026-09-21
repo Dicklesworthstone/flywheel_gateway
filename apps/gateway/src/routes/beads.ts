@@ -9,26 +9,15 @@ import {
   BvClientError,
 } from "@flywheel/flywheel-clients";
 import type { GatewayError } from "@flywheel/shared/errors";
-import {
-  createGatewayError,
-  serializeGatewayError,
-  toGatewayError,
-} from "@flywheel/shared/errors";
+import { createGatewayError, serializeGatewayError, toGatewayError } from "@flywheel/shared/errors";
 import { type Context, Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
 import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
-import {
-  type BeadsService,
-  createBeadsService,
-} from "../services/beads.service";
+import { type BeadsService, createBeadsService } from "../services/beads.service";
 import { beadLinks, beadThreadingHints, getLinkContext } from "../utils/links";
-import {
-  sendError,
-  sendResource,
-  sendValidationError,
-} from "../utils/response";
+import { sendError, sendResource, sendValidationError } from "../utils/response";
 import { transformZodError } from "../utils/validation";
 
 // ============================================================================
@@ -144,16 +133,10 @@ function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
 function respondWithGatewayError(c: Context, error: GatewayError) {
   const timestamp = new Date().toISOString();
   const payload = serializeGatewayError(error);
-  return sendError(
-    c,
-    payload.code,
-    payload.message,
-    payload.httpStatus as ContentfulStatusCode,
-    {
-      ...(payload.details && { details: payload.details }),
-      timestamp,
-    },
-  );
+  return sendError(c, payload.code, payload.message, payload.httpStatus as ContentfulStatusCode, {
+    ...(payload.details && { details: payload.details }),
+    timestamp,
+  });
 }
 
 function handleError(error: unknown, c: Context) {
@@ -164,26 +147,18 @@ function handleError(error: unknown, c: Context) {
   }
 
   if (error instanceof BvClientError) {
-    const mapped = createGatewayError(
-      "SYSTEM_UNAVAILABLE",
-      "BV command failed",
-      {
-        details: { kind: error.kind, ...error.details },
-        cause: error,
-      },
-    );
+    const mapped = createGatewayError("SYSTEM_UNAVAILABLE", "BV command failed", {
+      details: { kind: error.kind, ...error.details },
+      cause: error,
+    });
     return respondWithGatewayError(c, mapped);
   }
 
   if (error instanceof BrClientError) {
-    const mapped = createGatewayError(
-      "SYSTEM_UNAVAILABLE",
-      "BR command failed",
-      {
-        details: { kind: error.kind, ...error.details },
-        cause: error,
-      },
-    );
+    const mapped = createGatewayError("SYSTEM_UNAVAILABLE", "BR command failed", {
+      details: { kind: error.kind, ...error.details },
+      cause: error,
+    });
     return respondWithGatewayError(c, mapped);
   }
 
@@ -369,11 +344,7 @@ function createBeadsRoutes(service?: BeadsService) {
   router.get("/graph", async (c) => {
     try {
       const serviceInstance = c.get("beadsService");
-      const format = c.req.query("format") as
-        | "json"
-        | "dot"
-        | "mermaid"
-        | undefined;
+      const format = c.req.query("format") as "json" | "dot" | "mermaid" | undefined;
       const rootId = c.req.query("rootId");
       const depthStr = c.req.query("depth");
       const depth = depthStr ? Number.parseInt(depthStr, 10) : undefined;
@@ -488,10 +459,7 @@ function createBeadsRoutes(service?: BeadsService) {
       const overdue = c.req.query("overdue") === "true";
 
       // Validate sort parameter
-      if (
-        sort &&
-        !["priority", "created_at", "updated_at", "title"].includes(sort)
-      ) {
+      if (sort && !["priority", "created_at", "updated_at", "title"].includes(sort)) {
         log.warn({ sort }, "Invalid sort parameter, ignoring");
       }
 
@@ -514,10 +482,7 @@ function createBeadsRoutes(service?: BeadsService) {
       if (priorityMinStr) {
         const pm = Number.parseInt(priorityMinStr, 10);
         if (Number.isNaN(pm) || pm < 0 || pm > 4) {
-          log.warn(
-            { priorityMin: priorityMinStr },
-            "Invalid priorityMin value, ignoring",
-          );
+          log.warn({ priorityMin: priorityMinStr }, "Invalid priorityMin value, ignoring");
         } else {
           priorityMin = pm;
         }
@@ -525,10 +490,7 @@ function createBeadsRoutes(service?: BeadsService) {
       if (priorityMaxStr) {
         const pm = Number.parseInt(priorityMaxStr, 10);
         if (Number.isNaN(pm) || pm < 0 || pm > 4) {
-          log.warn(
-            { priorityMax: priorityMaxStr },
-            "Invalid priorityMax value, ignoring",
-          );
+          log.warn({ priorityMax: priorityMaxStr }, "Invalid priorityMax value, ignoring");
         } else {
           priorityMax = pm;
         }
@@ -551,10 +513,7 @@ function createBeadsRoutes(service?: BeadsService) {
       if (notesContains) options.notesContains = notesContains;
       if (all) options.all = true;
       if (limit !== undefined) options.limit = limit;
-      if (
-        sort &&
-        ["priority", "created_at", "updated_at", "title"].includes(sort)
-      ) {
+      if (sort && ["priority", "created_at", "updated_at", "title"].includes(sort)) {
         options.sort = sort;
       }
       if (reverse) options.reverse = true;
@@ -598,11 +557,7 @@ function createBeadsRoutes(service?: BeadsService) {
       const unassigned = c.req.query("unassigned") === "true";
       const labels = c.req.queries("label");
       const limit = parseLimit(c.req.query("limit"));
-      const sort = c.req.query("sort") as
-        | "hybrid"
-        | "priority"
-        | "oldest"
-        | undefined;
+      const sort = c.req.query("sort") as "hybrid" | "priority" | "oldest" | undefined;
 
       const options: Parameters<typeof serviceInstance.ready>[0] = {};
       if (assignee) options.assignee = assignee;
@@ -658,10 +613,7 @@ function createBeadsRoutes(service?: BeadsService) {
 
       const beads = await serviceInstance.show(id);
       if (beads.length === 0) {
-        const mapped = createGatewayError(
-          "BEAD_NOT_FOUND",
-          `Bead not found: ${id}`,
-        );
+        const mapped = createGatewayError("BEAD_NOT_FOUND", `Bead not found: ${id}`);
         return respondWithGatewayError(c, mapped);
       }
 
@@ -692,9 +644,7 @@ function createBeadsRoutes(service?: BeadsService) {
       const parsed = CreateBeadSchema.parse(body);
 
       // Strip undefined values and cast to satisfy exactOptionalPropertyTypes
-      const bead = await serviceInstance.create(
-        stripUndefined(parsed) as BrCreateInput,
-      );
+      const bead = await serviceInstance.create(stripUndefined(parsed) as BrCreateInput);
 
       const ctx = getLinkContext(c);
       return sendResource(
@@ -727,15 +677,9 @@ function createBeadsRoutes(service?: BeadsService) {
       const parsed = UpdateBeadSchema.parse(body);
 
       // Strip undefined values and cast to satisfy exactOptionalPropertyTypes
-      const beads = await serviceInstance.update(
-        id,
-        stripUndefined(parsed) as BrUpdateInput,
-      );
+      const beads = await serviceInstance.update(id, stripUndefined(parsed) as BrUpdateInput);
       if (beads.length === 0) {
-        const mapped = createGatewayError(
-          "BEAD_NOT_FOUND",
-          `Bead not found: ${id}`,
-        );
+        const mapped = createGatewayError("BEAD_NOT_FOUND", `Bead not found: ${id}`);
         return respondWithGatewayError(c, mapped);
       }
 
@@ -772,10 +716,7 @@ function createBeadsRoutes(service?: BeadsService) {
 
       const beads = await serviceInstance.close(id, options);
       if (beads.length === 0) {
-        const mapped = createGatewayError(
-          "BEAD_NOT_FOUND",
-          `Bead not found: ${id}`,
-        );
+        const mapped = createGatewayError("BEAD_NOT_FOUND", `Bead not found: ${id}`);
         return respondWithGatewayError(c, mapped);
       }
 
@@ -812,10 +753,7 @@ function createBeadsRoutes(service?: BeadsService) {
 
       const beads = await serviceInstance.close(id, options);
       if (beads.length === 0) {
-        const mapped = createGatewayError(
-          "BEAD_NOT_FOUND",
-          `Bead not found: ${id}`,
-        );
+        const mapped = createGatewayError("BEAD_NOT_FOUND", `Bead not found: ${id}`);
         return respondWithGatewayError(c, mapped);
       }
 
@@ -846,10 +784,7 @@ function createBeadsRoutes(service?: BeadsService) {
 
       const beads = await serviceInstance.update(id, { claim: true });
       if (beads.length === 0) {
-        const mapped = createGatewayError(
-          "BEAD_NOT_FOUND",
-          `Bead not found: ${id}`,
-        );
+        const mapped = createGatewayError("BEAD_NOT_FOUND", `Bead not found: ${id}`);
         return respondWithGatewayError(c, mapped);
       }
 

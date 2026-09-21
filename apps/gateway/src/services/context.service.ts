@@ -23,11 +23,7 @@ import {
   type TruncationRecord,
 } from "../types/context.types";
 import { getBvTriage } from "./bv.service";
-import {
-  type CassSearchHit,
-  isCassAvailable,
-  searchWithTokenBudget,
-} from "./cass.service";
+import { type CassSearchHit, isCassAvailable, searchWithTokenBudget } from "./cass.service";
 import {
   allocateBudget,
   createStrategy,
@@ -49,10 +45,7 @@ Follow the guidelines in AGENTS.md and use structured logging patterns.
 Prioritize correctness, maintainability, and clear communication.`;
 
   const tokens = countTokens(systemPrompt);
-  const content =
-    tokens > tokenBudget
-      ? truncateToTokens(systemPrompt, tokenBudget)
-      : systemPrompt;
+  const content = tokens > tokenBudget ? truncateToTokens(systemPrompt, tokenBudget) : systemPrompt;
 
   return {
     content,
@@ -86,15 +79,10 @@ async function buildTriageSection(
     recommendations = triage.triage.recommendations ?? [];
     dataHash = triage.data_hash;
   } catch (error) {
-    log.warn(
-      { error },
-      "BV triage unavailable; returning empty triage section",
-    );
+    log.warn({ error }, "BV triage unavailable; returning empty triage section");
   }
 
-  const filtered = recommendations
-    .filter((rec) => rec.score >= minScore)
-    .slice(0, maxBeads);
+  const filtered = recommendations.filter((rec) => rec.score >= minScore).slice(0, maxBeads);
 
   const beads: TriagedBead[] = [];
   let totalTokens = 0;
@@ -123,21 +111,15 @@ async function buildTriageSection(
   }
 
   const topScore =
-    recommendations.length > 0
-      ? Math.max(...recommendations.map((rec) => rec.score))
-      : 0;
+    recommendations.length > 0 ? Math.max(...recommendations.map((rec) => rec.score)) : 0;
   const avgScore =
-    beads.length > 0
-      ? beads.reduce((sum, bead) => sum + bead.score, 0) / beads.length
-      : 0;
+    beads.length > 0 ? beads.reduce((sum, bead) => sum + bead.score, 0) / beads.length : 0;
 
   const section: TriageSection = {
     beads,
     totalTokens,
     truncated:
-      truncated ||
-      beads.length < filtered.length ||
-      recommendations.length > filtered.length,
+      truncated || beads.length < filtered.length || recommendations.length > filtered.length,
     metadata: {
       totalAvailable: recommendations.length,
       included: beads.length,
@@ -252,10 +234,7 @@ async function buildSearchSection(
   const cassAvailable = await isCassAvailable();
   if (!cassAvailable) {
     section.metadata.searchTimeMs = Math.round(performance.now() - startTime);
-    log.debug(
-      { query, tokenBudget },
-      "CASS unavailable, returning empty search section",
-    );
+    log.debug({ query, tokenBudget }, "CASS unavailable, returning empty search section");
     return section;
   }
 
@@ -283,10 +262,7 @@ async function buildSearchSection(
       // Check if we can fit this result
       if (section.totalTokens + resultTokens > tokenBudget) {
         // Try truncating
-        const truncatedContent = truncateToTokens(
-          content,
-          tokenBudget - section.totalTokens,
-        );
+        const truncatedContent = truncateToTokens(content, tokenBudget - section.totalTokens);
         if (truncatedContent.length > 20) {
           const truncatedTokens = countTokens(truncatedContent);
           section.results.push({
@@ -406,9 +382,7 @@ async function buildHistorySection(
  * @param request - Context pack request
  * @returns Complete context pack
  */
-export async function buildContextPack(
-  request: ContextPackRequest,
-): Promise<ContextPack> {
+export async function buildContextPack(request: ContextPackRequest): Promise<ContextPack> {
   const log = getLogger();
   const correlationId = getCorrelationId();
   const startTime = performance.now();
@@ -421,9 +395,7 @@ export async function buildContextPack(
   );
 
   // Allocate budget - merge partial strategy with defaults
-  const strategy = request.strategy
-    ? createStrategy(request.strategy)
-    : DEFAULT_BUDGET_STRATEGY;
+  const strategy = request.strategy ? createStrategy(request.strategy) : DEFAULT_BUDGET_STRATEGY;
   const breakdown = allocateBudget(totalBudget, strategy);
 
   log.info(
@@ -439,26 +411,10 @@ export async function buildContextPack(
   // Build sections in parallel
   const [system, triage, memory, search, history] = await Promise.all([
     buildSystemSection(breakdown.system),
-    buildTriageSection(
-      request.sessionId,
-      breakdown.triage,
-      request.triageOptions,
-    ),
-    buildMemorySection(
-      request.sessionId,
-      request.taskContext,
-      breakdown.memory,
-    ),
-    buildSearchSection(
-      request.searchQuery,
-      breakdown.search,
-      request.searchOptions,
-    ),
-    buildHistorySection(
-      request.sessionId,
-      breakdown.history,
-      request.historyOptions,
-    ),
+    buildTriageSection(request.sessionId, breakdown.triage, request.triageOptions),
+    buildMemorySection(request.sessionId, request.taskContext, breakdown.memory),
+    buildSearchSection(request.searchQuery, breakdown.search, request.searchOptions),
+    buildHistorySection(request.sessionId, breakdown.history, request.historyOptions),
   ]);
 
   // Collect truncations
@@ -502,12 +458,7 @@ export async function buildContextPack(
     },
     metadata: {
       buildTimeMs,
-      sourcesQueried: [
-        "bead-valuation",
-        "collective-memory",
-        "cass",
-        "history",
-      ],
+      sourcesQueried: ["bead-valuation", "collective-memory", "cass", "history"],
       truncations,
     },
   };
@@ -532,9 +483,7 @@ export async function buildContextPack(
  * @param request - Context pack request
  * @returns Preview with estimates and warnings
  */
-export async function previewContextPack(
-  request: ContextPackRequest,
-): Promise<ContextPackPreview> {
+export async function previewContextPack(request: ContextPackRequest): Promise<ContextPackPreview> {
   const totalBudget = getModelLimit(
     request.model,
     DEFAULT_CONTEXT_BUILDER_CONFIG.modelLimits,
@@ -542,9 +491,7 @@ export async function previewContextPack(
   );
 
   // Merge partial strategy with defaults
-  const strategy = request.strategy
-    ? createStrategy(request.strategy)
-    : DEFAULT_BUDGET_STRATEGY;
+  const strategy = request.strategy ? createStrategy(request.strategy) : DEFAULT_BUDGET_STRATEGY;
   const breakdown = allocateBudget(totalBudget, strategy);
 
   const warnings: string[] = [];
@@ -552,9 +499,7 @@ export async function previewContextPack(
   // Check if budget is sufficient
   const totalAllocated = getTotalAllocated(breakdown);
   if (totalAllocated > totalBudget) {
-    warnings.push(
-      `Allocated tokens (${totalAllocated}) exceed budget (${totalBudget})`,
-    );
+    warnings.push(`Allocated tokens (${totalAllocated}) exceed budget (${totalBudget})`);
   }
 
   // Check minimum allocations
@@ -636,9 +581,7 @@ export function renderContextPack(pack: ContextPack): string {
   if (pack.sections.search.results.length > 0) {
     sections.push("### Related Information (Search)");
     for (const result of pack.sections.search.results) {
-      sections.push(
-        `- **${result.source}** (score: ${result.score.toFixed(2)})`,
-      );
+      sections.push(`- **${result.source}** (score: ${result.score.toFixed(2)})`);
       sections.push(`  ${result.content}`);
     }
     sections.push("");

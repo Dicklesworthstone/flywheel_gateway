@@ -43,9 +43,7 @@ const databaseConfigSchema = z.object({
  */
 const agentConfigSchema = z.object({
   defaultModel: z.string().default("claude-sonnet-4-20250514"),
-  defaultDriver: z
-    .enum(["sdk", "claude_code_ws", "acp", "ntm", "tmux"])
-    .default("sdk"),
+  defaultDriver: z.enum(["sdk", "claude_code_ws", "acp", "ntm", "tmux"]).default("sdk"),
   maxConcurrent: z.number().min(1).max(100).default(10),
   timeoutMs: z.number().min(1000).default(300_000), // 5 minutes
   checkpointEnabled: z.boolean().default(true),
@@ -154,30 +152,18 @@ const ntmConfigSchema = z.object({
  * Complete Flywheel configuration schema.
  */
 export const flywheelConfigSchema = z.object({
-  server: serverConfigSchema
-    .optional()
-    .transform((v) => serverConfigSchema.parse(v ?? {})),
-  database: databaseConfigSchema
-    .optional()
-    .transform((v) => databaseConfigSchema.parse(v ?? {})),
-  agent: agentConfigSchema
-    .optional()
-    .transform((v) => agentConfigSchema.parse(v ?? {})),
-  security: securityConfigSchema
-    .optional()
-    .transform((v) => securityConfigSchema.parse(v ?? {})),
+  server: serverConfigSchema.optional().transform((v) => serverConfigSchema.parse(v ?? {})),
+  database: databaseConfigSchema.optional().transform((v) => databaseConfigSchema.parse(v ?? {})),
+  agent: agentConfigSchema.optional().transform((v) => agentConfigSchema.parse(v ?? {})),
+  security: securityConfigSchema.optional().transform((v) => securityConfigSchema.parse(v ?? {})),
   websocket: websocketConfigSchema
     .optional()
     .transform((v) => websocketConfigSchema.parse(v ?? {})),
   analytics: analyticsConfigSchema
     .optional()
     .transform((v) => analyticsConfigSchema.parse(v ?? {})),
-  otel: otelConfigSchema
-    .optional()
-    .transform((v) => otelConfigSchema.parse(v ?? {})),
-  ntm: ntmConfigSchema
-    .optional()
-    .transform((v) => ntmConfigSchema.parse(v ?? {})),
+  otel: otelConfigSchema.optional().transform((v) => otelConfigSchema.parse(v ?? {})),
+  ntm: ntmConfigSchema.optional().transform((v) => ntmConfigSchema.parse(v ?? {})),
 });
 
 export type FlywheelConfig = z.infer<typeof flywheelConfigSchema>;
@@ -264,10 +250,7 @@ async function loadConfigFile(path: string): Promise<{
  * Deep merge two config objects.
  * Later values override earlier values.
  */
-function deepMerge<T extends Record<string, unknown>>(
-  base: T,
-  override: Partial<T>,
-): T {
+function deepMerge<T extends Record<string, unknown>>(base: T, override: Partial<T>): T {
   const result = { ...base };
 
   for (const key of Object.keys(override) as Array<keyof T>) {
@@ -304,9 +287,7 @@ type DeepPartial<T> = {
 /**
  * Apply environment variable overrides.
  */
-function applyEnvOverrides(
-  config: Partial<FlywheelConfig>,
-): Partial<FlywheelConfig> {
+function applyEnvOverrides(config: Partial<FlywheelConfig>): Partial<FlywheelConfig> {
   // Use DeepPartial internally since we build up partial nested objects
   const result: DeepPartial<FlywheelConfig> = { ...config };
 
@@ -318,11 +299,7 @@ function applyEnvOverrides(
     result.server = { ...result.server, host: process.env["HOST"] };
   }
   if (process.env["LOG_LEVEL"]) {
-    const level = process.env["LOG_LEVEL"] as
-      | "debug"
-      | "info"
-      | "warn"
-      | "error";
+    const level = process.env["LOG_LEVEL"] as "debug" | "info" | "warn" | "error";
     result.server = { ...result.server, logLevel: level };
   }
 
@@ -433,9 +410,7 @@ function applyEnvOverrides(
   if (process.env["OTEL_TRACES_EXPORTER"]?.trim()) {
     const raw = process.env["OTEL_TRACES_EXPORTER"].trim();
     const tracesExporter =
-      raw === "otlp-proto" || raw === "otlp-http" || raw === "none"
-        ? raw
-        : undefined;
+      raw === "otlp-proto" || raw === "otlp-http" || raw === "none" ? raw : undefined;
 
     if (tracesExporter) {
       result.otel = { ...result.otel, tracesExporter };
@@ -448,10 +423,7 @@ function applyEnvOverrides(
     // Explicit disable wins even if exporter was configured.
     if (!enabled) {
       result.otel = { ...result.otel, tracesExporter: "none" };
-    } else if (
-      result.otel?.tracesExporter === undefined ||
-      result.otel.tracesExporter === "none"
-    ) {
+    } else if (result.otel?.tracesExporter === undefined || result.otel.tracesExporter === "none") {
       // If enabled without an explicit exporter, default to OTLP/proto.
       result.otel = { ...result.otel, tracesExporter: "otlp-proto" };
     }
@@ -567,9 +539,7 @@ export async function loadConfig(
   sources.push({
     path: projectConfigPath,
     loaded: projectResult.loaded,
-    ...(projectResult.error !== undefined
-      ? { error: projectResult.error }
-      : {}),
+    ...(projectResult.error !== undefined ? { error: projectResult.error } : {}),
   });
   if (projectResult.loaded) {
     mergedConfig = deepMerge(mergedConfig, projectResult.config);
@@ -646,11 +616,7 @@ function getOverriddenKeys(config: Partial<FlywheelConfig>): string[] {
   function traverse(obj: Record<string, unknown>, prefix: string) {
     for (const [key, value] of Object.entries(obj)) {
       const path = prefix ? `${prefix}.${key}` : key;
-      if (
-        typeof value === "object" &&
-        value !== null &&
-        !Array.isArray(value)
-      ) {
+      if (typeof value === "object" && value !== null && !Array.isArray(value)) {
         traverse(value as Record<string, unknown>, path);
       } else if (value !== undefined) {
         keys.push(path);
@@ -666,4 +632,4 @@ function getOverriddenKeys(config: Partial<FlywheelConfig>): string[] {
 // Exports
 // ============================================================================
 
-export { getUserConfigDir, getUserConfigPath, getProjectConfigPath };
+export { getProjectConfigPath, getUserConfigDir, getUserConfigPath };

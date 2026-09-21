@@ -43,9 +43,7 @@ function isExemptPath(path: string): boolean {
   return AUTH_EXEMPT_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
 
-export function getBearerToken(
-  headerValue?: string | null,
-): string | undefined {
+export function getBearerToken(headerValue?: string | null): string | undefined {
   if (!headerValue) return undefined;
   const match = headerValue.match(/^Bearer\s+(.+)$/i);
   return match?.[1]?.trim();
@@ -77,10 +75,7 @@ function getApiKeyId(payload: JwtPayload): string | undefined {
   return undefined;
 }
 
-export async function verifyJwtHs256(
-  token: string,
-  secret: string,
-): Promise<VerifyResult> {
+export async function verifyJwtHs256(token: string, secret: string): Promise<VerifyResult> {
   const parts = token.split(".");
   if (parts.length !== 3) {
     return { ok: false, reason: "invalid" };
@@ -95,12 +90,8 @@ export async function verifyJwtHs256(
   let payload: JwtPayload;
 
   try {
-    header = JSON.parse(
-      Buffer.from(headerB64, "base64url").toString("utf8"),
-    ) as JwtPayload;
-    payload = JSON.parse(
-      Buffer.from(payloadB64, "base64url").toString("utf8"),
-    ) as JwtPayload;
+    header = JSON.parse(Buffer.from(headerB64, "base64url").toString("utf8")) as JwtPayload;
+    payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8")) as JwtPayload;
   } catch {
     return { ok: false, reason: "invalid" };
   }
@@ -142,10 +133,7 @@ export async function verifyJwtHs256(
   return { ok: true, payload };
 }
 
-export function buildAuthContext(
-  payload: JwtPayload,
-  isAdmin?: boolean,
-): AuthContext {
+export function buildAuthContext(payload: JwtPayload, isAdmin?: boolean): AuthContext {
   const ctx: AuthContext = {
     workspaceIds: parseWorkspaceIds(payload),
     isAdmin: isAdmin ?? payload["isAdmin"] === true,
@@ -178,12 +166,7 @@ export function authMiddleware() {
 
     const token = getBearerToken(c.req.header("Authorization"));
     if (!token) {
-      return sendError(
-        c,
-        "AUTH_TOKEN_INVALID",
-        "Authorization token required",
-        401,
-      );
+      return sendError(c, "AUTH_TOKEN_INVALID", "Authorization token required", 401);
     }
 
     if (adminKey && safeCompare(token, adminKey)) {
@@ -193,20 +176,12 @@ export function authMiddleware() {
     }
 
     if (!jwtSecret) {
-      return sendError(
-        c,
-        "AUTH_TOKEN_INVALID",
-        "Authentication token invalid",
-        401,
-      );
+      return sendError(c, "AUTH_TOKEN_INVALID", "Authentication token invalid", 401);
     }
 
     const result = await verifyJwtHs256(token, jwtSecret);
     if (!result.ok) {
-      const code =
-        result.reason === "expired"
-          ? "AUTH_TOKEN_EXPIRED"
-          : "AUTH_TOKEN_INVALID";
+      const code = result.reason === "expired" ? "AUTH_TOKEN_EXPIRED" : "AUTH_TOKEN_INVALID";
       const message =
         result.reason === "expired"
           ? "Authentication token expired"
@@ -241,21 +216,11 @@ export function requireAdminMiddleware() {
 
     const auth = c.get("auth") as AuthContext | undefined;
     if (!auth) {
-      return sendError(
-        c,
-        "AUTH_TOKEN_INVALID",
-        "Authorization token required",
-        401,
-      );
+      return sendError(c, "AUTH_TOKEN_INVALID", "Authorization token required", 401);
     }
 
     if (!auth.isAdmin) {
-      return sendError(
-        c,
-        "AUTH_INSUFFICIENT_SCOPE",
-        "Admin access required",
-        403,
-      );
+      return sendError(c, "AUTH_INSUFFICIENT_SCOPE", "Admin access required", 403);
     }
 
     await next();

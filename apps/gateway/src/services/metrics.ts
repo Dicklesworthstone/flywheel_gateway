@@ -78,11 +78,7 @@ function metricKey(name: string, labels: Labels = {}): string {
 /**
  * Increment a counter metric.
  */
-export function incrementCounter(
-  name: string,
-  value = 1,
-  labels: Labels = {},
-): void {
+export function incrementCounter(name: string, value = 1, labels: Labels = {}): void {
   const key = metricKey(name, labels);
   const current = store.counters.get(key) ?? 0;
   store.counters.set(key, current + value);
@@ -101,11 +97,7 @@ export function incrementCounter(
 /**
  * Set a gauge metric value.
  */
-export function setGauge(
-  name: string,
-  value: number,
-  labels: Labels = {},
-): void {
+export function setGauge(name: string, value: number, labels: Labels = {}): void {
   const key = metricKey(name, labels);
   store.gauges.set(key, value);
 
@@ -168,11 +160,7 @@ export function recordHistogram(
 /**
  * Record a time series data point for trend analysis.
  */
-export function recordTimeSeries(
-  name: string,
-  value: number,
-  labels: Labels = {},
-): void {
+export function recordTimeSeries(name: string, value: number, labels: Labels = {}): void {
   const key = metricKey(name, labels);
   let series = timeSeries.get(key);
 
@@ -310,17 +298,13 @@ export function getMetricsSnapshot(): MetricSnapshot {
   const p50 = latencyHist ? calculatePercentile(latencyHist, 50) : 0;
   const p95 = latencyHist ? calculatePercentile(latencyHist, 95) : 0;
   const p99 = latencyHist ? calculatePercentile(latencyHist, 99) : 0;
-  const avgLatency =
-    latencyHist && latencyHist.count > 0
-      ? latencyHist.sum / latencyHist.count
-      : 0;
+  const avgLatency = latencyHist && latencyHist.count > 0 ? latencyHist.sum / latencyHist.count : 0;
 
   const requestCount = getCounter("flywheel_http_requests_total");
   const errorCount = getCounter("flywheel_http_requests_total", {
     status: "5xx",
   });
-  const successRate =
-    requestCount > 0 ? ((requestCount - errorCount) / requestCount) * 100 : 100;
+  const successRate = requestCount > 0 ? ((requestCount - errorCount) / requestCount) * 100 : 100;
 
   // Memory and CPU
   const memoryUsage = process.memoryUsage();
@@ -478,10 +462,8 @@ export function compareMetrics(
   // Helper to add comparison
   const compare = (metric: string, baseVal: number, currVal: number) => {
     const delta = currVal - baseVal;
-    const deltaPercent =
-      baseVal !== 0 ? (delta / baseVal) * 100 : currVal !== 0 ? 100 : 0;
-    const direction =
-      deltaPercent > 5 ? "up" : deltaPercent < -5 ? "down" : "stable";
+    const deltaPercent = baseVal !== 0 ? (delta / baseVal) * 100 : currVal !== 0 ? 100 : 0;
+    const direction = deltaPercent > 5 ? "up" : deltaPercent < -5 ? "down" : "stable";
     changes.push({
       metric,
       baseline: baseVal,
@@ -504,16 +486,8 @@ export function compareMetrics(
     baseline.performance.successRate,
     current.performance.successRate,
   );
-  compare(
-    "system.memoryUsageMb",
-    baseline.system.memoryUsageMb,
-    current.system.memoryUsageMb,
-  );
-  compare(
-    "system.wsConnections",
-    baseline.system.wsConnections,
-    current.system.wsConnections,
-  );
+  compare("system.memoryUsageMb", baseline.system.memoryUsageMb, current.system.memoryUsageMb);
+  compare("system.wsConnections", baseline.system.wsConnections, current.system.wsConnections);
 
   return {
     baseline: {
@@ -557,16 +531,12 @@ export function exportPrometheusFormat(): string {
 
     for (let i = 0; i < histogram.buckets.length; i++) {
       const le = histogram.boundaries[i];
-      const bucketLabels = labels
-        ? labels.replace("}", `,le="${le}"}`)
-        : `{le="${le}"}`;
+      const bucketLabels = labels ? labels.replace("}", `,le="${le}"}`) : `{le="${le}"}`;
       lines.push(`${baseName}_bucket${bucketLabels} ${histogram.buckets[i]}`);
     }
 
     // +Inf bucket
-    const infLabels = labels
-      ? labels.replace("}", ',le="+Inf"}')
-      : '{le="+Inf"}';
+    const infLabels = labels ? labels.replace("}", ',le="+Inf"}') : '{le="+Inf"}';
     lines.push(`${baseName}_bucket${infLabels} ${histogram.count}`);
 
     // Sum and count

@@ -156,9 +156,7 @@ describe("ContextHealthService", () => {
     });
 
     test("throws error for unregistered session", async () => {
-      await expect(service.checkHealth("non-existent")).rejects.toThrow(
-        ContextHealthError,
-      );
+      await expect(service.checkHealth("non-existent")).rejects.toThrow(ContextHealthError);
     });
   });
 
@@ -190,10 +188,7 @@ describe("ContextHealthService", () => {
     test("adds messages and updates tokens", () => {
       service.registerSession("test-session");
 
-      service.addMessage(
-        "test-session",
-        createTestMessage("Hello, this is a test message."),
-      );
+      service.addMessage("test-session", createTestMessage("Hello, this is a test message."));
 
       const state = service.getSessionState("test-session");
       expect(state?.messages.length).toBe(1);
@@ -266,8 +261,7 @@ describe("ContextHealthService", () => {
         );
       }
 
-      const _beforeTokens =
-        service.getSessionState("test-session")?.currentTokens ?? 0;
+      const _beforeTokens = service.getSessionState("test-session")?.currentTokens ?? 0;
 
       const result = await service.compact("test-session");
 
@@ -305,10 +299,7 @@ describe("ContextHealthService", () => {
 
       // Add recent messages
       for (let i = 0; i < 5; i++) {
-        service.addMessage(
-          "test-session",
-          createTestMessage(`Recent message ${i}`),
-        );
+        service.addMessage("test-session", createTestMessage(`Recent message ${i}`));
       }
 
       const beforeCount = state.messages.length;
@@ -319,9 +310,7 @@ describe("ContextHealthService", () => {
     });
 
     test("throws error for non-existent session", async () => {
-      await expect(service.compact("non-existent")).rejects.toThrow(
-        SummarizationError,
-      );
+      await expect(service.compact("non-existent")).rejects.toThrow(SummarizationError);
     });
 
     test("updates lastCompaction timestamp", async () => {
@@ -344,10 +333,7 @@ describe("ContextHealthService", () => {
       service.registerSession("test-session", { maxTokens: 10000 });
 
       // Add some messages
-      service.addMessage(
-        "test-session",
-        createTestMessage("Important context"),
-      );
+      service.addMessage("test-session", createTestMessage("Important context"));
       service.addMessage("test-session", createTestMessage("More context"));
 
       const result = await service.rotate("test-session");
@@ -381,27 +367,20 @@ describe("ContextHealthService", () => {
     });
 
     test("throws error for non-existent session", async () => {
-      await expect(service.rotate("non-existent")).rejects.toThrow(
-        RotationError,
-      );
+      await expect(service.rotate("non-existent")).rejects.toThrow(RotationError);
     });
 
     test("throws error for already rotated session", async () => {
       service.registerSession("test-session");
       await service.rotate("test-session");
 
-      await expect(service.rotate("test-session")).rejects.toThrow(
-        RotationError,
-      );
+      await expect(service.rotate("test-session")).rejects.toThrow(RotationError);
     });
 
     test("includes summary in transfer", async () => {
       service.registerSession("test-session");
       for (let i = 0; i < 5; i++) {
-        service.addMessage(
-          "test-session",
-          createTestMessage(`Message ${i} with content`),
-        );
+        service.addMessage("test-session", createTestMessage(`Message ${i} with content`));
       }
 
       const result = await service.rotate("test-session");

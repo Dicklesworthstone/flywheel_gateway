@@ -173,10 +173,7 @@ async function executeRchCommand<T = unknown>(
         return JSON.parse(output.trim()) as RchResponse<T>;
       } catch {
         // If parsing fails, create an error response
-        log.error(
-          { stdout: output.slice(0, 200), stderr },
-          "Failed to parse rch output",
-        );
+        log.error({ stdout: output.slice(0, 200), stderr }, "Failed to parse rch output");
         return {
           version: "unknown",
           command: args.join(" "),
@@ -290,13 +287,9 @@ export async function getHealth(): Promise<RchHealthStatus> {
     }
 
     const passedChecks =
-      doctor.summary?.passed ??
-      doctor.checks?.filter((c) => c.status === "pass").length ??
-      0;
+      doctor.summary?.passed ?? doctor.checks?.filter((c) => c.status === "pass").length ?? 0;
     const failedChecks =
-      doctor.summary?.failed ??
-      doctor.checks?.filter((c) => c.status === "fail").length ??
-      0;
+      doctor.summary?.failed ?? doctor.checks?.filter((c) => c.status === "fail").length ?? 0;
 
     const health: RchHealthStatus = {
       available: true,
@@ -330,10 +323,7 @@ export async function getHealth(): Promise<RchHealthStatus> {
  * List configured workers.
  */
 export async function listWorkers(): Promise<RchWorker[]> {
-  const response = await executeRchCommand<{ workers: RchWorker[] }>([
-    "workers",
-    "list",
-  ]);
+  const response = await executeRchCommand<{ workers: RchWorker[] }>(["workers", "list"]);
 
   if (!response.success) {
     throw new Error(response.error ?? `rch workers list failed`);
@@ -350,10 +340,7 @@ export async function listWorkers(): Promise<RchWorker[]> {
  * List detected agents.
  */
 export async function listAgents(): Promise<RchAgent[]> {
-  const response = await executeRchCommand<{ agents: RchAgent[] }>([
-    "agents",
-    "list",
-  ]);
+  const response = await executeRchCommand<{ agents: RchAgent[] }>(["agents", "list"]);
 
   if (!response.success) {
     throw new Error(response.error ?? `rch agents list failed`);

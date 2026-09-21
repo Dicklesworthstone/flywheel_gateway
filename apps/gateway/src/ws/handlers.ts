@@ -147,10 +147,7 @@ export function handleWSOpen(ws: ServerWebSocket<ConnectionData>): void {
     span.recordException(error);
     throw err;
   } finally {
-    span.setAttribute(
-      "ws.duration_ms",
-      Math.round(performance.now() - startedAt),
-    );
+    span.setAttribute("ws.duration_ms", Math.round(performance.now() - startedAt));
     span.end();
   }
 }
@@ -177,11 +174,7 @@ export function handleWSMessage(
 
     if (!clientMsg) {
       logger.warn({ connectionId, text }, "Invalid WebSocket message format");
-      ws.send(
-        serializeServerMessage(
-          createWSError("INVALID_FORMAT", "Invalid message format"),
-        ),
-      );
+      ws.send(serializeServerMessage(createWSError("INVALID_FORMAT", "Invalid message format")));
       return;
     }
 
@@ -217,11 +210,7 @@ export function handleWSMessage(
           if (!channel) {
             ws.send(
               serializeServerMessage(
-                createWSError(
-                  "INVALID_CHANNEL",
-                  "Invalid channel format",
-                  channelStr,
-                ),
+                createWSError("INVALID_CHANNEL", "Invalid channel format", channelStr),
               ),
             );
             break;
@@ -275,11 +264,7 @@ export function handleWSMessage(
           if (!channel) {
             ws.send(
               serializeServerMessage(
-                createWSError(
-                  "INVALID_CHANNEL",
-                  "Invalid channel format",
-                  channelStr,
-                ),
+                createWSError("INVALID_CHANNEL", "Invalid channel format", channelStr),
               ),
             );
             break;
@@ -301,9 +286,10 @@ export function handleWSMessage(
             serverTime: Date.now(),
             subscriptions: Array.from(ws.data.subscriptions.keys()),
             cursors: Object.fromEntries(
-              Array.from(ws.data.subscriptions.entries()).filter(
-                ([_, v]) => v !== undefined,
-              ) as [string, string][],
+              Array.from(ws.data.subscriptions.entries()).filter(([_, v]) => v !== undefined) as [
+                string,
+                string,
+              ][],
             ),
           };
           ws.send(serializeServerMessage(pongMsg));
@@ -312,24 +298,15 @@ export function handleWSMessage(
         }
 
         case "reconnect": {
-          span?.setAttribute(
-            "ws.reconnect.cursors_count",
-            Object.keys(clientMsg.cursors).length,
-          );
+          span?.setAttribute("ws.reconnect.cursors_count", Object.keys(clientMsg.cursors).length);
           const allowedCursors: Record<string, string> = {};
 
-          for (const [channelStr, cursor] of Object.entries(
-            clientMsg.cursors,
-          )) {
+          for (const [channelStr, cursor] of Object.entries(clientMsg.cursors)) {
             const channel = parseChannel(channelStr);
             if (!channel) {
               ws.send(
                 serializeServerMessage(
-                  createWSError(
-                    "INVALID_CHANNEL",
-                    "Invalid channel format",
-                    channelStr,
-                  ),
+                  createWSError("INVALID_CHANNEL", "Invalid channel format", channelStr),
                 ),
               );
               continue;
@@ -371,11 +348,7 @@ export function handleWSMessage(
           if (!channel) {
             ws.send(
               serializeServerMessage(
-                createWSError(
-                  "INVALID_CHANNEL",
-                  "Invalid channel format",
-                  channelStr,
-                ),
+                createWSError("INVALID_CHANNEL", "Invalid channel format", channelStr),
               ),
             );
             break;
@@ -396,19 +369,12 @@ export function handleWSMessage(
             break;
           }
 
-          const replayResult = hub.replay(
-            channel,
-            clientMsg.fromCursor,
-            clientMsg.limit,
-          );
+          const replayResult = hub.replay(channel, clientMsg.fromCursor, clientMsg.limit);
 
-          const shouldUseDbReplay =
-            replayResult.expired && replayResult.messages.length === 0;
+          const shouldUseDbReplay = replayResult.expired && replayResult.messages.length === 0;
 
           if (shouldUseDbReplay) {
-            if (
-              ws.data.activeReplays >= MAX_CONCURRENT_REPLAYS_PER_CONNECTION
-            ) {
+            if (ws.data.activeReplays >= MAX_CONCURRENT_REPLAYS_PER_CONNECTION) {
               ws.send(
                 serializeServerMessage({
                   type: "throttled",
@@ -450,18 +416,14 @@ export function handleWSMessage(
 
                 ws.send(serializeServerMessage(backfillResponse));
 
-                if (
-                  dbReplay.lastCursor !== undefined &&
-                  ws.data.subscriptions.has(channelStr)
-                ) {
+                if (dbReplay.lastCursor !== undefined && ws.data.subscriptions.has(channelStr)) {
                   ws.data.subscriptions.set(channelStr, dbReplay.lastCursor);
                 }
 
                 span?.setStatus({ code: SpanStatusCode.OK });
               } catch (error) {
                 span?.setStatus({ code: SpanStatusCode.ERROR });
-                const err =
-                  error instanceof Error ? error : new Error(String(error));
+                const err = error instanceof Error ? error : new Error(String(error));
                 span?.recordException(err);
 
                 logger.error(
@@ -470,20 +432,13 @@ export function handleWSMessage(
                 );
                 ws.send(
                   serializeServerMessage(
-                    createWSError(
-                      "INTERNAL_ERROR",
-                      "Backfill replay failed",
-                      channelStr,
-                    ),
+                    createWSError("INTERNAL_ERROR", "Backfill replay failed", channelStr),
                   ),
                 );
               } finally {
                 ws.data.activeReplays = Math.max(0, ws.data.activeReplays - 1);
                 if (span) {
-                  span.setAttribute(
-                    "ws.duration_ms",
-                    Math.round(performance.now() - startedAt),
-                  );
+                  span.setAttribute("ws.duration_ms", Math.round(performance.now() - startedAt));
                   span.end();
                 }
               }
@@ -503,20 +458,14 @@ export function handleWSMessage(
           };
           ws.send(serializeServerMessage(backfillResponse));
 
-          if (
-            replayResult.lastCursor !== undefined &&
-            ws.data.subscriptions.has(channelStr)
-          ) {
+          if (replayResult.lastCursor !== undefined && ws.data.subscriptions.has(channelStr)) {
             ws.data.subscriptions.set(channelStr, replayResult.lastCursor);
           }
           break;
         }
 
         case "ack": {
-          span?.setAttribute(
-            "ws.ack.message_ids_count",
-            clientMsg.messageIds.length,
-          );
+          span?.setAttribute("ws.ack.message_ids_count", clientMsg.messageIds.length);
           // Handle acknowledgment of messages
           const ackResponse = hub.handleAck(connectionId, clientMsg.messageIds);
           ws.send(serializeServerMessage(ackResponse));
@@ -533,23 +482,13 @@ export function handleWSMessage(
   } catch (err) {
     caughtError = err;
     logger.error({ err, connectionId }, "Error handling WebSocket message");
-    ws.send(
-      serializeServerMessage(
-        createWSError("INTERNAL_ERROR", "Internal server error"),
-      ),
-    );
+    ws.send(serializeServerMessage(createWSError("INTERNAL_ERROR", "Internal server error")));
   } finally {
     if (span && !deferSpanEnd) {
-      span.setAttribute(
-        "ws.duration_ms",
-        Math.round(performance.now() - startedAt),
-      );
+      span.setAttribute("ws.duration_ms", Math.round(performance.now() - startedAt));
       if (caughtError) {
         span.setStatus({ code: SpanStatusCode.ERROR });
-        const error =
-          caughtError instanceof Error
-            ? caughtError
-            : new Error(String(caughtError));
+        const error = caughtError instanceof Error ? caughtError : new Error(String(caughtError));
         span.recordException(error);
       } else {
         span.setStatus({ code: SpanStatusCode.OK });
@@ -581,10 +520,7 @@ export function handleWSClose(ws: ServerWebSocket<ConnectionData>): void {
     span.recordException(error);
     throw err;
   } finally {
-    span.setAttribute(
-      "ws.duration_ms",
-      Math.round(performance.now() - startedAt),
-    );
+    span.setAttribute("ws.duration_ms", Math.round(performance.now() - startedAt));
     span.end();
   }
 }
@@ -592,10 +528,7 @@ export function handleWSClose(ws: ServerWebSocket<ConnectionData>): void {
 /**
  * Handle WebSocket error event.
  */
-export function handleWSError(
-  ws: ServerWebSocket<ConnectionData>,
-  error: Error,
-): void {
+export function handleWSError(ws: ServerWebSocket<ConnectionData>, error: Error): void {
   const startedAt = performance.now();
   const span = getTracer().startSpan("WS error", {
     kind: SpanKind.SERVER,
@@ -605,16 +538,10 @@ export function handleWSError(
   });
   span.recordException(error);
   span.setStatus({ code: SpanStatusCode.ERROR });
-  logger.error(
-    { connectionId: ws.data.connectionId, error },
-    "WebSocket error",
-  );
+  logger.error({ connectionId: ws.data.connectionId, error }, "WebSocket error");
   // Connection removal is handled by close event usually,
   // but we can ensure cleanup here if needed.
   // Bun emits close after error typically.
-  span.setAttribute(
-    "ws.duration_ms",
-    Math.round(performance.now() - startedAt),
-  );
+  span.setAttribute("ws.duration_ms", Math.round(performance.now() - startedAt));
   span.end();
 }

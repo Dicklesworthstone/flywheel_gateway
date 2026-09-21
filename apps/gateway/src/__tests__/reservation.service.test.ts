@@ -5,15 +5,7 @@
  * Also tests conflict detection, TTL handling, and pattern matching.
  */
 
-import {
-  afterAll,
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  test,
-} from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 // Mock the logger with child method
 const mockLogger = {
@@ -151,9 +143,7 @@ describe("Reservation Service", () => {
 
       expect(result.granted).toBe(false);
       expect(result.conflicts.length).toBeGreaterThan(0);
-      expect(result.conflicts[0]!.existingReservation.requesterId).toBe(
-        "agent-1",
-      );
+      expect(result.conflicts[0]!.existingReservation.requesterId).toBe("agent-1");
     });
 
     test("allows shared reservations to overlap", async () => {
@@ -423,9 +413,7 @@ describe("Reservation Service", () => {
 
       expect(renewResult.renewed).toBe(true);
       expect(renewResult.newExpiresAt).toBeInstanceOf(Date);
-      expect(renewResult.newExpiresAt!.getTime()).toBeGreaterThan(
-        originalExpiry.getTime(),
-      );
+      expect(renewResult.newExpiresAt!.getTime()).toBeGreaterThan(originalExpiry.getTime());
     });
 
     test("uses original TTL if additionalTtl not provided", async () => {
@@ -467,12 +455,8 @@ describe("Reservation Service", () => {
       // Renewal extends from original expiry (which is still in the future)
       // New expiry = originalExpiry + 1 hour (capped from 2 hours)
       const expectedExpiry = originalExpiry.getTime() + 3600 * 1000;
-      expect(renewResult.newExpiresAt!.getTime()).toBeLessThanOrEqual(
-        expectedExpiry + 100,
-      );
-      expect(renewResult.newExpiresAt!.getTime()).toBeGreaterThanOrEqual(
-        expectedExpiry - 100,
-      );
+      expect(renewResult.newExpiresAt!.getTime()).toBeLessThanOrEqual(expectedExpiry + 100);
+      expect(renewResult.newExpiresAt!.getTime()).toBeGreaterThanOrEqual(expectedExpiry - 100);
     });
 
     test("returns error for non-existent reservation", async () => {
@@ -703,9 +687,7 @@ describe("Reservation Service", () => {
         endingBefore: page2.prevCursor!,
       });
 
-      expect(back.reservations.map((r) => r.id)).toEqual(
-        page1.reservations.map((r) => r.id),
-      );
+      expect(back.reservations.map((r) => r.id)).toEqual(page1.reservations.map((r) => r.id));
       expect(back.hasMore).toBe(true);
       expect(back.nextCursor).toBeDefined();
       expect(back.prevCursor).toBeUndefined();

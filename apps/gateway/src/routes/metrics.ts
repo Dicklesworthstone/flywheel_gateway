@@ -101,12 +101,7 @@ metrics.post("/snapshot", async (c) => {
       createdAt: snapshot.createdAt.toISOString(),
     };
 
-    return sendCreated(
-      c,
-      "snapshot",
-      snapshotData,
-      `/metrics/snapshots/${snapshot.id}`,
-    );
+    return sendCreated(c, "snapshot", snapshotData, `/metrics/snapshots/${snapshot.id}`);
   } catch (error) {
     return handleError(error, c);
   }
@@ -172,12 +167,7 @@ metrics.get("/compare", (c) => {
     const currentId = c.req.query("current");
 
     if (!baselineId) {
-      return sendError(
-        c,
-        "INVALID_REQUEST",
-        "baseline query parameter is required",
-        400,
-      );
+      return sendError(c, "INVALID_REQUEST", "baseline query parameter is required", 400);
     }
 
     const baselineSnapshot = getNamedSnapshot(baselineId);

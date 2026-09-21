@@ -29,12 +29,7 @@ export type GraphNodeType = "agent" | "file" | "bead";
 /**
  * Graph edge types.
  */
-export type GraphEdgeType =
-  | "reservation"
-  | "handoff"
-  | "message"
-  | "dependency"
-  | "conflict";
+export type GraphEdgeType = "reservation" | "handoff" | "message" | "dependency" | "conflict";
 
 /**
  * Graph node payload for WebSocket events.
@@ -156,10 +151,7 @@ export class GraphEventsService {
       metadata,
     );
 
-    logger.debug(
-      { workspaceId, nodeId: node.id, nodeType: node.type },
-      "[GRAPH] Node added",
-    );
+    logger.debug({ workspaceId, nodeId: node.id, nodeType: node.type }, "[GRAPH] Node added");
   }
 
   /**
@@ -214,10 +206,7 @@ export class GraphEventsService {
       metadata,
     );
 
-    logger.debug(
-      { workspaceId, nodeId: node.id, nodeType: node.type },
-      "[GRAPH] Node updated",
-    );
+    logger.debug({ workspaceId, nodeId: node.id, nodeType: node.type }, "[GRAPH] Node updated");
   }
 
   /**
@@ -241,10 +230,7 @@ export class GraphEventsService {
       metadata,
     );
 
-    logger.debug(
-      { workspaceId, edgeId: edge.id, edgeType: edge.type },
-      "[GRAPH] Edge added",
-    );
+    logger.debug({ workspaceId, edgeId: edge.id, edgeType: edge.type }, "[GRAPH] Edge added");
   }
 
   /**
@@ -298,10 +284,7 @@ export class GraphEventsService {
       metadata,
     );
 
-    logger.debug(
-      { workspaceId, edgeId: edge.id, edgeType: edge.type },
-      "[GRAPH] Edge updated",
-    );
+    logger.debug({ workspaceId, edgeId: edge.id, edgeType: edge.type }, "[GRAPH] Edge updated");
   }
 
   /**
@@ -358,12 +341,7 @@ export class GraphEventsService {
   ): void {
     const messageType = `graph.${payload.updateType}` as MessageType;
 
-    this.hub.publish(
-      { type: "workspace:graph", workspaceId },
-      messageType,
-      payload,
-      metadata,
-    );
+    this.hub.publish({ type: "workspace:graph", workspaceId }, messageType, payload, metadata);
   }
 
   // ========== Convenience Methods for Common Events ==========
@@ -503,11 +481,7 @@ export class GraphEventsService {
   ): void {
     // Remove conflict edges
     for (const agentId of agentIds) {
-      this.publishEdgeRemoved(
-        workspaceId,
-        `conflict:${conflictId}:${agentId}`,
-        "conflict",
-      );
+      this.publishEdgeRemoved(workspaceId, `conflict:${conflictId}:${agentId}`, "conflict");
     }
 
     // Update file node status back to active
@@ -530,9 +504,7 @@ let serviceInstance: GraphEventsService | undefined;
 export function getGraphEventsService(hub?: WebSocketHub): GraphEventsService {
   if (!serviceInstance) {
     if (!hub) {
-      throw new Error(
-        "GraphEventsService requires a WebSocketHub on first initialization",
-      );
+      throw new Error("GraphEventsService requires a WebSocketHub on first initialization");
     }
     serviceInstance = new GraphEventsService(hub);
   }

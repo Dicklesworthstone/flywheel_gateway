@@ -121,16 +121,10 @@ function generateAnalysisId(): string {
 /**
  * Calculate severity based on change types and overlap.
  */
-function calculateSeverity(
-  changeA: FileChange,
-  changeB: FileChange,
-): ConflictDetails["severity"] {
+function calculateSeverity(changeA: FileChange, changeB: FileChange): ConflictDetails["severity"] {
   // Delete conflicts are critical
   if (changeA.changeType === "deleted" || changeB.changeType === "deleted") {
-    if (
-      changeA.changeType === "modified" ||
-      changeB.changeType === "modified"
-    ) {
+    if (changeA.changeType === "modified" || changeB.changeType === "modified") {
       return "critical"; // One side deleted, other modified
     }
     return "high";
@@ -285,11 +279,7 @@ export async function analyzeRepositoryConflicts(
       const changesB = allBranchChanges[j];
       if (!changesA || !changesB) continue;
 
-      const pairConflicts = detectPairConflicts(
-        changesA,
-        changesB,
-        repositoryId,
-      );
+      const pairConflicts = detectPairConflicts(changesA, changesB, repositoryId);
 
       if (pairConflicts.length > 0) {
         conflicts.push(...pairConflicts);
@@ -301,8 +291,7 @@ export async function analyzeRepositoryConflicts(
           maxSeverity: pairConflicts.reduce(
             (max, c) => {
               const severityOrder = ["low", "medium", "high", "critical"];
-              return severityOrder.indexOf(c.severity) >
-                severityOrder.indexOf(max)
+              return severityOrder.indexOf(c.severity) > severityOrder.indexOf(max)
                 ? c.severity
                 : max;
             },
@@ -326,28 +315,18 @@ export async function analyzeRepositoryConflicts(
   // Generate recommendations
   const recommendations: string[] = [];
   if (conflicts.length === 0) {
-    recommendations.push(
-      "No conflicts detected. Branches can be merged safely.",
-    );
+    recommendations.push("No conflicts detected. Branches can be merged safely.");
   } else {
     if (overallSeverity === "critical") {
-      recommendations.push(
-        "Critical conflicts detected. Immediate coordination required.",
-      );
+      recommendations.push("Critical conflicts detected. Immediate coordination required.");
     }
-    if (
-      conflicts.some(
-        (c) => c.changeTypeA === "deleted" || c.changeTypeB === "deleted",
-      )
-    ) {
+    if (conflicts.some((c) => c.changeTypeA === "deleted" || c.changeTypeB === "deleted")) {
       recommendations.push(
         "Some files are deleted in one branch but modified in another. Coordinate with the other agent.",
       );
     }
     if (conflicts.length > 5) {
-      recommendations.push(
-        "Many overlapping files. Consider using smaller, focused branches.",
-      );
+      recommendations.push("Many overlapping files. Consider using smaller, focused branches.");
     }
   }
 
@@ -475,9 +454,7 @@ function trackConflictPattern(filePath: string): void {
 /**
  * Get common conflict patterns for a repository.
  */
-export async function getConflictPatterns(
-  _repositoryId: string,
-): Promise<ConflictPattern[]> {
+export async function getConflictPatterns(_repositoryId: string): Promise<ConflictPattern[]> {
   const patterns = Array.from(conflictPatterns.values());
 
   // Sort by frequency

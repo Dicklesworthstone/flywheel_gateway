@@ -173,11 +173,7 @@ const StepConfigSchema = z.discriminatedUnion("type", [
                 .min(1)
                 .max(512)
                 .refine(
-                  (expr) =>
-                    isSafeTransformExpression(
-                      expr,
-                      TRANSFORM_MAP_ALLOWED_IDENTIFIERS,
-                    ),
+                  (expr) => isSafeTransformExpression(expr, TRANSFORM_MAP_ALLOWED_IDENTIFIERS),
                   { message: "Invalid transform expression" },
                 ),
               target: z.string().min(1).refine(isSafePipelineContextPath, {
@@ -194,11 +190,7 @@ const StepConfigSchema = z.discriminatedUnion("type", [
                 .min(1)
                 .max(512)
                 .refine(
-                  (expr) =>
-                    isSafeTransformExpression(
-                      expr,
-                      TRANSFORM_MAP_ALLOWED_IDENTIFIERS,
-                    ),
+                  (expr) => isSafeTransformExpression(expr, TRANSFORM_MAP_ALLOWED_IDENTIFIERS),
                   { message: "Invalid transform condition" },
                 ),
               target: z.string().min(1).refine(isSafePipelineContextPath, {
@@ -215,11 +207,7 @@ const StepConfigSchema = z.discriminatedUnion("type", [
                 .min(1)
                 .max(512)
                 .refine(
-                  (expr) =>
-                    isSafeTransformExpression(
-                      expr,
-                      TRANSFORM_REDUCE_ALLOWED_IDENTIFIERS,
-                    ),
+                  (expr) => isSafeTransformExpression(expr, TRANSFORM_REDUCE_ALLOWED_IDENTIFIERS),
                   { message: "Invalid transform expression" },
                 ),
               initial: z.unknown(),
@@ -313,9 +301,7 @@ const TriggerConfigSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("bead_event"),
     config: z.object({
-      events: z
-        .array(z.enum(["created", "updated", "closed", "assigned"]))
-        .min(1),
+      events: z.array(z.enum(["created", "updated", "closed", "assigned"])).min(1),
       beadType: z.array(z.string()).optional(),
       beadPriority: z.array(z.number()).optional(),
       beadLabels: z.array(z.string()).optional(),
@@ -415,9 +401,7 @@ function handleError(error: unknown, c: Context) {
   return sendInternalError(c);
 }
 
-function parseArrayQuery<T extends string>(
-  value: string | undefined,
-): T[] | undefined {
+function parseArrayQuery<T extends string>(value: string | undefined): T[] | undefined {
   return value ? (value.split(",") as T[]) : undefined;
 }
 
@@ -447,21 +431,11 @@ function resolveOptionalUserId(c: Context): { userId?: string } | Response {
   }
 
   if (!auth.userId) {
-    return sendError(
-      c,
-      "AUTH_INSUFFICIENT_SCOPE",
-      "User identity required",
-      403,
-    );
+    return sendError(c, "AUTH_INSUFFICIENT_SCOPE", "User identity required", 403);
   }
 
   if (requested && requested !== auth.userId) {
-    return sendError(
-      c,
-      "AUTH_INSUFFICIENT_SCOPE",
-      "Cannot act on behalf of another user",
-      403,
-    );
+    return sendError(c, "AUTH_INSUFFICIENT_SCOPE", "Cannot act on behalf of another user", 403);
   }
 
   return { userId: auth.userId };
@@ -483,12 +457,7 @@ async function parseOptionalJson(c: Context): Promise<unknown | Response> {
     return JSON.parse(raw) as unknown;
   } catch (error) {
     if (error instanceof SyntaxError) {
-      return sendError(
-        c,
-        "INVALID_REQUEST",
-        "Invalid JSON in request body",
-        400,
-      );
+      return sendError(c, "INVALID_REQUEST", "Invalid JSON in request body", 400);
     }
     return sendInternalError(c);
   }
@@ -678,12 +647,7 @@ pipelines.post("/:id/pause", (c) => {
     const run = pauseRun(runId);
 
     if (!run) {
-      return sendError(
-        c,
-        "INVALID_STATE",
-        "Run is not in running state or not found",
-        400,
-      );
+      return sendError(c, "INVALID_STATE", "Run is not in running state or not found", 400);
     }
 
     return sendResource(c, "pipeline_run", serializeRun(run));
@@ -706,12 +670,7 @@ pipelines.post("/:id/resume", async (c) => {
     const run = await resumeRun(runId);
 
     if (!run) {
-      return sendError(
-        c,
-        "INVALID_STATE",
-        "Run is not in paused state or not found",
-        400,
-      );
+      return sendError(c, "INVALID_STATE", "Run is not in paused state or not found", 400);
     }
 
     return sendResource(c, "pipeline_run", serializeRun(run));
@@ -878,12 +837,7 @@ pipelines.post("/:id/runs/:runId/approve", async (c) => {
     });
 
     if (!success) {
-      return sendError(
-        c,
-        "APPROVAL_NOT_PENDING",
-        "No pending approval found for this step",
-        400,
-      );
+      return sendError(c, "APPROVAL_NOT_PENDING", "No pending approval found for this step", 400);
     }
 
     return sendResource(c, "approval_result", {

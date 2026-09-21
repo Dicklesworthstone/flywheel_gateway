@@ -2,15 +2,7 @@
  * Tests for audit routes.
  */
 
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  test,
-} from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { Hono } from "hono";
 import { restoreRealDb } from "./test-utils/db-mock-restore";
 
@@ -63,15 +55,13 @@ beforeAll(async () => {
                 };
                 return orderByChain;
               },
-              groupBy: () =>
-                Promise.resolve([{ action: "agent.spawn", count: 5 }]),
+              groupBy: () => Promise.resolve([{ action: "agent.spawn", count: 5 }]),
               limit: (n: number) => Promise.resolve(mockEvents.slice(0, n)),
             }),
             orderBy: () => ({
               limit: (n: number) => Promise.resolve(mockEvents.slice(0, n)),
             }),
-            groupBy: () =>
-              Promise.resolve([{ action: "agent.spawn", count: 5 }]),
+            groupBy: () => Promise.resolve([{ action: "agent.spawn", count: 5 }]),
             limit: (n: number) => Promise.resolve(mockEvents.slice(0, n)),
           };
           return chain;
@@ -353,28 +343,22 @@ describe("Audit Routes", () => {
 
     describe("PUT /audit/retention-policies/:id - Update Policy", () => {
       test("returns 404 for non-existent policy", async () => {
-        const res = await app.request(
-          "/audit/retention-policies/non-existent-id",
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              name: "Updated Name",
-            }),
-          },
-        );
+        const res = await app.request("/audit/retention-policies/non-existent-id", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: "Updated Name",
+          }),
+        });
         expect(res.status).toBe(404);
       });
     });
 
     describe("DELETE /audit/retention-policies/:id - Delete Policy", () => {
       test("returns 404 for non-existent policy", async () => {
-        const res = await app.request(
-          "/audit/retention-policies/non-existent-id",
-          {
-            method: "DELETE",
-          },
-        );
+        const res = await app.request("/audit/retention-policies/non-existent-id", {
+          method: "DELETE",
+        });
         expect(res.status).toBe(404);
       });
     });

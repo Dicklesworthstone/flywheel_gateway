@@ -15,9 +15,7 @@ describe("RingBuffer", () => {
 
     test("throws for capacity < 1", () => {
       expect(() => new RingBuffer<string>({ capacity: 0, ttlMs: 0 })).toThrow();
-      expect(
-        () => new RingBuffer<string>({ capacity: -1, ttlMs: 0 }),
-      ).toThrow();
+      expect(() => new RingBuffer<string>({ capacity: -1, ttlMs: 0 })).toThrow();
     });
   });
 

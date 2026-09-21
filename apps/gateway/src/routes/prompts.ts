@@ -53,10 +53,7 @@ function handleError(error: unknown, c: Context) {
 
   if (error instanceof Error) {
     // Check for jfp not installed error
-    if (
-      error.message.includes("not installed") ||
-      error.message.includes("ENOENT")
-    ) {
+    if (error.message.includes("not installed") || error.message.includes("ENOENT")) {
       return sendError(
         c,
         "JFP_NOT_INSTALLED",
@@ -87,10 +84,7 @@ function handleError(error: unknown, c: Context) {
 prompts.get("/status", async (c) => {
   try {
     const jfp = getJfpService();
-    const [available, version] = await Promise.all([
-      jfp.isAvailable(),
-      jfp.getVersion(),
-    ]);
+    const [available, version] = await Promise.all([jfp.isAvailable(), jfp.getVersion()]);
 
     return sendResource(c, "jfp_status", {
       available,

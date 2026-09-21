@@ -7,15 +7,7 @@
  * tool-registry.service.test.ts which covers loading/caching/provenance.
  */
 
-import {
-  afterAll,
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  mock,
-} from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { requestContextStorage } from "../middleware/correlation";
 
 const realFs = require("node:fs");
@@ -121,11 +113,7 @@ afterAll(() => {
 
 describe("Zod schema edge cases", () => {
   it("accepts tool with only required fields (id, name, category)", async () => {
-    setManifest(
-      buildManifest(
-        `  - id: "tools.bare"\n    name: "bare"\n    category: "tool"`,
-      ),
-    );
+    setManifest(buildManifest(`  - id: "tools.bare"\n    name: "bare"\n    category: "tool"`));
     const reg = await loadToolRegistry();
     expect(reg.tools).toHaveLength(1);
     expect(reg.tools[0]!.id).toBe("tools.bare");
@@ -195,9 +183,7 @@ tools:
   });
 
   it("rejects invalid category value", async () => {
-    setManifest(
-      buildManifest(`  - id: "x"\n    name: "x"\n    category: "invalid"`),
-    );
+    setManifest(buildManifest(`  - id: "x"\n    name: "x"\n    category: "invalid"`));
     // Should fall back
     const reg = await loadToolRegistry();
     expect(reg.schemaVersion).toBe("1.0.0-fallback");
@@ -218,11 +204,7 @@ tools:
   });
 
   it("rejects non-integer phase", async () => {
-    setManifest(
-      buildManifest(
-        `  - id: "x"\n    name: "x"\n    category: "tool"\n    phase: 1.5`,
-      ),
-    );
+    setManifest(buildManifest(`  - id: "x"\n    name: "x"\n    category: "tool"\n    phase: 1.5`));
     const reg = await loadToolRegistry();
     expect(reg.schemaVersion).toBe("1.0.0-fallback");
   });
@@ -270,9 +252,7 @@ tools:
   });
 
   it("defaults schemaVersion when omitted", async () => {
-    setManifest(
-      `tools:\n  - id: "tools.x"\n    name: "x"\n    category: "tool"`,
-    );
+    setManifest(`tools:\n  - id: "tools.x"\n    name: "x"\n    category: "tool"`);
     const reg = await loadToolRegistry();
     expect(reg.schemaVersion).toBe("1.0.0");
   });
@@ -370,8 +350,7 @@ tools:
   it("every tool lands in exactly one bucket", async () => {
     setManifest(categorizeManifest);
     const cats = await categorizeTools();
-    const total =
-      cats.required.length + cats.recommended.length + cats.optional.length;
+    const total = cats.required.length + cats.recommended.length + cats.optional.length;
     const all = await listAllTools();
     expect(total).toBe(all.length);
   });

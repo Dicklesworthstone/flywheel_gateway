@@ -254,10 +254,7 @@ function categorizeCommand(command: string): string {
  * Returns 0-100 indicating what percentage of values are strictly below the given value.
  * An agent at the 90th percentile outperforms 90% of the fleet.
  */
-function calculatePercentileRankInDistribution(
-  value: number,
-  allValues: number[],
-): number {
+function calculatePercentileRankInDistribution(value: number, allValues: number[]): number {
   if (allValues.length === 0) return 50; // Default to median if no data
   if (allValues.length === 1) return 50; // Single agent is at median
 
@@ -275,9 +272,7 @@ function calculatePercentileRankInDistribution(
  * Uses a single batch query for efficiency (avoids N+1 pattern).
  * Results are cached for 30 seconds to reduce database load.
  */
-async function getFleetSuccessRates(
-  period: AnalyticsPeriod,
-): Promise<Map<string, number>> {
+async function getFleetSuccessRates(period: AnalyticsPeriod): Promise<Map<string, number>> {
   const cacheKey = generateCacheKey("fleet_success_rates", { period });
 
   return analyticsCache.getOrCompute(cacheKey, async () => {
@@ -287,12 +282,7 @@ async function getFleetSuccessRates(
     const allHistory = await db
       .select()
       .from(historyTable)
-      .where(
-        and(
-          gte(historyTable.createdAt, start),
-          lte(historyTable.createdAt, end),
-        ),
-      );
+      .where(and(gte(historyTable.createdAt, start), lte(historyTable.createdAt, end)));
 
     // Aggregate by agent
     const agentStats = new Map<string, { successful: number; total: number }>();
@@ -305,11 +295,7 @@ async function getFleetSuccessRates(
       const output = row.output as Record<string, unknown> | null;
       const outcome = output?.["outcome"] as string | undefined;
 
-      if (
-        outcome === "success" ||
-        outcome === "failure" ||
-        outcome === "timeout"
-      ) {
+      if (outcome === "success" || outcome === "failure" || outcome === "timeout") {
         const stats = agentStats.get(row.agentId)!;
         stats.total++;
         if (outcome === "success") stats.successful++;
@@ -343,12 +329,7 @@ async function getFleetAverageTokensPerTask(): Promise<number> {
     const allHistory = await db
       .select()
       .from(historyTable)
-      .where(
-        and(
-          gte(historyTable.createdAt, start),
-          lte(historyTable.createdAt, end),
-        ),
-      );
+      .where(and(gte(historyTable.createdAt, start), lte(historyTable.createdAt, end)));
 
     let totalTokens = 0;
     let totalTasks = 0;
@@ -416,8 +397,7 @@ export async function getProductivityMetrics(
 
       totalDuration += row.durationMs;
       totalTokens +=
-        ((input?.["promptTokens"] as number) ?? 0) +
-        ((output?.["responseTokens"] as number) ?? 0);
+        ((input?.["promptTokens"] as number) ?? 0) + ((output?.["responseTokens"] as number) ?? 0);
     }
 
     const tasksCompleted = successfulTasks + failedTasks;
@@ -471,11 +451,7 @@ export async function getSuccessRateMetrics(
       const output = row.output as Record<string, unknown> | null;
       const outcome = output?.["outcome"] as string | undefined;
       if (outcome === "success") prevSuccessful++;
-      if (
-        outcome === "success" ||
-        outcome === "failure" ||
-        outcome === "timeout"
-      ) {
+      if (outcome === "success" || outcome === "failure" || outcome === "timeout") {
         prevTotal++;
       }
     }
@@ -489,10 +465,7 @@ export async function getSuccessRateMetrics(
     // Calculate percentile rank vs fleet
     const fleetRates = await getFleetSuccessRates(period);
     const allRates = Array.from(fleetRates.values());
-    const percentileRank = calculatePercentileRankInDistribution(
-      currentRate,
-      allRates,
-    );
+    const percentileRank = calculatePercentileRankInDistribution(currentRate, allRates);
 
     return {
       agentId,
@@ -555,9 +528,7 @@ export async function getTaskDurationMetrics(
     const avgByComplexity: Record<string, number> = {};
     for (const [complexity, values] of Object.entries(byComplexity)) {
       avgByComplexity[complexity] =
-        values.length > 0
-          ? values.reduce((a, b) => a + b, 0) / values.length
-          : 0;
+        values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
     }
 
     return {
@@ -567,9 +538,7 @@ export async function getTaskDurationMetrics(
       p95: calculatePercentile(durations, 95),
       p99: calculatePercentile(durations, 99),
       avgDuration:
-        durations.length > 0
-          ? durations.reduce((a, b) => a + b, 0) / durations.length
-          : 0,
+        durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0,
       byComplexity: avgByComplexity,
     };
   }) as Promise<TaskDurationMetric>;
@@ -609,11 +578,7 @@ export async function getQualityMetrics(
       const outcome = output?.["outcome"] as string | undefined;
       const error = output?.["error"] as string | undefined;
 
-      if (
-        outcome === "success" ||
-        outcome === "failure" ||
-        outcome === "timeout"
-      ) {
+      if (outcome === "success" || outcome === "failure" || outcome === "timeout") {
         totalTasks++;
       }
 
@@ -626,8 +591,7 @@ export async function getQualityMetrics(
         if (error) {
           if (error.includes("timeout")) category = "timeout";
           else if (error.includes("tool")) category = "tool_failure";
-          else if (error.includes("model") || error.includes("API"))
-            category = "model_error";
+          else if (error.includes("model") || error.includes("API")) category = "model_error";
           else if (error.includes("cancel")) category = "user_cancel";
           else category = "other";
         }
@@ -715,25 +679,19 @@ export async function getTokenEfficiencyMetrics(
     }
 
     const avgPromptTokens = taskCount > 0 ? totalPromptTokens / taskCount : 0;
-    const avgCompletionTokens =
-      taskCount > 0 ? totalCompletionTokens / taskCount : 0;
+    const avgCompletionTokens = taskCount > 0 ? totalCompletionTokens / taskCount : 0;
     const avgTokensPerTask = avgPromptTokens + avgCompletionTokens;
 
     // Calculate efficiency score (0-100 based on tokens per successful task)
     // Lower tokens = higher efficiency
-    const efficiencyScore = Math.max(
-      0,
-      Math.min(100, 100 - avgTokensPerTask / 100),
-    );
+    const efficiencyScore = Math.max(0, Math.min(100, 100 - avgTokensPerTask / 100));
 
     // Calculate vs fleet average (percentage difference)
     // Positive = uses more tokens than average (worse)
     // Negative = uses fewer tokens than average (better)
     const fleetAvg = await getFleetAverageTokensPerTask();
     const vsFleetAverage =
-      fleetAvg > 0
-        ? Math.round(((avgTokensPerTask - fleetAvg) / fleetAvg) * 100)
-        : 0;
+      fleetAvg > 0 ? Math.round(((avgTokensPerTask - fleetAvg) / fleetAvg) * 100) : 0;
 
     return {
       agentId,
@@ -756,21 +714,16 @@ export async function getAgentPerformanceSummary(
 ): Promise<AgentPerformanceSummary> {
   const log = getLogger();
 
-  const [productivity, quality, efficiency, successRate, duration] =
-    await Promise.all([
-      getProductivityMetrics(agentId, period),
-      getQualityMetrics(agentId, period),
-      getTokenEfficiencyMetrics(agentId),
-      getSuccessRateMetrics(agentId, period),
-      getTaskDurationMetrics(agentId, period),
-    ]);
+  const [productivity, quality, efficiency, successRate, duration] = await Promise.all([
+    getProductivityMetrics(agentId, period),
+    getQualityMetrics(agentId, period),
+    getTokenEfficiencyMetrics(agentId),
+    getSuccessRateMetrics(agentId, period),
+    getTaskDurationMetrics(agentId, period),
+  ]);
 
   // Get agent info
-  const agentRows = await db
-    .select()
-    .from(agentsTable)
-    .where(eq(agentsTable.id, agentId))
-    .limit(1);
+  const agentRows = await db.select().from(agentsTable).where(eq(agentsTable.id, agentId)).limit(1);
 
   const agent = agentRows[0];
   const agentName = agent?.task ?? undefined;
@@ -837,22 +790,14 @@ export async function getModelComparisonReport(
     // Build agent ID to model lookup
     const agentModelMap = new Map<string, string>();
     for (const agent of agents) {
-      agentModelMap.set(
-        agent.id,
-        (agent.model as string | undefined) ?? "unknown",
-      );
+      agentModelMap.set(agent.id, (agent.model as string | undefined) ?? "unknown");
     }
 
     // Single batch query for all history in the period
     const allHistory = await db
       .select()
       .from(historyTable)
-      .where(
-        and(
-          gte(historyTable.createdAt, start),
-          lte(historyTable.createdAt, end),
-        ),
-      );
+      .where(and(gte(historyTable.createdAt, start), lte(historyTable.createdAt, end)));
 
     const modelStats = new Map<
       string,
@@ -865,10 +810,7 @@ export async function getModelComparisonReport(
     >();
 
     // Track task type performance per model: Map<taskType, Map<model, {tasks, successful}>>
-    const taskTypeStats = new Map<
-      string,
-      Map<string, { tasks: number; successful: number }>
-    >();
+    const taskTypeStats = new Map<string, Map<string, { tasks: number; successful: number }>>();
 
     // Process all history rows, grouping by model and task type
     for (const row of allHistory) {
@@ -956,9 +898,7 @@ export async function getModelComparisonReport(
       for (const [model, stats] of modelStatsForType) {
         // Success rate as the performance metric
         modelPerformance[model] =
-          stats.tasks > 0
-            ? Math.round((stats.successful / stats.tasks) * 100)
-            : 0;
+          stats.tasks > 0 ? Math.round((stats.successful / stats.tasks) * 100) : 0;
       }
       taskTypeBreakdown.push({ taskType, modelPerformance });
     }
@@ -998,9 +938,7 @@ function generateRecommendations(
       title: "High error rate detected",
       description: `Agent has ${quality.errorRate.toFixed(1)}% error rate. Consider reviewing system prompt or adding error handling examples.`,
       expectedImprovement: "10-20% reduction in errors",
-      evidence: [
-        { metric: "error_rate", value: quality.errorRate, threshold: 20 },
-      ],
+      evidence: [{ metric: "error_rate", value: quality.errorRate, threshold: 20 }],
       actions: [
         "Review recent failed tasks for patterns",
         "Add error recovery examples to system prompt",
@@ -1042,8 +980,7 @@ function generateRecommendations(
       category: "workload",
       priority: "medium",
       title: "Performance declining",
-      description:
-        "Agent performance has been declining compared to previous period.",
+      description: "Agent performance has been declining compared to previous period.",
       expectedImprovement: "Stabilize or improve performance",
       evidence: [],
       actions: [
@@ -1115,9 +1052,7 @@ function generateRecommendations(
  * to avoid N+1 query pattern (was 2N queries, now 2 queries total).
  * Results are cached for 30 seconds to reduce database load.
  */
-export async function getFleetAnalytics(
-  period: AnalyticsPeriod = "24h",
-): Promise<{
+export async function getFleetAnalytics(period: AnalyticsPeriod = "24h"): Promise<{
   totalAgents: number;
   activeAgents: number;
   avgSuccessRate: number;
@@ -1145,12 +1080,7 @@ export async function getFleetAnalytics(
     const allHistory = await db
       .select()
       .from(historyTable)
-      .where(
-        and(
-          gte(historyTable.createdAt, start),
-          lte(historyTable.createdAt, end),
-        ),
-      );
+      .where(and(gte(historyTable.createdAt, start), lte(historyTable.createdAt, end)));
 
     // Aggregate metrics per agent in-memory
     const agentMetrics = new Map<
@@ -1201,8 +1131,7 @@ export async function getFleetAnalytics(
       const metrics = agentMetrics.get(agent.id);
       if (metrics && metrics.totalTasks > 0) {
         activeCount++;
-        const successRate =
-          (metrics.successfulTasks / metrics.totalTasks) * 100;
+        const successRate = (metrics.successfulTasks / metrics.totalTasks) * 100;
         const errorRate = (metrics.errorCount / metrics.totalTasks) * 100;
         totalSuccessRate += successRate;
         totalTasks += metrics.totalTasks;

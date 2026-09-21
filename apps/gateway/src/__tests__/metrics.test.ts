@@ -217,9 +217,7 @@ describe("Metrics Service", () => {
       };
 
       const comparison = compareMetrics(baseline, current);
-      const agentChange = comparison.changes.find(
-        (c) => c.metric === "agents.total",
-      );
+      const agentChange = comparison.changes.find((c) => c.metric === "agents.total");
 
       expect(agentChange).toBeDefined();
       expect(agentChange!.direction).toBe("up");

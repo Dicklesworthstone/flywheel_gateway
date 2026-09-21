@@ -26,9 +26,7 @@ export function formatToolSecretName(tool: string, key: string): string {
   return `tool:${tool}:${key}`;
 }
 
-export function parseToolSecretName(
-  name: string,
-): { tool: string; key: string } | null {
+export function parseToolSecretName(name: string): { tool: string; key: string } | null {
   if (!name.startsWith("tool:")) return null;
   const parts = name.split(":");
   if (parts.length !== 3) return null;
@@ -63,9 +61,7 @@ export class EnvSecretsProvider implements SecretsProvider {
   async list(prefix?: string): Promise<string[]> {
     const keys = Object.keys(process.env);
     const filtered = keys.filter((key) => this.isAllowed(key));
-    const withPrefix = prefix
-      ? filtered.filter((key) => key.startsWith(prefix))
-      : filtered;
+    const withPrefix = prefix ? filtered.filter((key) => key.startsWith(prefix)) : filtered;
     return withPrefix.sort();
   }
 

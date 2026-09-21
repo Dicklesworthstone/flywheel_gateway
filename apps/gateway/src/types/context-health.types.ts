@@ -334,10 +334,7 @@ export interface ContextRotatedEvent {
   };
 }
 
-export type ContextHealthEvent =
-  | ContextWarningEvent
-  | ContextCompactedEvent
-  | ContextRotatedEvent;
+export type ContextHealthEvent = ContextWarningEvent | ContextCompactedEvent | ContextRotatedEvent;
 
 // ============================================================================
 // API Types

@@ -10,14 +10,7 @@ import { createHash } from "node:crypto";
 /**
  * Mask patterns for different data types.
  */
-export type MaskPattern =
-  | "email"
-  | "phone"
-  | "card"
-  | "ssn"
-  | "api_key"
-  | "token"
-  | "custom";
+export type MaskPattern = "email" | "phone" | "card" | "ssn" | "api_key" | "token" | "custom";
 
 /**
  * Field mask configuration.
@@ -112,18 +105,9 @@ export class AuditRedactionService {
     this.config = {
       ...DEFAULT_REDACTION_CONFIG,
       ...config,
-      removeFields: [
-        ...DEFAULT_REDACTION_CONFIG.removeFields,
-        ...(config.removeFields ?? []),
-      ],
-      maskFields: [
-        ...DEFAULT_REDACTION_CONFIG.maskFields,
-        ...(config.maskFields ?? []),
-      ],
-      hashFields: [
-        ...DEFAULT_REDACTION_CONFIG.hashFields,
-        ...(config.hashFields ?? []),
-      ],
+      removeFields: [...DEFAULT_REDACTION_CONFIG.removeFields, ...(config.removeFields ?? [])],
+      maskFields: [...DEFAULT_REDACTION_CONFIG.maskFields, ...(config.maskFields ?? [])],
+      hashFields: [...DEFAULT_REDACTION_CONFIG.hashFields, ...(config.hashFields ?? [])],
       redactPatterns: [
         ...DEFAULT_REDACTION_CONFIG.redactPatterns,
         ...(config.redactPatterns ?? []),
@@ -196,15 +180,8 @@ export class AuditRedactionService {
 
       // Check if field should be masked
       const maskConfig = this.getMaskConfig(lowerKey);
-      if (
-        maskConfig &&
-        (typeof value === "string" || typeof value === "number")
-      ) {
-        result[key] = this.applyMask(
-          String(value),
-          maskConfig.pattern,
-          maskConfig.customMask,
-        );
+      if (maskConfig && (typeof value === "string" || typeof value === "number")) {
+        result[key] = this.applyMask(String(value), maskConfig.pattern, maskConfig.customMask);
         continue;
       }
 
@@ -218,11 +195,7 @@ export class AuditRedactionService {
       }
 
       // Recursively process nested objects/arrays
-      if (
-        this.config.recursive &&
-        value !== null &&
-        typeof value === "object"
-      ) {
+      if (this.config.recursive && value !== null && typeof value === "object") {
         result[key] = this.redact(value, visited);
         continue;
       }
@@ -268,9 +241,7 @@ export class AuditRedactionService {
    * Get mask configuration for a field.
    */
   private getMaskConfig(fieldName: string): FieldMaskConfig | undefined {
-    return this.config.maskFields.find(
-      (m) => m.field.toLowerCase() === fieldName,
-    );
+    return this.config.maskFields.find((m) => m.field.toLowerCase() === fieldName);
   }
 
   /**
@@ -352,10 +323,7 @@ export class AuditRedactionService {
   /**
    * Check if a value contains any sensitive patterns.
    */
-  containsSensitiveData(
-    value: unknown,
-    visited: WeakSet<object> = new WeakSet(),
-  ): boolean {
+  containsSensitiveData(value: unknown, visited: WeakSet<object> = new WeakSet()): boolean {
     if (typeof value === "string") {
       for (const pattern of this.config.redactPatterns) {
         pattern.lastIndex = 0;
@@ -378,9 +346,7 @@ export class AuditRedactionService {
     }
 
     if (value !== null && typeof value === "object") {
-      for (const [key, val] of Object.entries(
-        value as Record<string, unknown>,
-      )) {
+      for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
         const lowerKey = key.toLowerCase();
         if (
           this.shouldRemoveField(lowerKey) ||
@@ -402,16 +368,10 @@ export class AuditRedactionService {
     return new AuditRedactionService({
       ...this.config,
       ...config,
-      removeFields: [
-        ...this.config.removeFields,
-        ...(config.removeFields ?? []),
-      ],
+      removeFields: [...this.config.removeFields, ...(config.removeFields ?? [])],
       maskFields: [...this.config.maskFields, ...(config.maskFields ?? [])],
       hashFields: [...this.config.hashFields, ...(config.hashFields ?? [])],
-      redactPatterns: [
-        ...this.config.redactPatterns,
-        ...(config.redactPatterns ?? []),
-      ],
+      redactPatterns: [...this.config.redactPatterns, ...(config.redactPatterns ?? [])],
     });
   }
 }

@@ -39,12 +39,7 @@ accounts.use("*", requireAdminMiddleware());
 // ============================================================================
 
 const ProviderSchema = z.enum(["claude", "codex", "gemini"]);
-const AuthModeSchema = z.enum([
-  "oauth_browser",
-  "device_code",
-  "api_key",
-  "vertex_adc",
-]);
+const AuthModeSchema = z.enum(["oauth_browser", "device_code", "api_key", "vertex_adc"]);
 const ProfileStatusSchema = z.enum([
   "unlinked",
   "linked",
@@ -388,9 +383,7 @@ accounts.get("/pools/:provider", async (c) => {
 
     return sendResource(c, "pool", {
       pool,
-      nextProfile: nextProfile
-        ? { id: nextProfile.id, name: nextProfile.name }
-        : null,
+      nextProfile: nextProfile ? { id: nextProfile.id, name: nextProfile.name } : null,
     });
   } catch (error) {
     return handleError(error, c);
@@ -406,19 +399,10 @@ accounts.post("/pools/:provider/rotate", async (c) => {
     const workspaceId = c.req.query("workspaceId") ?? "default";
     const reason = c.req.query("reason");
 
-    const result = await rotate(
-      workspaceId,
-      provider,
-      reason ?? "Manual rotation",
-    );
+    const result = await rotate(workspaceId, provider, reason ?? "Manual rotation");
 
     if (!result.success) {
-      return sendError(
-        c,
-        "ROTATION_FAILED",
-        result.reason ?? "Rotation failed",
-        400,
-      );
+      return sendError(c, "ROTATION_FAILED", result.reason ?? "Rotation failed", 400);
     }
 
     return sendResource(c, "rotation_result", result);
@@ -440,15 +424,9 @@ accounts.post("/pools/:provider/rate-limit", async (c) => {
     const result = await handleRateLimit(workspaceId, provider, errorMessage);
 
     if (!result.success) {
-      return sendError(
-        c,
-        "ROTATION_FAILED",
-        result.reason ?? "Rate limit handling failed",
-        503,
-        {
-          hint: "All accounts may be exhausted. Wait for cooldown or add more accounts.",
-        },
-      );
+      return sendError(c, "ROTATION_FAILED", result.reason ?? "Rate limit handling failed", 503, {
+        hint: "All accounts may be exhausted. Wait for cooldown or add more accounts.",
+      });
     }
 
     return sendResource(c, "rate_limit_result", result);

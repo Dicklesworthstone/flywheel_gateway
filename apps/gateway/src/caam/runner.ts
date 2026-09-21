@@ -142,22 +142,12 @@ interface WorkspaceExecOptions {
  */
 export interface ICaamRunner {
   // Core profile operations
-  listProfiles(
-    workspaceId: string,
-    provider?: ProviderId,
-  ): Promise<CaamCliProfile[]>;
+  listProfiles(workspaceId: string, provider?: ProviderId): Promise<CaamCliProfile[]>;
   getStatus(workspaceId: string, provider?: ProviderId): Promise<CaamCliStatus>;
 
   // Activation
-  activate(
-    workspaceId: string,
-    provider: ProviderId,
-    profile: string,
-  ): Promise<CaamActivateOutput>;
-  activateAuto(
-    workspaceId: string,
-    provider: ProviderId,
-  ): Promise<CaamCliRotationResult>;
+  activate(workspaceId: string, provider: ProviderId, profile: string): Promise<CaamActivateOutput>;
+  activateAuto(workspaceId: string, provider: ProviderId): Promise<CaamCliRotationResult>;
 
   // Cooldown management
   setCooldown(
@@ -167,19 +157,11 @@ export interface ICaamRunner {
     minutes: number,
     reason?: string,
   ): Promise<void>;
-  clearCooldown(
-    workspaceId: string,
-    provider: ProviderId,
-    profile: string,
-  ): Promise<void>;
+  clearCooldown(workspaceId: string, provider: ProviderId, profile: string): Promise<void>;
   listCooldowns(workspaceId: string): Promise<CaamCliCooldown[]>;
 
   // Auth file management
-  backup(
-    workspaceId: string,
-    provider: ProviderId,
-    name: string,
-  ): Promise<void>;
+  backup(workspaceId: string, provider: ProviderId, name: string): Promise<void>;
   clear(workspaceId: string, provider: ProviderId): Promise<void>;
 
   // Health & diagnostics
@@ -208,10 +190,7 @@ export class CaamRunner implements ICaamRunner {
   /**
    * List profiles from caam vault.
    */
-  async listProfiles(
-    workspaceId: string,
-    provider?: ProviderId,
-  ): Promise<CaamCliProfile[]> {
+  async listProfiles(workspaceId: string, provider?: ProviderId): Promise<CaamCliProfile[]> {
     const log = getLogger();
     const args = ["ls", "--json"];
     if (provider) {
@@ -221,10 +200,7 @@ export class CaamRunner implements ICaamRunner {
     const result = await this.exec<CaamLsOutput>(workspaceId, args);
 
     if (!result.success || !result.data) {
-      log.warn(
-        { workspaceId, provider, error: result.error },
-        "caam ls failed",
-      );
+      log.warn({ workspaceId, provider, error: result.error }, "caam ls failed");
       return [];
     }
 
@@ -248,10 +224,7 @@ export class CaamRunner implements ICaamRunner {
   /**
    * Get status for a provider.
    */
-  async getStatus(
-    workspaceId: string,
-    provider?: ProviderId,
-  ): Promise<CaamCliStatus> {
+  async getStatus(workspaceId: string, provider?: ProviderId): Promise<CaamCliStatus> {
     const log = getLogger();
     const args = ["status", "--json"];
     if (provider) {
@@ -261,10 +234,7 @@ export class CaamRunner implements ICaamRunner {
     const result = await this.exec<CaamStatusOutput>(workspaceId, args);
 
     if (!result.success || !result.data) {
-      log.warn(
-        { workspaceId, provider, error: result.error },
-        "caam status failed",
-      );
+      log.warn({ workspaceId, provider, error: result.error }, "caam status failed");
       const status: CaamCliStatus = {
         provider: provider ?? "unknown",
         profile: "",
@@ -295,10 +265,8 @@ export class CaamRunner implements ICaamRunner {
       logged_in: toolStatus.logged_in,
     };
 
-    if (toolStatus.identity?.email)
-      status.account_id = toolStatus.identity.email;
-    if (toolStatus.health?.expires_at)
-      status.expires_at = toolStatus.health.expires_at;
+    if (toolStatus.identity?.email) status.account_id = toolStatus.identity.email;
+    if (toolStatus.health?.expires_at) status.expires_at = toolStatus.health.expires_at;
     if (toolStatus.error) status.error = toolStatus.error;
 
     if (toolStatus.health) {
@@ -306,10 +274,8 @@ export class CaamRunner implements ICaamRunner {
         error_count_1h: toolStatus.health.error_count,
         penalty: 0, // Not exposed in status output
       };
-      if (toolStatus.health.expires_at)
-        health.token_expires_at = toolStatus.health.expires_at;
-      if (toolStatus.identity?.plan_type)
-        health.plan_type = toolStatus.identity.plan_type;
+      if (toolStatus.health.expires_at) health.token_expires_at = toolStatus.health.expires_at;
+      if (toolStatus.identity?.plan_type) health.plan_type = toolStatus.identity.plan_type;
       status.health = health;
     }
 
@@ -330,10 +296,7 @@ export class CaamRunner implements ICaamRunner {
     const result = await this.exec<CaamActivateOutput>(workspaceId, args);
 
     if (!result.success) {
-      log.error(
-        { workspaceId, provider, profile, error: result.error },
-        "caam activate failed",
-      );
+      log.error({ workspaceId, provider, profile, error: result.error }, "caam activate failed");
       return {
         success: false,
         tool: provider,
@@ -354,20 +317,14 @@ export class CaamRunner implements ICaamRunner {
   /**
    * Activate using smart rotation (--auto flag).
    */
-  async activateAuto(
-    workspaceId: string,
-    provider: ProviderId,
-  ): Promise<CaamCliRotationResult> {
+  async activateAuto(workspaceId: string, provider: ProviderId): Promise<CaamCliRotationResult> {
     const log = getLogger();
     const args = ["activate", provider, "--auto", "--json"];
 
     const result = await this.exec<CaamActivateOutput>(workspaceId, args);
 
     if (!result.success || !result.data) {
-      log.error(
-        { workspaceId, provider, error: result.error },
-        "caam activate --auto failed",
-      );
+      log.error({ workspaceId, provider, error: result.error }, "caam activate --auto failed");
       return {
         success: false,
         provider,
@@ -420,11 +377,7 @@ export class CaamRunner implements ICaamRunner {
   /**
    * Clear cooldown for a profile.
    */
-  async clearCooldown(
-    workspaceId: string,
-    provider: ProviderId,
-    profile: string,
-  ): Promise<void> {
+  async clearCooldown(workspaceId: string, provider: ProviderId, profile: string): Promise<void> {
     const log = getLogger();
     const args = ["cooldown", "clear", provider, profile];
 
@@ -449,15 +402,13 @@ export class CaamRunner implements ICaamRunner {
     const args = ["cooldown", "list", "--json"];
 
     // CLI may return either { cooldowns: [...] } or [...] directly
-    const result = await this.exec<
-      { cooldowns: CaamCliCooldown[] } | CaamCliCooldown[]
-    >(workspaceId, args);
+    const result = await this.exec<{ cooldowns: CaamCliCooldown[] } | CaamCliCooldown[]>(
+      workspaceId,
+      args,
+    );
 
     if (!result.success || !result.data) {
-      log.warn(
-        { workspaceId, error: result.error },
-        "caam cooldown list failed",
-      );
+      log.warn({ workspaceId, error: result.error }, "caam cooldown list failed");
       return [];
     }
 
@@ -471,27 +422,15 @@ export class CaamRunner implements ICaamRunner {
   /**
    * Backup current auth files to vault.
    */
-  async backup(
-    workspaceId: string,
-    provider: ProviderId,
-    name: string,
-  ): Promise<void> {
+  async backup(workspaceId: string, provider: ProviderId, name: string): Promise<void> {
     const log = getLogger();
     const args = ["backup", provider, name, "--json"];
 
-    const result = await this.exec<{ success: boolean; error?: string }>(
-      workspaceId,
-      args,
-    );
+    const result = await this.exec<{ success: boolean; error?: string }>(workspaceId, args);
 
     if (!result.success || !result.data?.success) {
-      log.error(
-        { workspaceId, provider, name, error: result.error },
-        "caam backup failed",
-      );
-      throw new Error(
-        `Failed to backup: ${result.error ?? result.data?.error}`,
-      );
+      log.error({ workspaceId, provider, name, error: result.error }, "caam backup failed");
+      throw new Error(`Failed to backup: ${result.error ?? result.data?.error}`);
     }
 
     log.info({ workspaceId, provider, name }, "Backed up auth files");
@@ -507,10 +446,7 @@ export class CaamRunner implements ICaamRunner {
     const result = await this.exec(workspaceId, args);
 
     if (!result.success) {
-      log.error(
-        { workspaceId, provider, error: result.error },
-        "caam clear failed",
-      );
+      log.error({ workspaceId, provider, error: result.error }, "caam clear failed");
       throw new Error(`Failed to clear: ${result.error}`);
     }
 
@@ -528,10 +464,7 @@ export class CaamRunner implements ICaamRunner {
   /**
    * Execute a caam command and parse JSON output.
    */
-  private async exec<T = unknown>(
-    workspaceId: string,
-    args: string[],
-  ): Promise<CaamExecResult<T>> {
+  private async exec<T = unknown>(workspaceId: string, args: string[]): Promise<CaamExecResult<T>> {
     const log = getLogger();
 
     try {
@@ -613,10 +546,7 @@ export class LocalExecutor implements WorkspaceExecutor {
     // Set up timeout with cleanup
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(
-        () => reject(new Error("Command timed out")),
-        timeout,
-      );
+      timeoutId = setTimeout(() => reject(new Error("Command timed out")), timeout);
     });
 
     try {
@@ -664,10 +594,7 @@ export class DockerExecutor implements WorkspaceExecutor {
     // Set up timeout with cleanup
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(
-        () => reject(new Error("Command timed out")),
-        timeout,
-      );
+      timeoutId = setTimeout(() => reject(new Error("Command timed out")), timeout);
     });
 
     try {
@@ -699,11 +626,8 @@ export class DockerExecutor implements WorkspaceExecutor {
 /**
  * Create a CaamRunner for the given environment.
  */
-export function createCaamRunner(
-  mode: "local" | "docker" = "local",
-): CaamRunner {
-  const executor =
-    mode === "docker" ? new DockerExecutor() : new LocalExecutor();
+export function createCaamRunner(mode: "local" | "docker" = "local"): CaamRunner {
+  const executor = mode === "docker" ? new DockerExecutor() : new LocalExecutor();
   return new CaamRunner(executor);
 }
 

@@ -74,10 +74,7 @@ export class QueryCache<T = unknown> {
    * Get a value from cache, or compute and store it if missing/expired.
    * The generic U parameter allows type-safe caching of different value types.
    */
-  async getOrCompute<U extends T>(
-    key: string,
-    compute: () => Promise<U>,
-  ): Promise<U> {
+  async getOrCompute<U extends T>(key: string, compute: () => Promise<U>): Promise<U> {
     // Check for valid cached entry
     const entry = this.cache.get(key);
     const now = Date.now();
@@ -340,10 +337,7 @@ export class QueryCache<T = unknown> {
 /**
  * Generate a cache key from query parameters.
  */
-export function generateCacheKey(
-  prefix: string,
-  params: Record<string, unknown>,
-): string {
+export function generateCacheKey(prefix: string, params: Record<string, unknown>): string {
   const sortedEntries = Object.entries(params)
     .filter(([, v]) => v !== undefined && v !== null)
     .sort(([a], [b]) => a.localeCompare(b));
@@ -380,9 +374,7 @@ export const analyticsCache = new QueryCache({
  * Call this when agent history is updated.
  */
 export function invalidateAgentAnalytics(agentId: string): void {
-  analyticsCache.invalidatePattern(
-    new RegExp(`agentId=${escapeRegex(agentId)}`),
-  );
+  analyticsCache.invalidatePattern(new RegExp(`agentId=${escapeRegex(agentId)}`));
 }
 
 /**

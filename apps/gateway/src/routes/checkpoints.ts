@@ -5,11 +5,7 @@
  * Supports manual and automatic checkpointing with delta-based storage.
  */
 
-import {
-  createCursor,
-  DEFAULT_PAGINATION,
-  decodeCursor,
-} from "@flywheel/shared/api/pagination";
+import { createCursor, DEFAULT_PAGINATION, decodeCursor } from "@flywheel/shared/api/pagination";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { requireAdminMiddleware } from "../middleware/auth";
@@ -164,10 +160,8 @@ checkpoints.post("/:sessionId/checkpoints", async (c) => {
       },
     };
 
-    const options: { description?: string; tags?: string[]; delta?: boolean } =
-      {};
-    if (validated.description !== undefined)
-      options.description = validated.description;
+    const options: { description?: string; tags?: string[]; delta?: boolean } = {};
+    if (validated.description !== undefined) options.description = validated.description;
     if (validated.tags !== undefined) options.tags = validated.tags;
     if (validated.delta !== undefined) options.delta = validated.delta;
 
@@ -215,9 +209,7 @@ checkpoints.get("/:sessionId/checkpoints", async (c) => {
     const startingAfter = c.req.query("starting_after");
     const endingBefore = c.req.query("ending_before");
 
-    const parsedLimit = limitParam
-      ? parseInt(limitParam, 10)
-      : DEFAULT_PAGINATION.limit;
+    const parsedLimit = limitParam ? parseInt(limitParam, 10) : DEFAULT_PAGINATION.limit;
     const limit = Number.isNaN(parsedLimit)
       ? DEFAULT_PAGINATION.limit
       : Math.min(Math.max(1, parsedLimit), DEFAULT_PAGINATION.maxLimit);
@@ -229,9 +221,7 @@ checkpoints.get("/:sessionId/checkpoints", async (c) => {
     if (startingAfter) {
       const cursor = decodeCursor(startingAfter);
       if (cursor) {
-        const cursorIndex = allCheckpoints.findIndex(
-          (chk) => chk.id === cursor.id,
-        );
+        const cursorIndex = allCheckpoints.findIndex((chk) => chk.id === cursor.id);
         if (cursorIndex !== -1) {
           startIndex = cursorIndex + 1;
         }
@@ -239,9 +229,7 @@ checkpoints.get("/:sessionId/checkpoints", async (c) => {
     } else if (endingBefore) {
       const cursor = decodeCursor(endingBefore);
       if (cursor) {
-        const cursorIndex = allCheckpoints.findIndex(
-          (chk) => chk.id === cursor.id,
-        );
+        const cursorIndex = allCheckpoints.findIndex((chk) => chk.id === cursor.id);
         if (cursorIndex !== -1) {
           startIndex = Math.max(0, cursorIndex - limit);
         }
@@ -332,8 +320,7 @@ checkpoints.get("/:sessionId/checkpoints/:checkpointId", async (c) => {
         checkpoint.toolState !== null &&
         typeof checkpoint.toolState === "object" &&
         Object.keys(checkpoint.toolState).length > 0,
-      hasContextPack:
-        checkpoint.contextPack !== undefined && checkpoint.contextPack !== null,
+      hasContextPack: checkpoint.contextPack !== undefined && checkpoint.contextPack !== null,
       verification: {
         valid: verification.valid,
         errors: verification.errors,
@@ -375,8 +362,7 @@ checkpoints.post("/:sessionId/checkpoints/:checkpointId/restore", async (c) => {
 
     const options: { verify?: boolean; createNew?: boolean } = {};
     if (validated.verify !== undefined) options.verify = validated.verify;
-    if (validated.createNew !== undefined)
-      options.createNew = validated.createNew;
+    if (validated.createNew !== undefined) options.createNew = validated.createNew;
 
     const restored = await restoreCheckpoint(checkpointId, options);
 
@@ -393,9 +379,7 @@ checkpoints.post("/:sessionId/checkpoints/:checkpointId/restore", async (c) => {
       checkpointId: restored.id,
       sessionId: restored.agentId,
       createdAt:
-        restored.createdAt instanceof Date
-          ? restored.createdAt.toISOString()
-          : restored.createdAt,
+        restored.createdAt instanceof Date ? restored.createdAt.toISOString() : restored.createdAt,
       messageCount: Array.isArray(restored.conversationHistory)
         ? restored.conversationHistory.length
         : 0,

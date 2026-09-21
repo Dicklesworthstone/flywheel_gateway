@@ -48,10 +48,7 @@ describe("Manifest Ingestion", () => {
   let validManifest: ToolRegistry;
 
   beforeEach(() => {
-    const raw = readFileSync(
-      join(FIXTURES_DIR, "valid-manifest.yaml"),
-      "utf-8",
-    );
+    const raw = readFileSync(join(FIXTURES_DIR, "valid-manifest.yaml"), "utf-8");
     validManifest = parseYaml(raw) as ToolRegistry;
   });
 
@@ -98,11 +95,7 @@ describe("Manifest Ingestion", () => {
 
   it("preserves installedCheck from manifest", () => {
     const claude = validManifest.tools.find((t) => t.id === "agents.claude");
-    expect(claude?.installedCheck?.command).toEqual([
-      "command",
-      "-v",
-      "claude",
-    ]);
+    expect(claude?.installedCheck?.command).toEqual(["command", "-v", "claude"]);
   });
 
   it("preserves verify specs from manifest", () => {
@@ -112,9 +105,7 @@ describe("Manifest Ingestion", () => {
   });
 
   it("preserves phase ordering from manifest", () => {
-    const phases = validManifest.tools
-      .map((t) => t.phase)
-      .filter((p) => p !== undefined);
+    const phases = validManifest.tools.map((t) => t.phase).filter((p) => p !== undefined);
     expect(phases.length).toBeGreaterThan(0);
     // Tools should have various phases
     const uniquePhases = [...new Set(phases)];
@@ -122,10 +113,7 @@ describe("Manifest Ingestion", () => {
   });
 
   it("rejects invalid manifest schema", () => {
-    const raw = readFileSync(
-      join(FIXTURES_DIR, "invalid-schema-manifest.yaml"),
-      "utf-8",
-    );
+    const raw = readFileSync(join(FIXTURES_DIR, "invalid-schema-manifest.yaml"), "utf-8");
     const invalid = parseYaml(raw) as Record<string, unknown>;
 
     // Should parse as YAML but have invalid schema version
@@ -143,10 +131,7 @@ describe("Manifest Ingestion", () => {
   });
 
   it("handles minimal manifest with only required fields", () => {
-    const raw = readFileSync(
-      join(FIXTURES_DIR, "minimal-manifest.yaml"),
-      "utf-8",
-    );
+    const raw = readFileSync(join(FIXTURES_DIR, "minimal-manifest.yaml"), "utf-8");
     const minimal = parseYaml(raw) as ToolRegistry;
 
     expect(minimal.schemaVersion).toBeTruthy();
@@ -288,17 +273,16 @@ describe("Robot Mode Output Parsing", () => {
 
 describe("Tool Unavailability Classification", () => {
   it("classifies common stderr patterns correctly", () => {
-    const cases: Array<{ stderr: string; expected: ToolUnavailabilityReason }> =
-      [
-        { stderr: "command not found: dcg", expected: "not_installed" },
-        { stderr: "Permission denied", expected: "permission_denied" },
-        { stderr: "Error: not logged in", expected: "auth_required" },
-        { stderr: "token expired", expected: "auth_expired" },
-        { stderr: "config file not found", expected: "config_missing" },
-        { stderr: "ECONNREFUSED 127.0.0.1:3000", expected: "mcp_unreachable" },
-        { stderr: "Segmentation fault (core dumped)", expected: "crash" },
-        { stderr: "fatal error: out of memory", expected: "crash" },
-      ];
+    const cases: Array<{ stderr: string; expected: ToolUnavailabilityReason }> = [
+      { stderr: "command not found: dcg", expected: "not_installed" },
+      { stderr: "Permission denied", expected: "permission_denied" },
+      { stderr: "Error: not logged in", expected: "auth_required" },
+      { stderr: "token expired", expected: "auth_expired" },
+      { stderr: "config file not found", expected: "config_missing" },
+      { stderr: "ECONNREFUSED 127.0.0.1:3000", expected: "mcp_unreachable" },
+      { stderr: "Segmentation fault (core dumped)", expected: "crash" },
+      { stderr: "fatal error: out of memory", expected: "crash" },
+    ];
 
     for (const { stderr, expected } of cases) {
       const result = classifyToolUnavailability({ stderr });
@@ -405,10 +389,7 @@ describe("Health Diagnostics Integration with Registry", () => {
   }
 
   it("integrates registry tools with detection results", () => {
-    const raw = readFileSync(
-      join(FIXTURES_DIR, "valid-manifest.yaml"),
-      "utf-8",
-    );
+    const raw = readFileSync(join(FIXTURES_DIR, "valid-manifest.yaml"), "utf-8");
     const manifest = parseYaml(raw) as ToolRegistry;
 
     // Simulate mixed detection: some available, some not

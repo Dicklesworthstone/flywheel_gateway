@@ -33,11 +33,7 @@ export interface AuthorizationResult {
 export function canSubscribe(
   auth: AuthContext,
   channel: Channel,
-  agentAccess?: (
-    agentId: string,
-    userId?: string,
-    workspaceIds?: string[],
-  ) => boolean,
+  agentAccess?: (agentId: string, userId?: string, workspaceIds?: string[]) => boolean,
 ): AuthorizationResult {
   // Admins can subscribe to anything
   if (auth.isAdmin) {
@@ -64,11 +60,7 @@ export function canSubscribe(
         };
       }
 
-      const hasAccess = agentAccess(
-        channel.agentId,
-        auth.userId,
-        auth.workspaceIds,
-      );
+      const hasAccess = agentAccess(channel.agentId, auth.userId, auth.workspaceIds);
       if (!hasAccess) {
         return {
           allowed: false,
@@ -165,10 +157,7 @@ export function canSubscribe(
  * @param channel - Channel to publish to
  * @returns Authorization result
  */
-export function canPublish(
-  auth: AuthContext,
-  channel: Channel,
-): AuthorizationResult {
+export function canPublish(auth: AuthContext, channel: Channel): AuthorizationResult {
   // Admins can publish to anything
   if (auth.isAdmin) {
     return { allowed: true };

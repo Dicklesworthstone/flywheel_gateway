@@ -2,15 +2,7 @@
  * Tests for graph-events service.
  */
 
-import {
-  afterAll,
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  test,
-} from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import type { WebSocketHub } from "../ws/hub";
 
 // Mock the logger (include child to match production usage)
@@ -52,12 +44,7 @@ describe("Graph Events Service", () => {
   beforeEach(() => {
     publishCalls = [];
     mockHub = {
-      publish: (
-        channel: unknown,
-        type: string,
-        payload: unknown,
-        metadata: unknown,
-      ) => {
+      publish: (channel: unknown, type: string, payload: unknown, metadata: unknown) => {
         publishCalls.push({ channel, type, payload, metadata });
         return { id: "test", cursor: "test-cursor" };
       },
@@ -90,9 +77,7 @@ describe("Graph Events Service", () => {
 
   describe("getGraphEventsService", () => {
     test("requires hub on first call", () => {
-      expect(() => getGraphEventsService()).toThrow(
-        "GraphEventsService requires a WebSocketHub",
-      );
+      expect(() => getGraphEventsService()).toThrow("GraphEventsService requires a WebSocketHub");
     });
 
     test("returns same instance on subsequent calls", () => {
@@ -227,11 +212,7 @@ describe("Graph Events Service", () => {
     test("publishes edge_removed event", () => {
       const service = new GraphEventsService(mockHub);
 
-      service.publishEdgeRemoved(
-        "workspace-1",
-        "handoff:handoff-123",
-        "handoff",
-      );
+      service.publishEdgeRemoved("workspace-1", "handoff:handoff-123", "handoff");
 
       expect(publishCalls[0]?.type).toBe("graph.edge_removed");
       const payload = publishCalls[0]?.payload as Record<string, unknown>;
@@ -310,12 +291,7 @@ describe("Graph Events Service", () => {
       test("publishes agent node added", () => {
         const service = new GraphEventsService(mockHub);
 
-        service.publishAgentSpawned(
-          "workspace-1",
-          "agent-123",
-          "Claude Dev",
-          "claude",
-        );
+        service.publishAgentSpawned("workspace-1", "agent-123", "Claude Dev", "claude");
 
         expect(publishCalls).toHaveLength(1);
         const payload = publishCalls[0]?.payload as Record<string, unknown>;
@@ -445,12 +421,10 @@ describe("Graph Events Service", () => {
       test("publishes node update and conflict edges", () => {
         const service = new GraphEventsService(mockHub);
 
-        service.publishConflictDetected(
-          "workspace-1",
-          "conflict-123",
-          "/src/shared.ts",
-          ["agent-1", "agent-2"],
-        );
+        service.publishConflictDetected("workspace-1", "conflict-123", "/src/shared.ts", [
+          "agent-1",
+          "agent-2",
+        ]);
 
         expect(publishCalls).toHaveLength(3);
 
@@ -462,10 +436,7 @@ describe("Graph Events Service", () => {
 
         // Then: conflict edges for each agent
         for (let i = 1; i <= 2; i++) {
-          const edgePayload = publishCalls[i]?.payload as Record<
-            string,
-            unknown
-          >;
+          const edgePayload = publishCalls[i]?.payload as Record<string, unknown>;
           const edge = edgePayload["edge"] as GraphEdgePayload;
           expect(edge.type).toBe("conflict");
         }
@@ -476,12 +447,10 @@ describe("Graph Events Service", () => {
       test("removes conflict edges and updates node status", () => {
         const service = new GraphEventsService(mockHub);
 
-        service.publishConflictResolved(
-          "workspace-1",
-          "conflict-123",
-          "/src/shared.ts",
-          ["agent-1", "agent-2"],
-        );
+        service.publishConflictResolved("workspace-1", "conflict-123", "/src/shared.ts", [
+          "agent-1",
+          "agent-2",
+        ]);
 
         expect(publishCalls).toHaveLength(3);
 

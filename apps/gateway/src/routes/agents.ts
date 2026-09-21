@@ -22,10 +22,7 @@ import {
 } from "../services/agent";
 import { getAgentDetectionService } from "../services/agent-detection.service";
 import { getAgentHealthScoreService } from "../services/agent-health-score.service";
-import {
-  getAgentState,
-  getAgentStateHistory,
-} from "../services/agent-state-machine";
+import { getAgentState, getAgentStateHistory } from "../services/agent-state-machine";
 import { agentLinks, agentListLinks, getLinkContext } from "../utils/links";
 import {
   sendError,
@@ -90,10 +87,7 @@ function handleAgentError(error: unknown, c: Context) {
     } catch {
       // Unknown error code, use 500
     }
-    log.warn(
-      { error: error.code, message: error.message },
-      "Agent operation failed",
-    );
+    log.warn({ error: error.code, message: error.message }, "Agent operation failed");
     return sendError(c, error.code, error.message, httpStatus);
   }
 
@@ -312,9 +306,7 @@ agents.get("/:agentId/status", async (c) => {
 
     const now = new Date();
     const stateEnteredAt = stateRecord.stateEnteredAt;
-    const uptime = Math.floor(
-      (now.getTime() - stateRecord.createdAt.getTime()) / 1000,
-    );
+    const uptime = Math.floor((now.getTime() - stateRecord.createdAt.getTime()) / 1000);
 
     // Build health checks based on state
     const healthChecks: Record<string, "healthy" | "degraded" | "unhealthy"> = {
@@ -337,8 +329,7 @@ agents.get("/:agentId/status", async (c) => {
       stateEnteredAt: stateEnteredAt.toISOString(),
       uptime,
       createdAt: stateRecord.createdAt.toISOString(),
-      lastActivity:
-        agentDetails?.lastActivityAt ?? stateEnteredAt.toISOString(),
+      lastActivity: agentDetails?.lastActivityAt ?? stateEnteredAt.toISOString(),
       healthChecks,
       metrics: agentDetails
         ? {
@@ -386,11 +377,7 @@ agents.post("/:agentId/send", async (c) => {
     const agentId = c.req.param("agentId");
     const body = await c.req.json();
     const validated = SendRequestSchema.parse(body);
-    const result = await sendMessage(
-      agentId,
-      validated.type,
-      validated.content,
-    );
+    const result = await sendMessage(agentId, validated.type, validated.content);
 
     return sendResource(c, "message_sent", result, 202);
   } catch (error) {

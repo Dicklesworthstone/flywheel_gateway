@@ -116,9 +116,7 @@ const PRIORITY_VALUES: Record<string, number> = {
 /**
  * Calculate confidence score for a resolution strategy.
  */
-export function calculateConfidence(
-  input: ConfidenceScoringInput,
-): ConfidenceScoringResult {
+export function calculateConfidence(input: ConfidenceScoringInput): ConfidenceScoringResult {
   const log = getLogger().child({
     service: "confidence-scorer",
     strategy: input.strategy,
@@ -134,21 +132,11 @@ export function calculateConfidence(
     adjustments,
   );
 
-  const progressCertainty = calculateProgressCertainty(
-    input.holdingAgentProgress,
-    adjustments,
-  );
+  const progressCertainty = calculateProgressCertainty(input.holdingAgentProgress, adjustments);
 
-  const historicalMatch = calculateHistoricalMatch(
-    input.strategy,
-    input.cassHistory,
-    adjustments,
-  );
+  const historicalMatch = calculateHistoricalMatch(input.strategy, input.cassHistory, adjustments);
 
-  const resourceCriticality = calculateResourceCriticality(
-    input.contestedResources,
-    adjustments,
-  );
+  const resourceCriticality = calculateResourceCriticality(input.contestedResources, adjustments);
 
   const timePressure = calculateTimePressure(
     input.hasDeadlinePressure,
@@ -158,22 +146,14 @@ export function calculateConfidence(
 
   // Calculate base score from factors
   const baseScore =
-    priorityDifferential +
-    progressCertainty +
-    historicalMatch +
-    resourceCriticality +
-    timePressure;
+    priorityDifferential + progressCertainty + historicalMatch + resourceCriticality + timePressure;
 
   // Apply adjustments
   const totalAdjustment = adjustments.reduce((sum, adj) => sum + adj.delta, 0);
   let finalScore = Math.max(0, Math.min(100, baseScore + totalAdjustment));
 
   // Apply strategy-specific modifier
-  finalScore = applyStrategyModifier(
-    finalScore,
-    input.strategy,
-    input.strategySpecificScore,
-  );
+  finalScore = applyStrategyModifier(finalScore, input.strategy, input.strategySpecificScore);
 
   const breakdown: ConfidenceFactors = {
     priorityDifferential,
@@ -345,9 +325,7 @@ function calculateHistoricalMatch(
   }
 
   // Find success rate for this strategy
-  const strategyOutcome = history.strategyOutcomes.find(
-    (o) => o.strategy === strategy,
-  );
+  const strategyOutcome = history.strategyOutcomes.find((o) => o.strategy === strategy);
 
   if (!strategyOutcome) {
     adjustments?.push({
@@ -357,8 +335,7 @@ function calculateHistoricalMatch(
     return MAX_HISTORY_POINTS * 0.5;
   }
 
-  const totalAttempts =
-    strategyOutcome.successCount + strategyOutcome.failureCount;
+  const totalAttempts = strategyOutcome.successCount + strategyOutcome.failureCount;
   if (totalAttempts === 0) {
     return MAX_HISTORY_POINTS * 0.5;
   }
@@ -371,11 +348,7 @@ function calculateHistoricalMatch(
   // More historical data = more confidence in the rate
   const sampleSizeMultiplier = Math.min(1, totalAttempts / 10);
 
-  const score =
-    MAX_HISTORY_POINTS *
-    successRate *
-    relevanceMultiplier *
-    sampleSizeMultiplier;
+  const score = MAX_HISTORY_POINTS * successRate * relevanceMultiplier * sampleSizeMultiplier;
 
   // Bonus for high success rate with good sample size
   if (successRate >= 0.9 && totalAttempts >= 10) {
@@ -450,10 +423,7 @@ function calculateTimePressure(
   }
 
   // Handle both Date objects and ISO strings from JSON deserialization
-  const deadlineTime =
-    deadline instanceof Date
-      ? deadline.getTime()
-      : new Date(deadline).getTime();
+  const deadlineTime = deadline instanceof Date ? deadline.getTime() : new Date(deadline).getTime();
   const msUntilDeadline = deadlineTime - Date.now();
 
   // Very close deadline = clear need to act
@@ -495,8 +465,7 @@ function applyStrategyModifier(
   const strategyWeight = 0.3;
   const baseWeight = 0.7;
 
-  let modifiedScore =
-    score * baseWeight + strategySpecificScore * strategyWeight;
+  let modifiedScore = score * baseWeight + strategySpecificScore * strategyWeight;
 
   // Strategy-specific adjustments
   switch (strategy) {

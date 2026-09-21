@@ -21,9 +21,7 @@ function installInMemoryTracing(): {
     spanProcessors: [new SimpleSpanProcessor(exporter)],
   });
 
-  context.setGlobalContextManager(
-    new AsyncLocalStorageContextManager().enable(),
-  );
+  context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable());
   propagation.setGlobalPropagator(new W3CTraceContextPropagator());
   trace.setGlobalTracerProvider(provider);
 
@@ -80,9 +78,7 @@ describe("OTel instrumentation", () => {
     expect(httpSpan?.attributes["http.route"]).toBe("/health");
     expect(httpSpan?.attributes["http.status_code"]).toBe(200);
     expect(typeof httpSpan?.attributes["http.duration_ms"]).toBe("number");
-    expect(typeof httpSpan?.attributes["flywheel.correlation_id"]).toBe(
-      "string",
-    );
+    expect(typeof httpSpan?.attributes["flywheel.correlation_id"]).toBe("string");
     expect(typeof httpSpan?.attributes["flywheel.request_id"]).toBe("string");
   });
 

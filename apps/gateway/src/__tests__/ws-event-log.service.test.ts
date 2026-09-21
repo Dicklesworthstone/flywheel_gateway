@@ -5,16 +5,7 @@
  * rate limiting, and cleanup operations.
  */
 
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  test,
-} from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 
@@ -62,9 +53,7 @@ beforeAll(async () => {
 });
 
 // Helper to generate test events
-function createTestEvent(
-  overrides: Partial<PersistableEvent> = {},
-): PersistableEvent {
+function createTestEvent(overrides: Partial<PersistableEvent> = {}): PersistableEvent {
   const sequence = overrides.sequence ?? Date.now();
   return {
     id: `evt_${crypto.randomUUID()}`,
@@ -111,10 +100,7 @@ describe("persistEvent", () => {
 
     expect(result).toBe(true);
 
-    const stored = await db
-      .select()
-      .from(wsEventLog)
-      .where(eq(wsEventLog.id, event.id));
+    const stored = await db.select().from(wsEventLog).where(eq(wsEventLog.id, event.id));
 
     expect(stored).toHaveLength(1);
     expect(stored[0]?.channel).toBe(event.channel);
@@ -129,10 +115,7 @@ describe("persistEvent", () => {
 
     await persistEvent(event);
 
-    const stored = await db
-      .select()
-      .from(wsEventLog)
-      .where(eq(wsEventLog.id, event.id));
+    const stored = await db.select().from(wsEventLog).where(eq(wsEventLog.id, event.id));
 
     expect(stored[0]?.expiresAt).toBeDefined();
     const expiresAtMs = stored[0]?.expiresAt?.getTime() ?? 0;
@@ -152,10 +135,7 @@ describe("persistEvent", () => {
 
     await persistEvent(event);
 
-    const stored = await db
-      .select()
-      .from(wsEventLog)
-      .where(eq(wsEventLog.id, event.id));
+    const stored = await db.select().from(wsEventLog).where(eq(wsEventLog.id, event.id));
 
     expect(stored[0]?.agentId).toBe("agent-xyz");
     expect(stored[0]?.workspaceId).toBe("ws-abc");
@@ -328,10 +308,7 @@ describe("cleanupExpiredEvents", () => {
     expect(deleted).toBe(1);
 
     // Fresh event should still exist
-    const remaining = await db
-      .select()
-      .from(wsEventLog)
-      .where(eq(wsEventLog.id, freshEvent.id));
+    const remaining = await db.select().from(wsEventLog).where(eq(wsEventLog.id, freshEvent.id));
     expect(remaining).toHaveLength(1);
   });
 });

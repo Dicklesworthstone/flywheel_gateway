@@ -88,11 +88,7 @@ export function calculateCompositeHealthScore(components: HealthComponents): {
   const costScore = clamp(100 - (components.costBurnRate - 1) * 50, 0, 100);
   const stateScore = clamp(components.stateHealth, 0, 100);
   const errorScore = clamp(100 - components.errorRate * 20, 0, 100);
-  const conflictScore = clamp(
-    100 - components.reservationConflicts * 25,
-    0,
-    100,
-  );
+  const conflictScore = clamp(100 - components.reservationConflicts * 25, 0, 100);
 
   const weighted =
     contextScore * 0.25 +
@@ -126,9 +122,7 @@ function calculateStateHealthScore(
   if (state === LifecycleState.READY) return { score: 100, durationSeconds };
 
   // Norms chosen to match bd-1x215 spec (seconds).
-  const norms: Partial<
-    Record<LifecycleState, { normal: number; max: number }>
-  > = {
+  const norms: Partial<Record<LifecycleState, { normal: number; max: number }>> = {
     [LifecycleState.EXECUTING]: { normal: 1800, max: 3600 },
     [LifecycleState.PAUSED]: { normal: 3600, max: 7200 },
     [LifecycleState.INITIALIZING]: { normal: 60, max: 300 },
@@ -219,13 +213,8 @@ export class AgentHealthScoreService {
     // data exists in the window, default to 1.0 (normal).
     let costBurnRate = 1;
     try {
-      const agentCount =
-        options.agentCount ?? (await listAgents({ limit: 1000 })).agents.length;
-      costBurnRate = await this.computeCostBurnRate(
-        agentId,
-        agentCount,
-        costWindowMs,
-      );
+      const agentCount = options.agentCount ?? (await listAgents({ limit: 1000 })).agents.length;
+      costBurnRate = await this.computeCostBurnRate(agentId, agentCount, costWindowMs);
     } catch (error) {
       log.debug({ agentId, error }, "health-score: cost burn rate unavailable");
       costBurnRate = 1;
@@ -267,14 +256,10 @@ export class AgentHealthScoreService {
     return { ...value, cache: { hit: false, ttlMs } };
   }
 
-  async getScoresForAgents(
-    agentIds: string[],
-  ): Promise<AgentHealthScoreResult[]> {
+  async getScoresForAgents(agentIds: string[]): Promise<AgentHealthScoreResult[]> {
     const agentCount = agentIds.length;
     const results = await Promise.all(
-      agentIds.map(async (agentId) =>
-        this.getAgentScore(agentId, { agentCount }),
-      ),
+      agentIds.map(async (agentId) => this.getAgentScore(agentId, { agentCount })),
     );
     // Worst-first is more useful for dashboards.
     return results.sort((a, b) => a.score - b.score);
@@ -288,14 +273,9 @@ export class AgentHealthScoreService {
 
     this.lastPublishedScore.set(value.agentId, value.score);
 
-    getHub().publish(
-      { type: "agent:health", agentId: value.agentId },
-      "health.score",
-      value,
-      {
-        agentId: value.agentId,
-      },
-    );
+    getHub().publish({ type: "agent:health", agentId: value.agentId }, "health.score", value, {
+      agentId: value.agentId,
+    });
   }
 
   private async computeCostBurnRate(

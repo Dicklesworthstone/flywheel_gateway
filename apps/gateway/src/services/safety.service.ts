@@ -245,10 +245,7 @@ export function startCleanupJob(): void {
   if (cleanupIntervalHandle !== null) {
     return; // Already running
   }
-  cleanupIntervalHandle = setInterval(
-    cleanupExpiredEntries,
-    CLEANUP_INTERVAL_MS,
-  );
+  cleanupIntervalHandle = setInterval(cleanupExpiredEntries, CLEANUP_INTERVAL_MS);
   // Ensure the interval doesn't prevent process exit
   if (cleanupIntervalHandle.unref) {
     cleanupIntervalHandle.unref();
@@ -427,9 +424,7 @@ async function persistConfig(config: SafetyConfig): Promise<void> {
           severity: rule.severity,
           message: rule.message,
           enabled: rule.enabled,
-          alternatives: rule.alternatives
-            ? JSON.stringify(rule.alternatives)
-            : null,
+          alternatives: rule.alternatives ? JSON.stringify(rule.alternatives) : null,
           priority: 100, // Default priority
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -446,9 +441,7 @@ async function persistConfig(config: SafetyConfig): Promise<void> {
             severity: rule.severity,
             message: rule.message,
             enabled: rule.enabled,
-            alternatives: rule.alternatives
-              ? JSON.stringify(rule.alternatives)
-              : null,
+            alternatives: rule.alternatives ? JSON.stringify(rule.alternatives) : null,
             updatedAt: new Date(),
           },
         });
@@ -499,9 +492,7 @@ export async function getConfig(workspaceId: string): Promise<SafetyConfig> {
       severity: row.severity as SafetySeverity,
       message: row.message,
       enabled: row.enabled,
-      ...(row.alternatives
-        ? { alternatives: JSON.parse(row.alternatives) as string[] }
-        : {}),
+      ...(row.alternatives ? { alternatives: JSON.parse(row.alternatives) as string[] } : {}),
     };
     categories[rule.category].rules.push(rule);
   }
@@ -601,9 +592,7 @@ export async function addRule(
     severity: newRule.severity,
     message: newRule.message,
     enabled: newRule.enabled,
-    alternatives: newRule.alternatives
-      ? JSON.stringify(newRule.alternatives)
-      : null,
+    alternatives: newRule.alternatives ? JSON.stringify(newRule.alternatives) : null,
     priority: 100,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -625,15 +614,10 @@ export async function addRule(
 /**
  * Remove a rule from a workspace's config.
  */
-export async function removeRule(
-  workspaceId: string,
-  ruleId: string,
-): Promise<boolean> {
+export async function removeRule(workspaceId: string, ruleId: string): Promise<boolean> {
   const result = await db
     .delete(safetyRules)
-    .where(
-      and(eq(safetyRules.id, ruleId), eq(safetyRules.workspaceId, workspaceId)),
-    )
+    .where(and(eq(safetyRules.id, ruleId), eq(safetyRules.workspaceId, workspaceId)))
     .returning({ id: safetyRules.id });
 
   if (result.length > 0) {
@@ -665,9 +649,7 @@ export async function toggleRule(
       enabled,
       updatedAt: new Date(),
     })
-    .where(
-      and(eq(safetyRules.id, ruleId), eq(safetyRules.workspaceId, workspaceId)),
-    )
+    .where(and(eq(safetyRules.id, ruleId), eq(safetyRules.workspaceId, workspaceId)))
     .returning();
 
   if (result.length > 0) {
@@ -692,9 +674,7 @@ export async function toggleRule(
       severity: row.severity as SafetySeverity,
       message: row.message,
       enabled: row.enabled,
-      ...(row.alternatives
-        ? { alternatives: JSON.parse(row.alternatives) as string[] }
-        : {}),
+      ...(row.alternatives ? { alternatives: JSON.parse(row.alternatives) as string[] } : {}),
     };
   }
 
@@ -785,9 +765,7 @@ export async function preFlightCheck(
       result.requiresApproval = true;
       result.reason = "Budget threshold reached, approval required to continue";
     } else {
-      result.warnings.push(
-        `Budget at ${budgetResult.info?.percentage.toFixed(0)}%`,
-      );
+      result.warnings.push(`Budget at ${budgetResult.info?.percentage.toFixed(0)}%`);
     }
   }
 
@@ -914,10 +892,7 @@ function checkRateLimits(
   const windowMs = 60000; // 1 minute window
 
   // Map operation types to limit types
-  const limitMap: Record<
-    SafetyCategory,
-    keyof SafetyRateLimitConfig["limits"]
-  > = {
+  const limitMap: Record<SafetyCategory, keyof SafetyRateLimitConfig["limits"]> = {
     filesystem: "fileWritesPerMinute",
     git: "commandsPerMinute",
     network: "networkRequestsPerMinute",
@@ -928,9 +903,7 @@ function checkRateLimits(
 
   const limitType = limitMap[request.operation.type] ?? "requestsPerMinute";
   const limit = config.rateLimits.limits[limitType];
-  const effectiveLimit = Math.floor(
-    limit * (1 + config.rateLimits.burstAllowance),
-  );
+  const effectiveLimit = Math.floor(limit * (1 + config.rateLimits.burstAllowance));
 
   const key = getRateLimitKey(request, config.rateLimits, limitType);
   let entry = rateLimitCounters.get(key);
@@ -1056,11 +1029,7 @@ export async function recordUsage(
 
   // Simple daily period for now
   const now = new Date();
-  const periodStart = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   // Generate ID based on scope/period to upsert
   const id = `budg_${scope}_${scopeId}_${periodStart.getTime()}`;
@@ -1082,11 +1051,7 @@ export async function recordUsage(
       lastUpdatedAt: new Date(),
     })
     .onConflictDoUpdate({
-      target: [
-        budgetUsageTable.scope,
-        budgetUsageTable.scopeId,
-        budgetUsageTable.periodStart,
-      ],
+      target: [budgetUsageTable.scope, budgetUsageTable.scopeId, budgetUsageTable.periodStart],
       set: {
         tokensUsed: sql`${budgetUsageTable.tokensUsed} + ${tokens}`,
         dollarsUsed: sql`${budgetUsageTable.dollarsUsed} + ${dollars}`,
@@ -1110,8 +1075,7 @@ export async function recordUsage(
 
   for (const threshold of config.budget.alertThresholds) {
     const thresholdPct = threshold * 100;
-    const prevPercentage =
-      ((currentDollars - dollars) / config.budget.limits.totalDollars) * 100;
+    const prevPercentage = ((currentDollars - dollars) / config.budget.limits.totalDollars) * 100;
 
     if (percentage >= thresholdPct && prevPercentage < thresholdPct) {
       logger.warn(
@@ -1176,9 +1140,7 @@ export async function getViolations(
 
   return rows.map((row) => {
     const context: SafetyViolation["context"] = {
-      recentHistory: row.recentHistory
-        ? (JSON.parse(row.recentHistory as string) as string[])
-        : [],
+      recentHistory: row.recentHistory ? (JSON.parse(row.recentHistory as string) as string[]) : [],
       ...(row.taskDescription !== null && row.taskDescription !== undefined
         ? { taskDescription: row.taskDescription }
         : {}),
@@ -1367,16 +1329,10 @@ export async function emergencyStop(
 /**
  * Clear emergency stop state.
  */
-export async function clearEmergencyStop(
-  workspaceId: string,
-  clearedBy: string,
-): Promise<void> {
+export async function clearEmergencyStop(workspaceId: string, clearedBy: string): Promise<void> {
   // Find and remove emergency stop rules
   const stopRules = await db.query.safetyRules.findMany({
-    where: and(
-      eq(safetyRules.workspaceId, workspaceId),
-      eq(safetyRules.name, "Emergency Stop"),
-    ),
+    where: and(eq(safetyRules.workspaceId, workspaceId), eq(safetyRules.name, "Emergency Stop")),
   });
 
   for (const rule of stopRules) {

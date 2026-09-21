@@ -81,10 +81,7 @@ export class InMemoryRateLimiter {
    */
   startCleanup(): void {
     if (this.cleanupTimer) return;
-    this.cleanupTimer = setInterval(
-      () => this.cleanup(),
-      this.cleanupIntervalMs,
-    );
+    this.cleanupTimer = setInterval(() => this.cleanup(), this.cleanupIntervalMs);
     if (this.cleanupTimer.unref) {
       this.cleanupTimer.unref();
     }
@@ -191,10 +188,7 @@ export class InMemoryRateLimiter {
    * Unlike the check() method which always increments, this method only increments
    * if the request is allowed, making it safe for use in rate limiting middleware.
    */
-  tryConsume(
-    key: string,
-    config: RateLimitConfig,
-  ): { allowed: boolean; info: RateLimitInfo } {
+  tryConsume(key: string, config: RateLimitConfig): { allowed: boolean; info: RateLimitInfo } {
     const now = Date.now();
     let entry = this.counters.get(key);
 
@@ -358,8 +352,7 @@ export function byWorkspace(c: Context): string {
   const workspaceId = c.get("workspaceId") as string | undefined;
   if (workspaceId) return `ws:${workspaceId}`;
   const auth = c.get("auth") as unknown;
-  const workspaceIds = (auth as { workspaceIds?: unknown } | undefined)
-    ?.workspaceIds;
+  const workspaceIds = (auth as { workspaceIds?: unknown } | undefined)?.workspaceIds;
   if (Array.isArray(workspaceIds) && workspaceIds.length === 1) {
     return `ws:${workspaceIds[0]}`;
   }
@@ -370,9 +363,7 @@ export function byWorkspace(c: Context): string {
  * Create a composite key generator that combines multiple dimensions.
  * Useful for per-endpoint-per-user limiting.
  */
-export function compositeKey(
-  ...generators: Array<(c: Context) => string>
-): (c: Context) => string {
+export function compositeKey(...generators: Array<(c: Context) => string>): (c: Context) => string {
   return (c: Context) => generators.map((gen) => gen(c)).join(":");
 }
 
@@ -380,9 +371,7 @@ export function compositeKey(
  * Create a key generator that includes the request path.
  * Useful for per-endpoint rate limiting.
  */
-export function withPath(
-  baseGenerator: (c: Context) => string,
-): (c: Context) => string {
+export function withPath(baseGenerator: (c: Context) => string): (c: Context) => string {
   return (c: Context) => `${baseGenerator(c)}:${c.req.path}`;
 }
 
@@ -509,11 +498,7 @@ function setRateLimitHeaders(c: Context, info: RateLimitInfo): void {
 /**
  * Send a 429 rate limit exceeded response.
  */
-function sendRateLimitResponse(
-  c: Context,
-  info: RateLimitInfo,
-  config: RateLimitConfig,
-) {
+function sendRateLimitResponse(c: Context, info: RateLimitInfo, config: RateLimitConfig) {
   const requestId = getCorrelationId();
   const retryAfter = Math.max(0, info.reset - Math.ceil(Date.now() / 1000));
 

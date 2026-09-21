@@ -48,8 +48,7 @@ describe("Risk 1: Agent Runaway Mitigation", () => {
       // Simulate token accumulation
       agentState.tokenUsage.input += 50000;
       agentState.tokenUsage.output += 30000;
-      agentState.tokenUsage.total =
-        agentState.tokenUsage.input + agentState.tokenUsage.output;
+      agentState.tokenUsage.total = agentState.tokenUsage.input + agentState.tokenUsage.output;
 
       expect(agentState.tokenUsage.total).toBe(80000);
       expect(agentState.tokenUsage.total).toBeLessThan(agentState.maxTokens);
@@ -78,8 +77,7 @@ describe("Risk 1: Agent Runaway Mitigation", () => {
         lastActivityAt: Date.now() - 6 * 60 * 1000, // 6 minutes ago
       };
 
-      const isInactive =
-        Date.now() - config.lastActivityAt > config.inactivityTimeoutMs;
+      const isInactive = Date.now() - config.lastActivityAt > config.inactivityTimeoutMs;
       expect(isInactive).toBe(true);
     });
 
@@ -89,8 +87,7 @@ describe("Risk 1: Agent Runaway Mitigation", () => {
         lastActivityAt: Date.now() - 1 * 60 * 1000, // 1 minute ago
       };
 
-      const isInactive =
-        Date.now() - config.lastActivityAt > config.inactivityTimeoutMs;
+      const isInactive = Date.now() - config.lastActivityAt > config.inactivityTimeoutMs;
       expect(isInactive).toBe(false);
     });
   });
@@ -111,8 +108,7 @@ describe("Risk 2: Account Quota Exhaustion Mitigation", () => {
       ];
 
       for (const pattern of rateLimitPatterns) {
-        const isRateLimit =
-          pattern.status === 429 || pattern.error?.type === "rate_limit_error";
+        const isRateLimit = pattern.status === 429 || pattern.error?.type === "rate_limit_error";
         expect(isRateLimit).toBe(true);
       }
     });
@@ -125,8 +121,7 @@ describe("Risk 2: Account Quota Exhaustion Mitigation", () => {
       ];
 
       for (const error of otherErrors) {
-        const isRateLimit =
-          error.status === 429 || error.error?.type === "rate_limit_error";
+        const isRateLimit = error.status === 429 || error.error?.type === "rate_limit_error";
         expect(isRateLimit).toBe(false);
       }
     });
@@ -176,9 +171,7 @@ describe("Risk 2: Account Quota Exhaustion Mitigation", () => {
         { id: "p2", cooldownUntil: new Date(Date.now() + 60000) },
       ];
 
-      const available = profiles.filter(
-        (p) => !p.cooldownUntil || p.cooldownUntil <= new Date(),
-      );
+      const available = profiles.filter((p) => !p.cooldownUntil || p.cooldownUntil <= new Date());
 
       expect(available.length).toBe(0);
     });
@@ -193,10 +186,7 @@ describe("Risk 2: Account Quota Exhaustion Mitigation", () => {
 describe("Risk 3: File Conflicts Mitigation", () => {
   describe("Reservation system", () => {
     test("exclusive reservation blocks second agent", () => {
-      const reservations = new Map<
-        string,
-        { agentId: string; exclusive: boolean }
-      >();
+      const reservations = new Map<string, { agentId: string; exclusive: boolean }>();
 
       // First agent reserves
       reservations.set("src/index.ts", {
@@ -226,9 +216,7 @@ describe("Risk 3: File Conflicts Mitigation", () => {
       });
 
       // Second agent can also reserve non-exclusively
-      const hasExclusive = reservations.some(
-        (r) => r.path === "src/index.ts" && r.exclusive,
-      );
+      const hasExclusive = reservations.some((r) => r.path === "src/index.ts" && r.exclusive);
       const canReserve = !hasExclusive;
 
       expect(canReserve).toBe(true);
@@ -418,9 +406,7 @@ describe("Risk 6: Checkpoint Storage Explosion Mitigation", () => {
         { id: 3, createdAt: new Date(now - 1 * 24 * 60 * 60 * 1000) }, // 1 day old
       ];
 
-      const retentionCutoff = new Date(
-        now - retentionDays * 24 * 60 * 60 * 1000,
-      );
+      const retentionCutoff = new Date(now - retentionDays * 24 * 60 * 60 * 1000);
       const toDelete = checkpoints.filter((c) => c.createdAt < retentionCutoff);
 
       expect(toDelete.length).toBe(1);
@@ -528,9 +514,7 @@ describe("Risk 8: Daemon Failure Mitigation", () => {
       const windowMs = 5 * 60 * 1000; // 5 minutes
       const threshold = 3;
 
-      const recentCrashes = crashHistory.filter(
-        (c) => Date.now() - c.timestamp < windowMs,
-      );
+      const recentCrashes = crashHistory.filter((c) => Date.now() - c.timestamp < windowMs);
 
       const shouldAlert = recentCrashes.length >= threshold;
       expect(shouldAlert).toBe(true);
@@ -601,11 +585,7 @@ describe("Risk 10: Security Breach Mitigation", () => {
 
   describe("Sensitive data redaction", () => {
     test("API keys redacted in logs", () => {
-      const redactPatterns = [
-        /sk-ant-[a-zA-Z0-9]+/g,
-        /sk-[a-zA-Z0-9]+/g,
-        /Bearer [a-zA-Z0-9]+/g,
-      ];
+      const redactPatterns = [/sk-ant-[a-zA-Z0-9]+/g, /sk-[a-zA-Z0-9]+/g, /Bearer [a-zA-Z0-9]+/g];
 
       const sensitiveString = "API key: sk-ant-abc123xyz";
       let redacted = sensitiveString;
@@ -642,12 +622,7 @@ describe("Risk 10: Security Breach Mitigation", () => {
     });
 
     test("safe commands allowed", () => {
-      const safeCommands = [
-        "git status",
-        "ls -la",
-        "SELECT * FROM users",
-        "docker ps",
-      ];
+      const safeCommands = ["git status", "ls -la", "SELECT * FROM users", "docker ps"];
 
       const patterns = [
         /rm\s+-rf/,

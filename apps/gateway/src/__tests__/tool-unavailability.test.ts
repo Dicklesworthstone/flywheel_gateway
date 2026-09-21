@@ -11,16 +11,15 @@ import {
 describe("classifyToolUnavailability", () => {
   describe("stderr pattern matching", () => {
     it("classifies 'command not found' as not_installed", () => {
-      expect(
-        classifyToolUnavailability({ stderr: "bash: dcg: command not found" }),
-      ).toBe("not_installed");
+      expect(classifyToolUnavailability({ stderr: "bash: dcg: command not found" })).toBe(
+        "not_installed",
+      );
     });
 
     it("classifies 'no such file or directory' as not_installed", () => {
       expect(
         classifyToolUnavailability({
-          stderr:
-            "Error: ENOENT: no such file or directory, stat '/usr/bin/dcg'",
+          stderr: "Error: ENOENT: no such file or directory, stat '/usr/bin/dcg'",
         }),
       ).toBe("not_installed");
     });
@@ -34,9 +33,9 @@ describe("classifyToolUnavailability", () => {
     });
 
     it("classifies 'permission denied' as permission_denied", () => {
-      expect(
-        classifyToolUnavailability({ stderr: "Error: Permission denied" }),
-      ).toBe("permission_denied");
+      expect(classifyToolUnavailability({ stderr: "Error: Permission denied" })).toBe(
+        "permission_denied",
+      );
     });
 
     it("classifies EACCES as permission_denied", () => {
@@ -48,27 +47,21 @@ describe("classifyToolUnavailability", () => {
     });
 
     it("classifies 'not logged in' as auth_required", () => {
-      expect(
-        classifyToolUnavailability({ stderr: "Error: not logged in" }),
-      ).toBe("auth_required");
+      expect(classifyToolUnavailability({ stderr: "Error: not logged in" })).toBe("auth_required");
     });
 
     it("classifies 'unauthorized' as auth_required", () => {
-      expect(classifyToolUnavailability({ stderr: "401 Unauthorized" })).toBe(
+      expect(classifyToolUnavailability({ stderr: "401 Unauthorized" })).toBe("auth_required");
+    });
+
+    it("classifies 'no api key' as auth_required", () => {
+      expect(classifyToolUnavailability({ stderr: "Error: no API key found" })).toBe(
         "auth_required",
       );
     });
 
-    it("classifies 'no api key' as auth_required", () => {
-      expect(
-        classifyToolUnavailability({ stderr: "Error: no API key found" }),
-      ).toBe("auth_required");
-    });
-
     it("classifies 'token expired' as auth_expired", () => {
-      expect(
-        classifyToolUnavailability({ stderr: "Error: token expired" }),
-      ).toBe("auth_expired");
+      expect(classifyToolUnavailability({ stderr: "Error: token expired" })).toBe("auth_expired");
     });
 
     it("classifies 'invalid token' as auth_expired", () => {
@@ -96,9 +89,9 @@ describe("classifyToolUnavailability", () => {
     });
 
     it("classifies 'config not found' as config_missing", () => {
-      expect(
-        classifyToolUnavailability({ stderr: "Error: config not found" }),
-      ).toBe("config_missing");
+      expect(classifyToolUnavailability({ stderr: "Error: config not found" })).toBe(
+        "config_missing",
+      );
     });
 
     it("classifies 'invalid config' as config_invalid", () => {
@@ -134,23 +127,17 @@ describe("classifyToolUnavailability", () => {
     });
 
     it("classifies 'panic' as crash", () => {
-      expect(
-        classifyToolUnavailability({ stderr: "panic: runtime error" }),
-      ).toBe("crash");
+      expect(classifyToolUnavailability({ stderr: "panic: runtime error" })).toBe("crash");
     });
   });
 
   describe("exit code mapping", () => {
     it("maps exit code 127 to not_installed", () => {
-      expect(classifyToolUnavailability({ exitCode: 127 })).toBe(
-        "not_installed",
-      );
+      expect(classifyToolUnavailability({ exitCode: 127 })).toBe("not_installed");
     });
 
     it("maps exit code 126 to permission_denied", () => {
-      expect(classifyToolUnavailability({ exitCode: 126 })).toBe(
-        "permission_denied",
-      );
+      expect(classifyToolUnavailability({ exitCode: 126 })).toBe("permission_denied");
     });
 
     it("maps exit code 139 (SIGSEGV) to crash", () => {
@@ -176,9 +163,7 @@ describe("classifyToolUnavailability", () => {
     });
 
     it("classifies from string errors", () => {
-      expect(classifyToolUnavailability({ error: "command not found" })).toBe(
-        "not_installed",
-      );
+      expect(classifyToolUnavailability({ error: "command not found" })).toBe("not_installed");
     });
   });
 
@@ -196,9 +181,9 @@ describe("classifyToolUnavailability", () => {
 
   describe("fallback", () => {
     it("returns 'unknown' for unrecognized errors", () => {
-      expect(
-        classifyToolUnavailability({ exitCode: 42, stderr: "something weird" }),
-      ).toBe("unknown");
+      expect(classifyToolUnavailability({ exitCode: 42, stderr: "something weird" })).toBe(
+        "unknown",
+      );
     });
 
     it("returns 'unknown' for empty input", () => {

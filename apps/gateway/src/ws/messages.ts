@@ -491,8 +491,7 @@ export function parseClientMessage(json: string): ClientMessage | undefined {
     }
     const parsed = JSON.parse(json);
     if (!parsed || typeof parsed !== "object") return undefined;
-    if (!("type" in parsed) || typeof parsed.type !== "string")
-      return undefined;
+    if (!("type" in parsed) || typeof parsed.type !== "string") return undefined;
 
     switch (parsed.type) {
       case "subscribe":
@@ -522,11 +521,8 @@ export function parseClientMessage(json: string): ClientMessage | undefined {
         return { type: "ping", timestamp: parsed.timestamp };
 
       case "reconnect": {
-        if (!parsed.cursors || typeof parsed.cursors !== "object")
-          return undefined;
-        const entries = Object.entries(
-          parsed.cursors as Record<string, unknown>,
-        )
+        if (!parsed.cursors || typeof parsed.cursors !== "object") return undefined;
+        const entries = Object.entries(parsed.cursors as Record<string, unknown>)
           .filter(([, value]) => typeof value === "string")
           .map(([key, value]) => [key, value] as [string, string]);
         return { type: "reconnect", cursors: Object.fromEntries(entries) };
@@ -559,9 +555,7 @@ export function serializeServerMessage(message: ServerMessage): string {
   } catch {
     // Handle circular references or other serialization errors
     // Note: createWSError is safe to use here as it's defined in the same module
-    return JSON.stringify(
-      createWSError("SERIALIZATION_ERROR", "Failed to serialize message"),
-    );
+    return JSON.stringify(createWSError("SERIALIZATION_ERROR", "Failed to serialize message"));
   }
 }
 
@@ -589,8 +583,7 @@ const WS_ERROR_HINTS: Record<
   INVALID_FORMAT: {
     severity: "recoverable",
     hint: "Messages must be valid JSON with a 'type' field. Check message format.",
-    alternative:
-      "Use the SDK client which handles message formatting automatically.",
+    alternative: "Use the SDK client which handles message formatting automatically.",
     example: { type: "subscribe", channel: "agent:output:YOUR_AGENT_ID" },
     docs: `${WS_DOCS_BASE}#message-format`,
   },
@@ -628,8 +621,7 @@ const WS_ERROR_HINTS: Record<
   INVALID_CHANNEL: {
     severity: "recoverable",
     hint: "Channel format is 'scope:type:id', e.g., 'agent:output:agent-123'.",
-    alternative:
-      "Use parseChannel() to validate channel format before subscribing.",
+    alternative: "Use parseChannel() to validate channel format before subscribing.",
     example: "agent:output:agent-abc123",
     docs: `${WS_DOCS_BASE}#channels`,
   },
@@ -640,8 +632,7 @@ const WS_ERROR_HINTS: Record<
   INTERNAL_ERROR: {
     severity: "retry",
     hint: "An internal error occurred. Retry the request.",
-    alternative:
-      "If the error persists, check the server logs or contact support.",
+    alternative: "If the error persists, check the server logs or contact support.",
   },
 };
 

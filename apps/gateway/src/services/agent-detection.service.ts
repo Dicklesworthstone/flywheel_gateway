@@ -524,11 +524,7 @@ function deriveCommandSpec(
   const verifyCommand = tool.verify?.command;
   if (verifyCommand && verifyCommand.length > 0) {
     const last = verifyCommand[verifyCommand.length - 1];
-    if (
-      last !== undefined &&
-      verifyCommand.length > 1 &&
-      VERSION_FLAG_TOKENS.has(last)
-    ) {
+    if (last !== undefined && verifyCommand.length > 1 && VERSION_FLAG_TOKENS.has(last)) {
       const commands = verifyCommand.slice(0, -1);
       return {
         commands: commands.length > 0 ? commands : [tool.name],
@@ -543,16 +539,11 @@ function deriveCommandSpec(
   return { commands: [tool.name], versionFlag: "--version" };
 }
 
-function deriveCapabilities(
-  tool: ToolDefinition,
-  fallback?: CLIDefinition,
-): DetectedCapabilities {
+function deriveCapabilities(tool: ToolDefinition, fallback?: CLIDefinition): DetectedCapabilities {
   // Start with base capabilities
   const base =
     fallback?.capabilities ??
-    (tool.category === "agent"
-      ? DEFAULT_AGENT_CAPABILITIES
-      : DEFAULT_TOOL_CAPABILITIES);
+    (tool.category === "agent" ? DEFAULT_AGENT_CAPABILITIES : DEFAULT_TOOL_CAPABILITIES);
 
   // Build result with robot mode and MCP info from manifest
   const result: DetectedCapabilities = { ...base };
@@ -573,21 +564,15 @@ function deriveCapabilities(
   if (tool.mcp?.available) {
     result.mcp = {
       available: true,
-      ...(tool.mcp.capabilities !== undefined
-        ? { capabilities: tool.mcp.capabilities }
-        : {}),
-      ...(tool.mcp.toolCount !== undefined
-        ? { toolCount: tool.mcp.toolCount }
-        : {}),
+      ...(tool.mcp.capabilities !== undefined ? { capabilities: tool.mcp.capabilities } : {}),
+      ...(tool.mcp.toolCount !== undefined ? { toolCount: tool.mcp.toolCount } : {}),
     };
   }
 
   return result;
 }
 
-function deriveInstalledCheck(
-  tool: ToolDefinition,
-): InstalledCheck | undefined {
+function deriveInstalledCheck(tool: ToolDefinition): InstalledCheck | undefined {
   if (tool.installedCheck && tool.installedCheck.command.length > 0) {
     const result: InstalledCheck = {
       command: tool.installedCheck.command,
@@ -788,9 +773,7 @@ function buildSafeEnv(): Record<string, string> {
     if (value === undefined) continue;
 
     // Check if key starts with any safe prefix
-    const isSafe = SAFE_ENV_PREFIXES.some(
-      (prefix) => key === prefix || key.startsWith(prefix),
-    );
+    const isSafe = SAFE_ENV_PREFIXES.some((prefix) => key === prefix || key.startsWith(prefix));
 
     if (isSafe) {
       safeEnv[key] = value;
@@ -898,10 +881,7 @@ async function runInstalledCheck(
 
   // Security: skip if run_as=root is requested (we don't elevate privileges)
   if (check.run_as === "root") {
-    log.debug(
-      { command: check.command },
-      "Skipping installed_check requiring root",
-    );
+    log.debug({ command: check.command }, "Skipping installed_check requiring root");
     return { success: false, output: "" };
   }
 
@@ -923,10 +903,7 @@ async function runInstalledCheck(
 
     if (raceResult === "timeout") {
       proc.kill();
-      log.debug(
-        { command: check.command, timeoutMs },
-        "Installed check timed out",
-      );
+      log.debug({ command: check.command, timeoutMs }, "Installed check timed out");
       return { success: false, output: "" };
     }
 
@@ -934,9 +911,7 @@ async function runInstalledCheck(
     const exitCode = raceResult;
 
     // Read output with cap
-    const cappedOutput = (
-      await readStreamSafe(proc.stdout, outputCapBytes)
-    ).trim();
+    const cappedOutput = (await readStreamSafe(proc.stdout, outputCapBytes)).trim();
 
     if (exitCode === 0) {
       return { success: true, output: cappedOutput };
@@ -944,10 +919,7 @@ async function runInstalledCheck(
 
     return { success: false, output: cappedOutput };
   } catch (error) {
-    log.debug(
-      { command: check.command, error: String(error) },
-      "Installed check failed",
-    );
+    log.debug({ command: check.command, error: String(error) }, "Installed check failed");
     return { success: false, output: "" };
   }
 }
@@ -981,10 +953,7 @@ async function findExecutable(command: string): Promise<string | null> {
  * Get version from CLI.
  * Uses sanitized environment to prevent credential leakage.
  */
-async function getVersion(
-  commands: string[],
-  versionFlag: string,
-): Promise<string | null> {
+async function getVersion(commands: string[], versionFlag: string): Promise<string | null> {
   try {
     const args = [...commands, versionFlag];
     const result = await spawnCapture(args, {
@@ -1011,9 +980,7 @@ async function getVersion(
  * Check authentication status.
  * Uses sanitized environment to prevent credential leakage.
  */
-async function checkAuth(
-  authCmd: string[],
-): Promise<{ authenticated: boolean; error?: string }> {
+async function checkAuth(authCmd: string[]): Promise<{ authenticated: boolean; error?: string }> {
   try {
     const result = await spawnCapture(authCmd, {
       timeoutMs: DEFAULT_CHECK_TIMEOUT_MS,
@@ -1171,8 +1138,7 @@ async function detectCLI(def: CLIDefinition): Promise<DetectedCLI> {
     available: true,
     path,
     ...(version !== null && version !== undefined && { version }),
-    ...(authenticated !== null &&
-      authenticated !== undefined && { authenticated }),
+    ...(authenticated !== null && authenticated !== undefined && { authenticated }),
     ...(authError !== null && authError !== undefined && { authError }),
     capabilities: def.capabilities,
     detectedAt: new Date(),
@@ -1223,9 +1189,7 @@ export async function detectToolCLIs(): Promise<DetectedCLI[]> {
 /**
  * Detect all CLIs with caching
  */
-export async function detectAllCLIs(
-  bypassCache = false,
-): Promise<DetectionResult> {
+export async function detectAllCLIs(bypassCache = false): Promise<DetectionResult> {
   const log = getLogger();
 
   // Check cache
@@ -1244,8 +1208,7 @@ export async function detectAllCLIs(
     log.info({ bypassCache }, "Starting CLI detection");
 
     // Detect agents and tools in parallel
-    const { agents: agentDefs, tools: toolDefs } =
-      await getRegistryDefinitions();
+    const { agents: agentDefs, tools: toolDefs } = await getRegistryDefinitions();
     const [agents, tools] = await Promise.all([
       Promise.all(agentDefs.map(detectCLI)),
       Promise.all(toolDefs.map(detectCLI)),
@@ -1302,12 +1265,9 @@ export async function detectAllCLIs(
 /**
  * Detect a specific CLI by name
  */
-export async function detectCLIByName(
-  name: DetectedType,
-): Promise<DetectedCLI | null> {
+export async function detectCLIByName(name: DetectedType): Promise<DetectedCLI | null> {
   const { agents, tools } = await getRegistryDefinitions();
-  const def =
-    agents.find((d) => d.name === name) || tools.find((d) => d.name === name);
+  const def = agents.find((d) => d.name === name) || tools.find((d) => d.name === name);
 
   if (!def) {
     return null;

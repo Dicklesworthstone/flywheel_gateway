@@ -43,9 +43,7 @@ describe("Security Headers Middleware", () => {
       const app = createApp();
       const res = await app.request("/test");
 
-      expect(res.headers.get("Referrer-Policy")).toBe(
-        "strict-origin-when-cross-origin",
-      );
+      expect(res.headers.get("Referrer-Policy")).toBe("strict-origin-when-cross-origin");
     });
 
     test("sets Content-Security-Policy header", async () => {
@@ -62,9 +60,7 @@ describe("Security Headers Middleware", () => {
       const res = await app.request("/test");
 
       expect(res.headers.get("Cross-Origin-Opener-Policy")).toBe("same-origin");
-      expect(res.headers.get("Cross-Origin-Resource-Policy")).toBe(
-        "same-origin",
-      );
+      expect(res.headers.get("Cross-Origin-Resource-Policy")).toBe("same-origin");
     });
 
     test("sets X-DNS-Prefetch-Control header", async () => {
@@ -229,12 +225,8 @@ describe("Security Headers Middleware", () => {
 
       const csp = res.headers.get("Content-Security-Policy");
       expect(csp).toContain("default-src 'self'");
-      expect(csp).toContain(
-        "script-src 'self' 'unsafe-inline' https://unpkg.com",
-      );
-      expect(csp).toContain(
-        "style-src 'self' 'unsafe-inline' https://unpkg.com",
-      );
+      expect(csp).toContain("script-src 'self' 'unsafe-inline' https://unpkg.com");
+      expect(csp).toContain("style-src 'self' 'unsafe-inline' https://unpkg.com");
       expect(csp).not.toContain("upgrade-insecure-requests");
     });
 
@@ -248,9 +240,7 @@ describe("Security Headers Middleware", () => {
       const csp = res.headers.get("Content-Security-Policy");
       expect(csp).toContain("default-src 'self'");
       expect(csp).toContain("script-src 'self' https://cdn.redoc.ly");
-      expect(csp).toContain(
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      );
+      expect(csp).toContain("style-src 'self' 'unsafe-inline' https://fonts.googleapis.com");
       expect(csp).toContain("font-src 'self' data: https://fonts.gstatic.com");
       expect(csp).not.toContain("upgrade-insecure-requests");
     });

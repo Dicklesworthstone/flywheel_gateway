@@ -162,25 +162,13 @@ export async function getOverviewStats(): Promise<DCGOverviewStats> {
       // Total blocks
       db.select({ count: count() }).from(dcgBlocks),
       // Blocks in last 24h
-      db
-        .select({ count: count() })
-        .from(dcgBlocks)
-        .where(gte(dcgBlocks.createdAt, time24hAgo)),
+      db.select({ count: count() }).from(dcgBlocks).where(gte(dcgBlocks.createdAt, time24hAgo)),
       // Blocks in last 7 days
-      db
-        .select({ count: count() })
-        .from(dcgBlocks)
-        .where(gte(dcgBlocks.createdAt, time7dAgo)),
+      db.select({ count: count() }).from(dcgBlocks).where(gte(dcgBlocks.createdAt, time7dAgo)),
       // Blocks in last 30 days
-      db
-        .select({ count: count() })
-        .from(dcgBlocks)
-        .where(gte(dcgBlocks.createdAt, time30dAgo)),
+      db.select({ count: count() }).from(dcgBlocks).where(gte(dcgBlocks.createdAt, time30dAgo)),
       // False positives
-      db
-        .select({ count: count() })
-        .from(dcgBlocks)
-        .where(eq(dcgBlocks.falsePositive, true)),
+      db.select({ count: count() }).from(dcgBlocks).where(eq(dcgBlocks.falsePositive, true)),
       // Allowlist size
       db.select({ count: count() }).from(dcgAllowlist),
       // Pending exceptions
@@ -250,50 +238,26 @@ export async function getTrendStats(): Promise<DCGTrendStats> {
       previous30dResult,
     ] = await Promise.all([
       // Current 24h
-      db
-        .select({ count: count() })
-        .from(dcgBlocks)
-        .where(gte(dcgBlocks.createdAt, time24hAgo)),
+      db.select({ count: count() }).from(dcgBlocks).where(gte(dcgBlocks.createdAt, time24hAgo)),
       // Previous 24h (24-48h ago)
       db
         .select({ count: count() })
         .from(dcgBlocks)
-        .where(
-          and(
-            gte(dcgBlocks.createdAt, time48hAgo),
-            lt(dcgBlocks.createdAt, time24hAgo),
-          ),
-        ),
+        .where(and(gte(dcgBlocks.createdAt, time48hAgo), lt(dcgBlocks.createdAt, time24hAgo))),
       // Current 7d
-      db
-        .select({ count: count() })
-        .from(dcgBlocks)
-        .where(gte(dcgBlocks.createdAt, time7dAgo)),
+      db.select({ count: count() }).from(dcgBlocks).where(gte(dcgBlocks.createdAt, time7dAgo)),
       // Previous 7d (7-14d ago)
       db
         .select({ count: count() })
         .from(dcgBlocks)
-        .where(
-          and(
-            gte(dcgBlocks.createdAt, time14dAgo),
-            lt(dcgBlocks.createdAt, time7dAgo),
-          ),
-        ),
+        .where(and(gte(dcgBlocks.createdAt, time14dAgo), lt(dcgBlocks.createdAt, time7dAgo))),
       // Current 30d
-      db
-        .select({ count: count() })
-        .from(dcgBlocks)
-        .where(gte(dcgBlocks.createdAt, time30dAgo)),
+      db.select({ count: count() }).from(dcgBlocks).where(gte(dcgBlocks.createdAt, time30dAgo)),
       // Previous 30d (30-60d ago)
       db
         .select({ count: count() })
         .from(dcgBlocks)
-        .where(
-          and(
-            gte(dcgBlocks.createdAt, time60dAgo),
-            lt(dcgBlocks.createdAt, time30dAgo),
-          ),
-        ),
+        .where(and(gte(dcgBlocks.createdAt, time60dAgo), lt(dcgBlocks.createdAt, time30dAgo))),
     ]);
 
     const current24h = current24hResult[0]?.count ?? 0;
@@ -428,9 +392,7 @@ export async function getTimeSeriesStats(): Promise<{
       })
       .from(dcgBlocks)
       .where(gte(dcgBlocks.createdAt, time30dAgo))
-      .groupBy(
-        sql`strftime('%Y-%m-%d', datetime(${dcgBlocks.createdAt}, 'unixepoch'))`,
-      )
+      .groupBy(sql`strftime('%Y-%m-%d', datetime(${dcgBlocks.createdAt}, 'unixepoch'))`)
       .orderBy(sql`date ASC`);
 
     // Create a map of date -> count
@@ -473,14 +435,13 @@ export async function getTimeSeriesStats(): Promise<{
  * This is the main function to call for full statistics.
  */
 export async function getFullStats(): Promise<DCGFullStats> {
-  const [overview, trends, patterns, distributions, timeSeries] =
-    await Promise.all([
-      getOverviewStats(),
-      getTrendStats(),
-      getPatternStats(),
-      getDistributionStats(),
-      getTimeSeriesStats(),
-    ]);
+  const [overview, trends, patterns, distributions, timeSeries] = await Promise.all([
+    getOverviewStats(),
+    getTrendStats(),
+    getPatternStats(),
+    getDistributionStats(),
+    getTimeSeriesStats(),
+  ]);
 
   return {
     overview,

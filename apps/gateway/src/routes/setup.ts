@@ -8,10 +8,7 @@
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { getLogger } from "../middleware/correlation";
-import {
-  type DetectedType,
-  getAgentDetectionService,
-} from "../services/agent-detection.service";
+import { type DetectedType, getAgentDetectionService } from "../services/agent-detection.service";
 import {
   getAllToolInfo,
   getReadinessStatus,
@@ -56,9 +53,7 @@ const InstallRequestSchema = z.object({
     "bv",
     "ru",
   ]) as z.ZodType<DetectedType>,
-  mode: z
-    .enum(["interactive", "easy"])
-    .default("easy") as z.ZodType<InstallMode>,
+  mode: z.enum(["interactive", "easy"]).default("easy") as z.ZodType<InstallMode>,
   verify: z.boolean().default(true),
 });
 

@@ -71,18 +71,10 @@ describe("Context Budget Service", () => {
     test("respects minimums when budget allows", () => {
       // With large budget, minimums should be respected
       const result = allocateBudget(100000);
-      expect(result.triage).toBeGreaterThanOrEqual(
-        DEFAULT_BUDGET_STRATEGY.minimums.triage,
-      );
-      expect(result.memory).toBeGreaterThanOrEqual(
-        DEFAULT_BUDGET_STRATEGY.minimums.memory,
-      );
-      expect(result.search).toBeGreaterThanOrEqual(
-        DEFAULT_BUDGET_STRATEGY.minimums.search,
-      );
-      expect(result.history).toBeGreaterThanOrEqual(
-        DEFAULT_BUDGET_STRATEGY.minimums.history,
-      );
+      expect(result.triage).toBeGreaterThanOrEqual(DEFAULT_BUDGET_STRATEGY.minimums.triage);
+      expect(result.memory).toBeGreaterThanOrEqual(DEFAULT_BUDGET_STRATEGY.minimums.memory);
+      expect(result.search).toBeGreaterThanOrEqual(DEFAULT_BUDGET_STRATEGY.minimums.search);
+      expect(result.history).toBeGreaterThanOrEqual(DEFAULT_BUDGET_STRATEGY.minimums.history);
     });
 
     test("uses custom strategy when provided", () => {
@@ -217,9 +209,7 @@ describe("Context Budget Service", () => {
         fixed: { system: 800, reserved: -100 },
       };
       const errors = validateStrategy(strategy);
-      expect(errors).toContain(
-        "Fixed reserved allocation must be non-negative",
-      );
+      expect(errors).toContain("Fixed reserved allocation must be non-negative");
     });
 
     test("detects proportional allocations not summing to 1.0", () => {
@@ -228,9 +218,7 @@ describe("Context Budget Service", () => {
         proportional: { triage: 0.5, memory: 0.5, search: 0.5, history: 0.5 },
       };
       const errors = validateStrategy(strategy);
-      expect(
-        errors.some((e) => e.includes("Proportional allocations should sum")),
-      ).toBe(true);
+      expect(errors.some((e) => e.includes("Proportional allocations should sum"))).toBe(true);
     });
 
     test("detects proportional out of range", () => {
@@ -239,9 +227,7 @@ describe("Context Budget Service", () => {
         proportional: { triage: 1.5, memory: -0.5, search: 0, history: 0 },
       };
       const errors = validateStrategy(strategy);
-      expect(errors.some((e) => e.includes("must be between 0 and 1"))).toBe(
-        true,
-      );
+      expect(errors.some((e) => e.includes("must be between 0 and 1"))).toBe(true);
     });
 
     test("detects negative minimums", () => {
@@ -256,12 +242,7 @@ describe("Context Budget Service", () => {
     test("detects missing priority sections", () => {
       const strategy: BudgetStrategy = {
         ...DEFAULT_BUDGET_STRATEGY,
-        priority: ["triage", "memory", "search"] as (
-          | "triage"
-          | "memory"
-          | "search"
-          | "history"
-        )[],
+        priority: ["triage", "memory", "search"] as ("triage" | "memory" | "search" | "history")[],
       };
       const errors = validateStrategy(strategy);
       expect(errors).toContain("Priority list must include history");
@@ -276,9 +257,7 @@ describe("Context Budget Service", () => {
       expect(strategy.fixed.system).toBe(1000);
       expect(strategy.fixed.reserved).toBe(4000);
       // Defaults preserved
-      expect(strategy.proportional).toEqual(
-        DEFAULT_BUDGET_STRATEGY.proportional,
-      );
+      expect(strategy.proportional).toEqual(DEFAULT_BUDGET_STRATEGY.proportional);
     });
 
     test("throws on invalid strategy", () => {

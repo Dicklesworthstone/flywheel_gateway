@@ -603,10 +603,7 @@ describe("Idempotency Middleware", () => {
           headers: { "Idempotency-Key": key },
         }),
         new Promise<Response>((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Timed out waiting for second request")),
-            1000,
-          ),
+          setTimeout(() => reject(new Error("Timed out waiting for second request")), 1000),
         ),
       ]);
 

@@ -100,12 +100,7 @@ export function createRouteErrorHandler(
 
     // Handle JSON parsing errors
     if (error instanceof SyntaxError && error.message.includes("JSON")) {
-      return sendError(
-        c,
-        "INVALID_REQUEST",
-        "Invalid JSON in request body",
-        400,
-      );
+      return sendError(c, "INVALID_REQUEST", "Invalid JSON in request body", 400);
     }
 
     // Log and return internal error for all other cases

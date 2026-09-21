@@ -61,11 +61,7 @@ export const DEFAULT_AUTO_CHECKPOINT_CONFIG: AutoCheckpointConfig = {
 /**
  * Trigger type for auto-checkpoints.
  */
-export type AutoCheckpointTrigger =
-  | "interval"
-  | "message_count"
-  | "token_threshold"
-  | "manual";
+export type AutoCheckpointTrigger = "interval" | "message_count" | "token_threshold" | "manual";
 
 /**
  * State tracked by the auto-checkpoint service.
@@ -221,10 +217,7 @@ export class AutoCheckpointService {
   }): Promise<AutoCheckpointResult> {
     this.state.totalTokens = usage.totalTokens;
 
-    if (
-      this.config.tokenThreshold > 0 &&
-      this.state.totalTokens >= this.config.tokenThreshold
-    ) {
+    if (this.config.tokenThreshold > 0 && this.state.totalTokens >= this.config.tokenThreshold) {
       return await this.tryCheckpoint("token_threshold");
     }
 
@@ -306,11 +299,7 @@ export class AutoCheckpointService {
       };
 
       // Create checkpoint
-      const metadata = await createCheckpoint(
-        this.agentId,
-        currentState,
-        options,
-      );
+      const metadata = await createCheckpoint(this.agentId, currentState, options);
 
       // Update state
       this.state.lastCheckpointAt = new Date();
@@ -396,9 +385,6 @@ export function removeAutoCheckpointService(agentId: string): void {
 /**
  * Get all active auto-checkpoint services.
  */
-export function getAllAutoCheckpointServices(): ReadonlyMap<
-  string,
-  AutoCheckpointService
-> {
+export function getAllAutoCheckpointServices(): ReadonlyMap<string, AutoCheckpointService> {
   return autoCheckpointServices;
 }

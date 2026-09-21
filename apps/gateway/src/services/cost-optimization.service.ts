@@ -109,9 +109,7 @@ const MODEL_TIERS: ModelTier[] = [
  * Get model tier information.
  */
 function getModelTier(model: string): ModelTier | undefined {
-  return MODEL_TIERS.find(
-    (t) => model === t.model || model.startsWith(t.model),
-  );
+  return MODEL_TIERS.find((t) => model === t.model || model.startsWith(t.model));
 }
 
 /**
@@ -122,9 +120,7 @@ function findCheaperAlternatives(model: string): ModelTier[] {
   if (!currentTier) return [];
 
   return MODEL_TIERS.filter(
-    (t) =>
-      t.relativeCost < currentTier.relativeCost &&
-      t.provider === currentTier.provider,
+    (t) => t.relativeCost < currentTier.relativeCost && t.provider === currentTier.provider,
   ).sort((a, b) => b.relativeCost - a.relativeCost);
 }
 
@@ -177,12 +173,8 @@ async function analyzeModelOptimization(
 
     const bestAlternative = alternatives[0]!;
     const savingsPercent =
-      ((modelTier.relativeCost - bestAlternative.relativeCost) /
-        modelTier.relativeCost) *
-      100;
-    const estimatedSavings = Math.round(
-      usage.totalCost * (savingsPercent / 100),
-    );
+      ((modelTier.relativeCost - bestAlternative.relativeCost) / modelTier.relativeCost) * 100;
+    const estimatedSavings = Math.round(usage.totalCost * (savingsPercent / 100));
 
     // Only recommend if savings are significant
     if (estimatedSavings < 10000) {
@@ -207,8 +199,7 @@ async function analyzeModelOptimization(
       ...(filter?.organizationId && { organizationId: filter.organizationId }),
       ...(filter?.projectId && { projectId: filter.projectId }),
       status: "pending",
-      priority:
-        estimatedSavings > 100000 ? 5 : estimatedSavings > 50000 ? 4 : 3,
+      priority: estimatedSavings > 100000 ? 5 : estimatedSavings > 50000 ? 4 : 3,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -251,25 +242,16 @@ async function analyzeCachingOpportunities(
 
   for (const analysis of cachingAnalysis) {
     const cacheRate =
-      analysis.totalPromptTokens > 0
-        ? analysis.totalCachedTokens / analysis.totalPromptTokens
-        : 0;
+      analysis.totalPromptTokens > 0 ? analysis.totalCachedTokens / analysis.totalPromptTokens : 0;
 
     // Recommend caching if cache rate is low and there's significant volume
-    if (
-      cacheRate < 0.1 &&
-      analysis.totalPromptTokens > 100000 &&
-      analysis.avgPromptTokens > 1000
-    ) {
+    if (cacheRate < 0.1 && analysis.totalPromptTokens > 100000 && analysis.avgPromptTokens > 1000) {
       // Estimate 50% of prompt tokens could be cached at 90% discount
       const potentialCachedTokens = analysis.totalPromptTokens * 0.5;
       const currentCostForThose =
-        (potentialCachedTokens / analysis.totalPromptTokens) *
-        analysis.totalPromptCost;
+        (potentialCachedTokens / analysis.totalPromptTokens) * analysis.totalPromptCost;
       const savingsPercent = 75; // Cached tokens typically 75-90% cheaper
-      const estimatedSavings = Math.round(
-        currentCostForThose * (savingsPercent / 100),
-      );
+      const estimatedSavings = Math.round(currentCostForThose * (savingsPercent / 100));
 
       if (estimatedSavings < 5000) continue;
 
@@ -283,8 +265,7 @@ async function analyzeCachingOpportunities(
         estimatedSavingsUnits: estimatedSavings,
         savingsPercent,
         confidence: 0.8,
-        implementation:
-          "Enable cache_control in API calls for system prompts and common context",
+        implementation: "Enable cache_control in API calls for system prompts and common context",
         risk: "low",
         affectedModels: [analysis.model],
         ...(filter?.organizationId && {
@@ -312,10 +293,7 @@ async function analyzeConsolidation(
   const since = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
   const recommendations: OptimizationRecommendation[] = [];
 
-  const conditions = [
-    gte(costRecords.timestamp, since),
-    sql`${costRecords.agentId} IS NOT NULL`,
-  ];
+  const conditions = [gte(costRecords.timestamp, since), sql`${costRecords.agentId} IS NOT NULL`];
   if (filter?.organizationId) {
     conditions.push(eq(costRecords.organizationId, filter.organizationId));
   }
@@ -341,10 +319,7 @@ async function analyzeConsolidation(
   );
 
   if (lowUtilizationAgents.length >= 3) {
-    const totalCostOfLowUtil = lowUtilizationAgents.reduce(
-      (sum, a) => sum + a.totalCost,
-      0,
-    );
+    const totalCostOfLowUtil = lowUtilizationAgents.reduce((sum, a) => sum + a.totalCost, 0);
     const estimatedSavings = Math.round(totalCostOfLowUtil * 0.3);
 
     recommendations.push({
@@ -357,8 +332,7 @@ async function analyzeConsolidation(
       estimatedSavingsUnits: estimatedSavings,
       savingsPercent: 30,
       confidence: 0.7,
-      implementation:
-        "Migrate workloads from low-utilization agents and retire unused instances",
+      implementation: "Migrate workloads from low-utilization agents and retire unused instances",
       risk: "medium",
       effortHours: 4,
       affectedAgents: lowUtilizationAgents
@@ -410,16 +384,9 @@ async function analyzeScheduling(
   }
 
   // Find peak hours (top 25%)
-  const sortedByUsage = [...hourlyUsage].sort(
-    (a, b) => b.totalCost - a.totalCost,
-  );
-  const peakHours = sortedByUsage.slice(
-    0,
-    Math.ceil(hourlyUsage.length * 0.25),
-  );
-  const offPeakHours = sortedByUsage.slice(
-    Math.ceil(hourlyUsage.length * 0.25),
-  );
+  const sortedByUsage = [...hourlyUsage].sort((a, b) => b.totalCost - a.totalCost);
+  const peakHours = sortedByUsage.slice(0, Math.ceil(hourlyUsage.length * 0.25));
+  const offPeakHours = sortedByUsage.slice(Math.ceil(hourlyUsage.length * 0.25));
 
   const peakCost = peakHours.reduce((sum, h) => sum + h.totalCost, 0);
   const offPeakCost = offPeakHours.reduce((sum, h) => sum + h.totalCost, 0);
@@ -478,20 +445,14 @@ export async function generateRecommendations(options?: {
   const allRecommendations: OptimizationRecommendation[] = [];
 
   // Run all analyzers
-  const [modelRecs, cachingRecs, consolidationRecs, schedulingRecs] =
-    await Promise.all([
-      analyzeModelOptimization(daysBack, filter),
-      analyzeCachingOpportunities(daysBack, filter),
-      analyzeConsolidation(daysBack, filter),
-      analyzeScheduling(daysBack, filter),
-    ]);
+  const [modelRecs, cachingRecs, consolidationRecs, schedulingRecs] = await Promise.all([
+    analyzeModelOptimization(daysBack, filter),
+    analyzeCachingOpportunities(daysBack, filter),
+    analyzeConsolidation(daysBack, filter),
+    analyzeScheduling(daysBack, filter),
+  ]);
 
-  allRecommendations.push(
-    ...modelRecs,
-    ...cachingRecs,
-    ...consolidationRecs,
-    ...schedulingRecs,
-  );
+  allRecommendations.push(...modelRecs, ...cachingRecs, ...consolidationRecs, ...schedulingRecs);
 
   // Store recommendations in database
   const now = new Date();
@@ -509,17 +470,11 @@ export async function generateRecommendations(options?: {
       implementation: rec.implementation,
       risk: rec.risk,
       effortHours: rec.effortHours ?? null,
-      prerequisites: rec.prerequisites
-        ? JSON.stringify(rec.prerequisites)
-        : null,
+      prerequisites: rec.prerequisites ? JSON.stringify(rec.prerequisites) : null,
       organizationId: rec.organizationId ?? null,
       projectId: rec.projectId ?? null,
-      affectedAgents: rec.affectedAgents
-        ? JSON.stringify(rec.affectedAgents)
-        : null,
-      affectedModels: rec.affectedModels
-        ? JSON.stringify(rec.affectedModels)
-        : null,
+      affectedAgents: rec.affectedAgents ? JSON.stringify(rec.affectedAgents) : null,
+      affectedModels: rec.affectedModels ? JSON.stringify(rec.affectedModels) : null,
       status: rec.status,
       priority: rec.priority,
       createdAt: now,
@@ -531,10 +486,7 @@ export async function generateRecommendations(options?: {
     type: "recommendations:generated",
     correlationId,
     count: allRecommendations.length,
-    totalPotentialSavings: allRecommendations.reduce(
-      (sum, r) => sum + r.estimatedSavingsUnits,
-      0,
-    ),
+    totalPotentialSavings: allRecommendations.reduce((sum, r) => sum + r.estimatedSavingsUnits, 0),
   });
 
   return allRecommendations;
@@ -553,14 +505,10 @@ export async function getRecommendations(filter?: {
   const conditions = [];
 
   if (filter?.organizationId) {
-    conditions.push(
-      eq(optimizationRecommendations.organizationId, filter.organizationId),
-    );
+    conditions.push(eq(optimizationRecommendations.organizationId, filter.organizationId));
   }
   if (filter?.projectId) {
-    conditions.push(
-      eq(optimizationRecommendations.projectId, filter.projectId),
-    );
+    conditions.push(eq(optimizationRecommendations.projectId, filter.projectId));
   }
   if (filter?.category) {
     conditions.push(eq(optimizationRecommendations.category, filter.category));
@@ -688,14 +636,12 @@ export async function updateRecommendationStatus(
 
   if (status === "implemented") {
     updateFields["implementedAt"] = now;
-    if (details?.implementedBy)
-      updateFields["implementedBy"] = details.implementedBy;
+    if (details?.implementedBy) updateFields["implementedBy"] = details.implementedBy;
     if (details?.actualSavingsUnits !== undefined)
       updateFields["actualSavingsUnits"] = details.actualSavingsUnits;
     updateFields["validatedAt"] = now;
   } else if (status === "rejected") {
-    if (details?.rejectedReason)
-      updateFields["rejectedReason"] = details.rejectedReason;
+    if (details?.rejectedReason) updateFields["rejectedReason"] = details.rejectedReason;
   }
 
   // Check if recommendation exists before updating

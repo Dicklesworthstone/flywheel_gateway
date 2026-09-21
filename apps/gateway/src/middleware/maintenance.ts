@@ -47,9 +47,7 @@ function isAllowedPath(pathname: string, allowPaths: string[]): boolean {
  * - Allows reads during maintenance/draining.
  * - Blocks mutating requests with a stable 503 error.
  */
-export function maintenanceMiddleware(
-  options: MaintenanceMiddlewareOptions = {},
-) {
+export function maintenanceMiddleware(options: MaintenanceMiddlewareOptions = {}) {
   const allowPaths = options.allowPaths ?? ["/health", "/system/maintenance"];
 
   return async (c: Context, next: Next) => {
@@ -68,10 +66,7 @@ export function maintenanceMiddleware(
       }
 
       const code = mode === "draining" ? "DRAINING" : "MAINTENANCE_MODE";
-      const message =
-        mode === "draining"
-          ? "Service is draining"
-          : "Service in maintenance mode";
+      const message = mode === "draining" ? "Service is draining" : "Service in maintenance mode";
 
       return sendError(c, code, message, 503, {
         severity: "retry",

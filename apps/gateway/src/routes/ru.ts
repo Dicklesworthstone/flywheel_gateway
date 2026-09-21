@@ -71,14 +71,7 @@ ru.use("*", requireAdminMiddleware());
 // Validation Schemas
 // ============================================================================
 
-const RepoStatusSchema = z.enum([
-  "healthy",
-  "dirty",
-  "behind",
-  "ahead",
-  "diverged",
-  "unknown",
-]);
+const RepoStatusSchema = z.enum(["healthy", "dirty", "behind", "ahead", "diverged", "unknown"]);
 
 const AddRepoSchema = z.object({
   owner: z.string().min(1).max(100),
@@ -139,20 +132,14 @@ const StartSweepSchema = z.object({
 });
 
 const ListSweepsQuerySchema = z.object({
-  status: z
-    .enum(["pending", "running", "paused", "completed", "failed", "cancelled"])
-    .optional(),
+  status: z.enum(["pending", "running", "paused", "completed", "failed", "cancelled"]).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });
 
 const ListPlansQuerySchema = z.object({
-  approvalStatus: z
-    .enum(["pending", "approved", "rejected", "auto_approved"])
-    .optional(),
-  executionStatus: z
-    .enum(["pending", "running", "completed", "failed", "skipped"])
-    .optional(),
+  approvalStatus: z.enum(["pending", "approved", "rejected", "auto_approved"]).optional(),
+  executionStatus: z.enum(["pending", "running", "completed", "failed", "skipped"]).optional(),
 });
 
 const ListLogsQuerySchema = z.object({
@@ -380,11 +367,9 @@ ru.post("/fleet", async (c) => {
     };
     if (validated.sshUrl !== undefined) params.sshUrl = validated.sshUrl;
     if (validated.group !== undefined) params.group = validated.group;
-    if (validated.description !== undefined)
-      params.description = validated.description;
+    if (validated.description !== undefined) params.description = validated.description;
     if (validated.language !== undefined) params.language = validated.language;
-    if (validated.isPrivate !== undefined)
-      params.isPrivate = validated.isPrivate;
+    if (validated.isPrivate !== undefined) params.isPrivate = validated.isPrivate;
 
     const repo = await addRepoToFleet(params);
 
@@ -422,43 +407,31 @@ ru.patch("/fleet/:id", async (c) => {
     const validated = UpdateRepoSchema.parse(body);
 
     const params: UpdateRepoParams = {};
-    if (validated.localPath !== undefined)
-      params.localPath = validated.localPath;
+    if (validated.localPath !== undefined) params.localPath = validated.localPath;
     if (validated.isCloned !== undefined) params.isCloned = validated.isCloned;
-    if (validated.currentBranch !== undefined)
-      params.currentBranch = validated.currentBranch;
-    if (validated.defaultBranch !== undefined)
-      params.defaultBranch = validated.defaultBranch;
-    if (validated.lastCommit !== undefined)
-      params.lastCommit = validated.lastCommit;
-    if (validated.lastCommitDate !== undefined)
-      params.lastCommitDate = validated.lastCommitDate;
+    if (validated.currentBranch !== undefined) params.currentBranch = validated.currentBranch;
+    if (validated.defaultBranch !== undefined) params.defaultBranch = validated.defaultBranch;
+    if (validated.lastCommit !== undefined) params.lastCommit = validated.lastCommit;
+    if (validated.lastCommitDate !== undefined) params.lastCommitDate = validated.lastCommitDate;
     if (validated.lastCommitAuthor !== undefined)
       params.lastCommitAuthor = validated.lastCommitAuthor;
-    if (validated.status !== undefined)
-      params.status = validated.status as RepoStatus;
+    if (validated.status !== undefined) params.status = validated.status as RepoStatus;
     if (validated.hasUncommittedChanges !== undefined)
       params.hasUncommittedChanges = validated.hasUncommittedChanges;
     if (validated.hasUnpushedCommits !== undefined)
       params.hasUnpushedCommits = validated.hasUnpushedCommits;
     if (validated.aheadBy !== undefined) params.aheadBy = validated.aheadBy;
     if (validated.behindBy !== undefined) params.behindBy = validated.behindBy;
-    if (validated.description !== undefined)
-      params.description = validated.description;
+    if (validated.description !== undefined) params.description = validated.description;
     if (validated.language !== undefined) params.language = validated.language;
     if (validated.stars !== undefined) params.stars = validated.stars;
-    if (validated.isPrivate !== undefined)
-      params.isPrivate = validated.isPrivate;
-    if (validated.isArchived !== undefined)
-      params.isArchived = validated.isArchived;
+    if (validated.isPrivate !== undefined) params.isPrivate = validated.isPrivate;
+    if (validated.isArchived !== undefined) params.isArchived = validated.isArchived;
     if (validated.ruGroup !== undefined) params.ruGroup = validated.ruGroup;
     if (validated.ruConfig !== undefined) params.ruConfig = validated.ruConfig;
-    if (validated.agentsmdPath !== undefined)
-      params.agentsmdPath = validated.agentsmdPath;
-    if (validated.lastScanDate !== undefined)
-      params.lastScanDate = validated.lastScanDate;
-    if (validated.lastSyncAt !== undefined)
-      params.lastSyncAt = validated.lastSyncAt;
+    if (validated.agentsmdPath !== undefined) params.agentsmdPath = validated.agentsmdPath;
+    if (validated.lastScanDate !== undefined) params.lastScanDate = validated.lastScanDate;
+    if (validated.lastSyncAt !== undefined) params.lastSyncAt = validated.lastSyncAt;
 
     const repo = await updateFleetRepo(id, params);
 
@@ -547,23 +520,17 @@ ru.post("/sweeps", async (c) => {
     const validated = StartSweepSchema.parse(body);
 
     // Get triggeredBy from header or body
-    const triggeredBy =
-      c.req.header("X-Triggered-By") ?? body.triggeredBy ?? "api";
+    const triggeredBy = c.req.header("X-Triggered-By") ?? body.triggeredBy ?? "api";
 
     const config: SweepConfig = {
       targetRepos: validated.targetRepos,
     };
-    if (validated.parallelism !== undefined)
-      config.parallelism = validated.parallelism;
+    if (validated.parallelism !== undefined) config.parallelism = validated.parallelism;
     if (validated.dryRun !== undefined) config.dryRun = validated.dryRun;
-    if (validated.autoApprove !== undefined)
-      config.autoApprove = validated.autoApprove;
-    if (validated.phase1Timeout !== undefined)
-      config.phase1Timeout = validated.phase1Timeout;
-    if (validated.phase2Timeout !== undefined)
-      config.phase2Timeout = validated.phase2Timeout;
-    if (validated.phase3Timeout !== undefined)
-      config.phase3Timeout = validated.phase3Timeout;
+    if (validated.autoApprove !== undefined) config.autoApprove = validated.autoApprove;
+    if (validated.phase1Timeout !== undefined) config.phase1Timeout = validated.phase1Timeout;
+    if (validated.phase2Timeout !== undefined) config.phase2Timeout = validated.phase2Timeout;
+    if (validated.phase3Timeout !== undefined) config.phase3Timeout = validated.phase3Timeout;
 
     const session = await startAgentSweep(triggeredBy, config);
 
@@ -602,12 +569,9 @@ ru.get("/sweeps/:id", async (c) => {
       repoCount: session.repoCount,
       parallelism: session.parallelism,
       currentPhase: session.currentPhase,
-      phase1CompletedAt:
-        session.phase1CompletedAt?.toISOString?.() ?? session.phase1CompletedAt,
-      phase2CompletedAt:
-        session.phase2CompletedAt?.toISOString?.() ?? session.phase2CompletedAt,
-      phase3CompletedAt:
-        session.phase3CompletedAt?.toISOString?.() ?? session.phase3CompletedAt,
+      phase1CompletedAt: session.phase1CompletedAt?.toISOString?.() ?? session.phase1CompletedAt,
+      phase2CompletedAt: session.phase2CompletedAt?.toISOString?.() ?? session.phase2CompletedAt,
+      phase3CompletedAt: session.phase3CompletedAt?.toISOString?.() ?? session.phase3CompletedAt,
       status: session.status,
       reposAnalyzed: session.reposAnalyzed,
       reposPlanned: session.reposPlanned,
@@ -619,8 +583,7 @@ ru.get("/sweeps/:id", async (c) => {
       totalDurationMs: session.totalDurationMs,
       slbApprovalRequired: session.slbApprovalRequired,
       slbApprovedBy: session.slbApprovedBy,
-      slbApprovedAt:
-        session.slbApprovedAt?.toISOString?.() ?? session.slbApprovedAt,
+      slbApprovedAt: session.slbApprovedAt?.toISOString?.() ?? session.slbApprovedAt,
       triggeredBy: session.triggeredBy,
       notes: session.notes,
       createdAt: session.createdAt?.toISOString?.() ?? session.createdAt,

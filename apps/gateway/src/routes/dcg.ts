@@ -55,11 +55,7 @@ import {
   type PendingExceptionStatus,
   validateExceptionForExecution,
 } from "../services/dcg-pending.service";
-import {
-  allowlistLinks,
-  getLinkContext,
-  pendingExceptionLinks,
-} from "../utils/links";
+import { allowlistLinks, getLinkContext, pendingExceptionLinks } from "../utils/links";
 import {
   sendEmptyList,
   sendError,
@@ -104,9 +100,7 @@ const BlocksQuerySchema = z.object({
 });
 
 const PendingQuerySchema = z.object({
-  status: z
-    .enum(["pending", "approved", "denied", "expired", "executed"])
-    .optional(),
+  status: z.enum(["pending", "approved", "denied", "expired", "executed"]).optional(),
   agentId: z.string().optional(),
   limit: z.coerce.number().min(1).max(200).optional(),
   starting_after: z.string().optional(),
@@ -166,22 +160,12 @@ function handleError(error: unknown, c: Context) {
   }
 
   if (error instanceof DCGNotAvailableError) {
-    return sendError(
-      c,
-      "DCG_NOT_AVAILABLE",
-      "DCG CLI is not installed or not accessible",
-      503,
-    );
+    return sendError(c, "DCG_NOT_AVAILABLE", "DCG CLI is not installed or not accessible", 503);
   }
 
   if (error instanceof DCGCommandError) {
     log.error({ error: error.message }, "DCG command failed");
-    return sendError(
-      c,
-      "DCG_COMMAND_FAILED",
-      "DCG command execution failed",
-      500,
-    );
+    return sendError(c, "DCG_COMMAND_FAILED", "DCG command execution failed", 500);
   }
 
   if (error instanceof Error && error.message.includes("Unknown packs")) {
@@ -201,10 +185,7 @@ function handleError(error: unknown, c: Context) {
  */
 dcg.get("/status", async (c) => {
   try {
-    const [available, version] = await Promise.all([
-      isDcgAvailable(),
-      getDcgVersion(),
-    ]);
+    const [available, version] = await Promise.all([isDcgAvailable(), getDcgVersion()]);
 
     const status = {
       available,
@@ -246,10 +227,8 @@ dcg.put("/config", async (c) => {
 
     // Build update object conditionally (for exactOptionalPropertyTypes)
     const updates: Partial<DCGConfig> = {};
-    if (validated.enabledPacks !== undefined)
-      updates.enabledPacks = validated.enabledPacks;
-    if (validated.disabledPacks !== undefined)
-      updates.disabledPacks = validated.disabledPacks;
+    if (validated.enabledPacks !== undefined) updates.enabledPacks = validated.enabledPacks;
+    if (validated.disabledPacks !== undefined) updates.disabledPacks = validated.disabledPacks;
 
     const config = await updateConfig(updates);
 
@@ -346,16 +325,12 @@ dcg.get("/blocks", async (c) => {
     const options: Parameters<typeof getBlockEvents>[0] = {};
     if (query.agentId !== undefined) options.agentId = query.agentId;
     if (query.severity !== undefined) {
-      options.severity = query.severity
-        .split(",")
-        .slice(0, MAX_CSV_ITEMS) as DCGSeverity[];
+      options.severity = query.severity.split(",").slice(0, MAX_CSV_ITEMS) as DCGSeverity[];
     }
     if (query.pack !== undefined) options.pack = query.pack;
     if (query.limit !== undefined) options.limit = query.limit;
-    if (query.starting_after !== undefined)
-      options.startingAfter = query.starting_after;
-    if (query.ending_before !== undefined)
-      options.endingBefore = query.ending_before;
+    if (query.starting_after !== undefined) options.startingAfter = query.starting_after;
+    if (query.ending_before !== undefined) options.endingBefore = query.ending_before;
 
     const result = await getBlockEvents(options);
 
@@ -447,8 +422,7 @@ dcg.post("/allowlist", async (c) => {
       reason: validated.reason,
       addedBy: "api-user",
     };
-    if (validated.expiresAt)
-      entryInput.expiresAt = new Date(validated.expiresAt);
+    if (validated.expiresAt) entryInput.expiresAt = new Date(validated.expiresAt);
 
     const entry = await addToAllowlist(entryInput);
 
@@ -498,14 +472,11 @@ dcg.get("/pending", async (c) => {
 
     // Build options conditionally (for exactOptionalPropertyTypes)
     const options: Parameters<typeof listPendingExceptions>[0] = {};
-    if (query.status !== undefined)
-      options.status = query.status as PendingExceptionStatus;
+    if (query.status !== undefined) options.status = query.status as PendingExceptionStatus;
     if (query.agentId !== undefined) options.agentId = query.agentId;
     if (query.limit !== undefined) options.limit = query.limit;
-    if (query.starting_after !== undefined)
-      options.startingAfter = query.starting_after;
-    if (query.ending_before !== undefined)
-      options.endingBefore = query.ending_before;
+    if (query.starting_after !== undefined) options.startingAfter = query.starting_after;
+    if (query.ending_before !== undefined) options.endingBefore = query.ending_before;
 
     const result = await listPendingExceptions(options);
 
@@ -681,9 +652,7 @@ dcg.post("/pending/validate-hash", async (c) => {
     const body = await c.req.json();
     const validated = ValidateRequestSchema.parse(body);
 
-    const exception = await validateExceptionForExecution(
-      validated.commandHash,
-    );
+    const exception = await validateExceptionForExecution(validated.commandHash);
 
     if (!exception) {
       return sendResource(c, "validation_result", {
@@ -801,12 +770,7 @@ dcg.post("/scan", async (c) => {
     } else if (validated.content) {
       result = await scanContent(validated.content, validated.filename);
     } else {
-      return sendError(
-        c,
-        "INVALID_REQUEST",
-        "Either filePath or content is required",
-        400,
-      );
+      return sendError(c, "INVALID_REQUEST", "Either filePath or content is required", 400);
     }
 
     return sendResource(c, "scan_result", result);
@@ -901,10 +865,7 @@ dcg.post("/pre-validate", async (c) => {
     const body = await c.req.json();
     const validated = PreValidateRequestSchema.parse(body);
 
-    const result = await preValidateCommand(
-      validated.agentId,
-      validated.command,
-    );
+    const result = await preValidateCommand(validated.agentId, validated.command);
     return sendResource(c, "pre_validation_result", result);
   } catch (error) {
     return handleError(error, c);

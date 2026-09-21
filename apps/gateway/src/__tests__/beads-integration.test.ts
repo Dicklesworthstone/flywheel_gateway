@@ -10,14 +10,7 @@
  * Part of bd-n52p: Tests for br endpoints.
  */
 
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  test,
-} from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { Hono } from "hono";
 import { createBeadsRoutes } from "../routes/beads";
@@ -90,1144 +83,1132 @@ function getTestBeadTitle(): string {
 // Beads created during tests that need cleanup
 const createdBeadIds: string[] = [];
 
-describe.skipIf(!BR_AVAILABLE || !runSlowTests)(
-  "BR Endpoints Integration Tests",
-  () => {
-    let app: Hono;
-    let service: ReturnType<typeof createBeadsService>;
+describe.skipIf(!BR_AVAILABLE || !runSlowTests)("BR Endpoints Integration Tests", () => {
+  let app: Hono;
+  let service: ReturnType<typeof createBeadsService>;
 
-    beforeAll(
-      async () => {
-        logTest({ test: "setup", action: "initializing_test_suite" });
+  beforeAll(
+    async () => {
+      logTest({ test: "setup", action: "initializing_test_suite" });
 
-        // Create app with real BeadsService
-        service = createBeadsService();
-        app = new Hono();
-        app.route("/beads", createBeadsRoutes(service));
+      // Create app with real BeadsService
+      service = createBeadsService();
+      app = new Hono();
+      app.route("/beads", createBeadsRoutes(service));
 
-        // Pre-test cleanup: remove any orphaned test beads from prior runs
-        // This prevents test pollution if previous runs were interrupted
-        // Include both "open" and "in_progress" since interrupted tests may leave either
-        logTest({ test: "setup", action: "cleaning_orphaned_test_beads" });
-        try {
-          const allIssues = await service.list({
-            statuses: ["open", "in_progress"],
-          });
-          const orphanedTestBeads = allIssues
-            .filter((issue) => issue.title.startsWith("test-bead-"))
-            .map((issue) => issue.id);
+      // Pre-test cleanup: remove any orphaned test beads from prior runs
+      // This prevents test pollution if previous runs were interrupted
+      // Include both "open" and "in_progress" since interrupted tests may leave either
+      logTest({ test: "setup", action: "cleaning_orphaned_test_beads" });
+      try {
+        const allIssues = await service.list({
+          statuses: ["open", "in_progress"],
+        });
+        const orphanedTestBeads = allIssues
+          .filter((issue) => issue.title.startsWith("test-bead-"))
+          .map((issue) => issue.id);
 
-          if (orphanedTestBeads.length > 0) {
-            logTest({
-              test: "setup",
-              action: "found_orphaned_beads",
-              payload: {
-                count: orphanedTestBeads.length,
-                ids: orphanedTestBeads,
-              },
-            });
-            await service.close(orphanedTestBeads, { force: true });
-            logTest({
-              test: "setup",
-              action: "cleaned_orphaned_beads",
-              payload: { count: orphanedTestBeads.length },
-            });
-          }
-        } catch (cleanupError) {
+        if (orphanedTestBeads.length > 0) {
           logTest({
             test: "setup",
-            action: "orphan_cleanup_failed",
-            error:
-              cleanupError instanceof Error
-                ? cleanupError.message
-                : String(cleanupError),
+            action: "found_orphaned_beads",
+            payload: {
+              count: orphanedTestBeads.length,
+              ids: orphanedTestBeads,
+            },
           });
-          // Non-fatal: continue with tests even if cleanup fails
+          await service.close(orphanedTestBeads, { force: true });
+          logTest({
+            test: "setup",
+            action: "cleaned_orphaned_beads",
+            payload: { count: orphanedTestBeads.length },
+          });
         }
-
-        logTest({ test: "setup", action: "test_suite_initialized" });
-      },
-      { timeout: TEST_TIMEOUT * 2 },
-    );
-
-    afterAll(
-      async () => {
-        const uniqueBeadIds = Array.from(new Set(createdBeadIds));
-
-        // Clean up any test beads we created
+      } catch (cleanupError) {
         logTest({
-          test: "cleanup",
-          action: "cleaning_up_test_beads",
-          payload: { beadIds: uniqueBeadIds },
+          test: "setup",
+          action: "orphan_cleanup_failed",
+          error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
         });
+        // Non-fatal: continue with tests even if cleanup fails
+      }
 
-        if (uniqueBeadIds.length > 0) {
-          try {
-            // Prefer closing in one command to avoid hook timeouts (br CLI can be slow to start).
-            const closed = await service.close(uniqueBeadIds, { force: true });
-            const closedIds = new Set(closed.map((issue) => issue.id));
+      logTest({ test: "setup", action: "test_suite_initialized" });
+    },
+    { timeout: TEST_TIMEOUT * 2 },
+  );
 
-            for (const issue of closed) {
-              logTest({
-                test: "cleanup",
-                action: "closed_test_bead",
-                payload: { beadId: issue.id },
-              });
-            }
+  afterAll(
+    async () => {
+      const uniqueBeadIds = Array.from(new Set(createdBeadIds));
 
-            for (const beadId of uniqueBeadIds) {
-              if (closedIds.has(beadId)) continue;
-              logTest({
-                test: "cleanup",
-                action: "cleanup_warning",
-                payload: { beadId },
-                error: "bulk close did not return bead id",
-              });
-            }
-          } catch (error) {
-            // Best-effort fallback: attempt individually (parallel) to finish within hook timeout.
+      // Clean up any test beads we created
+      logTest({
+        test: "cleanup",
+        action: "cleaning_up_test_beads",
+        payload: { beadIds: uniqueBeadIds },
+      });
+
+      if (uniqueBeadIds.length > 0) {
+        try {
+          // Prefer closing in one command to avoid hook timeouts (br CLI can be slow to start).
+          const closed = await service.close(uniqueBeadIds, { force: true });
+          const closedIds = new Set(closed.map((issue) => issue.id));
+
+          for (const issue of closed) {
+            logTest({
+              test: "cleanup",
+              action: "closed_test_bead",
+              payload: { beadId: issue.id },
+            });
+          }
+
+          for (const beadId of uniqueBeadIds) {
+            if (closedIds.has(beadId)) continue;
             logTest({
               test: "cleanup",
               action: "cleanup_warning",
-              payload: { beadIds: uniqueBeadIds },
-              error: error instanceof Error ? error.message : String(error),
+              payload: { beadId },
+              error: "bulk close did not return bead id",
             });
-
-            await Promise.allSettled(
-              uniqueBeadIds.map(async (beadId) => {
-                try {
-                  await service.close(beadId, { force: true });
-                  logTest({
-                    test: "cleanup",
-                    action: "closed_test_bead",
-                    payload: { beadId },
-                  });
-                } catch (closeError) {
-                  logTest({
-                    test: "cleanup",
-                    action: "cleanup_warning",
-                    payload: { beadId },
-                    error:
-                      closeError instanceof Error
-                        ? closeError.message
-                        : String(closeError),
-                  });
-                }
-              }),
-            );
           }
-        }
+        } catch (error) {
+          // Best-effort fallback: attempt individually (parallel) to finish within hook timeout.
+          logTest({
+            test: "cleanup",
+            action: "cleanup_warning",
+            payload: { beadIds: uniqueBeadIds },
+            error: error instanceof Error ? error.message : String(error),
+          });
 
-        // Output test log summary
-        console.log("\n=== Test Log Summary ===");
-        console.log(`Total log entries: ${testLogs.length}`);
-        const errors = testLogs.filter((l) => l.error);
-        if (errors.length > 0) {
-          console.log(`Errors encountered: ${errors.length}`);
-          for (const e of errors) {
-            console.log(`  - ${e.test}: ${e.error}`);
-          }
+          await Promise.allSettled(
+            uniqueBeadIds.map(async (beadId) => {
+              try {
+                await service.close(beadId, { force: true });
+                logTest({
+                  test: "cleanup",
+                  action: "closed_test_bead",
+                  payload: { beadId },
+                });
+              } catch (closeError) {
+                logTest({
+                  test: "cleanup",
+                  action: "cleanup_warning",
+                  payload: { beadId },
+                  error: closeError instanceof Error ? closeError.message : String(closeError),
+                });
+              }
+            }),
+          );
         }
+      }
+
+      // Output test log summary
+      console.log("\n=== Test Log Summary ===");
+      console.log(`Total log entries: ${testLogs.length}`);
+      const errors = testLogs.filter((l) => l.error);
+      if (errors.length > 0) {
+        console.log(`Errors encountered: ${errors.length}`);
+        for (const e of errors) {
+          console.log(`  - ${e.test}: ${e.error}`);
+        }
+      }
+    },
+    { timeout: TEST_TIMEOUT * 2 },
+  );
+
+  describe("GET /beads (list)", () => {
+    test(
+      "should return list of beads with count",
+      async () => {
+        const testName = "list_beads";
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "GET",
+          path: "/beads",
+        });
+
+        const res = await app.request("/beads");
+        const data = await res.json();
+
+        logTest({
+          test: testName,
+          action: "response_received",
+          method: "GET",
+          path: "/beads",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { beadCount: data.data?.count, object: data.object },
+        });
+
+        expect(res.status).toBe(200);
+        expect(data.object).toBe("beads");
+        expect(Array.isArray(data.data.beads)).toBe(true);
+        expect(typeof data.data.count).toBe("number");
+        expect(data.requestId).toBeDefined();
       },
-      { timeout: TEST_TIMEOUT * 2 },
+      TEST_TIMEOUT,
     );
 
-    describe("GET /beads (list)", () => {
-      test(
-        "should return list of beads with count",
-        async () => {
-          const testName = "list_beads";
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "GET",
-            path: "/beads",
-          });
+    test(
+      "should support status filter",
+      async () => {
+        const testName = "list_beads_status_filter";
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "GET",
+          path: "/beads?status=open",
+        });
 
-          const res = await app.request("/beads");
-          const data = await res.json();
+        const res = await app.request("/beads?status=open");
+        const data = await res.json();
 
-          logTest({
-            test: testName,
-            action: "response_received",
-            method: "GET",
-            path: "/beads",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { beadCount: data.data?.count, object: data.object },
-          });
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { beadCount: data.data?.count, filter: "status=open" },
+        });
 
-          expect(res.status).toBe(200);
-          expect(data.object).toBe("beads");
-          expect(Array.isArray(data.data.beads)).toBe(true);
-          expect(typeof data.data.count).toBe("number");
-          expect(data.requestId).toBeDefined();
-        },
-        TEST_TIMEOUT,
-      );
+        expect(res.status).toBe(200);
+        expect(data.object).toBe("beads");
 
-      test(
-        "should support status filter",
-        async () => {
-          const testName = "list_beads_status_filter";
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "GET",
-            path: "/beads?status=open",
-          });
+        // All returned beads should have open status
+        for (const bead of data.data.beads) {
+          expect(bead.status).toBe("open");
+        }
+      },
+      TEST_TIMEOUT,
+    );
 
-          const res = await app.request("/beads?status=open");
-          const data = await res.json();
+    test(
+      "should support limit filter",
+      async () => {
+        const testName = "list_beads_limit";
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "GET",
+          path: "/beads?limit=5",
+        });
 
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { beadCount: data.data?.count, filter: "status=open" },
-          });
+        const res = await app.request("/beads?limit=5");
+        const data = await res.json();
 
-          expect(res.status).toBe(200);
-          expect(data.object).toBe("beads");
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { beadCount: data.data?.count, limit: 5 },
+        });
 
-          // All returned beads should have open status
-          for (const bead of data.data.beads) {
-            expect(bead.status).toBe("open");
-          }
-        },
-        TEST_TIMEOUT,
-      );
+        expect(res.status).toBe(200);
+        expect(data.data.beads.length).toBeLessThanOrEqual(5);
+      },
+      TEST_TIMEOUT,
+    );
 
-      test(
-        "should support limit filter",
-        async () => {
-          const testName = "list_beads_limit";
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "GET",
-            path: "/beads?limit=5",
-          });
+    test(
+      "should support type filter",
+      async () => {
+        const testName = "list_beads_type_filter";
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "GET",
+          path: "/beads?type=task",
+        });
 
-          const res = await app.request("/beads?limit=5");
-          const data = await res.json();
+        const res = await app.request("/beads?type=task");
+        const data = await res.json();
 
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { beadCount: data.data?.count, limit: 5 },
-          });
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { beadCount: data.data?.count, filter: "type=task" },
+        });
 
-          expect(res.status).toBe(200);
-          expect(data.data.beads.length).toBeLessThanOrEqual(5);
-        },
-        TEST_TIMEOUT,
-      );
+        expect(res.status).toBe(200);
 
-      test(
-        "should support type filter",
-        async () => {
-          const testName = "list_beads_type_filter";
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "GET",
-            path: "/beads?type=task",
-          });
+        // All returned beads should have task type (if any returned)
+        for (const bead of data.data.beads) {
+          expect(bead.type || bead.issue_type).toBe("task");
+        }
+      },
+      TEST_TIMEOUT,
+    );
 
-          const res = await app.request("/beads?type=task");
-          const data = await res.json();
+    test(
+      "should support priority filter",
+      async () => {
+        const testName = "list_beads_priority_filter";
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "GET",
+          path: "/beads?priority=1",
+        });
 
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { beadCount: data.data?.count, filter: "type=task" },
-          });
+        const res = await app.request("/beads?priority=1");
+        const data = await res.json();
 
-          expect(res.status).toBe(200);
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { beadCount: data.data?.count, filter: "priority=1" },
+        });
 
-          // All returned beads should have task type (if any returned)
-          for (const bead of data.data.beads) {
-            expect(bead.type || bead.issue_type).toBe("task");
-          }
-        },
-        TEST_TIMEOUT,
-      );
+        expect(res.status).toBe(200);
 
-      test(
-        "should support priority filter",
-        async () => {
-          const testName = "list_beads_priority_filter";
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "GET",
-            path: "/beads?priority=1",
-          });
+        // All returned beads should have priority 1 (if any returned)
+        for (const bead of data.data.beads) {
+          expect(bead.priority).toBe(1);
+        }
+      },
+      TEST_TIMEOUT,
+    );
+  });
 
-          const res = await app.request("/beads?priority=1");
-          const data = await res.json();
+  describe("GET /beads/list/ready", () => {
+    test(
+      "should return unblocked ready beads",
+      async () => {
+        const testName = "list_ready_beads";
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "GET",
+          path: "/beads/list/ready",
+        });
 
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { beadCount: data.data?.count, filter: "priority=1" },
-          });
+        const res = await app.request("/beads/list/ready");
+        const data = await res.json();
 
-          expect(res.status).toBe(200);
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { beadCount: data.data?.count },
+        });
 
-          // All returned beads should have priority 1 (if any returned)
-          for (const bead of data.data.beads) {
-            expect(bead.priority).toBe(1);
-          }
-        },
-        TEST_TIMEOUT,
-      );
-    });
+        expect(res.status).toBe(200);
+        expect(data.object).toBe("beads");
+        expect(Array.isArray(data.data.beads)).toBe(true);
+      },
+      TEST_TIMEOUT,
+    );
 
-    describe("GET /beads/list/ready", () => {
-      test(
-        "should return unblocked ready beads",
-        async () => {
-          const testName = "list_ready_beads";
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "GET",
-            path: "/beads/list/ready",
-          });
+    test(
+      "should support limit parameter",
+      async () => {
+        const testName = "list_ready_beads_limit";
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "GET",
+          path: "/beads/list/ready?limit=3",
+        });
 
-          const res = await app.request("/beads/list/ready");
-          const data = await res.json();
+        const res = await app.request("/beads/list/ready?limit=3");
+        const data = await res.json();
 
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { beadCount: data.data?.count },
-          });
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { beadCount: data.data?.count, limit: 3 },
+        });
 
-          expect(res.status).toBe(200);
-          expect(data.object).toBe("beads");
-          expect(Array.isArray(data.data.beads)).toBe(true);
-        },
-        TEST_TIMEOUT,
-      );
+        expect(res.status).toBe(200);
+        expect(data.data.beads.length).toBeLessThanOrEqual(3);
+      },
+      TEST_TIMEOUT,
+    );
+  });
 
-      test(
-        "should support limit parameter",
-        async () => {
-          const testName = "list_ready_beads_limit";
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "GET",
-            path: "/beads/list/ready?limit=3",
-          });
+  describe("POST /beads (create)", () => {
+    test(
+      "should create a new bead",
+      async () => {
+        const testName = "create_bead";
+        const title = getTestBeadTitle();
 
-          const res = await app.request("/beads/list/ready?limit=3");
-          const data = await res.json();
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "POST",
+          path: "/beads",
+          payload: { title, type: "task", priority: 4 },
+        });
 
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { beadCount: data.data?.count, limit: 3 },
-          });
-
-          expect(res.status).toBe(200);
-          expect(data.data.beads.length).toBeLessThanOrEqual(3);
-        },
-        TEST_TIMEOUT,
-      );
-    });
-
-    describe("POST /beads (create)", () => {
-      test(
-        "should create a new bead",
-        async () => {
-          const testName = "create_bead";
-          const title = getTestBeadTitle();
-
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "POST",
-            path: "/beads",
-            payload: { title, type: "task", priority: 4 },
-          });
-
-          const res = await app.request("/beads", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title,
-              type: "task",
-              priority: 4, // backlog priority for test beads
-              description: "Integration test bead - will be cleaned up",
-            }),
-          });
-
-          const data = await res.json();
-
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { beadId: data.data?.id, title: data.data?.title },
-          });
-
-          expect(res.status).toBe(201);
-          expect(data.object).toBe("bead");
-          expect(data.data.title).toBe(title);
-          expect(data.data.id).toBeDefined();
-
-          // Track for cleanup
-          if (data.data?.id) {
-            createdBeadIds.push(data.data.id);
-          }
-        },
-        TEST_TIMEOUT,
-      );
-
-      test(
-        "should create bead with all optional fields",
-        async () => {
-          const testName = "create_bead_full";
-          const title = getTestBeadTitle();
-
-          const payload = {
+        const res = await app.request("/beads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             title,
-            type: "bug",
-            priority: 4,
-            description: "Full integration test bead",
-            labels: ["test", "integration"],
-          };
+            type: "task",
+            priority: 4, // backlog priority for test beads
+            description: "Integration test bead - will be cleaned up",
+          }),
+        });
 
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "POST",
-            path: "/beads",
-            payload,
-          });
+        const data = await res.json();
 
-          const res = await app.request("/beads", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { beadId: data.data?.id, title: data.data?.title },
+        });
 
-          const data = await res.json();
+        expect(res.status).toBe(201);
+        expect(data.object).toBe("bead");
+        expect(data.data.title).toBe(title);
+        expect(data.data.id).toBeDefined();
 
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { beadId: data.data?.id, type: data.data?.type },
-          });
+        // Track for cleanup
+        if (data.data?.id) {
+          createdBeadIds.push(data.data.id);
+        }
+      },
+      TEST_TIMEOUT,
+    );
 
-          expect(res.status).toBe(201);
-          expect(data.data.title).toBe(title);
+    test(
+      "should create bead with all optional fields",
+      async () => {
+        const testName = "create_bead_full";
+        const title = getTestBeadTitle();
 
-          // Track for cleanup
-          if (data.data?.id) {
-            createdBeadIds.push(data.data.id);
-          }
-        },
-        TEST_TIMEOUT,
-      );
-    });
+        const payload = {
+          title,
+          type: "bug",
+          priority: 4,
+          description: "Full integration test bead",
+          labels: ["test", "integration"],
+        };
 
-    describe("GET /beads/:id (show)", () => {
-      let testBeadId: string;
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "POST",
+          path: "/beads",
+          payload,
+        });
 
-      beforeEach(
-        async () => {
-          // Create a test bead to show
-          const title = getTestBeadTitle();
-          const bead = await service.create({
+        const res = await app.request("/beads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { beadId: data.data?.id, type: data.data?.type },
+        });
+
+        expect(res.status).toBe(201);
+        expect(data.data.title).toBe(title);
+
+        // Track for cleanup
+        if (data.data?.id) {
+          createdBeadIds.push(data.data.id);
+        }
+      },
+      TEST_TIMEOUT,
+    );
+  });
+
+  describe("GET /beads/:id (show)", () => {
+    let testBeadId: string;
+
+    beforeEach(
+      async () => {
+        // Create a test bead to show
+        const title = getTestBeadTitle();
+        const bead = await service.create({
+          title,
+          type: "task",
+          priority: 4,
+          description: "Test bead for show endpoint",
+        });
+        testBeadId = bead.id;
+        createdBeadIds.push(testBeadId);
+      },
+      { timeout: TEST_TIMEOUT },
+    );
+
+    test(
+      "should return single bead by ID",
+      async () => {
+        const testName = "show_bead";
+
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "GET",
+          path: `/beads/${testBeadId}`,
+        });
+
+        const res = await app.request(`/beads/${testBeadId}`);
+        const data = await res.json();
+
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { beadId: data.data?.id, title: data.data?.title },
+        });
+
+        expect(res.status).toBe(200);
+        expect(data.object).toBe("bead");
+        expect(data.data.id).toBe(testBeadId);
+      },
+      TEST_TIMEOUT,
+    );
+
+    test(
+      "should return 404 for non-existent bead",
+      async () => {
+        const testName = "show_bead_not_found";
+        const fakeId = "bd-nonexistent-9999";
+
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "GET",
+          path: `/beads/${fakeId}`,
+        });
+
+        const res = await app.request(`/beads/${fakeId}`);
+        const data = await res.json();
+
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          error: data.error?.code,
+        });
+
+        // Note: br returns exit code 3 for not found, which gets mapped to SYSTEM_UNAVAILABLE
+        // The routes have BEAD_NOT_FOUND logic, but it only triggers when service returns empty array
+        expect(res.status).toBe(503);
+        expect(data.error.code).toBe("SYSTEM_UNAVAILABLE");
+      },
+      TEST_TIMEOUT,
+    );
+  });
+
+  describe("PATCH /beads/:id (update)", () => {
+    let testBeadId: string;
+
+    beforeEach(
+      async () => {
+        // Create a test bead to update
+        const title = getTestBeadTitle();
+        const bead = await service.create({
+          title,
+          type: "task",
+          priority: 4,
+          description: "Test bead for update endpoint",
+        });
+        testBeadId = bead.id;
+        createdBeadIds.push(testBeadId);
+      },
+      { timeout: TEST_TIMEOUT },
+    );
+
+    test(
+      "should update bead title",
+      async () => {
+        const testName = "update_bead_title";
+        const newTitle = `updated-${getTestBeadTitle()}`;
+
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "PATCH",
+          path: `/beads/${testBeadId}`,
+          payload: { title: newTitle },
+        });
+
+        const res = await app.request(`/beads/${testBeadId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: newTitle }),
+        });
+
+        const data = await res.json();
+
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { beadId: data.data?.id, title: data.data?.title },
+        });
+
+        expect(res.status).toBe(200);
+        expect(data.object).toBe("bead");
+        expect(data.data.title).toBe(newTitle);
+      },
+      TEST_TIMEOUT,
+    );
+
+    test(
+      "should update bead status",
+      async () => {
+        const testName = "update_bead_status";
+
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "PATCH",
+          path: `/beads/${testBeadId}`,
+          payload: { status: "in_progress" },
+        });
+
+        const res = await app.request(`/beads/${testBeadId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "in_progress" }),
+        });
+
+        const data = await res.json();
+
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { beadId: data.data?.id, status: data.data?.status },
+        });
+
+        expect(res.status).toBe(200);
+        expect(data.data.status).toBe("in_progress");
+      },
+      TEST_TIMEOUT,
+    );
+
+    test(
+      "should update bead priority",
+      async () => {
+        const testName = "update_bead_priority";
+
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "PATCH",
+          path: `/beads/${testBeadId}`,
+          payload: { priority: 2 },
+        });
+
+        const res = await app.request(`/beads/${testBeadId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ priority: 2 }),
+        });
+
+        const data = await res.json();
+
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { beadId: data.data?.id, priority: data.data?.priority },
+        });
+
+        expect(res.status).toBe(200);
+        expect(data.data.priority).toBe(2);
+      },
+      TEST_TIMEOUT,
+    );
+
+    test(
+      "should return 404 when updating non-existent bead",
+      async () => {
+        const testName = "update_bead_not_found";
+        const fakeId = "bd-nonexistent-update-9999";
+
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "PATCH",
+          path: `/beads/${fakeId}`,
+          payload: { title: "new title" },
+        });
+
+        const res = await app.request(`/beads/${fakeId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: "new title" }),
+        });
+
+        const data = await res.json();
+
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          error: data.error?.code,
+        });
+
+        // Note: br returns exit code 3 for not found, which gets mapped to SYSTEM_UNAVAILABLE
+        expect(res.status).toBe(503);
+        expect(data.error.code).toBe("SYSTEM_UNAVAILABLE");
+      },
+      TEST_TIMEOUT,
+    );
+  });
+
+  describe("POST /beads/:id/claim", () => {
+    let testBeadId: string;
+
+    beforeEach(
+      async () => {
+        // Create a test bead to claim
+        const title = getTestBeadTitle();
+        const bead = await service.create({
+          title,
+          type: "task",
+          priority: 4,
+          description: "Test bead for claim endpoint",
+        });
+        testBeadId = bead.id;
+        createdBeadIds.push(testBeadId);
+      },
+      { timeout: TEST_TIMEOUT },
+    );
+
+    test(
+      "should claim bead and set status to in_progress",
+      async () => {
+        const testName = "claim_bead";
+
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "POST",
+          path: `/beads/${testBeadId}/claim`,
+        });
+
+        const res = await app.request(`/beads/${testBeadId}/claim`, {
+          method: "POST",
+        });
+
+        const data = await res.json();
+
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { beadId: data.data?.id, status: data.data?.status },
+        });
+
+        expect(res.status).toBe(200);
+        expect(data.object).toBe("bead");
+        expect(data.data.status).toBe("in_progress");
+      },
+      TEST_TIMEOUT,
+    );
+  });
+
+  describe("DELETE /beads/:id (close)", () => {
+    let testBeadId: string;
+
+    beforeEach(
+      async () => {
+        // Create a test bead to close
+        const title = getTestBeadTitle();
+        const bead = await service.create({
+          title,
+          type: "task",
+          priority: 4,
+          description: "Test bead for close endpoint",
+        });
+        testBeadId = bead.id;
+        // Always track for cleanup — if the test fails before closing,
+        // afterAll will clean up. Re-closing an already-closed bead is safe.
+        createdBeadIds.push(testBeadId);
+      },
+      { timeout: TEST_TIMEOUT },
+    );
+
+    test(
+      "should close bead",
+      async () => {
+        const testName = "close_bead";
+
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "DELETE",
+          path: `/beads/${testBeadId}`,
+        });
+
+        const res = await app.request(`/beads/${testBeadId}`, {
+          method: "DELETE",
+        });
+
+        const data = await res.json();
+
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { beadId: data.data?.id, status: data.data?.status },
+        });
+
+        expect(res.status).toBe(200);
+        expect(data.object).toBe("bead");
+        expect(data.data.status).toBe("closed");
+      },
+      TEST_TIMEOUT,
+    );
+
+    test(
+      "should close bead with reason",
+      async () => {
+        const testName = "close_bead_with_reason";
+
+        // Create another bead for this test
+        const title = getTestBeadTitle();
+        const bead = await service.create({
+          title,
+          type: "task",
+          priority: 4,
+        });
+        const beadId = bead.id;
+        createdBeadIds.push(beadId);
+
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "DELETE",
+          path: `/beads/${beadId}?reason=completed`,
+        });
+
+        const res = await app.request(`/beads/${beadId}?reason=completed`, {
+          method: "DELETE",
+        });
+
+        const data = await res.json();
+
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { beadId: data.data?.id, status: data.data?.status },
+        });
+
+        expect(res.status).toBe(200);
+        expect(data.data.status).toBe("closed");
+      },
+      TEST_TIMEOUT,
+    );
+
+    test(
+      "should return 404 when closing non-existent bead",
+      async () => {
+        const testName = "close_bead_not_found";
+        const fakeId = "bd-nonexistent-close-9999";
+
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "DELETE",
+          path: `/beads/${fakeId}`,
+        });
+
+        const res = await app.request(`/beads/${fakeId}`, {
+          method: "DELETE",
+        });
+
+        const data = await res.json();
+
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          error: data.error?.code,
+        });
+
+        // Note: br returns exit code 3 for not found, which gets mapped to SYSTEM_UNAVAILABLE
+        expect(res.status).toBe(503);
+        expect(data.error.code).toBe("SYSTEM_UNAVAILABLE");
+      },
+      TEST_TIMEOUT,
+    );
+  });
+
+  describe("POST /beads/:id/close (alternative close)", () => {
+    test(
+      "should close bead via POST with body",
+      async () => {
+        const testName = "close_bead_post";
+
+        // Create a test bead
+        const title = getTestBeadTitle();
+        const bead = await service.create({
+          title,
+          type: "task",
+          priority: 4,
+        });
+        createdBeadIds.push(bead.id);
+
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "POST",
+          path: `/beads/${bead.id}/close`,
+          payload: { reason: "done" },
+        });
+
+        const res = await app.request(`/beads/${bead.id}/close`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: "done" }),
+        });
+
+        const data = await res.json();
+
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { beadId: data.data?.id, status: data.data?.status },
+        });
+
+        expect(res.status).toBe(200);
+        expect(data.data.status).toBe("closed");
+      },
+      TEST_TIMEOUT,
+    );
+  });
+
+  describe("GET /beads/sync/status", () => {
+    test(
+      "should return sync status",
+      async () => {
+        const testName = "sync_status";
+
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "GET",
+          path: "/beads/sync/status",
+        });
+
+        const res = await app.request("/beads/sync/status");
+        const data = await res.json();
+
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { dirtyCount: data.data?.dirty_count },
+        });
+
+        expect(res.status).toBe(200);
+        expect(data.object).toBe("sync_status");
+        // br sync --status returns dirty_count, not status
+        expect(data.data.dirty_count).toBeDefined();
+      },
+      TEST_TIMEOUT,
+    );
+  });
+
+  describe("POST /beads/sync", () => {
+    test(
+      "should trigger sync and return result",
+      async () => {
+        const testName = "sync";
+
+        logTest({
+          test: testName,
+          action: "starting",
+          method: "POST",
+          path: "/beads/sync",
+        });
+
+        const res = await app.request("/beads/sync", { method: "POST" });
+        const data = await res.json();
+
+        logTest({
+          test: testName,
+          action: "response_received",
+          status: res.status,
+          requestId: data.requestId,
+          payload: { syncResult: data.data?.status },
+        });
+
+        expect(res.status).toBe(200);
+        expect(data.object).toBe("sync_result");
+        expect(data.data.status).toBe("ok");
+      },
+      TEST_TIMEOUT,
+    );
+  });
+
+  describe("Full CRUD Flow", () => {
+    test(
+      "should complete create -> show -> update -> claim -> close flow",
+      async () => {
+        const testName = "full_crud_flow";
+        const title = getTestBeadTitle();
+
+        // Step 1: Create
+        logTest({
+          test: testName,
+          action: "step_1_create",
+          method: "POST",
+          path: "/beads",
+        });
+
+        const createRes = await app.request("/beads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             title,
             type: "task",
             priority: 4,
-            description: "Test bead for show endpoint",
-          });
-          testBeadId = bead.id;
-          createdBeadIds.push(testBeadId);
-        },
-        { timeout: TEST_TIMEOUT },
-      );
-
-      test(
-        "should return single bead by ID",
-        async () => {
-          const testName = "show_bead";
-
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "GET",
-            path: `/beads/${testBeadId}`,
-          });
-
-          const res = await app.request(`/beads/${testBeadId}`);
-          const data = await res.json();
-
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { beadId: data.data?.id, title: data.data?.title },
-          });
-
-          expect(res.status).toBe(200);
-          expect(data.object).toBe("bead");
-          expect(data.data.id).toBe(testBeadId);
-        },
-        TEST_TIMEOUT,
-      );
-
-      test(
-        "should return 404 for non-existent bead",
-        async () => {
-          const testName = "show_bead_not_found";
-          const fakeId = "bd-nonexistent-9999";
-
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "GET",
-            path: `/beads/${fakeId}`,
-          });
-
-          const res = await app.request(`/beads/${fakeId}`);
-          const data = await res.json();
-
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            error: data.error?.code,
-          });
-
-          // Note: br returns exit code 3 for not found, which gets mapped to SYSTEM_UNAVAILABLE
-          // The routes have BEAD_NOT_FOUND logic, but it only triggers when service returns empty array
-          expect(res.status).toBe(503);
-          expect(data.error.code).toBe("SYSTEM_UNAVAILABLE");
-        },
-        TEST_TIMEOUT,
-      );
-    });
-
-    describe("PATCH /beads/:id (update)", () => {
-      let testBeadId: string;
-
-      beforeEach(
-        async () => {
-          // Create a test bead to update
-          const title = getTestBeadTitle();
-          const bead = await service.create({
-            title,
-            type: "task",
-            priority: 4,
-            description: "Test bead for update endpoint",
-          });
-          testBeadId = bead.id;
-          createdBeadIds.push(testBeadId);
-        },
-        { timeout: TEST_TIMEOUT },
-      );
-
-      test(
-        "should update bead title",
-        async () => {
-          const testName = "update_bead_title";
-          const newTitle = `updated-${getTestBeadTitle()}`;
-
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "PATCH",
-            path: `/beads/${testBeadId}`,
-            payload: { title: newTitle },
-          });
-
-          const res = await app.request(`/beads/${testBeadId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: newTitle }),
-          });
-
-          const data = await res.json();
-
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { beadId: data.data?.id, title: data.data?.title },
-          });
-
-          expect(res.status).toBe(200);
-          expect(data.object).toBe("bead");
-          expect(data.data.title).toBe(newTitle);
-        },
-        TEST_TIMEOUT,
-      );
-
-      test(
-        "should update bead status",
-        async () => {
-          const testName = "update_bead_status";
-
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "PATCH",
-            path: `/beads/${testBeadId}`,
-            payload: { status: "in_progress" },
-          });
-
-          const res = await app.request(`/beads/${testBeadId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "in_progress" }),
-          });
-
-          const data = await res.json();
-
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { beadId: data.data?.id, status: data.data?.status },
-          });
-
-          expect(res.status).toBe(200);
-          expect(data.data.status).toBe("in_progress");
-        },
-        TEST_TIMEOUT,
-      );
-
-      test(
-        "should update bead priority",
-        async () => {
-          const testName = "update_bead_priority";
-
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "PATCH",
-            path: `/beads/${testBeadId}`,
-            payload: { priority: 2 },
-          });
-
-          const res = await app.request(`/beads/${testBeadId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ priority: 2 }),
-          });
-
-          const data = await res.json();
-
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { beadId: data.data?.id, priority: data.data?.priority },
-          });
-
-          expect(res.status).toBe(200);
-          expect(data.data.priority).toBe(2);
-        },
-        TEST_TIMEOUT,
-      );
-
-      test(
-        "should return 404 when updating non-existent bead",
-        async () => {
-          const testName = "update_bead_not_found";
-          const fakeId = "bd-nonexistent-update-9999";
-
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "PATCH",
-            path: `/beads/${fakeId}`,
-            payload: { title: "new title" },
-          });
-
-          const res = await app.request(`/beads/${fakeId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: "new title" }),
-          });
-
-          const data = await res.json();
-
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            error: data.error?.code,
-          });
-
-          // Note: br returns exit code 3 for not found, which gets mapped to SYSTEM_UNAVAILABLE
-          expect(res.status).toBe(503);
-          expect(data.error.code).toBe("SYSTEM_UNAVAILABLE");
-        },
-        TEST_TIMEOUT,
-      );
-    });
-
-    describe("POST /beads/:id/claim", () => {
-      let testBeadId: string;
-
-      beforeEach(
-        async () => {
-          // Create a test bead to claim
-          const title = getTestBeadTitle();
-          const bead = await service.create({
-            title,
-            type: "task",
-            priority: 4,
-            description: "Test bead for claim endpoint",
-          });
-          testBeadId = bead.id;
-          createdBeadIds.push(testBeadId);
-        },
-        { timeout: TEST_TIMEOUT },
-      );
-
-      test(
-        "should claim bead and set status to in_progress",
-        async () => {
-          const testName = "claim_bead";
-
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "POST",
-            path: `/beads/${testBeadId}/claim`,
-          });
-
-          const res = await app.request(`/beads/${testBeadId}/claim`, {
-            method: "POST",
-          });
-
-          const data = await res.json();
-
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { beadId: data.data?.id, status: data.data?.status },
-          });
-
-          expect(res.status).toBe(200);
-          expect(data.object).toBe("bead");
-          expect(data.data.status).toBe("in_progress");
-        },
-        TEST_TIMEOUT,
-      );
-    });
-
-    describe("DELETE /beads/:id (close)", () => {
-      let testBeadId: string;
-
-      beforeEach(
-        async () => {
-          // Create a test bead to close
-          const title = getTestBeadTitle();
-          const bead = await service.create({
-            title,
-            type: "task",
-            priority: 4,
-            description: "Test bead for close endpoint",
-          });
-          testBeadId = bead.id;
-          // Always track for cleanup — if the test fails before closing,
-          // afterAll will clean up. Re-closing an already-closed bead is safe.
-          createdBeadIds.push(testBeadId);
-        },
-        { timeout: TEST_TIMEOUT },
-      );
-
-      test(
-        "should close bead",
-        async () => {
-          const testName = "close_bead";
-
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "DELETE",
-            path: `/beads/${testBeadId}`,
-          });
-
-          const res = await app.request(`/beads/${testBeadId}`, {
-            method: "DELETE",
-          });
-
-          const data = await res.json();
-
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { beadId: data.data?.id, status: data.data?.status },
-          });
-
-          expect(res.status).toBe(200);
-          expect(data.object).toBe("bead");
-          expect(data.data.status).toBe("closed");
-        },
-        TEST_TIMEOUT,
-      );
-
-      test(
-        "should close bead with reason",
-        async () => {
-          const testName = "close_bead_with_reason";
-
-          // Create another bead for this test
-          const title = getTestBeadTitle();
-          const bead = await service.create({
-            title,
-            type: "task",
-            priority: 4,
-          });
-          const beadId = bead.id;
-          createdBeadIds.push(beadId);
-
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "DELETE",
-            path: `/beads/${beadId}?reason=completed`,
-          });
-
-          const res = await app.request(`/beads/${beadId}?reason=completed`, {
-            method: "DELETE",
-          });
-
-          const data = await res.json();
-
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { beadId: data.data?.id, status: data.data?.status },
-          });
-
-          expect(res.status).toBe(200);
-          expect(data.data.status).toBe("closed");
-        },
-        TEST_TIMEOUT,
-      );
-
-      test(
-        "should return 404 when closing non-existent bead",
-        async () => {
-          const testName = "close_bead_not_found";
-          const fakeId = "bd-nonexistent-close-9999";
-
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "DELETE",
-            path: `/beads/${fakeId}`,
-          });
-
-          const res = await app.request(`/beads/${fakeId}`, {
-            method: "DELETE",
-          });
-
-          const data = await res.json();
-
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            error: data.error?.code,
-          });
-
-          // Note: br returns exit code 3 for not found, which gets mapped to SYSTEM_UNAVAILABLE
-          expect(res.status).toBe(503);
-          expect(data.error.code).toBe("SYSTEM_UNAVAILABLE");
-        },
-        TEST_TIMEOUT,
-      );
-    });
-
-    describe("POST /beads/:id/close (alternative close)", () => {
-      test(
-        "should close bead via POST with body",
-        async () => {
-          const testName = "close_bead_post";
-
-          // Create a test bead
-          const title = getTestBeadTitle();
-          const bead = await service.create({
-            title,
-            type: "task",
-            priority: 4,
-          });
-          createdBeadIds.push(bead.id);
-
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "POST",
-            path: `/beads/${bead.id}/close`,
-            payload: { reason: "done" },
-          });
-
-          const res = await app.request(`/beads/${bead.id}/close`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reason: "done" }),
-          });
-
-          const data = await res.json();
-
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { beadId: data.data?.id, status: data.data?.status },
-          });
-
-          expect(res.status).toBe(200);
-          expect(data.data.status).toBe("closed");
-        },
-        TEST_TIMEOUT,
-      );
-    });
-
-    describe("GET /beads/sync/status", () => {
-      test(
-        "should return sync status",
-        async () => {
-          const testName = "sync_status";
-
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "GET",
-            path: "/beads/sync/status",
-          });
-
-          const res = await app.request("/beads/sync/status");
-          const data = await res.json();
-
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { dirtyCount: data.data?.dirty_count },
-          });
-
-          expect(res.status).toBe(200);
-          expect(data.object).toBe("sync_status");
-          // br sync --status returns dirty_count, not status
-          expect(data.data.dirty_count).toBeDefined();
-        },
-        TEST_TIMEOUT,
-      );
-    });
-
-    describe("POST /beads/sync", () => {
-      test(
-        "should trigger sync and return result",
-        async () => {
-          const testName = "sync";
-
-          logTest({
-            test: testName,
-            action: "starting",
-            method: "POST",
-            path: "/beads/sync",
-          });
-
-          const res = await app.request("/beads/sync", { method: "POST" });
-          const data = await res.json();
-
-          logTest({
-            test: testName,
-            action: "response_received",
-            status: res.status,
-            requestId: data.requestId,
-            payload: { syncResult: data.data?.status },
-          });
-
-          expect(res.status).toBe(200);
-          expect(data.object).toBe("sync_result");
-          expect(data.data.status).toBe("ok");
-        },
-        TEST_TIMEOUT,
-      );
-    });
-
-    describe("Full CRUD Flow", () => {
-      test(
-        "should complete create -> show -> update -> claim -> close flow",
-        async () => {
-          const testName = "full_crud_flow";
-          const title = getTestBeadTitle();
-
-          // Step 1: Create
-          logTest({
-            test: testName,
-            action: "step_1_create",
-            method: "POST",
-            path: "/beads",
-          });
-
-          const createRes = await app.request("/beads", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title,
-              type: "task",
-              priority: 4,
-              description: "Full CRUD flow test",
-            }),
-          });
-          const createData = await createRes.json();
-
-          expect(createRes.status).toBe(201);
-          const beadId = createData.data.id;
-          createdBeadIds.push(beadId);
-
-          logTest({
-            test: testName,
-            action: "step_1_complete",
-            payload: { beadId, status: createData.data.status },
-          });
-
-          // Step 2: Show
-          logTest({
-            test: testName,
-            action: "step_2_show",
-            method: "GET",
-            path: `/beads/${beadId}`,
-          });
-
-          const showRes = await app.request(`/beads/${beadId}`);
-          const showData = await showRes.json();
-
-          expect(showRes.status).toBe(200);
-          expect(showData.data.id).toBe(beadId);
-
-          logTest({
-            test: testName,
-            action: "step_2_complete",
-            payload: { beadId, title: showData.data.title },
-          });
-
-          // Step 3: Update
-          const updatedTitle = `updated-${title}`;
-          logTest({
-            test: testName,
-            action: "step_3_update",
-            method: "PATCH",
-            path: `/beads/${beadId}`,
-          });
-
-          const updateRes = await app.request(`/beads/${beadId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: updatedTitle }),
-          });
-          const updateData = await updateRes.json();
-
-          expect(updateRes.status).toBe(200);
-          expect(updateData.data.title).toBe(updatedTitle);
-
-          logTest({
-            test: testName,
-            action: "step_3_complete",
-            payload: { beadId, title: updateData.data.title },
-          });
-
-          // Step 4: Claim
-          logTest({
-            test: testName,
-            action: "step_4_claim",
-            method: "POST",
-            path: `/beads/${beadId}/claim`,
-          });
-
-          const claimRes = await app.request(`/beads/${beadId}/claim`, {
-            method: "POST",
-          });
-          const claimData = await claimRes.json();
-
-          expect(claimRes.status).toBe(200);
-          expect(claimData.data.status).toBe("in_progress");
-
-          logTest({
-            test: testName,
-            action: "step_4_complete",
-            payload: { beadId, status: claimData.data.status },
-          });
-
-          // Step 5: Close
-          logTest({
-            test: testName,
-            action: "step_5_close",
-            method: "DELETE",
-            path: `/beads/${beadId}`,
-          });
-
-          const closeRes = await app.request(
-            `/beads/${beadId}?reason=completed`,
-            {
-              method: "DELETE",
-            },
-          );
-          const closeData = await closeRes.json();
-
-          expect(closeRes.status).toBe(200);
-          expect(closeData.data.status).toBe("closed");
-
-          logTest({
-            test: testName,
-            action: "step_5_complete",
-            payload: { beadId, status: closeData.data.status },
-          });
-
-          logTest({
-            test: testName,
-            action: "flow_complete",
-            payload: { beadId, finalStatus: "closed" },
-          });
-        },
-        TEST_TIMEOUT * 2, // Double timeout for full flow
-      );
-    });
-  },
-);
+            description: "Full CRUD flow test",
+          }),
+        });
+        const createData = await createRes.json();
+
+        expect(createRes.status).toBe(201);
+        const beadId = createData.data.id;
+        createdBeadIds.push(beadId);
+
+        logTest({
+          test: testName,
+          action: "step_1_complete",
+          payload: { beadId, status: createData.data.status },
+        });
+
+        // Step 2: Show
+        logTest({
+          test: testName,
+          action: "step_2_show",
+          method: "GET",
+          path: `/beads/${beadId}`,
+        });
+
+        const showRes = await app.request(`/beads/${beadId}`);
+        const showData = await showRes.json();
+
+        expect(showRes.status).toBe(200);
+        expect(showData.data.id).toBe(beadId);
+
+        logTest({
+          test: testName,
+          action: "step_2_complete",
+          payload: { beadId, title: showData.data.title },
+        });
+
+        // Step 3: Update
+        const updatedTitle = `updated-${title}`;
+        logTest({
+          test: testName,
+          action: "step_3_update",
+          method: "PATCH",
+          path: `/beads/${beadId}`,
+        });
+
+        const updateRes = await app.request(`/beads/${beadId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: updatedTitle }),
+        });
+        const updateData = await updateRes.json();
+
+        expect(updateRes.status).toBe(200);
+        expect(updateData.data.title).toBe(updatedTitle);
+
+        logTest({
+          test: testName,
+          action: "step_3_complete",
+          payload: { beadId, title: updateData.data.title },
+        });
+
+        // Step 4: Claim
+        logTest({
+          test: testName,
+          action: "step_4_claim",
+          method: "POST",
+          path: `/beads/${beadId}/claim`,
+        });
+
+        const claimRes = await app.request(`/beads/${beadId}/claim`, {
+          method: "POST",
+        });
+        const claimData = await claimRes.json();
+
+        expect(claimRes.status).toBe(200);
+        expect(claimData.data.status).toBe("in_progress");
+
+        logTest({
+          test: testName,
+          action: "step_4_complete",
+          payload: { beadId, status: claimData.data.status },
+        });
+
+        // Step 5: Close
+        logTest({
+          test: testName,
+          action: "step_5_close",
+          method: "DELETE",
+          path: `/beads/${beadId}`,
+        });
+
+        const closeRes = await app.request(`/beads/${beadId}?reason=completed`, {
+          method: "DELETE",
+        });
+        const closeData = await closeRes.json();
+
+        expect(closeRes.status).toBe(200);
+        expect(closeData.data.status).toBe("closed");
+
+        logTest({
+          test: testName,
+          action: "step_5_complete",
+          payload: { beadId, status: closeData.data.status },
+        });
+
+        logTest({
+          test: testName,
+          action: "flow_complete",
+          payload: { beadId, finalStatus: "closed" },
+        });
+      },
+      TEST_TIMEOUT * 2, // Double timeout for full flow
+    );
+  });
+});

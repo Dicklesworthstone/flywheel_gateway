@@ -178,10 +178,7 @@ function isRetryableError(error: SyncError): boolean {
  */
 function parseGitError(errorOutput: string): SyncError {
   // Check for common patterns
-  if (
-    errorOutput.includes("Connection refused") ||
-    errorOutput.includes("Could not resolve")
-  ) {
+  if (errorOutput.includes("Connection refused") || errorOutput.includes("Could not resolve")) {
     return {
       code: "NETWORK_ERROR",
       message: "Unable to connect to remote repository",
@@ -189,10 +186,7 @@ function parseGitError(errorOutput: string): SyncError {
     };
   }
 
-  if (
-    errorOutput.includes("CONFLICT") ||
-    errorOutput.includes("Automatic merge failed")
-  ) {
+  if (errorOutput.includes("CONFLICT") || errorOutput.includes("Automatic merge failed")) {
     return {
       code: "MERGE_CONFLICT",
       message: "Merge conflicts detected",
@@ -200,10 +194,7 @@ function parseGitError(errorOutput: string): SyncError {
     };
   }
 
-  if (
-    errorOutput.includes("rejected") &&
-    errorOutput.includes("non-fast-forward")
-  ) {
+  if (errorOutput.includes("rejected") && errorOutput.includes("non-fast-forward")) {
     return {
       code: "NON_FAST_FORWARD",
       message: "Push rejected: remote has changes not in local branch",
@@ -211,10 +202,7 @@ function parseGitError(errorOutput: string): SyncError {
     };
   }
 
-  if (
-    errorOutput.includes("Permission denied") ||
-    errorOutput.includes("Authentication failed")
-  ) {
+  if (errorOutput.includes("Permission denied") || errorOutput.includes("Authentication failed")) {
     return {
       code: "AUTH_ERROR",
       message: "Authentication failed",
@@ -244,9 +232,7 @@ function parseGitError(errorOutput: string): SyncError {
 /**
  * Queue a sync operation.
  */
-export async function queueSyncOperation(
-  request: SyncOperationRequest,
-): Promise<SyncOperation> {
+export async function queueSyncOperation(request: SyncOperationRequest): Promise<SyncOperation> {
   const correlationId = getCorrelationId();
   const log = logger.child({
     correlationId,
@@ -448,8 +434,7 @@ export async function failSyncOperation(
   });
 
   // Check if we should retry
-  const canRetry =
-    isRetryableError(error) && operation.attempt < operation.maxRetries;
+  const canRetry = isRetryableError(error) && operation.attempt < operation.maxRetries;
 
   if (canRetry) {
     const delay = calculateRetryDelay(operation.attempt);
@@ -559,10 +544,7 @@ export async function failSyncOperation(
 /**
  * Cancel a queued or running sync operation.
  */
-export async function cancelSyncOperation(
-  operationId: string,
-  agentId: string,
-): Promise<boolean> {
+export async function cancelSyncOperation(operationId: string, agentId: string): Promise<boolean> {
   const operation = operationById.get(operationId);
   if (!operation) {
     return false;
@@ -634,18 +616,14 @@ export async function cancelSyncOperation(
 /**
  * Get an operation by ID.
  */
-export async function getOperation(
-  operationId: string,
-): Promise<SyncOperation | null> {
+export async function getOperation(operationId: string): Promise<SyncOperation | null> {
   return operationById.get(operationId) ?? null;
 }
 
 /**
  * Get queued operations for a repository.
  */
-export async function getQueuedOperations(
-  repositoryId: string,
-): Promise<SyncOperation[]> {
+export async function getQueuedOperations(repositoryId: string): Promise<SyncOperation[]> {
   const queue = operationQueues.get(repositoryId) ?? [];
   return queue.filter((op) => op.status === "queued");
 }
@@ -653,9 +631,7 @@ export async function getQueuedOperations(
 /**
  * Get running operations for a repository.
  */
-export async function getRunningOperations(
-  repositoryId: string,
-): Promise<SyncOperation[]> {
+export async function getRunningOperations(repositoryId: string): Promise<SyncOperation[]> {
   const queue = operationQueues.get(repositoryId) ?? [];
   return queue.filter((op) => op.status === "running");
 }
@@ -679,9 +655,7 @@ export async function getOperationHistory(
   }
 
   if (options?.operation) {
-    history = history.filter(
-      (op) => op.request.operation === options.operation,
-    );
+    history = history.filter((op) => op.request.operation === options.operation);
   }
 
   if (options?.status) {
@@ -695,17 +669,13 @@ export async function getOperationHistory(
 /**
  * Get queue statistics for a repository.
  */
-export async function getQueueStats(
-  repositoryId: string,
-): Promise<SyncQueueStats> {
+export async function getQueueStats(repositoryId: string): Promise<SyncQueueStats> {
   const queue = operationQueues.get(repositoryId) ?? [];
   const history = operationHistory.get(repositoryId) ?? [];
 
   const queuedCount = queue.filter((op) => op.status === "queued").length;
   const runningCount = queue.filter((op) => op.status === "running").length;
-  const completedCount = history.filter(
-    (op) => op.status === "completed",
-  ).length;
+  const completedCount = history.filter((op) => op.status === "completed").length;
   const failedCount = history.filter((op) => op.status === "failed").length;
 
   // Calculate average times

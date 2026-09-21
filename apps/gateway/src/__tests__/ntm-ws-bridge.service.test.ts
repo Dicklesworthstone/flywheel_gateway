@@ -30,14 +30,11 @@ describe("ThrottledEventBatcher", () => {
     test("batches multiple events and flushes after window", async () => {
       const flushedEvents: Array<{ key: string; event: string }> = [];
 
-      const batcher = new ThrottledEventBatcher<string>(
-        (events) => flushedEvents.push(...events),
-        {
-          batchWindowMs: 50,
-          maxEventsPerBatch: 100,
-          debounceMs: 10,
-        },
-      );
+      const batcher = new ThrottledEventBatcher<string>((events) => flushedEvents.push(...events), {
+        batchWindowMs: 50,
+        maxEventsPerBatch: 100,
+        debounceMs: 10,
+      });
 
       // Enqueue multiple events
       batcher.enqueue("agent-1", "event-1");
@@ -71,14 +68,11 @@ describe("ThrottledEventBatcher", () => {
     test("manual flush immediately delivers events", () => {
       const flushedEvents: Array<{ key: string; event: string }> = [];
 
-      const batcher = new ThrottledEventBatcher<string>(
-        (events) => flushedEvents.push(...events),
-        {
-          batchWindowMs: 1000, // Long window
-          maxEventsPerBatch: 100,
-          debounceMs: 10,
-        },
-      );
+      const batcher = new ThrottledEventBatcher<string>((events) => flushedEvents.push(...events), {
+        batchWindowMs: 1000, // Long window
+        maxEventsPerBatch: 100,
+        debounceMs: 10,
+      });
 
       batcher.enqueue("agent-1", "event-1");
       batcher.enqueue("agent-2", "event-2");
@@ -98,14 +92,11 @@ describe("ThrottledEventBatcher", () => {
     test("coalesces rapid events for same key", async () => {
       const flushedEvents: Array<{ key: string; event: string }> = [];
 
-      const batcher = new ThrottledEventBatcher<string>(
-        (events) => flushedEvents.push(...events),
-        {
-          batchWindowMs: 100,
-          maxEventsPerBatch: 100,
-          debounceMs: 50, // 50ms debounce window
-        },
-      );
+      const batcher = new ThrottledEventBatcher<string>((events) => flushedEvents.push(...events), {
+        batchWindowMs: 100,
+        maxEventsPerBatch: 100,
+        debounceMs: 50, // 50ms debounce window
+      });
 
       // Rapid events for same key - only last should survive
       batcher.enqueue("agent-1", "state-1");
@@ -135,14 +126,11 @@ describe("ThrottledEventBatcher", () => {
     test("allows new event after debounce window expires", async () => {
       const flushedEvents: Array<{ key: string; event: string }> = [];
 
-      const batcher = new ThrottledEventBatcher<string>(
-        (events) => flushedEvents.push(...events),
-        {
-          batchWindowMs: 200,
-          maxEventsPerBatch: 100,
-          debounceMs: 30,
-        },
-      );
+      const batcher = new ThrottledEventBatcher<string>((events) => flushedEvents.push(...events), {
+        batchWindowMs: 200,
+        maxEventsPerBatch: 100,
+        debounceMs: 30,
+      });
 
       batcher.enqueue("agent-1", "state-1");
 
@@ -167,14 +155,11 @@ describe("ThrottledEventBatcher", () => {
     test("drops oldest events when limit exceeded", () => {
       const flushedEvents: Array<{ key: string; event: number }> = [];
 
-      const batcher = new ThrottledEventBatcher<number>(
-        (events) => flushedEvents.push(...events),
-        {
-          batchWindowMs: 1000,
-          maxEventsPerBatch: 3, // Small limit
-          debounceMs: 0, // No debouncing
-        },
-      );
+      const batcher = new ThrottledEventBatcher<number>((events) => flushedEvents.push(...events), {
+        batchWindowMs: 1000,
+        maxEventsPerBatch: 3, // Small limit
+        debounceMs: 0, // No debouncing
+      });
 
       // Add more events than max
       batcher.enqueue("agent-1", 1);
@@ -271,14 +256,11 @@ describe("ThrottledEventBatcher", () => {
     test("stop flushes remaining events", () => {
       const flushedEvents: Array<{ key: string; event: string }> = [];
 
-      const batcher = new ThrottledEventBatcher<string>(
-        (events) => flushedEvents.push(...events),
-        {
-          batchWindowMs: 10000, // Long window
-          maxEventsPerBatch: 100,
-          debounceMs: 10,
-        },
-      );
+      const batcher = new ThrottledEventBatcher<string>((events) => flushedEvents.push(...events), {
+        batchWindowMs: 10000, // Long window
+        maxEventsPerBatch: 100,
+        debounceMs: 10,
+      });
 
       batcher.enqueue("agent-1", "event-1");
       batcher.enqueue("agent-2", "event-2");
@@ -302,14 +284,11 @@ describe("Backpressure behavior", () => {
     test("handles burst of 100 events with rate limiting", () => {
       const flushedEvents: Array<{ key: string; event: number }> = [];
 
-      const batcher = new ThrottledEventBatcher<number>(
-        (events) => flushedEvents.push(...events),
-        {
-          batchWindowMs: 1000,
-          maxEventsPerBatch: 20, // Lower limit to test backpressure
-          debounceMs: 0, // No debouncing for this test
-        },
-      );
+      const batcher = new ThrottledEventBatcher<number>((events) => flushedEvents.push(...events), {
+        batchWindowMs: 1000,
+        maxEventsPerBatch: 20, // Lower limit to test backpressure
+        debounceMs: 0, // No debouncing for this test
+      });
 
       // Burst of 100 events from different agents
       for (let i = 0; i < 100; i++) {
@@ -331,14 +310,11 @@ describe("Backpressure behavior", () => {
     test("handles sustained load with periodic flushes", async () => {
       const flushedEvents: Array<{ key: string; event: number }> = [];
 
-      const batcher = new ThrottledEventBatcher<number>(
-        (events) => flushedEvents.push(...events),
-        {
-          batchWindowMs: 30, // Short window for faster test
-          maxEventsPerBatch: 10,
-          debounceMs: 0,
-        },
-      );
+      const batcher = new ThrottledEventBatcher<number>((events) => flushedEvents.push(...events), {
+        batchWindowMs: 30, // Short window for faster test
+        maxEventsPerBatch: 10,
+        debounceMs: 0,
+      });
 
       // Add events in waves
       for (let wave = 0; wave < 3; wave++) {
@@ -358,14 +334,11 @@ describe("Backpressure behavior", () => {
     test("preserves event order within batch", () => {
       const flushedEvents: Array<{ key: string; event: number }> = [];
 
-      const batcher = new ThrottledEventBatcher<number>(
-        (events) => flushedEvents.push(...events),
-        {
-          batchWindowMs: 1000,
-          maxEventsPerBatch: 100,
-          debounceMs: 0,
-        },
-      );
+      const batcher = new ThrottledEventBatcher<number>((events) => flushedEvents.push(...events), {
+        batchWindowMs: 1000,
+        maxEventsPerBatch: 100,
+        debounceMs: 0,
+      });
 
       // Add events in order
       batcher.enqueue("a", 1);
@@ -386,14 +359,11 @@ describe("Backpressure behavior", () => {
     test("no events dropped when under limit", () => {
       const flushedEvents: Array<{ key: string; event: number }> = [];
 
-      const batcher = new ThrottledEventBatcher<number>(
-        (events) => flushedEvents.push(...events),
-        {
-          batchWindowMs: 1000,
-          maxEventsPerBatch: 100,
-          debounceMs: 0,
-        },
-      );
+      const batcher = new ThrottledEventBatcher<number>((events) => flushedEvents.push(...events), {
+        batchWindowMs: 1000,
+        maxEventsPerBatch: 100,
+        debounceMs: 0,
+      });
 
       // Add exactly max events
       for (let i = 0; i < 50; i++) {
@@ -455,14 +425,11 @@ describe("Backpressure behavior", () => {
     test("debouncing reduces pressure on rate limit", () => {
       const flushedEvents: Array<{ key: string; event: number }> = [];
 
-      const batcher = new ThrottledEventBatcher<number>(
-        (events) => flushedEvents.push(...events),
-        {
-          batchWindowMs: 1000,
-          maxEventsPerBatch: 5,
-          debounceMs: 100, // Enable debouncing
-        },
-      );
+      const batcher = new ThrottledEventBatcher<number>((events) => flushedEvents.push(...events), {
+        batchWindowMs: 1000,
+        maxEventsPerBatch: 5,
+        debounceMs: 100, // Enable debouncing
+      });
 
       // Rapid updates to same 3 agents - should coalesce
       for (let i = 0; i < 10; i++) {

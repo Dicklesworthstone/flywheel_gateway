@@ -10,23 +10,13 @@ import { db } from "../db";
 import { fleetRepos } from "../db/schema";
 import { getCorrelationId } from "../middleware/correlation";
 import { logger } from "./logger";
-import {
-  publishRepoAdded,
-  publishRepoRemoved,
-  publishRepoUpdated,
-} from "./ru-events";
+import { publishRepoAdded, publishRepoRemoved, publishRepoUpdated } from "./ru-events";
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export type RepoStatus =
-  | "healthy"
-  | "dirty"
-  | "behind"
-  | "ahead"
-  | "diverged"
-  | "unknown";
+export type RepoStatus = "healthy" | "dirty" | "behind" | "ahead" | "diverged" | "unknown";
 
 export interface FleetRepo {
   id: string;
@@ -201,11 +191,7 @@ export async function getFleetRepos(
 export async function getFleetRepo(repoId: string): Promise<FleetRepo | null> {
   const correlationId = getCorrelationId();
 
-  const repo = await db
-    .select()
-    .from(fleetRepos)
-    .where(eq(fleetRepos.id, repoId))
-    .get();
+  const repo = await db.select().from(fleetRepos).where(eq(fleetRepos.id, repoId)).get();
 
   if (!repo) {
     logger.debug({ correlationId, repoId }, "Fleet repo not found");
@@ -218,14 +204,8 @@ export async function getFleetRepo(repoId: string): Promise<FleetRepo | null> {
 /**
  * Get a repo by full name (owner/name).
  */
-export async function getFleetRepoByFullName(
-  fullName: string,
-): Promise<FleetRepo | null> {
-  const repo = await db
-    .select()
-    .from(fleetRepos)
-    .where(eq(fleetRepos.fullName, fullName))
-    .get();
+export async function getFleetRepoByFullName(fullName: string): Promise<FleetRepo | null> {
+  const repo = await db.select().from(fleetRepos).where(eq(fleetRepos.fullName, fullName)).get();
 
   return repo ? (repo as FleetRepo) : null;
 }
@@ -276,9 +256,7 @@ export async function getFleetStats(): Promise<FleetStats> {
 /**
  * Add a repository to the fleet.
  */
-export async function addRepoToFleet(
-  params: AddRepoParams,
-): Promise<FleetRepo> {
+export async function addRepoToFleet(params: AddRepoParams): Promise<FleetRepo> {
   const correlationId = getCorrelationId();
   const startTime = Date.now();
 
@@ -332,11 +310,7 @@ export async function addRepoToFleet(
 export async function removeRepoFromFleet(repoId: string): Promise<void> {
   const correlationId = getCorrelationId();
 
-  const repo = await db
-    .select()
-    .from(fleetRepos)
-    .where(eq(fleetRepos.id, repoId))
-    .get();
+  const repo = await db.select().from(fleetRepos).where(eq(fleetRepos.id, repoId)).get();
 
   if (!repo) {
     throw new Error(`Fleet repo not found: ${repoId}`);
@@ -350,10 +324,7 @@ export async function removeRepoFromFleet(repoId: string): Promise<void> {
     fullName: repo.fullName,
   });
 
-  logger.info(
-    { correlationId, repoId, fullName: repo.fullName },
-    "Removed repo from fleet",
-  );
+  logger.info({ correlationId, repoId, fullName: repo.fullName }, "Removed repo from fleet");
 }
 
 /**
@@ -367,11 +338,7 @@ export async function updateFleetRepo(
   const startTime = Date.now();
 
   // Check repo exists
-  const existing = await db
-    .select()
-    .from(fleetRepos)
-    .where(eq(fleetRepos.id, repoId))
-    .get();
+  const existing = await db.select().from(fleetRepos).where(eq(fleetRepos.id, repoId)).get();
 
   if (!existing) {
     throw new Error(`Fleet repo not found: ${repoId}`);
@@ -383,17 +350,12 @@ export async function updateFleetRepo(
   };
 
   // Map params to schema fields (using bracket notation for index signature access)
-  if (updates.localPath !== undefined)
-    updateData["localPath"] = updates.localPath;
+  if (updates.localPath !== undefined) updateData["localPath"] = updates.localPath;
   if (updates.isCloned !== undefined) updateData["isCloned"] = updates.isCloned;
-  if (updates.currentBranch !== undefined)
-    updateData["currentBranch"] = updates.currentBranch;
-  if (updates.defaultBranch !== undefined)
-    updateData["defaultBranch"] = updates.defaultBranch;
-  if (updates.lastCommit !== undefined)
-    updateData["lastCommit"] = updates.lastCommit;
-  if (updates.lastCommitDate !== undefined)
-    updateData["lastCommitDate"] = updates.lastCommitDate;
+  if (updates.currentBranch !== undefined) updateData["currentBranch"] = updates.currentBranch;
+  if (updates.defaultBranch !== undefined) updateData["defaultBranch"] = updates.defaultBranch;
+  if (updates.lastCommit !== undefined) updateData["lastCommit"] = updates.lastCommit;
+  if (updates.lastCommitDate !== undefined) updateData["lastCommitDate"] = updates.lastCommitDate;
   if (updates.lastCommitAuthor !== undefined)
     updateData["lastCommitAuthor"] = updates.lastCommitAuthor;
   if (updates.status !== undefined) updateData["status"] = updates.status;
@@ -403,31 +365,21 @@ export async function updateFleetRepo(
     updateData["hasUnpushedCommits"] = updates.hasUnpushedCommits;
   if (updates.aheadBy !== undefined) updateData["aheadBy"] = updates.aheadBy;
   if (updates.behindBy !== undefined) updateData["behindBy"] = updates.behindBy;
-  if (updates.description !== undefined)
-    updateData["description"] = updates.description;
+  if (updates.description !== undefined) updateData["description"] = updates.description;
   if (updates.language !== undefined) updateData["language"] = updates.language;
   if (updates.stars !== undefined) updateData["stars"] = updates.stars;
-  if (updates.isPrivate !== undefined)
-    updateData["isPrivate"] = updates.isPrivate;
-  if (updates.isArchived !== undefined)
-    updateData["isArchived"] = updates.isArchived;
+  if (updates.isPrivate !== undefined) updateData["isPrivate"] = updates.isPrivate;
+  if (updates.isArchived !== undefined) updateData["isArchived"] = updates.isArchived;
   if (updates.ruGroup !== undefined) updateData["ruGroup"] = updates.ruGroup;
   if (updates.ruConfig !== undefined) updateData["ruConfig"] = updates.ruConfig;
-  if (updates.agentsmdPath !== undefined)
-    updateData["agentsmdPath"] = updates.agentsmdPath;
-  if (updates.lastScanDate !== undefined)
-    updateData["lastScanDate"] = updates.lastScanDate;
-  if (updates.lastSyncAt !== undefined)
-    updateData["lastSyncAt"] = updates.lastSyncAt;
+  if (updates.agentsmdPath !== undefined) updateData["agentsmdPath"] = updates.agentsmdPath;
+  if (updates.lastScanDate !== undefined) updateData["lastScanDate"] = updates.lastScanDate;
+  if (updates.lastSyncAt !== undefined) updateData["lastSyncAt"] = updates.lastSyncAt;
 
   await db.update(fleetRepos).set(updateData).where(eq(fleetRepos.id, repoId));
 
   // Fetch updated repo
-  const updated = await db
-    .select()
-    .from(fleetRepos)
-    .where(eq(fleetRepos.id, repoId))
-    .get();
+  const updated = await db.select().from(fleetRepos).where(eq(fleetRepos.id, repoId)).get();
 
   // Publish event
   if (updated) {

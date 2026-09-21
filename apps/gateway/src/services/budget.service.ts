@@ -8,13 +8,7 @@ import { and, desc, eq, gte, lt, lte, sql } from "drizzle-orm";
 import { db } from "../db/connection";
 import { budgetAlerts, budgets, costRecords } from "../db/schema";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
-import type {
-  Budget,
-  BudgetAction,
-  BudgetInput,
-  BudgetPeriod,
-  BudgetStatus,
-} from "../models/cost";
+import type { Budget, BudgetAction, BudgetInput, BudgetPeriod, BudgetStatus } from "../models/cost";
 import { logger } from "./logger";
 
 // ============================================================================
@@ -39,11 +33,7 @@ export function getBudgetPeriodBoundaries(
     }
     case "weekly": {
       const dayOfWeek = now.getDay();
-      const start = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() - dayOfWeek,
-      );
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
       const end = new Date(start);
       end.setDate(end.getDate() + 7);
       return { start, end };
@@ -141,11 +131,7 @@ export async function createBudget(input: BudgetInput): Promise<Budget> {
  * Get a budget by ID.
  */
 export async function getBudget(budgetId: string): Promise<Budget | undefined> {
-  const rows = await db
-    .select()
-    .from(budgets)
-    .where(eq(budgets.id, budgetId))
-    .limit(1);
+  const rows = await db.select().from(budgets).where(eq(budgets.id, budgetId)).limit(1);
 
   const row = rows[0];
   if (!row) return undefined;
@@ -186,21 +172,15 @@ export async function updateBudget(
   if (updates.name !== undefined) updateFields["name"] = updates.name;
   if (updates.organizationId !== undefined)
     updateFields["organizationId"] = updates.organizationId ?? null;
-  if (updates.projectId !== undefined)
-    updateFields["projectId"] = updates.projectId ?? null;
+  if (updates.projectId !== undefined) updateFields["projectId"] = updates.projectId ?? null;
   if (updates.period !== undefined) updateFields["period"] = updates.period;
-  if (updates.amountUnits !== undefined)
-    updateFields["amountUnits"] = updates.amountUnits;
+  if (updates.amountUnits !== undefined) updateFields["amountUnits"] = updates.amountUnits;
   if (updates.alertThresholds !== undefined)
     updateFields["alertThresholds"] = JSON.stringify(updates.alertThresholds);
-  if (updates.actionOnExceed !== undefined)
-    updateFields["actionOnExceed"] = updates.actionOnExceed;
-  if (updates.rollover !== undefined)
-    updateFields["rollover"] = updates.rollover;
-  if (updates.effectiveDate !== undefined)
-    updateFields["effectiveDate"] = updates.effectiveDate;
-  if (updates.expiresAt !== undefined)
-    updateFields["expiresAt"] = updates.expiresAt ?? null;
+  if (updates.actionOnExceed !== undefined) updateFields["actionOnExceed"] = updates.actionOnExceed;
+  if (updates.rollover !== undefined) updateFields["rollover"] = updates.rollover;
+  if (updates.effectiveDate !== undefined) updateFields["effectiveDate"] = updates.effectiveDate;
+  if (updates.expiresAt !== undefined) updateFields["expiresAt"] = updates.expiresAt ?? null;
   if (updates.enabled !== undefined) updateFields["enabled"] = updates.enabled;
 
   await db.update(budgets).set(updateFields).where(eq(budgets.id, budgetId));
@@ -242,11 +222,7 @@ export async function listBudgets(filter?: {
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const rows = await db
-    .select()
-    .from(budgets)
-    .where(whereClause)
-    .orderBy(desc(budgets.createdAt));
+  const rows = await db.select().from(budgets).where(whereClause).orderBy(desc(budgets.createdAt));
 
   return rows.map((row) => {
     const budget: Budget = {
@@ -303,15 +279,13 @@ export function calculateBurnRateAndProjection(
 
   // Calculate usage projection based on time fraction
   const fractionElapsed = Math.min(1, elapsedMs / periodDurationMs);
-  const projectedEndOfPeriodUnits =
-    fractionElapsed > 0 ? usedUnits / fractionElapsed : 0;
+  const projectedEndOfPeriodUnits = fractionElapsed > 0 ? usedUnits / fractionElapsed : 0;
 
   const projectedExceed = projectedEndOfPeriodUnits > amountUnits;
 
   // Calculate burn rate (units per day)
   const durationDays = periodDurationMs / (24 * 60 * 60 * 1000);
-  const burnRateUnitsPerDay =
-    durationDays > 0 ? projectedEndOfPeriodUnits / durationDays : 0;
+  const burnRateUnitsPerDay = durationDays > 0 ? projectedEndOfPeriodUnits / durationDays : 0;
 
   // Days remaining (float for precision)
   const msRemaining = Math.max(0, periodEnd.getTime() - now.getTime());
@@ -336,17 +310,13 @@ export function calculateBurnRateAndProjection(
 /**
  * Get the current status of a budget.
  */
-export async function getBudgetStatus(
-  budgetId: string,
-): Promise<BudgetStatus | undefined> {
+export async function getBudgetStatus(budgetId: string): Promise<BudgetStatus | undefined> {
   const budget = await getBudget(budgetId);
   if (!budget) {
     return undefined;
   }
 
-  const { start: periodStart, end: periodEnd } = getBudgetPeriodBoundaries(
-    budget.period,
-  );
+  const { start: periodStart, end: periodEnd } = getBudgetPeriodBoundaries(budget.period);
 
   // Calculate current usage
   const conditions = [
@@ -369,24 +339,19 @@ export async function getBudgetStatus(
     .where(and(...conditions));
 
   const usedUnits = usageResult[0]?.totalCost ?? 0;
-  const usedPercent =
-    budget.amountUnits > 0 ? (usedUnits / budget.amountUnits) * 100 : 0;
+  const usedPercent = budget.amountUnits > 0 ? (usedUnits / budget.amountUnits) * 100 : 0;
   const remainingUnits = Math.max(0, budget.amountUnits - usedUnits);
 
   const now = new Date();
-  const {
-    burnRateUnitsPerDay,
-    projectedEndOfPeriodUnits,
-    projectedExceed,
-    daysUntilExhausted,
-  } = calculateBurnRateAndProjection(
-    usedUnits,
-    budget.amountUnits,
-    periodStart,
-    periodEnd,
-    budget.period,
-    now,
-  );
+  const { burnRateUnitsPerDay, projectedEndOfPeriodUnits, projectedExceed, daysUntilExhausted } =
+    calculateBurnRateAndProjection(
+      usedUnits,
+      budget.amountUnits,
+      periodStart,
+      periodEnd,
+      budget.period,
+      now,
+    );
 
   // Get previous period usage for comparison
   const prevPeriodBoundaries = getBudgetPeriodBoundaries(
@@ -419,11 +384,8 @@ export async function getBudgetStatus(
       : undefined;
 
   // Determine current threshold crossed
-  const alertsTriggered = budget.alertThresholds.filter(
-    (threshold) => usedPercent >= threshold,
-  );
-  const currentThreshold =
-    alertsTriggered.length > 0 ? Math.max(...alertsTriggered) : 0;
+  const alertsTriggered = budget.alertThresholds.filter((threshold) => usedPercent >= threshold);
+  const currentThreshold = alertsTriggered.length > 0 ? Math.max(...alertsTriggered) : 0;
 
   // Determine status
   let status: BudgetStatus["status"];
@@ -452,10 +414,8 @@ export async function getBudgetStatus(
     status,
     lastUpdatedAt: now,
   };
-  if (daysUntilExhausted !== undefined)
-    budgetStatus.daysUntilExhausted = daysUntilExhausted;
-  if (previousPeriodUnits !== undefined)
-    budgetStatus.previousPeriodUnits = previousPeriodUnits;
+  if (daysUntilExhausted !== undefined) budgetStatus.daysUntilExhausted = daysUntilExhausted;
+  if (previousPeriodUnits !== undefined) budgetStatus.previousPeriodUnits = previousPeriodUnits;
   if (changePercent !== undefined) budgetStatus.changePercent = changePercent;
   return budgetStatus;
 }
@@ -508,9 +468,7 @@ export async function checkBudgetThresholds(
   const log = getLogger();
 
   // Find the highest threshold that was crossed but not yet alerted for this period
-  for (const threshold of [...status.budget.alertThresholds].sort(
-    (a, b) => b - a,
-  )) {
+  for (const threshold of [...status.budget.alertThresholds].sort((a, b) => b - a)) {
     if (status.usedPercent < threshold) {
       continue;
     }

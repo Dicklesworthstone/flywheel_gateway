@@ -28,12 +28,7 @@ export function allocateBudget(
   totalTokens: number,
   strategy: BudgetStrategy = DEFAULT_BUDGET_STRATEGY,
 ): TokenBreakdown {
-  const sections: ProportionalSection[] = [
-    "triage",
-    "memory",
-    "search",
-    "history",
-  ];
+  const sections: ProportionalSection[] = ["triage", "memory", "search", "history"];
 
   // Handle edge case: budget is zero or negative
   if (totalTokens <= 0) {
@@ -99,10 +94,7 @@ export function allocateBudget(
       // Take from lowest priority first
       const reversePriority = [...strategy.priority].reverse();
       for (const key of reversePriority) {
-        const reduction = Math.min(
-          overflow,
-          allocation[key] - strategy.minimums[key],
-        );
+        const reduction = Math.min(overflow, allocation[key] - strategy.minimums[key]);
         allocation[key] -= reduction;
         overflow -= reduction;
         if (overflow <= 0) break;
@@ -115,10 +107,7 @@ export function allocateBudget(
   if (finalTotal > totalTokens) {
     // Scale down proportional sections to fit
     const proportionalTotal =
-      allocation.triage +
-      allocation.memory +
-      allocation.search +
-      allocation.history;
+      allocation.triage + allocation.memory + allocation.search + allocation.history;
     if (proportionalTotal > 0) {
       const excess = finalTotal - totalTokens;
       const scale = Math.max(0, 1 - excess / proportionalTotal);
@@ -191,18 +180,11 @@ export function validateStrategy(strategy: BudgetStrategy): string[] {
     strategy.proportional.history;
 
   if (Math.abs(proportionalSum - 1.0) > 0.001) {
-    errors.push(
-      `Proportional allocations should sum to 1.0, got ${proportionalSum.toFixed(3)}`,
-    );
+    errors.push(`Proportional allocations should sum to 1.0, got ${proportionalSum.toFixed(3)}`);
   }
 
   // Check each proportional is between 0 and 1
-  const sections: ProportionalSection[] = [
-    "triage",
-    "memory",
-    "search",
-    "history",
-  ];
+  const sections: ProportionalSection[] = ["triage", "memory", "search", "history"];
   for (const key of sections) {
     if (strategy.proportional[key] < 0 || strategy.proportional[key] > 1) {
       errors.push(`Proportional ${key} must be between 0 and 1`);
@@ -235,9 +217,7 @@ export function validateStrategy(strategy: BudgetStrategy): string[] {
  * @returns Complete budget strategy
  * @throws Error if the resulting strategy is invalid
  */
-export function createStrategy(
-  overrides: Partial<BudgetStrategy>,
-): BudgetStrategy {
+export function createStrategy(overrides: Partial<BudgetStrategy>): BudgetStrategy {
   const strategy: BudgetStrategy = {
     fixed: { ...DEFAULT_BUDGET_STRATEGY.fixed, ...overrides.fixed },
     proportional: {

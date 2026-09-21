@@ -10,16 +10,7 @@
  */
 function isPrivateIPv4(a: number, b: number, c: number, d: number): boolean {
   // Validate octets are in valid range
-  if (
-    a < 0 ||
-    a > 255 ||
-    b < 0 ||
-    b > 255 ||
-    c < 0 ||
-    c > 255 ||
-    d < 0 ||
-    d > 255
-  ) {
+  if (a < 0 || a > 255 || b < 0 || b > 255 || c < 0 || c > 255 || d < 0 || d > 255) {
     return true; // Invalid = unsafe
   }
   // 127.0.0.0/8 (loopback range)
@@ -114,19 +105,12 @@ function isPrivateIPv6(hostname: string): boolean {
  * Parse decimal IP notation (e.g., 2130706433 = 127.0.0.1).
  * Returns [a, b, c, d] octets or null if not a valid decimal IP.
  */
-function parseDecimalIP(
-  hostname: string,
-): [number, number, number, number] | null {
+function parseDecimalIP(hostname: string): [number, number, number, number] | null {
   // Must be all digits and within valid range for 32-bit unsigned int
   if (!/^\d+$/.test(hostname)) return null;
   const num = Number(hostname);
   if (!Number.isFinite(num) || num < 0 || num > 0xffffffff) return null;
-  return [
-    (num >>> 24) & 0xff,
-    (num >>> 16) & 0xff,
-    (num >>> 8) & 0xff,
-    num & 0xff,
-  ];
+  return [(num >>> 24) & 0xff, (num >>> 16) & 0xff, (num >>> 8) & 0xff, num & 0xff];
 }
 
 /**
@@ -174,10 +158,7 @@ export function isPrivateNetworkUrl(url: string): boolean {
     }
 
     // Check for IPv6 addresses (including IPv4-mapped)
-    if (
-      hostname.includes(":") ||
-      (hostname.startsWith("[") && hostname.endsWith("]"))
-    ) {
+    if (hostname.includes(":") || (hostname.startsWith("[") && hostname.endsWith("]"))) {
       return isPrivateIPv6(hostname);
     }
 

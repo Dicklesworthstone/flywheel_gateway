@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import {
-  GraphBridgeService,
-  resetGraphBridgeService,
-} from "../services/graph-bridge";
+import { GraphBridgeService, resetGraphBridgeService } from "../services/graph-bridge";
 import type { GraphEventsService } from "../services/graph-events";
 
 describe("GraphBridgeService", () => {
@@ -56,9 +53,7 @@ describe("GraphBridgeService", () => {
         let abortHandler: (() => void) | undefined;
         const stream = new ReadableStream<Uint8Array>({
           start(controller) {
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
-            );
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
 
             // Keep the stream open, but make sure `service.stop()` (which aborts
             // the fetch signal) deterministically terminates the read loop.

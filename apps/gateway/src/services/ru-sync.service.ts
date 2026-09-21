@@ -29,12 +29,7 @@ import {
 // ============================================================================
 
 export type SyncOperation = "clone" | "pull" | "fetch" | "push";
-export type SyncStatus =
-  | "pending"
-  | "running"
-  | "success"
-  | "failed"
-  | "cancelled";
+export type SyncStatus = "pending" | "running" | "success" | "failed" | "cancelled";
 
 export interface SyncOptions {
   /** Number of parallel sync operations (default: 4) */
@@ -194,10 +189,7 @@ export async function startFleetSync(
   const sessionId = generateId("sync_");
   const startTime = Date.now();
 
-  logger.info(
-    { correlationId, sessionId, triggeredBy, options },
-    "Starting fleet sync",
-  );
+  logger.info({ correlationId, sessionId, triggeredBy, options }, "Starting fleet sync");
 
   // Get target repos
   let repos: FleetRepo[];
@@ -313,10 +305,7 @@ async function runSyncProcess(
             .update(fleetSyncOps)
             .set({ status: "running", startedAt: new Date() })
             .where(
-              and(
-                eq(fleetSyncOps.repoId, repo.id),
-                eq(fleetSyncOps.correlationId, sessionId),
-              ),
+              and(eq(fleetSyncOps.repoId, repo.id), eq(fleetSyncOps.correlationId, sessionId)),
             );
 
           publishSyncProgress({
@@ -353,11 +342,7 @@ async function runSyncProcess(
               } catch {
                 // Process may have already exited
               }
-              reject(
-                new Error(
-                  `Subprocess timed out after ${SUBPROCESS_TIMEOUT_MS}ms`,
-                ),
-              );
+              reject(new Error(`Subprocess timed out after ${SUBPROCESS_TIMEOUT_MS}ms`));
             }, SUBPROCESS_TIMEOUT_MS);
           });
 
@@ -396,10 +381,7 @@ async function runSyncProcess(
                 filesChanged: result.files,
               })
               .where(
-                and(
-                  eq(fleetSyncOps.repoId, repo.id),
-                  eq(fleetSyncOps.correlationId, sessionId),
-                ),
+                and(eq(fleetSyncOps.repoId, repo.id), eq(fleetSyncOps.correlationId, sessionId)),
               );
 
             // Update repo status - build params conditionally for exactOptionalPropertyTypes
@@ -424,10 +406,7 @@ async function runSyncProcess(
                 errorCode: `EXIT_${exitCode}`,
               })
               .where(
-                and(
-                  eq(fleetSyncOps.repoId, repo.id),
-                  eq(fleetSyncOps.correlationId, sessionId),
-                ),
+                and(eq(fleetSyncOps.repoId, repo.id), eq(fleetSyncOps.correlationId, sessionId)),
               );
 
             failed++;
@@ -469,15 +448,11 @@ async function runSyncProcess(
               .set({
                 status: "failed",
                 completedAt: new Date(),
-                error:
-                  error instanceof Error ? error.message : "Unknown exception",
+                error: error instanceof Error ? error.message : "Unknown exception",
                 errorCode: "EXCEPTION",
               })
               .where(
-                and(
-                  eq(fleetSyncOps.repoId, repo.id),
-                  eq(fleetSyncOps.correlationId, sessionId),
-                ),
+                and(eq(fleetSyncOps.repoId, repo.id), eq(fleetSyncOps.correlationId, sessionId)),
               );
           } catch (dbError) {
             logger.error(
@@ -527,10 +502,7 @@ export async function cancelSync(sessionId: string): Promise<void> {
   const session = activeSessions.get(sessionId);
 
   if (!session) {
-    logger.warn(
-      { correlationId, sessionId },
-      "Session not found or already completed",
-    );
+    logger.warn({ correlationId, sessionId }, "Session not found or already completed");
     return;
   }
 
@@ -617,14 +589,8 @@ export async function getSyncHistory(options?: {
 /**
  * Get a specific sync operation.
  */
-export async function getSyncOperation(
-  opId: string,
-): Promise<SyncOpRecord | null> {
-  const op = await db
-    .select()
-    .from(fleetSyncOps)
-    .where(eq(fleetSyncOps.id, opId))
-    .get();
+export async function getSyncOperation(opId: string): Promise<SyncOpRecord | null> {
+  const op = await db.select().from(fleetSyncOps).where(eq(fleetSyncOps.id, opId)).get();
 
   return op ? (op as SyncOpRecord) : null;
 }
@@ -684,9 +650,7 @@ export async function getSyncStats(since?: Date): Promise<{
   failed: number;
   avgDurationMs: number;
 }> {
-  const conditions = since
-    ? [sql`${fleetSyncOps.createdAt} >= ${since.getTime()}`]
-    : [];
+  const conditions = since ? [sql`${fleetSyncOps.createdAt} >= ${since.getTime()}`] : [];
 
   const [stats] = await db
     .select({

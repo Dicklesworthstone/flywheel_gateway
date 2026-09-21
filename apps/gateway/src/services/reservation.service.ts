@@ -9,11 +9,7 @@
  * Builds on the ReservationConflictEngine for conflict detection.
  */
 
-import {
-  createCursor,
-  DEFAULT_PAGINATION,
-  decodeCursor,
-} from "@flywheel/shared/api/pagination";
+import { createCursor, DEFAULT_PAGINATION, decodeCursor } from "@flywheel/shared/api/pagination";
 import { getCorrelationId } from "../middleware/correlation";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
@@ -340,9 +336,7 @@ function fileMatchesPatterns(filePath: string, patterns: string[]): boolean {
   return false;
 }
 
-function normalizeCursorSortValue(
-  sortValue: string | number | undefined,
-): number {
+function normalizeCursorSortValue(sortValue: string | number | undefined): number {
   if (typeof sortValue === "number") return sortValue;
   if (typeof sortValue === "string") {
     const parsed = Number(sortValue);
@@ -384,10 +378,7 @@ export async function createReservation(
   // Validate and cap TTL
   let ttl = params.ttl ?? DEFAULT_TTL_SECONDS;
   if (ttl > MAX_TTL_SECONDS) {
-    log.debug(
-      { requestedTtl: ttl, maxTtl: MAX_TTL_SECONDS },
-      "TTL capped to maximum",
-    );
+    log.debug({ requestedTtl: ttl, maxTtl: MAX_TTL_SECONDS }, "TTL capped to maximum");
     ttl = MAX_TTL_SECONDS;
   }
   if (ttl <= 0) {
@@ -546,8 +537,7 @@ export async function checkReservation(
   // If we have holders (shared or self), return info about the 'best' one (e.g. self or first shared)
   // Prefer showing self-reservation if exists
   const relevantReservation =
-    holdingReservations.find((r) => r.agentId === params.agentId) ||
-    holdingReservations[0];
+    holdingReservations.find((r) => r.agentId === params.agentId) || holdingReservations[0];
 
   if (relevantReservation) {
     return {
@@ -592,10 +582,7 @@ export async function releaseReservation(
   }
 
   if (reservation.agentId !== params.agentId) {
-    log.warn(
-      { holderId: reservation.agentId },
-      "Attempt to release reservation by non-holder",
-    );
+    log.warn({ holderId: reservation.agentId }, "Attempt to release reservation by non-holder");
     return {
       released: false,
       error: "Agent does not hold this reservation",
@@ -659,10 +646,7 @@ export async function renewReservation(
   }
 
   if (reservation.agentId !== params.agentId) {
-    log.warn(
-      { holderId: reservation.agentId },
-      "Attempt to renew reservation by non-holder",
-    );
+    log.warn({ holderId: reservation.agentId }, "Attempt to renew reservation by non-holder");
     return {
       renewed: false,
       error: "Agent does not hold this reservation",
@@ -746,15 +730,12 @@ export async function listReservations(
 
   // Filter by file path if specified
   if (params.filePath) {
-    reservations = reservations.filter((r) =>
-      fileMatchesPatterns(params.filePath!, r.patterns),
-    );
+    reservations = reservations.filter((r) => fileMatchesPatterns(params.filePath!, r.patterns));
   }
 
   // Sort by creation time (newest first)
   reservations.sort(
-    (a, b) =>
-      b.createdAt.getTime() - a.createdAt.getTime() || b.id.localeCompare(a.id),
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id.localeCompare(a.id),
   );
 
   const limit = Math.min(
@@ -804,8 +785,7 @@ export async function listReservations(
       hasMore = reservations.some(
         (r) =>
           r.createdAt.getTime() < lastItem.createdAt.getTime() ||
-          (r.createdAt.getTime() === lastItem.createdAt.getTime() &&
-            r.id < lastItem.id),
+          (r.createdAt.getTime() === lastItem.createdAt.getTime() && r.id < lastItem.id),
       );
     } else {
       hasMore = false;
@@ -820,35 +800,22 @@ export async function listReservations(
 
     if (direction === "forward") {
       if (hasMore) {
-        result.nextCursor = createCursor(
-          lastItem.id,
-          lastItem.createdAt.getTime(),
-        );
+        result.nextCursor = createCursor(lastItem.id, lastItem.createdAt.getTime());
       }
       if (params.startingAfter) {
-        result.prevCursor = createCursor(
-          firstItem.id,
-          firstItem.createdAt.getTime(),
-        );
+        result.prevCursor = createCursor(firstItem.id, firstItem.createdAt.getTime());
       }
     } else {
       const hasPrev = reservations.some(
         (r) =>
           r.createdAt.getTime() > firstItem.createdAt.getTime() ||
-          (r.createdAt.getTime() === firstItem.createdAt.getTime() &&
-            r.id > firstItem.id),
+          (r.createdAt.getTime() === firstItem.createdAt.getTime() && r.id > firstItem.id),
       );
       if (hasPrev) {
-        result.prevCursor = createCursor(
-          firstItem.id,
-          firstItem.createdAt.getTime(),
-        );
+        result.prevCursor = createCursor(firstItem.id, firstItem.createdAt.getTime());
       }
       if (hasMore) {
-        result.nextCursor = createCursor(
-          lastItem.id,
-          lastItem.createdAt.getTime(),
-        );
+        result.nextCursor = createCursor(lastItem.id, lastItem.createdAt.getTime());
       }
     }
   }
@@ -859,9 +826,7 @@ export async function listReservations(
 /**
  * List conflicts for a project with optional status filter and pagination.
  */
-export async function listConflicts(
-  params: ListConflictsParams,
-): Promise<ListConflictsResult> {
+export async function listConflicts(params: ListConflictsParams): Promise<ListConflictsResult> {
   const limit = Math.min(
     Math.max(1, params.limit ?? DEFAULT_PAGINATION.limit),
     DEFAULT_PAGINATION.maxLimit,
@@ -876,8 +841,7 @@ export async function listConflicts(
   // Sort by detection time (newest first)
   conflicts.sort(
     (a, b) =>
-      b.detectedAt.getTime() - a.detectedAt.getTime() ||
-      b.conflictId.localeCompare(a.conflictId),
+      b.detectedAt.getTime() - a.detectedAt.getTime() || b.conflictId.localeCompare(a.conflictId),
   );
 
   const direction = params.endingBefore ? "backward" : "forward";
@@ -938,16 +902,10 @@ export async function listConflicts(
 
     if (direction === "forward") {
       if (hasMore) {
-        result.nextCursor = createCursor(
-          lastItem.conflictId,
-          lastItem.detectedAt.getTime(),
-        );
+        result.nextCursor = createCursor(lastItem.conflictId, lastItem.detectedAt.getTime());
       }
       if (params.startingAfter) {
-        result.prevCursor = createCursor(
-          firstItem.conflictId,
-          firstItem.detectedAt.getTime(),
-        );
+        result.prevCursor = createCursor(firstItem.conflictId, firstItem.detectedAt.getTime());
       }
     } else {
       const hasPrev = conflicts.some(
@@ -957,16 +915,10 @@ export async function listConflicts(
             c.conflictId > firstItem.conflictId),
       );
       if (hasPrev) {
-        result.prevCursor = createCursor(
-          firstItem.conflictId,
-          firstItem.detectedAt.getTime(),
-        );
+        result.prevCursor = createCursor(firstItem.conflictId, firstItem.detectedAt.getTime());
       }
       if (hasMore) {
-        result.nextCursor = createCursor(
-          lastItem.conflictId,
-          lastItem.detectedAt.getTime(),
-        );
+        result.nextCursor = createCursor(lastItem.conflictId, lastItem.detectedAt.getTime());
       }
     }
   }
@@ -1015,9 +967,7 @@ export async function resolveConflict(
  * @param reservationId - The reservation ID
  * @returns The reservation or null if not found
  */
-export async function getReservation(
-  reservationId: string,
-): Promise<FileReservation | null> {
+export async function getReservation(reservationId: string): Promise<FileReservation | null> {
   const reservation = reservationStore.get(reservationId);
   if (!reservation) {
     return null;
@@ -1069,18 +1019,11 @@ async function cleanupExpiredReservations(): Promise<number> {
         expiredAt: now.toISOString(),
       });
 
-      resolveConflictsForReservation(
-        reservation.projectId,
-        id,
-        "reservation_expired",
-      );
+      resolveConflictsForReservation(reservation.projectId, id, "reservation_expired");
 
       // Remove from warned set
       warnedExpiringReservations.delete(id);
-    } else if (
-      reservation.expiresAt <= warningThreshold &&
-      !warnedExpiringReservations.has(id)
-    ) {
+    } else if (reservation.expiresAt <= warningThreshold && !warnedExpiringReservations.has(id)) {
       // About to expire - publish warning
       publishReservationEvent(reservation.projectId, "reservation.expiring", {
         reservationId: id,
@@ -1145,10 +1088,7 @@ export function startCleanupJob(): void {
     cleanupInterval.unref();
   }
 
-  logger.info(
-    { intervalMs: CLEANUP_INTERVAL_MS },
-    "Reservation cleanup job started",
-  );
+  logger.info({ intervalMs: CLEANUP_INTERVAL_MS }, "Reservation cleanup job started");
 }
 
 /**
@@ -1176,17 +1116,14 @@ export function getReservationStats(): {
   averageRenewCount: number;
 } {
   const now = new Date();
-  const active = Array.from(reservationStore.values()).filter(
-    (r) => r.expiresAt > now,
-  );
+  const active = Array.from(reservationStore.values()).filter((r) => r.expiresAt > now);
 
   const byProject: Record<string, number> = {};
   const byMode: Record<ReservationMode, number> = { exclusive: 0, shared: 0 };
   let totalRenewCount = 0;
 
   for (const reservation of active) {
-    byProject[reservation.projectId] =
-      (byProject[reservation.projectId] ?? 0) + 1;
+    byProject[reservation.projectId] = (byProject[reservation.projectId] ?? 0) + 1;
     byMode[reservation.mode]++;
     totalRenewCount += reservation.renewCount;
   }
@@ -1219,9 +1156,7 @@ export function getAgentConflictStats(agentId: string): {
   const agentReservations = Array.from(reservationStore.values()).filter(
     (r) => r.agentId === agentId,
   );
-  const activeReservations = agentReservations.filter(
-    (r) => r.expiresAt > now,
-  ).length;
+  const activeReservations = agentReservations.filter((r) => r.expiresAt > now).length;
 
   // Count conflicts caused by this agent (they requested and conflicted)
   const conflictsCaused = Array.from(conflictStore.values()).filter(

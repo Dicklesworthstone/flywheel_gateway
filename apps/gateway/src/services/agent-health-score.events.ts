@@ -43,10 +43,7 @@ export function recordAgentErrorEvent(agentId: string, kind: string): void {
   errorEventsByAgent.set(agentId, events);
 }
 
-export function getAgentErrorRatePerMinute(
-  agentId: string,
-  windowMs = 60_000,
-): number {
+export function getAgentErrorRatePerMinute(agentId: string, windowMs = 60_000): number {
   const now = Date.now();
   const events = errorEventsByAgent.get(agentId) ?? [];
   pruneOldEvents(events, now, getMaxTrackedWindowMs());

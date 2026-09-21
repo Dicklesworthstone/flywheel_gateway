@@ -17,11 +17,7 @@ import {
   type DetectionResult,
   getAgentDetectionService,
 } from "../services/agent-detection.service";
-import {
-  getBuildInfo,
-  getCapabilities,
-  getRuntimeInfo,
-} from "../services/build-info";
+import { getBuildInfo, getCapabilities, getRuntimeInfo } from "../services/build-info";
 import {
   CircuitBreakerOpenError,
   getAllBreakerStatuses,
@@ -70,9 +66,7 @@ health.get("/", (c) => {
  * Returns the current circuit breaker statuses for tracked tools/services.
  */
 health.get("/circuits", (c) => {
-  const statuses = getAllBreakerStatuses().sort((a, b) =>
-    a.tool.localeCompare(b.tool),
-  );
+  const statuses = getAllBreakerStatuses().sort((a, b) => a.tool.localeCompare(b.tool));
   return sendList(c, statuses);
 });
 
@@ -94,12 +88,8 @@ health.get("/ready", async (c) => {
   checks["drivers"] = { status: "pass", message: "SDK driver available" };
 
   // Determine overall status
-  const allPass = Object.values(checks).every(
-    (check) => check.status === "pass",
-  );
-  const anyFail = Object.values(checks).some(
-    (check) => check.status === "fail",
-  );
+  const allPass = Object.values(checks).every((check) => check.status === "pass");
+  const anyFail = Object.values(checks).some((check) => check.status === "fail");
 
   const status = anyFail ? "unhealthy" : allPass ? "ready" : "degraded";
   const httpStatus = anyFail ? 503 : 200;
@@ -291,9 +281,7 @@ async function checkCLI(
 
     if (result.exitCode === 0) {
       // Extract version from output
-      const versionMatch = result.stdout.match(
-        /v?(\d+\.\d+(?:\.\d+)?(?:-[\w.]+)?)/,
-      );
+      const versionMatch = result.stdout.match(/v?(\d+\.\d+(?:\.\d+)?(?:-[\w.]+)?)/);
       const version = versionMatch ? versionMatch[0] : undefined;
       return {
         status: "healthy",
@@ -350,9 +338,7 @@ async function checkDatabaseHealth(): Promise<ComponentHealth> {
 /**
  * Check agent drivers health.
  */
-async function checkDriversHealth(): Promise<
-  ComponentHealth & { registered: DriverHealth[] }
-> {
+async function checkDriversHealth(): Promise<ComponentHealth & { registered: DriverHealth[] }> {
   const startTime = performance.now();
   const registry = getDriverRegistry();
   const registeredTypes = registry.getRegisteredTypes();
@@ -366,9 +352,7 @@ async function checkDriversHealth(): Promise<
     // Check if there's an active instance for this type
     const isHealthy =
       healthMap.size === 0 ||
-      Array.from(healthMap.entries()).some(
-        ([id, healthy]) => id.startsWith(type) && healthy,
-      );
+      Array.from(healthMap.entries()).some(([id, healthy]) => id.startsWith(type) && healthy);
 
     registered.push({
       type,
@@ -386,15 +370,12 @@ async function checkDriversHealth(): Promise<
   }
 
   const latencyMs = Math.round(performance.now() - startTime);
-  const allHealthy =
-    registered.length > 0 && registered.every((d) => d.healthy);
+  const allHealthy = registered.length > 0 && registered.every((d) => d.healthy);
   const anyRegistered = registered.length > 0;
 
   return {
     status: allHealthy ? "healthy" : anyRegistered ? "degraded" : "unhealthy",
-    message: anyRegistered
-      ? `${registered.length} driver(s) registered`
-      : "No drivers registered",
+    message: anyRegistered ? `${registered.length} driver(s) registered` : "No drivers registered",
     latencyMs,
     registered,
   };
@@ -446,12 +427,9 @@ async function checkAgentCLIsHealth(): Promise<
     } else if (anyAgentAvailable || anyToolAvailable) {
       status = "degraded";
       const parts: string[] = [];
-      if (!anyAgentAvailable)
-        parts.push(`no agents (${detection.summary.agentsTotal} checked)`);
-      if (!anyToolAvailable)
-        parts.push(`no tools (${detection.summary.toolsTotal} checked)`);
-      if (hasAuthIssues)
-        parts.push(`${detection.summary.authIssues.length} auth issue(s)`);
+      if (!anyAgentAvailable) parts.push(`no agents (${detection.summary.agentsTotal} checked)`);
+      if (!anyToolAvailable) parts.push(`no tools (${detection.summary.toolsTotal} checked)`);
+      if (hasAuthIssues) parts.push(`${detection.summary.authIssues.length} auth issue(s)`);
       message = parts.join(", ");
     } else {
       status = "unhealthy";
@@ -521,38 +499,22 @@ health.get("/detailed", async (c) => {
     latencyMs: 0,
   };
 
-  const [
-    database,
-    dcgResult,
-    cassResult,
-    ubsResult,
-    drivers,
-    websocket,
-    agentCLIs,
-  ] = await Promise.all([
-    checkDatabaseHealth(),
-    withCircuitBreaker(
-      "dcg",
-      () => checkCLI("DCG", ["dcg", "--version"]),
-      unhealthyFallback,
-      { isSuccess: (r) => r.status === "healthy" },
-    ),
-    withCircuitBreaker(
-      "cass",
-      () => checkCLI("CASS", ["cass", "--version"]),
-      unhealthyFallback,
-      { isSuccess: (r) => r.status === "healthy" },
-    ),
-    withCircuitBreaker(
-      "ubs",
-      () => checkCLI("UBS", ["ubs", "--version"]),
-      unhealthyFallback,
-      { isSuccess: (r) => r.status === "healthy" },
-    ),
-    checkDriversHealth(),
-    Promise.resolve(checkWebSocketHealth()),
-    checkAgentCLIsHealth(),
-  ]);
+  const [database, dcgResult, cassResult, ubsResult, drivers, websocket, agentCLIs] =
+    await Promise.all([
+      checkDatabaseHealth(),
+      withCircuitBreaker("dcg", () => checkCLI("DCG", ["dcg", "--version"]), unhealthyFallback, {
+        isSuccess: (r) => r.status === "healthy",
+      }),
+      withCircuitBreaker("cass", () => checkCLI("CASS", ["cass", "--version"]), unhealthyFallback, {
+        isSuccess: (r) => r.status === "healthy",
+      }),
+      withCircuitBreaker("ubs", () => checkCLI("UBS", ["ubs", "--version"]), unhealthyFallback, {
+        isSuccess: (r) => r.status === "healthy",
+      }),
+      checkDriversHealth(),
+      Promise.resolve(checkWebSocketHealth()),
+      checkAgentCLIsHealth(),
+    ]);
 
   const dcg = dcgResult.result;
   const cass = cassResult.result;
@@ -583,10 +545,7 @@ health.get("/detailed", async (c) => {
   if (agentCLIs.detection) {
     try {
       const registry = await loadToolRegistry();
-      const detectedCLIs = [
-        ...agentCLIs.detection.agents,
-        ...agentCLIs.detection.tools,
-      ];
+      const detectedCLIs = [...agentCLIs.detection.agents, ...agentCLIs.detection.tools];
       diagnostics = computeHealthDiagnostics(registry.tools, detectedCLIs);
     } catch {
       // Non-critical; omit diagnostics on failure
@@ -603,15 +562,7 @@ health.get("/detailed", async (c) => {
     websocket,
     agentCLIs,
   };
-  const allComponents = [
-    database,
-    dcg,
-    cass,
-    ubs,
-    drivers,
-    websocket,
-    agentCLIs,
-  ];
+  const allComponents = [database, dcg, cass, ubs, drivers, websocket, agentCLIs];
 
   const passed = allComponents.filter((c) => c.status === "healthy").length;
   const degraded = allComponents.filter((c) => c.status === "degraded").length;

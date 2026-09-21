@@ -448,12 +448,9 @@ describe("Alert Service", () => {
           },
         },
         checksums: {
-          registryGeneratedAt: checksumsStale
-            ? "2025-01-01T00:00:00Z"
-            : new Date().toISOString(),
+          registryGeneratedAt: checksumsStale ? "2025-01-01T00:00:00Z" : new Date().toISOString(),
           registryAgeMs:
-            overrides.registryAgeMs ??
-            (checksumsStale ? 30 * 24 * 60 * 60 * 1000 : 1000),
+            overrides.registryAgeMs ?? (checksumsStale ? 30 * 24 * 60 * 60 * 1000 : 1000),
           isStale: checksumsStale,
           staleThresholdMs: 7 * 24 * 60 * 60 * 1000,
         },
@@ -665,9 +662,7 @@ describe("Alert Service", () => {
         const alert = fireAlert(rule!, context);
 
         expect(alert.metadata?.["registryAgeMs"]).toBe(ageMs);
-        expect(alert.metadata?.["staleThresholdMs"]).toBe(
-          7 * 24 * 60 * 60 * 1000,
-        );
+        expect(alert.metadata?.["staleThresholdMs"]).toBe(7 * 24 * 60 * 60 * 1000);
         expect(alert.metadata?.["safetyStatus"]).toBe("unhealthy");
       });
     });

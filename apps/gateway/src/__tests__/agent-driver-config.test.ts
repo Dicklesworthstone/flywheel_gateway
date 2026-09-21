@@ -3,11 +3,7 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
-import {
-  clearConfigCache,
-  flywheelConfigSchema,
-  loadConfig,
-} from "../services/config.service";
+import { clearConfigCache, flywheelConfigSchema, loadConfig } from "../services/config.service";
 
 const originalEnv: Record<string, string | undefined> = {};
 

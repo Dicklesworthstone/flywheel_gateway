@@ -129,18 +129,14 @@ async function executeMsCommand(
       await proc.exited;
 
       // Truncate if needed
-      const output =
-        stdout.length > maxOutputSize ? stdout.slice(0, maxOutputSize) : stdout;
+      const output = stdout.length > maxOutputSize ? stdout.slice(0, maxOutputSize) : stdout;
 
       // Parse JSON response
       try {
         return JSON.parse(output.trim()) as MsResponse;
       } catch {
         // If parsing fails, create an error response
-        log.error(
-          { stdout: output.slice(0, 200), stderr },
-          "Failed to parse ms output",
-        );
+        log.error({ stdout: output.slice(0, 200), stderr }, "Failed to parse ms output");
         return {
           ok: false,
           code: "parse_error",
@@ -432,9 +428,7 @@ export async function rebuildIndex(
   const response = await executeMsCommand(args, { timeout: 300000 });
 
   if (!response.ok) {
-    throw new Error(
-      response.hint ?? `ms index rebuild failed: ${response.code}`,
-    );
+    throw new Error(response.hint ?? `ms index rebuild failed: ${response.code}`);
   }
 
   return response.data as {
@@ -476,10 +470,7 @@ export interface MsService {
   ): Promise<MsSearchResponse>;
 
   /** Get a knowledge entry by ID */
-  getEntry(
-    id: string,
-    options?: { knowledgeBase?: string },
-  ): Promise<MsKnowledgeEntry>;
+  getEntry(id: string, options?: { knowledgeBase?: string }): Promise<MsKnowledgeEntry>;
 
   /** Add a knowledge entry */
   addEntry(

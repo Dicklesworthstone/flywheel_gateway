@@ -518,15 +518,9 @@ describe("analyticsCache singleton", () => {
     invalidateAgentAnalytics("agent123");
 
     // Check results
-    expect(analyticsCache.has("productivity:agentId=agent123&period=24h")).toBe(
-      false,
-    );
-    expect(analyticsCache.has("quality:agentId=agent123&period=24h")).toBe(
-      false,
-    );
-    expect(analyticsCache.has("productivity:agentId=agent456&period=24h")).toBe(
-      true,
-    );
+    expect(analyticsCache.has("productivity:agentId=agent123&period=24h")).toBe(false);
+    expect(analyticsCache.has("quality:agentId=agent123&period=24h")).toBe(false);
+    expect(analyticsCache.has("productivity:agentId=agent456&period=24h")).toBe(true);
   });
 
   test("invalidateAgentAnalytics escapes regex special characters", () => {
@@ -535,12 +529,8 @@ describe("analyticsCache singleton", () => {
 
     invalidateAgentAnalytics("agent.123");
 
-    expect(
-      analyticsCache.has("productivity:agentId=agent.123&period=24h"),
-    ).toBe(false);
-    expect(
-      analyticsCache.has("productivity:agentId=agentx123&period=24h"),
-    ).toBe(true);
+    expect(analyticsCache.has("productivity:agentId=agent.123&period=24h")).toBe(false);
+    expect(analyticsCache.has("productivity:agentId=agentx123&period=24h")).toBe(true);
   });
 
   test("invalidateAllAnalytics clears entire cache", () => {

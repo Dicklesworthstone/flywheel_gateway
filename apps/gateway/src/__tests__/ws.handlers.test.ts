@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import type { ServerWebSocket } from "bun";
-import {
-  createGuestAuthContext,
-  createInternalAuthContext,
-} from "../ws/authorization";
+import { createGuestAuthContext, createInternalAuthContext } from "../ws/authorization";
 import type { Channel } from "../ws/channels";
 import { handleWSMessage, handleWSOpen } from "../ws/handlers";
 import { type ConnectionData, setHub, WebSocketHub } from "../ws/hub";
@@ -32,9 +29,7 @@ describe("ws/handlers handleWSOpen", () => {
   });
 
   test("clears denied initial subscriptions so connection state is consistent", () => {
-    const ws = createMockWs(createGuestAuthContext(), [
-      ["agent:output:agent-1", "cursor_1"],
-    ]);
+    const ws = createMockWs(createGuestAuthContext(), [["agent:output:agent-1", "cursor_1"]]);
 
     handleWSOpen(ws);
 
@@ -43,9 +38,7 @@ describe("ws/handlers handleWSOpen", () => {
   });
 
   test("re-applies allowed initial subscriptions (admin) and preserves cursor", () => {
-    const ws = createMockWs(createInternalAuthContext(), [
-      ["agent:output:agent-1", "cursor_1"],
-    ]);
+    const ws = createMockWs(createInternalAuthContext(), [["agent:output:agent-1", "cursor_1"]]);
 
     handleWSOpen(ws);
 

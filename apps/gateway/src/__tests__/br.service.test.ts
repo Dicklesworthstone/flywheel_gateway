@@ -92,16 +92,8 @@ function recordLog(level: LogCall["level"]) {
     const first = args[0];
     const second = args[1];
 
-    const context =
-      first && typeof first === "object"
-        ? (first as Record<string, unknown>)
-        : {};
-    const message =
-      typeof first === "string"
-        ? first
-        : typeof second === "string"
-          ? second
-          : "";
+    const context = first && typeof first === "object" ? (first as Record<string, unknown>) : {};
+    const message = typeof first === "string" ? first : typeof second === "string" ? second : "";
 
     logCalls.push({ level, context, message });
   };
@@ -242,11 +234,7 @@ describe("br.service", () => {
       const runner = createBrCommandRunner(customExecutor);
       const result = await runner.run("br", ["show", "bd-test"]);
 
-      expect(customExecutor).toHaveBeenCalledWith(
-        "br",
-        ["show", "bd-test"],
-        undefined,
-      );
+      expect(customExecutor).toHaveBeenCalledWith("br", ["show", "bd-test"], undefined);
       expect(result.stdout).toBe('{"id":"bd-test"}');
       expect(result.exitCode).toBe(0);
     });
@@ -349,9 +337,7 @@ describe("br.service CRUD operations with mocked client", () => {
 
     test("logs fetch with count and latency", async () => {
       await getBrReady();
-      const infoLog = logCalls.find(
-        (c) => c.level === "info" && c.message === "br ready fetched",
-      );
+      const infoLog = logCalls.find((c) => c.level === "info" && c.message === "br ready fetched");
       expect(infoLog).toBeDefined();
       expect(infoLog?.context["tool"]).toBe("br");
       expect(infoLog?.context["operation"]).toBe("br ready");
@@ -380,9 +366,7 @@ describe("br.service CRUD operations with mocked client", () => {
 
     test("logs fetch with count and latency", async () => {
       await getBrList();
-      const infoLog = logCalls.find(
-        (c) => c.level === "info" && c.message === "br list fetched",
-      );
+      const infoLog = logCalls.find((c) => c.level === "info" && c.message === "br list fetched");
       expect(infoLog).toBeDefined();
       expect(infoLog?.context["tool"]).toBe("br");
       expect(infoLog?.context["operation"]).toBe("br list");
@@ -405,9 +389,7 @@ describe("br.service CRUD operations with mocked client", () => {
 
     test("logs fetch with ids", async () => {
       await getBrShow("bd-1234");
-      const infoLog = logCalls.find(
-        (c) => c.level === "info" && c.message === "br show fetched",
-      );
+      const infoLog = logCalls.find((c) => c.level === "info" && c.message === "br show fetched");
       expect(infoLog).toBeDefined();
       expect(infoLog?.context["tool"]).toBe("br");
       expect(infoLog?.context["operation"]).toBe("br show");
@@ -438,9 +420,7 @@ describe("br.service CRUD operations with mocked client", () => {
 
     test("logs creation with id and title", async () => {
       await createBrIssue({ title: "Test task" });
-      const infoLog = logCalls.find(
-        (c) => c.level === "info" && c.message === "br issue created",
-      );
+      const infoLog = logCalls.find((c) => c.level === "info" && c.message === "br issue created");
       expect(infoLog).toBeDefined();
       expect(infoLog?.context["tool"]).toBe("br");
       expect(infoLog?.context["operation"]).toBe("br create");
@@ -466,9 +446,7 @@ describe("br.service CRUD operations with mocked client", () => {
 
     test("logs update with ids and count", async () => {
       await updateBrIssues("bd-1234", { status: "closed" });
-      const infoLog = logCalls.find(
-        (c) => c.level === "info" && c.message === "br issues updated",
-      );
+      const infoLog = logCalls.find((c) => c.level === "info" && c.message === "br issues updated");
       expect(infoLog).toBeDefined();
       expect(infoLog?.context["tool"]).toBe("br");
       expect(infoLog?.context["operation"]).toBe("br update");
@@ -498,9 +476,7 @@ describe("br.service CRUD operations with mocked client", () => {
 
     test("logs close with ids and count", async () => {
       await closeBrIssues("bd-1234");
-      const infoLog = logCalls.find(
-        (c) => c.level === "info" && c.message === "br issues closed",
-      );
+      const infoLog = logCalls.find((c) => c.level === "info" && c.message === "br issues closed");
       expect(infoLog).toBeDefined();
       expect(infoLog?.context["tool"]).toBe("br");
       expect(infoLog?.context["operation"]).toBe("br close");
@@ -546,9 +522,7 @@ describe("br.service CRUD operations with mocked client", () => {
 
     test("logs sync completion with mode", async () => {
       await syncBr({ mode: "merge" });
-      const infoLog = logCalls.find(
-        (c) => c.level === "info" && c.message === "br sync completed",
-      );
+      const infoLog = logCalls.find((c) => c.level === "info" && c.message === "br sync completed");
       expect(infoLog).toBeDefined();
       expect(infoLog?.context["tool"]).toBe("br");
       expect(infoLog?.context["operation"]).toBe("br sync");
@@ -669,11 +643,7 @@ describe("br.service input validation", () => {
 
   test("update accepts status change", async () => {
     await updateBrIssues("bd-1234", { status: "in_progress" });
-    expect(updateMock).toHaveBeenCalledWith(
-      "bd-1234",
-      { status: "in_progress" },
-      undefined,
-    );
+    expect(updateMock).toHaveBeenCalledWith("bd-1234", { status: "in_progress" }, undefined);
   });
 
   test("update accepts label modifications", async () => {
@@ -687,10 +657,6 @@ describe("br.service input validation", () => {
 
   test("update accepts claim flag", async () => {
     await updateBrIssues("bd-1234", { claim: true });
-    expect(updateMock).toHaveBeenCalledWith(
-      "bd-1234",
-      { claim: true },
-      undefined,
-    );
+    expect(updateMock).toHaveBeenCalledWith("bd-1234", { claim: true }, undefined);
   });
 });

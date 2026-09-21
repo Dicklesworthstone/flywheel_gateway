@@ -171,10 +171,7 @@ describe("Agent WebSocket Service", () => {
       handleWSOpen(ws as unknown as WSType);
       ws.sent.length = 0;
 
-      handleWSMessage(
-        ws as unknown as WSType,
-        JSON.stringify({ type: "ping" }) as MsgType,
-      );
+      handleWSMessage(ws as unknown as WSType, JSON.stringify({ type: "ping" }) as MsgType);
 
       const response = parseFirstMessage(ws);
       expect(response.type).toBe("pong");
@@ -185,10 +182,7 @@ describe("Agent WebSocket Service", () => {
       handleWSOpen(ws as unknown as WSType);
       ws.sent.length = 0;
 
-      handleWSMessage(
-        ws as unknown as WSType,
-        JSON.stringify({ type: "unknown" }) as MsgType,
-      );
+      handleWSMessage(ws as unknown as WSType, JSON.stringify({ type: "unknown" }) as MsgType);
 
       const response = parseFirstMessage(ws);
       expect(response.type).toBe("error");

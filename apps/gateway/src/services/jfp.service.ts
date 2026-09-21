@@ -190,9 +190,7 @@ export async function listPrompts(bypassCache = false): Promise<JfpListResult> {
 
   if (result.exitCode !== 0) {
     log.error({ stderr: result.stderr.slice(0, 200) }, "jfp list failed");
-    throw new Error(
-      `Failed to list prompts: ${result.stderr || "Unknown error"}`,
-    );
+    throw new Error(`Failed to list prompts: ${result.stderr || "Unknown error"}`);
   }
 
   try {
@@ -249,9 +247,7 @@ export async function getPrompt(id: string): Promise<JfpPrompt | null> {
       return null;
     }
     log.error({ id, stderr: result.stderr.slice(0, 200) }, "jfp show failed");
-    throw new Error(
-      `Failed to get prompt: ${result.stderr || "Unknown error"}`,
-    );
+    throw new Error(`Failed to get prompt: ${result.stderr || "Unknown error"}`);
   }
 
   try {
@@ -266,9 +262,7 @@ export async function getPrompt(id: string): Promise<JfpPrompt | null> {
 /**
  * List categories with counts.
  */
-export async function listCategories(
-  bypassCache = false,
-): Promise<JfpCategory[]> {
+export async function listCategories(bypassCache = false): Promise<JfpCategory[]> {
   const log = getLogger();
 
   // Check cache
@@ -282,9 +276,7 @@ export async function listCategories(
 
   if (result.exitCode !== 0) {
     log.error({ stderr: result.stderr.slice(0, 200) }, "jfp categories failed");
-    throw new Error(
-      `Failed to list categories: ${result.stderr || "Unknown error"}`,
-    );
+    throw new Error(`Failed to list categories: ${result.stderr || "Unknown error"}`);
   }
 
   try {
@@ -332,9 +324,7 @@ export async function searchPrompts(
 
       // Apply category filter locally if specified
       if (category) {
-        prompts = prompts.filter(
-          (p) => p.category.toLowerCase() === category.toLowerCase(),
-        );
+        prompts = prompts.filter((p) => p.category.toLowerCase() === category.toLowerCase());
       }
 
       return {
@@ -362,9 +352,7 @@ export async function searchPrompts(
 
   // Apply category filter
   if (category) {
-    filtered = filtered.filter(
-      (p) => p.category.toLowerCase() === category.toLowerCase(),
-    );
+    filtered = filtered.filter((p) => p.category.toLowerCase() === category.toLowerCase());
   }
 
   // Score and sort by relevance
@@ -406,9 +394,7 @@ export async function getPromptsByCategory(
 /**
  * Get featured prompts.
  */
-export async function getFeaturedPrompts(
-  options: { limit?: number } = {},
-): Promise<JfpPrompt[]> {
+export async function getFeaturedPrompts(options: { limit?: number } = {}): Promise<JfpPrompt[]> {
   const { limit = 10 } = options;
   const listResult = await listPrompts();
 
@@ -434,9 +420,7 @@ export async function suggestPrompts(
   if (result.exitCode === 0) {
     try {
       const parsed = JSON.parse(result.stdout);
-      const suggestions = (parsed.suggestions ||
-        parsed.prompts ||
-        parsed) as JfpPrompt[];
+      const suggestions = (parsed.suggestions || parsed.prompts || parsed) as JfpPrompt[];
       return {
         suggestions: suggestions.slice(0, limit),
         task,
@@ -504,25 +488,16 @@ export interface JfpService {
   listCategories(bypassCache?: boolean): Promise<JfpCategory[]>;
 
   /** Search prompts */
-  search(
-    query: string,
-    options?: { limit?: number; category?: string },
-  ): Promise<JfpSearchResult>;
+  search(query: string, options?: { limit?: number; category?: string }): Promise<JfpSearchResult>;
 
   /** Get prompts by category */
-  getByCategory(
-    category: string,
-    options?: { limit?: number },
-  ): Promise<JfpPrompt[]>;
+  getByCategory(category: string, options?: { limit?: number }): Promise<JfpPrompt[]>;
 
   /** Get featured prompts */
   getFeatured(options?: { limit?: number }): Promise<JfpPrompt[]>;
 
   /** Suggest prompts for a task */
-  suggest(
-    task: string,
-    options?: { limit?: number },
-  ): Promise<JfpSuggestResult>;
+  suggest(task: string, options?: { limit?: number }): Promise<JfpSuggestResult>;
 
   /** Get random prompt */
   getRandom(): Promise<JfpPrompt | null>;

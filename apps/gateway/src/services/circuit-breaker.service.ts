@@ -106,17 +106,14 @@ const breakers = new Map<string, BreakerState>();
 /** Global config (can be overridden per-tool). */
 const toolConfigs = new Map<string, NormalizedCircuitBreakerConfig>();
 
-function normalizeConfig(
-  config: CircuitBreakerConfig,
-): NormalizedCircuitBreakerConfig {
+function normalizeConfig(config: CircuitBreakerConfig): NormalizedCircuitBreakerConfig {
   const resetTimeoutMs = config.resetTimeoutMs;
   const initialBackoffMs = config.initialBackoffMs;
 
   return {
     ...DEFAULT_CONFIG,
     ...config,
-    initialBackoffMs:
-      resetTimeoutMs ?? initialBackoffMs ?? DEFAULT_CONFIG.initialBackoffMs,
+    initialBackoffMs: resetTimeoutMs ?? initialBackoffMs ?? DEFAULT_CONFIG.initialBackoffMs,
   };
 }
 
@@ -162,10 +159,7 @@ export class CircuitBreakerTimeoutError extends Error {
   }
 }
 
-function publishCircuitStateChanged(
-  tool: string,
-  previousState: CircuitState,
-): void {
+function publishCircuitStateChanged(tool: string, previousState: CircuitState): void {
   try {
     const hub = getHub();
     const channel: Channel = { type: "system:circuits" };
@@ -187,10 +181,7 @@ function publishCircuitStateChanged(
 /**
  * Configure the circuit breaker for a specific tool.
  */
-export function configureBreaker(
-  tool: string,
-  config: CircuitBreakerConfig,
-): void {
+export function configureBreaker(tool: string, config: CircuitBreakerConfig): void {
   toolConfigs.set(tool, normalizeConfig(config));
 }
 
@@ -261,10 +252,7 @@ export function recordSuccess(tool: string): void {
     b.state = "CLOSED";
     b.currentBackoffMs = cfg.initialBackoffMs;
     b.nextRetryAt = null;
-    logger.info(
-      { tool, previousState: prevState },
-      "circuit-breaker: CLOSED (recovered)",
-    );
+    logger.info({ tool, previousState: prevState }, "circuit-breaker: CLOSED (recovered)");
     publishCircuitStateChanged(tool, prevState);
   }
 }
@@ -286,10 +274,7 @@ export function recordFailure(tool: string): void {
   if (b.state === "HALF_OPEN") {
     // Probe failed, re-open with doubled backoff
     b.state = "OPEN";
-    b.currentBackoffMs = Math.min(
-      b.currentBackoffMs * cfg.backoffMultiplier,
-      cfg.maxBackoffMs,
-    );
+    b.currentBackoffMs = Math.min(b.currentBackoffMs * cfg.backoffMultiplier, cfg.maxBackoffMs);
     b.nextRetryAt = new Date(Date.now() + b.currentBackoffMs);
     logger.warn(
       { tool, backoffMs: b.currentBackoffMs },

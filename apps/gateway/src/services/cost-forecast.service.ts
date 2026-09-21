@@ -52,9 +52,7 @@ function stdDev(values: number[]): number {
   if (values.length < 2) return 0;
   const avg = mean(values);
   const squareDiffs = values.map((v) => (v - avg) ** 2);
-  return Math.sqrt(
-    squareDiffs.reduce((a, b) => a + b, 0) / (values.length - 1),
-  );
+  return Math.sqrt(squareDiffs.reduce((a, b) => a + b, 0) / (values.length - 1));
 }
 
 /**
@@ -184,9 +182,7 @@ function forecastLinear(
     return [];
   }
   const baseDate = firstDataPoint.date.getTime();
-  const xValues = historicalData.map(
-    (d) => (d.date.getTime() - baseDate) / (24 * 60 * 60 * 1000),
-  );
+  const xValues = historicalData.map((d) => (d.date.getTime() - baseDate) / (24 * 60 * 60 * 1000));
   const yValues = historicalData.map((d) => d.costUnits);
 
   const { slope, intercept } = linearRegression(xValues, yValues);
@@ -207,8 +203,7 @@ function forecastLinear(
     const predicted = Math.max(0, slope * x + intercept);
 
     // Confidence interval widens with forecast horizon
-    const intervalWidth =
-      zScore * errorStd * Math.sqrt(1 + 1 / n + (i * i) / n);
+    const intervalWidth = zScore * errorStd * Math.sqrt(1 + 1 / n + (i * i) / n);
 
     const date = new Date(baseDate + x * 24 * 60 * 60 * 1000);
     forecasts.push({
@@ -247,9 +242,7 @@ function forecastExponential(
   const firstRecent = recentSmoothed[0];
   const lastRecent = recentSmoothed[recentSmoothed.length - 1];
   const trend =
-    recentSmoothed.length > 1 &&
-    firstRecent !== undefined &&
-    lastRecent !== undefined
+    recentSmoothed.length > 1 && firstRecent !== undefined && lastRecent !== undefined
       ? (lastRecent - firstRecent) / recentSmoothed.length
       : 0;
 
@@ -303,15 +296,9 @@ function forecastEnsemble(
     }
     return {
       date: lf.date,
-      predictedCostUnits: Math.round(
-        (lf.predictedCostUnits + ef.predictedCostUnits) / 2,
-      ),
-      lowerBoundUnits: Math.round(
-        Math.min(lf.lowerBoundUnits, ef.lowerBoundUnits),
-      ),
-      upperBoundUnits: Math.round(
-        Math.max(lf.upperBoundUnits, ef.upperBoundUnits),
-      ),
+      predictedCostUnits: Math.round((lf.predictedCostUnits + ef.predictedCostUnits) / 2),
+      lowerBoundUnits: Math.round(Math.min(lf.lowerBoundUnits, ef.lowerBoundUnits)),
+      upperBoundUnits: Math.round(Math.max(lf.upperBoundUnits, ef.upperBoundUnits)),
       confidence: (lf.confidence + ef.confidence) / 2,
     };
   });
@@ -379,18 +366,9 @@ export async function generateForecast(options: {
   }
 
   // Calculate totals and confidence intervals
-  const totalForecastUnits = dailyForecasts.reduce(
-    (sum, f) => sum + f.predictedCostUnits,
-    0,
-  );
-  const confidenceLower = dailyForecasts.reduce(
-    (sum, f) => sum + f.lowerBoundUnits,
-    0,
-  );
-  const confidenceUpper = dailyForecasts.reduce(
-    (sum, f) => sum + f.upperBoundUnits,
-    0,
-  );
+  const totalForecastUnits = dailyForecasts.reduce((sum, f) => sum + f.predictedCostUnits, 0);
+  const confidenceLower = dailyForecasts.reduce((sum, f) => sum + f.lowerBoundUnits, 0);
+  const confidenceUpper = dailyForecasts.reduce((sum, f) => sum + f.upperBoundUnits, 0);
 
   // Detect trend and seasonality
   const values = historicalData.map((d) => d.costUnits);
@@ -405,8 +383,7 @@ export async function generateForecast(options: {
     if (earlier.length > 0) {
       const recentMean = mean(recent);
       const earlierMean = mean(earlier);
-      const change =
-        earlierMean > 0 ? (recentMean - earlierMean) / earlierMean : 0;
+      const change = earlierMean > 0 ? (recentMean - earlierMean) / earlierMean : 0;
       if (change > 0.1) {
         trendDirection = "up";
         trendStrength = Math.min(1, change);
@@ -608,9 +585,7 @@ export async function getForecastById(
 /**
  * Generate scenario analysis.
  */
-export async function generateScenarios(
-  baseForecast: CostForecast,
-): Promise<ForecastScenario[]> {
+export async function generateScenarios(baseForecast: CostForecast): Promise<ForecastScenario[]> {
   const scenarios: ForecastScenario[] = [];
 
   // Optimistic scenario (-20%)
@@ -656,21 +631,10 @@ export async function generateScenarios(
 /**
  * Get forecast for a specific date.
  */
-export function getForecastForDate(
-  forecast: CostForecast,
-  date: Date,
-): DailyForecast | undefined {
-  const targetDate = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-  );
+export function getForecastForDate(forecast: CostForecast, date: Date): DailyForecast | undefined {
+  const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   return forecast.dailyForecasts.find((f) => {
-    const forecastDate = new Date(
-      f.date.getFullYear(),
-      f.date.getMonth(),
-      f.date.getDate(),
-    );
+    const forecastDate = new Date(f.date.getFullYear(), f.date.getMonth(), f.date.getDate());
     return forecastDate.getTime() === targetDate.getTime();
   });
 }
@@ -736,9 +700,7 @@ export async function calculateForecastAccuracy(forecastId: string): Promise<
     const actualUnits = actual[0]?.costUnits ?? 0;
     if (actualUnits > 0) {
       validatedDays++;
-      sumAbsPercent += Math.abs(
-        (actualUnits - df.predictedCostUnits) / actualUnits,
-      );
+      sumAbsPercent += Math.abs((actualUnits - df.predictedCostUnits) / actualUnits);
       sumSquaredError += (actualUnits - df.predictedCostUnits) ** 2;
     }
   }

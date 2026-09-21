@@ -193,10 +193,7 @@ function getOutputBuffer(agentId: string): OutputBuffer {
 /**
  * Convert OutputLine to OutputChunk.
  */
-function lineToChunk(
-  agentId: string,
-  line: OutputLine,
-): Omit<OutputChunk, "id" | "sequence"> {
+function lineToChunk(agentId: string, line: OutputLine): Omit<OutputChunk, "id" | "sequence"> {
   // Determine stream type based on output type
   let streamType: "stdout" | "stderr" | "system" = "stdout";
   if (line.type === "error") {
@@ -306,10 +303,7 @@ export function stopOutputStreaming(agentId: string): void {
  * @param options - Pagination and filtering options
  * @returns Output chunks and pagination info
  */
-export function getOutput(
-  agentId: string,
-  options: GetOutputOptions = {},
-): GetOutputResult {
+export function getOutput(agentId: string, options: GetOutputOptions = {}): GetOutputResult {
   const buffer = outputBuffers.get(agentId);
   const limit = options.limit ?? 100;
 
@@ -323,8 +317,7 @@ export function getOutput(
     };
   }
 
-  const hasFilters =
-    (options.types?.length ?? 0) > 0 || options.streamType !== undefined;
+  const hasFilters = (options.types?.length ?? 0) > 0 || options.streamType !== undefined;
 
   if (!hasFilters) {
     // No filters - simple case, fetch limit + 1 to check hasMore
@@ -332,9 +325,7 @@ export function getOutput(
     const hasMore = chunks.length > limit;
     const result = hasMore ? chunks.slice(0, limit) : chunks;
     const lastChunk = result[result.length - 1];
-    const nextCursor = lastChunk
-      ? String(lastChunk.sequence)
-      : (options.cursor ?? "0");
+    const nextCursor = lastChunk ? String(lastChunk.sequence) : (options.cursor ?? "0");
 
     return {
       chunks: result,
@@ -361,10 +352,8 @@ export function getOutput(
 
     for (const chunk of batch) {
       // Apply filters
-      const typeMatch =
-        !options.types?.length || options.types.includes(chunk.type);
-      const streamMatch =
-        !options.streamType || chunk.streamType === options.streamType;
+      const typeMatch = !options.types?.length || options.types.includes(chunk.type);
+      const streamMatch = !options.streamType || chunk.streamType === options.streamType;
 
       if (typeMatch && streamMatch) {
         matchingChunks.push(chunk);
@@ -388,9 +377,7 @@ export function getOutput(
   const hasMore = matchingChunks.length > limit;
   const result = hasMore ? matchingChunks.slice(0, limit) : matchingChunks;
   const lastChunk = result[result.length - 1];
-  const nextCursor = lastChunk
-    ? String(lastChunk.sequence)
-    : (options.cursor ?? "0");
+  const nextCursor = lastChunk ? String(lastChunk.sequence) : (options.cursor ?? "0");
 
   return {
     chunks: result,

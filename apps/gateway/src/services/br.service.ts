@@ -22,11 +22,7 @@ import type {
   BrUpdateInput,
 } from "@flywheel/flywheel-clients";
 import { createBrClient } from "@flywheel/flywheel-clients";
-import {
-  createToolLogger,
-  logCliCommand,
-  logCliWarning,
-} from "../utils/cli-logging";
+import { createToolLogger, logCliCommand, logCliWarning } from "../utils/cli-logging";
 
 // ============================================================================
 // Constants
@@ -49,9 +45,7 @@ function resolveProjectRoot(): string {
 
 export function getBrProjectRoot(): string {
   return (
-    process.env["BR_PROJECT_ROOT"] ??
-    process.env["BEADS_PROJECT_ROOT"] ??
-    resolveProjectRoot()
+    process.env["BR_PROJECT_ROOT"] ?? process.env["BEADS_PROJECT_ROOT"] ?? resolveProjectRoot()
   );
 }
 
@@ -144,10 +138,7 @@ export async function runBrCommand(
       "br command timed out",
     );
   } else {
-    logCliCommand(
-      { tool: "br", command, args, exitCode, latencyMs },
-      "br command completed",
-    );
+    logCliCommand({ tool: "br", command, args, exitCode, latencyMs }, "br command completed");
   }
 
   return {
@@ -305,9 +296,7 @@ export async function closeBrIssues(
 /**
  * Get sync status (dirty count, last export/import times).
  */
-export async function getBrSyncStatus(
-  options?: BrCommandOptions,
-): Promise<BrSyncStatus> {
+export async function getBrSyncStatus(options?: BrCommandOptions): Promise<BrSyncStatus> {
   const start = performance.now();
   const status = await getBrClient().syncStatus(options);
   const latencyMs = Math.round(performance.now() - start);
@@ -337,23 +326,14 @@ export async function syncBr(options?: BrSyncOptions): Promise<BrSyncResult> {
 export interface BrService {
   ready: (options?: BrReadyOptions) => Promise<BrIssue[]>;
   list: (options?: BrListOptions) => Promise<BrIssue[]>;
-  show: (
-    ids: string | string[],
-    options?: BrCommandOptions,
-  ) => Promise<BrIssue[]>;
-  create: (
-    input: BrCreateInput,
-    options?: BrCommandOptions,
-  ) => Promise<BrIssue>;
+  show: (ids: string | string[], options?: BrCommandOptions) => Promise<BrIssue[]>;
+  create: (input: BrCreateInput, options?: BrCommandOptions) => Promise<BrIssue>;
   update: (
     ids: string | string[],
     input: BrUpdateInput,
     options?: BrCommandOptions,
   ) => Promise<BrIssue[]>;
-  close: (
-    ids: string | string[],
-    options?: BrCloseOptions,
-  ) => Promise<BrIssue[]>;
+  close: (ids: string | string[], options?: BrCloseOptions) => Promise<BrIssue[]>;
   syncStatus: (options?: BrCommandOptions) => Promise<BrSyncStatus>;
   sync: (options?: BrSyncOptions) => Promise<BrSyncResult>;
 }

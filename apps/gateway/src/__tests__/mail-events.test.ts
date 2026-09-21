@@ -26,12 +26,7 @@ describe("Mail Events Service", () => {
   beforeEach(() => {
     publishCalls = [];
     mockHub = {
-      publish: (
-        channel: unknown,
-        type: string,
-        payload: unknown,
-        metadata: unknown,
-      ) => {
+      publish: (channel: unknown, type: string, payload: unknown, metadata: unknown) => {
         publishCalls.push({ channel, type, payload, metadata });
       },
     } as unknown as WebSocketHub;
@@ -320,15 +315,9 @@ describe("Mail Events Service", () => {
       }
 
       expect(publishCalls).toHaveLength(3);
-      expect(
-        (publishCalls[0]?.payload as ConflictResolvedPayload).resolution,
-      ).toBe("expired");
-      expect(
-        (publishCalls[1]?.payload as ConflictResolvedPayload).resolution,
-      ).toBe("released");
-      expect(
-        (publishCalls[2]?.payload as ConflictResolvedPayload).resolution,
-      ).toBe("overridden");
+      expect((publishCalls[0]?.payload as ConflictResolvedPayload).resolution).toBe("expired");
+      expect((publishCalls[1]?.payload as ConflictResolvedPayload).resolution).toBe("released");
+      expect((publishCalls[2]?.payload as ConflictResolvedPayload).resolution).toBe("overridden");
     });
 
     test("includes metadata", () => {

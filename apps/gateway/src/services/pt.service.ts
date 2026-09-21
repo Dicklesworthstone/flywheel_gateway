@@ -145,18 +145,14 @@ async function executePtCommand(
       await proc.exited;
 
       // Truncate if needed
-      const output =
-        stdout.length > maxOutputSize ? stdout.slice(0, maxOutputSize) : stdout;
+      const output = stdout.length > maxOutputSize ? stdout.slice(0, maxOutputSize) : stdout;
 
       // Parse JSON response
       try {
         return JSON.parse(output.trim()) as PtResponse;
       } catch {
         // If parsing fails, create an error response
-        log.error(
-          { stdout: output.slice(0, 200), stderr },
-          "Failed to parse pt output",
-        );
+        log.error({ stdout: output.slice(0, 200), stderr }, "Failed to parse pt output");
         return {
           ok: false,
           code: "parse_error",
@@ -280,9 +276,7 @@ export interface ScanOptions {
 /**
  * Scan for suspicious/stuck processes.
  */
-export async function scanProcesses(
-  options: ScanOptions = {},
-): Promise<PtScanResult> {
+export async function scanProcesses(options: ScanOptions = {}): Promise<PtScanResult> {
   const args = ["scan"];
 
   if (options.minScore !== undefined) {
@@ -329,9 +323,7 @@ export async function scanProcesses(
 /**
  * Get details for a specific process by PID.
  */
-export async function getProcessDetails(
-  pid: number,
-): Promise<PtProcess | null> {
+export async function getProcessDetails(pid: number): Promise<PtProcess | null> {
   const args = ["inspect", String(pid)];
 
   const response = await executePtCommand(args);
@@ -407,10 +399,7 @@ function validateKillTarget(
  * - Will not kill critical system processes without force flag
  * - Validates PID ownership before killing
  */
-export async function killProcess(
-  pid: number,
-  options: KillOptions = {},
-): Promise<PtKillResult> {
+export async function killProcess(pid: number, options: KillOptions = {}): Promise<PtKillResult> {
   const log = getLogger();
   const signal = options.signal ?? "SIGTERM";
 
@@ -426,11 +415,7 @@ export async function killProcess(
   }
 
   // Validate kill target
-  const validation = validateKillTarget(
-    pid,
-    processDetails.name,
-    options.force,
-  );
+  const validation = validateKillTarget(pid, processDetails.name, options.force);
   if (!validation.valid) {
     log.warn(
       { pid, processName: processDetails.name, error: validation.error },
@@ -471,10 +456,7 @@ export async function killProcess(
     };
   }
 
-  log.info(
-    { pid, signal, processName: processDetails.name },
-    "Process terminated",
-  );
+  log.info({ pid, signal, processName: processDetails.name }, "Process terminated");
 
   return {
     pid,
@@ -497,9 +479,7 @@ export async function killProcesses(
 
   for (let i = 0; i < pids.length; i += BATCH_SIZE) {
     const batch = pids.slice(i, i + BATCH_SIZE);
-    const batchResults = await Promise.all(
-      batch.map((pid) => killProcess(pid, options)),
-    );
+    const batchResults = await Promise.all(batch.map((pid) => killProcess(pid, options)));
     results.push(...batchResults);
   }
 
@@ -558,15 +538,11 @@ export async function scanAgentProcesses(
   // Filter out current process unless explicitly included
   let processes = scanResult.processes;
   if (!options.includeGateway) {
-    processes = processes.filter(
-      (p) => p.pid !== process.pid && p.pid !== process.ppid,
-    );
+    processes = processes.filter((p) => p.pid !== process.pid && p.pid !== process.ppid);
   }
 
   // Categorize results
-  const claudeProcesses = processes.filter((p) =>
-    p.name.toLowerCase().includes("claude"),
-  );
+  const claudeProcesses = processes.filter((p) => p.name.toLowerCase().includes("claude"));
   const tmuxSessions = processes.filter(
     (p) => p.name.includes("tmux") && p.cmdline.includes("flywheel"),
   );
@@ -640,10 +616,7 @@ export async function cleanupAgentProcesses(
       terminated.push(result);
 
       if (result.success) {
-        log.info(
-          { pid: proc.pid, name: proc.name },
-          "Cleaned up orphaned agent process",
-        );
+        log.info({ pid: proc.pid, name: proc.name }, "Cleaned up orphaned agent process");
       }
     }
   }

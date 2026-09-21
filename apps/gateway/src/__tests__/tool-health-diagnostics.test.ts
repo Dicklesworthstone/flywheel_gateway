@@ -79,10 +79,7 @@ describe("computeHealthDiagnostics", () => {
     expect(result.cascadeFailures).toHaveLength(1);
     expect(result.cascadeFailures[0]!.affectedTool).toBe("tools.ntm");
     expect(result.cascadeFailures[0]!.rootCause).toBe("tools.tmux");
-    expect(result.cascadeFailures[0]!.path).toEqual([
-      "tools.tmux",
-      "tools.ntm",
-    ]);
+    expect(result.cascadeFailures[0]!.path).toEqual(["tools.tmux", "tools.ntm"]);
 
     const ntmDiag = result.tools.find((t) => t.toolId === "tools.ntm")!;
     expect(ntmDiag.rootCauseExplanation).toContain("tmux");
@@ -95,11 +92,7 @@ describe("computeHealthDiagnostics", () => {
       makeTool("tools.b", "b", { depends: ["tools.a"] }),
       makeTool("tools.c", "c", { depends: ["tools.b"] }),
     ];
-    const clis = [
-      makeCLI("a", false),
-      makeCLI("b", false),
-      makeCLI("c", false),
-    ];
+    const clis = [makeCLI("a", false), makeCLI("b", false), makeCLI("c", false)];
 
     const result = computeHealthDiagnostics(tools, clis);
 
@@ -114,11 +107,7 @@ describe("computeHealthDiagnostics", () => {
       makeTool("tools.ntm", "ntm", { depends: ["tools.tmux"] }),
       makeTool("tools.cass", "cass", { depends: ["tools.tmux"] }),
     ];
-    const clis = [
-      makeCLI("tmux", true),
-      makeCLI("ntm", true),
-      makeCLI("cass", true),
-    ];
+    const clis = [makeCLI("tmux", true), makeCLI("ntm", true), makeCLI("cass", true)];
 
     const result = computeHealthDiagnostics(tools, clis);
 

@@ -296,10 +296,7 @@ describe("Git Conflict Prediction Service", () => {
         lastUpdated: new Date(),
       });
 
-      const analysis = await analyzeRepositoryConflicts("repo-1", [
-        "feature/a",
-        "feature/b",
-      ]);
+      const analysis = await analyzeRepositoryConflicts("repo-1", ["feature/a", "feature/b"]);
 
       // Only 1 conflict between a and b, not involving c
       expect(analysis.branchPairs.length).toBe(1);
@@ -411,9 +408,7 @@ describe("Git Conflict Prediction Service", () => {
       const analysis = await analyzeRepositoryConflicts("repo-1");
 
       // Should recommend smaller branches for many conflicts
-      expect(analysis.recommendations.some((r) => r.includes("smaller"))).toBe(
-        true,
-      );
+      expect(analysis.recommendations.some((r) => r.includes("smaller"))).toBe(true);
     });
   });
 
@@ -512,10 +507,7 @@ describe("Git Conflict Prediction Service", () => {
     });
 
     test("returns no conflict for disjoint files", () => {
-      const result = wouldFilesConflict(
-        ["src/a.ts", "src/b.ts"],
-        ["src/c.ts", "src/d.ts"],
-      );
+      const result = wouldFilesConflict(["src/a.ts", "src/b.ts"], ["src/c.ts", "src/d.ts"]);
 
       expect(result.hasConflict).toBe(false);
       expect(result.overlapping).toEqual([]);
@@ -548,9 +540,7 @@ describe("Git Conflict Prediction Service", () => {
     });
 
     test("returns not prone for regular files", () => {
-      expect(isConflictProneFile("src/components/Button.tsx").isProne).toBe(
-        false,
-      );
+      expect(isConflictProneFile("src/components/Button.tsx").isProne).toBe(false);
       expect(isConflictProneFile("src/utils/helpers.ts").isProne).toBe(false);
     });
   });

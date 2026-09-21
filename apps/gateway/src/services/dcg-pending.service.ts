@@ -6,11 +6,7 @@
  */
 
 import { createHash } from "node:crypto";
-import {
-  createCursor,
-  DEFAULT_PAGINATION,
-  decodeCursor,
-} from "@flywheel/shared/api/pagination";
+import { createCursor, DEFAULT_PAGINATION, decodeCursor } from "@flywheel/shared/api/pagination";
 import { and, desc, eq, gt, lt, or } from "drizzle-orm";
 import { db } from "../db";
 import { dcgPendingExceptions } from "../db/schema";
@@ -24,12 +20,7 @@ import { logger } from "./logger";
 // Types
 // ============================================================================
 
-export type PendingExceptionStatus =
-  | "pending"
-  | "approved"
-  | "denied"
-  | "expired"
-  | "executed";
+export type PendingExceptionStatus = "pending" | "approved" | "denied" | "expired" | "executed";
 
 export type DCGPendingSeverity = "critical" | "high" | "medium" | "low";
 
@@ -128,9 +119,7 @@ function hashCommand(command: string): string {
 /**
  * Convert database row to PendingException interface.
  */
-function rowToException(
-  row: typeof dcgPendingExceptions.$inferSelect,
-): PendingException {
+function rowToException(row: typeof dcgPendingExceptions.$inferSelect): PendingException {
   const exception: PendingException = {
     id: row.id,
     shortCode: row.shortCode,
@@ -153,8 +142,7 @@ function rowToException(
   if (row.deniedAt) exception.deniedAt = row.deniedAt;
   if (row.denyReason) exception.denyReason = row.denyReason;
   if (row.executedAt) exception.executedAt = row.executedAt;
-  if (row.executionResult)
-    exception.executionResult = row.executionResult as "success" | "failed";
+  if (row.executionResult) exception.executionResult = row.executionResult as "success" | "failed";
 
   return exception;
 }
@@ -195,8 +183,7 @@ export async function createPendingException(
   };
 
   if (params.agentId !== undefined) values.agentId = params.agentId;
-  if (params.blockEventId !== undefined)
-    values.blockEventId = params.blockEventId;
+  if (params.blockEventId !== undefined) values.blockEventId = params.blockEventId;
 
   await db.insert(dcgPendingExceptions).values(values);
 
@@ -248,9 +235,7 @@ export async function createPendingException(
 /**
  * Get a pending exception by short code.
  */
-export async function getPendingException(
-  shortCode: string,
-): Promise<PendingException | null> {
+export async function getPendingException(shortCode: string): Promise<PendingException | null> {
   const row = await db
     .select()
     .from(dcgPendingExceptions)
@@ -264,9 +249,7 @@ export async function getPendingException(
 /**
  * Get a pending exception by ID.
  */
-export async function getPendingExceptionById(
-  id: string,
-): Promise<PendingException | null> {
+export async function getPendingExceptionById(id: string): Promise<PendingException | null> {
   const row = await db
     .select()
     .from(dcgPendingExceptions)
@@ -348,10 +331,7 @@ export async function listPendingExceptions(
   let query = db
     .select()
     .from(dcgPendingExceptions)
-    .orderBy(
-      desc(dcgPendingExceptions.createdAt),
-      desc(dcgPendingExceptions.id),
-    )
+    .orderBy(desc(dcgPendingExceptions.createdAt), desc(dcgPendingExceptions.id))
     .limit(limit + 1); // Fetch one extra to determine hasMore
 
   if (conditions.length > 0) {
@@ -400,9 +380,7 @@ export async function approvePendingException(
   }
 
   if (exception.status !== "pending") {
-    throw new PendingExceptionConflictError(
-      `Exception already ${exception.status}`,
-    );
+    throw new PendingExceptionConflictError(`Exception already ${exception.status}`);
   }
 
   if (exception.expiresAt < new Date()) {
@@ -421,12 +399,7 @@ export async function approvePendingException(
 
   // Publish WebSocket event
   const channel: Channel = { type: "system:dcg" };
-  getHub().publish(
-    channel,
-    "dcg.pending_approved",
-    { shortCode, approvedBy },
-    { correlationId },
-  );
+  getHub().publish(channel, "dcg.pending_approved", { shortCode, approvedBy }, { correlationId });
 
   log.info({ approvedBy }, "Approved pending exception");
 
@@ -455,9 +428,7 @@ export async function denyPendingException(
   }
 
   if (exception.status !== "pending") {
-    throw new PendingExceptionConflictError(
-      `Exception already ${exception.status}`,
-    );
+    throw new PendingExceptionConflictError(`Exception already ${exception.status}`);
   }
 
   const now = new Date();
@@ -556,12 +527,7 @@ export async function cleanupExpiredExceptions(): Promise<number> {
   const result = await db
     .update(dcgPendingExceptions)
     .set({ status: "expired" })
-    .where(
-      and(
-        eq(dcgPendingExceptions.status, "pending"),
-        lt(dcgPendingExceptions.expiresAt, now),
-      ),
-    )
+    .where(and(eq(dcgPendingExceptions.status, "pending"), lt(dcgPendingExceptions.expiresAt, now)))
     .returning();
 
   const expiredCount = result.length;
@@ -599,10 +565,7 @@ export function startDCGCleanupJob(): void {
     cleanupInterval.unref();
   }
 
-  logger.info(
-    { intervalMs: CLEANUP_INTERVAL_MS },
-    "DCG pending exceptions cleanup job started",
-  );
+  logger.info({ intervalMs: CLEANUP_INTERVAL_MS }, "DCG pending exceptions cleanup job started");
 }
 
 /**

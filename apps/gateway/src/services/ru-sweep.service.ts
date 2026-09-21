@@ -12,12 +12,7 @@
 import { spawn } from "bun";
 import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db";
-import {
-  agentSweepLogs,
-  agentSweepPlans,
-  agentSweepSessions,
-  fleetRepos,
-} from "../db/schema";
+import { agentSweepLogs, agentSweepPlans, agentSweepSessions, fleetRepos } from "../db/schema";
 import { getCorrelationId } from "../middleware/correlation";
 import { logger } from "./logger";
 import {
@@ -37,31 +32,13 @@ import type { FleetRepo } from "./ru-fleet.service";
 // Types
 // ============================================================================
 
-export type SweepPhase =
-  | "phase1_analysis"
-  | "phase2_planning"
-  | "phase3_execution";
+export type SweepPhase = "phase1_analysis" | "phase2_planning" | "phase3_execution";
 
-export type SweepStatus =
-  | "pending"
-  | "running"
-  | "paused"
-  | "completed"
-  | "failed"
-  | "cancelled";
+export type SweepStatus = "pending" | "running" | "paused" | "completed" | "failed" | "cancelled";
 
-export type PlanApprovalStatus =
-  | "pending"
-  | "approved"
-  | "rejected"
-  | "auto_approved";
+export type PlanApprovalStatus = "pending" | "approved" | "rejected" | "auto_approved";
 
-export type PlanExecutionStatus =
-  | "pending"
-  | "running"
-  | "completed"
-  | "failed"
-  | "skipped";
+export type PlanExecutionStatus = "pending" | "running" | "completed" | "failed" | "skipped";
 
 export type RiskLevel = "low" | "medium" | "high" | "critical";
 
@@ -271,8 +248,7 @@ async function logSweepEvent(
  */
 function assessRiskLevel(plan: unknown): RiskLevel {
   const actions =
-    (plan as { actions?: Array<{ type: string; destructive?: boolean }> })
-      ?.actions || [];
+    (plan as { actions?: Array<{ type: string; destructive?: boolean }> })?.actions || [];
   const hasRelease = actions.some((a) => a.type === "release");
   const hasDestructive = actions.some((a) => a.destructive);
   const actionCount = actions.length;
@@ -293,8 +269,7 @@ function countActionsByType(plan: unknown): {
   pr: number;
   other: number;
 } {
-  const actions =
-    (plan as { actions?: Array<{ type: string }> })?.actions || [];
+  const actions = (plan as { actions?: Array<{ type: string }> })?.actions || [];
   const counts = { commit: 0, release: 0, branch: 0, pr: 0, other: 0 };
 
   for (const action of actions) {
@@ -334,18 +309,12 @@ export async function startAgentSweep(
   const correlationId = getCorrelationId();
   const sessionId = generateId("sweep_");
 
-  logger.info(
-    { correlationId, sessionId, triggeredBy, config },
-    "Starting agent sweep",
-  );
+  logger.info({ correlationId, sessionId, triggeredBy, config }, "Starting agent sweep");
 
   // Determine target repos
   let repos: FleetRepo[];
   if (config.targetRepos === "*") {
-    const result = await db
-      .select()
-      .from(fleetRepos)
-      .where(eq(fleetRepos.isCloned, true));
+    const result = await db.select().from(fleetRepos).where(eq(fleetRepos.isCloned, true));
     repos = result as FleetRepo[];
   } else {
     const result = await db
@@ -413,10 +382,7 @@ export async function startAgentSweep(
 /**
  * Approve a sweep session to start execution.
  */
-export async function approveSweepSession(
-  sessionId: string,
-  approvedBy: string,
-): Promise<void> {
+export async function approveSweepSession(sessionId: string, approvedBy: string): Promise<void> {
   const correlationId = getCorrelationId();
 
   const session = await db
@@ -451,24 +417,15 @@ export async function approveSweepSession(
     ? (JSON.parse(session.config as string) as SweepConfig)
     : { targetRepos: repoIds };
 
-  const reposResult = await db
-    .select()
-    .from(fleetRepos)
-    .where(inArray(fleetRepos.id, repoIds));
+  const reposResult = await db.select().from(fleetRepos).where(inArray(fleetRepos.id, repoIds));
   const repos = reposResult as FleetRepo[];
 
   // Start phases
   runSweepPhases(sessionId, repos, config).catch((error) => {
-    logger.error(
-      { correlationId, sessionId, error },
-      "Sweep phases failed after approval",
-    );
+    logger.error({ correlationId, sessionId, error }, "Sweep phases failed after approval");
   });
 
-  logger.info(
-    { correlationId, sessionId, approvedBy },
-    "Sweep session approved",
-  );
+  logger.info({ correlationId, sessionId, approvedBy }, "Sweep session approved");
 }
 
 /**
@@ -540,9 +497,7 @@ async function runSweepPhases(
       .get();
 
     const startedAt = session?.startedAt;
-    const totalDurationMs = startedAt
-      ? Date.now() - new Date(startedAt).getTime()
-      : 0;
+    const totalDurationMs = startedAt ? Date.now() - new Date(startedAt).getTime() : 0;
 
     await db
       .update(agentSweepSessions)
@@ -556,10 +511,7 @@ async function runSweepPhases(
 
     publishSweepCompleted({ sessionId, totalDurationMs });
 
-    logger.info(
-      { correlationId, sessionId, totalDurationMs },
-      "Agent sweep completed",
-    );
+    logger.info({ correlationId, sessionId, totalDurationMs }, "Agent sweep completed");
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
@@ -591,15 +543,9 @@ async function runPhase1Analysis(
   config: SweepConfig,
 ): Promise<void> {
   const _correlationId = getCorrelationId();
-  await logSweepEvent(
-    sessionId,
-    "info",
-    "Starting Phase 1: Analysis",
-    undefined,
-    {
-      phase: "phase1",
-    },
-  );
+  await logSweepEvent(sessionId, "info", "Starting Phase 1: Analysis", undefined, {
+    phase: "phase1",
+  });
 
   let analyzed = 0;
   const timeout = config.phase1Timeout || 300;
@@ -709,15 +655,9 @@ async function runPhase2Planning(
   config: SweepConfig,
 ): Promise<void> {
   const _correlationId = getCorrelationId();
-  await logSweepEvent(
-    sessionId,
-    "info",
-    "Starting Phase 2: Planning",
-    undefined,
-    {
-      phase: "phase2",
-    },
-  );
+  await logSweepEvent(sessionId, "info", "Starting Phase 2: Planning", undefined, {
+    phase: "phase2",
+  });
 
   let planned = 0;
   const timeout = config.phase2Timeout || 600;
@@ -747,8 +687,7 @@ async function runPhase2Planning(
       const duration = Date.now() - startTime;
 
       if (exitCode === 0) {
-        let plan: { actions?: Array<{ type: string; destructive?: boolean }> } =
-          {};
+        let plan: { actions?: Array<{ type: string; destructive?: boolean }> } = {};
         try {
           plan = JSON.parse(stdout);
         } catch {
@@ -864,20 +803,11 @@ async function runPhase2Planning(
 /**
  * Phase 3: Execution - Execute approved plans.
  */
-async function runPhase3Execution(
-  sessionId: string,
-  config: SweepConfig,
-): Promise<void> {
+async function runPhase3Execution(sessionId: string, config: SweepConfig): Promise<void> {
   const _correlationId = getCorrelationId();
-  await logSweepEvent(
-    sessionId,
-    "info",
-    "Starting Phase 3: Execution",
-    undefined,
-    {
-      phase: "phase3",
-    },
-  );
+  await logSweepEvent(sessionId, "info", "Starting Phase 3: Execution", undefined, {
+    phase: "phase3",
+  });
 
   // Get approved plans
   const plans = await db
@@ -1051,10 +981,7 @@ async function runPhase3Execution(
 /**
  * Approve a sweep plan.
  */
-export async function approveSweepPlan(
-  planId: string,
-  approvedBy: string,
-): Promise<void> {
+export async function approveSweepPlan(planId: string, approvedBy: string): Promise<void> {
   const correlationId = getCorrelationId();
 
   await db
@@ -1067,11 +994,7 @@ export async function approveSweepPlan(
     })
     .where(eq(agentSweepPlans.id, planId));
 
-  const plan = await db
-    .select()
-    .from(agentSweepPlans)
-    .where(eq(agentSweepPlans.id, planId))
-    .get();
+  const plan = await db.select().from(agentSweepPlans).where(eq(agentSweepPlans.id, planId)).get();
 
   // Build event data conditionally for exactOptionalPropertyTypes
   const approvedEventData: Parameters<typeof publishSweepPlanApproved>[0] = {
@@ -1104,11 +1027,7 @@ export async function rejectSweepPlan(
     })
     .where(eq(agentSweepPlans.id, planId));
 
-  const plan = await db
-    .select()
-    .from(agentSweepPlans)
-    .where(eq(agentSweepPlans.id, planId))
-    .get();
+  const plan = await db.select().from(agentSweepPlans).where(eq(agentSweepPlans.id, planId)).get();
 
   // Build event data conditionally for exactOptionalPropertyTypes
   const rejectedEventData: Parameters<typeof publishSweepPlanRejected>[0] = {
@@ -1120,10 +1039,7 @@ export async function rejectSweepPlan(
   if (plan?.repoFullName) rejectedEventData.repoFullName = plan.repoFullName;
   publishSweepPlanRejected(rejectedEventData);
 
-  logger.info(
-    { correlationId, planId, rejectedBy, reason },
-    "Sweep plan rejected",
-  );
+  logger.info({ correlationId, planId, rejectedBy, reason }, "Sweep plan rejected");
 }
 
 // ============================================================================
@@ -1133,9 +1049,7 @@ export async function rejectSweepPlan(
 /**
  * Get a sweep session with its plans and logs.
  */
-export async function getSweepSession(
-  sessionId: string,
-): Promise<SweepSessionWithDetails | null> {
+export async function getSweepSession(sessionId: string): Promise<SweepSessionWithDetails | null> {
   const session = await db
     .select()
     .from(agentSweepSessions)
@@ -1213,9 +1127,7 @@ export async function getSweepPlans(
     conditions.push(eq(agentSweepPlans.approvalStatus, options.approvalStatus));
   }
   if (options?.executionStatus) {
-    conditions.push(
-      eq(agentSweepPlans.executionStatus, options.executionStatus),
-    );
+    conditions.push(eq(agentSweepPlans.executionStatus, options.executionStatus));
   }
 
   const plans = await db
@@ -1231,11 +1143,7 @@ export async function getSweepPlans(
  * Get a specific plan.
  */
 export async function getSweepPlan(planId: string): Promise<SweepPlan | null> {
-  const plan = await db
-    .select()
-    .from(agentSweepPlans)
-    .where(eq(agentSweepPlans.id, planId))
-    .get();
+  const plan = await db.select().from(agentSweepPlans).where(eq(agentSweepPlans.id, planId)).get();
 
   return plan ? (plan as SweepPlan) : null;
 }

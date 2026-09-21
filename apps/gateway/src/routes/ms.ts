@@ -162,11 +162,9 @@ ms.post("/search", async (c) => {
 
     // Build options conditionally
     const options: Parameters<typeof service.search>[1] = {};
-    if (validated.knowledgeBase !== undefined)
-      options.knowledgeBase = validated.knowledgeBase;
+    if (validated.knowledgeBase !== undefined) options.knowledgeBase = validated.knowledgeBase;
     if (validated.limit !== undefined) options.limit = validated.limit;
-    if (validated.threshold !== undefined)
-      options.threshold = validated.threshold;
+    if (validated.threshold !== undefined) options.threshold = validated.threshold;
     if (validated.semantic !== undefined) options.semantic = validated.semantic;
 
     const result = await service.search(validated.query, options);
@@ -190,9 +188,7 @@ ms.get("/search", async (c) => {
   try {
     const query = c.req.query("q");
     if (!query) {
-      return sendValidationError(c, [
-        { path: "q", message: "Query parameter 'q' is required" },
-      ]);
+      return sendValidationError(c, [{ path: "q", message: "Query parameter 'q' is required" }]);
     }
 
     const limitParam = c.req.query("limit");
@@ -206,8 +202,7 @@ ms.get("/search", async (c) => {
     const options: Parameters<typeof service.search>[1] = {};
     if (knowledgeBase !== undefined) options.knowledgeBase = knowledgeBase;
     if (limit !== undefined && !Number.isNaN(limit)) options.limit = limit;
-    if (threshold !== undefined && !Number.isNaN(threshold))
-      options.threshold = threshold;
+    if (threshold !== undefined && !Number.isNaN(threshold)) options.threshold = threshold;
 
     const result = await service.search(query, options);
 
@@ -276,13 +271,11 @@ ms.post("/entries", async (c) => {
       content: validated.content,
     };
     if (validated.source !== undefined) entry.source = validated.source;
-    if (validated.knowledgeBase !== undefined)
-      entry.knowledgeBase = validated.knowledgeBase;
+    if (validated.knowledgeBase !== undefined) entry.knowledgeBase = validated.knowledgeBase;
     if (validated.metadata !== undefined) entry.metadata = validated.metadata;
 
     const options: Parameters<typeof service.addEntry>[1] = {};
-    if (validated.skipEmbedding !== undefined)
-      options.skipEmbedding = validated.skipEmbedding;
+    if (validated.skipEmbedding !== undefined) options.skipEmbedding = validated.skipEmbedding;
 
     const result = await service.addEntry(entry, options);
 
@@ -344,8 +337,7 @@ ms.post("/index/rebuild", async (c) => {
     const service = getMsService();
 
     const options: Parameters<typeof service.rebuildIndex>[0] = {};
-    if (validated.knowledgeBase !== undefined)
-      options.knowledgeBase = validated.knowledgeBase;
+    if (validated.knowledgeBase !== undefined) options.knowledgeBase = validated.knowledgeBase;
     if (validated.force !== undefined) options.force = validated.force;
 
     const result = await service.rebuildIndex(options);

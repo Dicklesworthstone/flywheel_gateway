@@ -9,10 +9,7 @@
  * - Sessions: /mail/sessions (macro)
  */
 
-import {
-  AgentMailClientError,
-  type AgentMailPriority,
-} from "@flywheel/flywheel-clients";
+import { AgentMailClientError, type AgentMailPriority } from "@flywheel/flywheel-clients";
 import type { GatewayError } from "@flywheel/shared/errors";
 import { serializeGatewayError } from "@flywheel/shared/errors";
 import { type Context, Hono } from "hono";
@@ -20,10 +17,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
 import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
-import {
-  type AgentMailService,
-  createAgentMailServiceFromEnv,
-} from "../services/agentmail";
+import { type AgentMailService, createAgentMailServiceFromEnv } from "../services/agentmail";
 import {
   createReservationConflictEngine,
   type ReservationConflictEngine,
@@ -159,12 +153,7 @@ const WhoisSchema = z.object({
 
 function respondWithGatewayError(c: Context, error: GatewayError) {
   const payload = serializeGatewayError(error);
-  return sendError(
-    c,
-    payload.code,
-    payload.message,
-    payload.httpStatus as ContentfulStatusCode,
-  );
+  return sendError(c, payload.code, payload.message, payload.httpStatus as ContentfulStatusCode);
 }
 
 function handleError(error: unknown, c: Context) {
@@ -191,10 +180,7 @@ function handleError(error: unknown, c: Context) {
 /**
  * POST /mail/projects - Ensure a project exists (idempotent)
  */
-function createMailRoutes(
-  service?: AgentMailService,
-  conflictEngine?: ReservationConflictEngine,
-) {
+function createMailRoutes(service?: AgentMailService, conflictEngine?: ReservationConflictEngine) {
   const mail = new Hono<{
     Variables: {
       agentMail: AgentMailService;
@@ -202,8 +188,7 @@ function createMailRoutes(
     };
   }>();
   let cachedService: AgentMailService | undefined = service;
-  let cachedConflictEngine: ReservationConflictEngine | undefined =
-    conflictEngine;
+  let cachedConflictEngine: ReservationConflictEngine | undefined = conflictEngine;
 
   mail.use("*", requireAdminMiddleware());
 
@@ -257,12 +242,7 @@ function createMailRoutes(
 
       const result = await service.client.registerAgent(validated);
 
-      return sendCreated(
-        c,
-        "agent",
-        result,
-        `/mail/agents/${result["agentId"] || "unknown"}`,
-      );
+      return sendCreated(c, "agent", result, `/mail/agents/${result["agentId"] || "unknown"}`);
     } catch (error) {
       return handleError(error, c);
     }
@@ -322,12 +302,7 @@ function createMailRoutes(
         priority: validated.priority as AgentMailPriority | undefined,
       });
 
-      return sendCreated(
-        c,
-        "reply",
-        result,
-        `/mail/messages/${messageId}/reply`,
-      );
+      return sendCreated(c, "reply", result, `/mail/messages/${messageId}/reply`);
     } catch (error) {
       return handleError(error, c);
     }
@@ -342,12 +317,7 @@ function createMailRoutes(
       const agentId = c.req.query("agentId");
 
       if (!projectId || !agentId) {
-        return sendError(
-          c,
-          "MISSING_PARAMETERS",
-          "projectId and agentId are required",
-          400,
-        );
+        return sendError(c, "MISSING_PARAMETERS", "projectId and agentId are required", 400);
       }
 
       const service = c.get("agentMail");
@@ -355,9 +325,7 @@ function createMailRoutes(
       const parsedLimit = limitStr ? parseInt(limitStr, 10) : undefined;
       // Ensure we don't pass NaN if limit is not a valid number
       const limit =
-        parsedLimit !== undefined && !Number.isNaN(parsedLimit)
-          ? parsedLimit
-          : undefined;
+        parsedLimit !== undefined && !Number.isNaN(parsedLimit) ? parsedLimit : undefined;
       const since = c.req.query("since");
       const priority = c.req.query("priority") as AgentMailPriority | undefined;
 
@@ -428,8 +396,7 @@ function createMailRoutes(
                 existingReservation: {
                   id: conflict.existingReservation.id,
                   requesterId: conflict.existingReservation.requesterId,
-                  expiresAt:
-                    conflict.existingReservation.expiresAt.toISOString(),
+                  expiresAt: conflict.existingReservation.expiresAt.toISOString(),
                 },
                 resolutions: conflict.resolutions,
               })),
@@ -544,12 +511,7 @@ function createMailRoutes(
       const exclusive = exclusiveParam !== "false";
 
       const engine = c.get("conflictEngine");
-      const result = engine.checkConflicts(
-        projectId,
-        requesterId,
-        patterns,
-        exclusive,
-      );
+      const result = engine.checkConflicts(projectId, requesterId, patterns, exclusive);
 
       return sendResource(c, "conflict_check", {
         hasConflicts: result.hasConflicts,
@@ -616,8 +578,7 @@ function createMailRoutes(
         name: validated.name,
         agentId: validated.agentId,
       };
-      if (validated.capabilities !== undefined)
-        sessionInput.capabilities = validated.capabilities;
+      if (validated.capabilities !== undefined) sessionInput.capabilities = validated.capabilities;
       if (validated.projectMetadata !== undefined)
         sessionInput.projectMetadata = validated.projectMetadata;
       if (validated.agentMetadata !== undefined)
@@ -652,12 +613,7 @@ function createMailRoutes(
       const validated = MarkReadSchema.parse(body);
       const messageId = parseInt(c.req.param("messageId"), 10);
       if (Number.isNaN(messageId)) {
-        return sendError(
-          c,
-          "INVALID_PARAMETER",
-          "messageId must be a number",
-          400,
-        );
+        return sendError(c, "INVALID_PARAMETER", "messageId must be a number", 400);
       }
       const service = c.get("agentMail");
 
@@ -681,12 +637,7 @@ function createMailRoutes(
       const validated = AcknowledgeSchema.parse(body);
       const messageId = parseInt(c.req.param("messageId"), 10);
       if (Number.isNaN(messageId)) {
-        return sendError(
-          c,
-          "INVALID_PARAMETER",
-          "messageId must be a number",
-          400,
-        );
+        return sendError(c, "INVALID_PARAMETER", "messageId must be a number", 400);
       }
       const service = c.get("agentMail");
 
@@ -829,4 +780,4 @@ function createMailRoutes(
 
 const mail = createMailRoutes();
 
-export { mail, createMailRoutes };
+export { createMailRoutes, mail };

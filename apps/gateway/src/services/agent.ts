@@ -26,10 +26,7 @@ import {
   isSafeToRestart,
   pushOutputSample,
 } from "./agent-health.service";
-import {
-  clearAgentErrorEvents,
-  recordAgentErrorEvent,
-} from "./agent-health-score.events";
+import { clearAgentErrorEvents, recordAgentErrorEvent } from "./agent-health-score.events";
 import {
   getAgentState,
   hydrateAgentState,
@@ -44,10 +41,7 @@ import {
   removeAgentState,
 } from "./agent-state-machine";
 import { audit } from "./audit";
-import {
-  getAutoCheckpointService,
-  removeAutoCheckpointService,
-} from "./auto-checkpoint.service";
+import { getAutoCheckpointService, removeAutoCheckpointService } from "./auto-checkpoint.service";
 import { createErrorCheckpoint } from "./checkpoint";
 import { getConfig } from "./config.service";
 import {
@@ -79,10 +73,7 @@ interface AgentRecord {
 /**
  * Handle agent events (output, state changes, etc.)
  */
-async function handleAgentEvents(
-  agentId: string,
-  drv: AgentDriver,
-): Promise<void> {
+async function handleAgentEvents(agentId: string, drv: AgentDriver): Promise<void> {
   const log = getLogger();
   const abortController = new AbortController();
 
@@ -177,10 +168,7 @@ async function handleAgentEvents(
             .set({ status: "terminated", updatedAt: new Date() })
             .where(eq(agentsTable.id, agentId))
             .catch((dbErr: unknown) => {
-              log.error(
-                { dbErr, agentId },
-                "Failed to update DB on agent termination event",
-              );
+              log.error({ dbErr, agentId }, "Failed to update DB on agent termination event");
             });
         } catch (err) {
           log.error({ err, agentId }, "Error handling agent termination event");
@@ -214,9 +202,7 @@ async function handleAgentEvents(
         }
 
         const errorMessage =
-          event.error instanceof Error
-            ? event.error.message
-            : String(event.error);
+          event.error instanceof Error ? event.error.message : String(event.error);
 
         try {
           markAgentFailed(agentId, "driver_error", {
@@ -240,10 +226,7 @@ async function handleAgentEvents(
   }
 }
 
-async function refreshAgentRecord(
-  record: AgentRecord,
-  drv: AgentDriver,
-): Promise<void> {
+async function refreshAgentRecord(record: AgentRecord, drv: AgentDriver): Promise<void> {
   try {
     const state = await drv.getState(record.agent.id);
     record.agent.activityState = state.activityState;
@@ -271,9 +254,7 @@ async function getDriver(): Promise<AgentDriver> {
  * Generate a cryptographically secure unique agent ID.
  */
 function generateAgentId(): string {
-  const randomBytes = crypto.getRandomValues(
-    new Uint8Array([0, 0, 0, 0, 0, 0]),
-  );
+  const randomBytes = crypto.getRandomValues(new Uint8Array([0, 0, 0, 0, 0, 0]));
   const random = Array.from(randomBytes)
     .map((b) => b.toString(36).padStart(2, "0"))
     .join("")
@@ -303,14 +284,8 @@ export async function spawnAgent(config: {
 
   // Check if agent already exists (runtime or lifecycle state)
   const existingState = getAgentState(agentId);
-  if (
-    agents.has(agentId) ||
-    (existingState && !isTerminalState(existingState.currentState))
-  ) {
-    throw new AgentError(
-      "AGENT_ALREADY_EXISTS",
-      `Agent ${agentId} already exists`,
-    );
+  if (agents.has(agentId) || (existingState && !isTerminalState(existingState.currentState))) {
+    throw new AgentError("AGENT_ALREADY_EXISTS", `Agent ${agentId} already exists`);
   }
 
   // Initialize lifecycle state tracking
@@ -365,10 +340,7 @@ export async function spawnAgent(config: {
     // terminateAgent call during the await could remove the agent from the
     // driver before subscribe runs, causing "Agent not found" errors.
     handleAgentEvents(agentId, drv).catch((err) => {
-      log.error(
-        { error: err, agentId },
-        "Unhandled error in agent event handler",
-      );
+      log.error({ error: err, agentId }, "Unhandled error in agent event handler");
     });
 
     // Transition to READY state
@@ -378,10 +350,7 @@ export async function spawnAgent(config: {
       .set({ status: "ready", updatedAt: new Date() })
       .where(eq(agentsTable.id, agentId));
 
-    log.info(
-      { agentId, workingDirectory: config.workingDirectory },
-      "Agent spawned",
-    );
+    log.info({ agentId, workingDirectory: config.workingDirectory }, "Agent spawned");
 
     // Initialize auto-checkpointing for the agent
     const acs = getAutoCheckpointService(agentId);
@@ -494,16 +463,12 @@ export async function listAgents(options: {
 
   // Filter by state
   if (options.state?.length) {
-    agentList = agentList.filter((r) =>
-      options.state?.includes(r.agent.activityState),
-    );
+    agentList = agentList.filter((r) => options.state?.includes(r.agent.activityState));
   }
 
   // Filter by driver
   if (options.driver?.length) {
-    agentList = agentList.filter((r) =>
-      options.driver?.includes(r.agent.driverType),
-    );
+    agentList = agentList.filter((r) => options.driver?.includes(r.agent.driverType));
   }
 
   // Filter by createdAt time range
@@ -553,9 +518,7 @@ export async function listAgents(options: {
         return record.agent.id.localeCompare(cursorId) < 0;
       });
     } else if (cursorId) {
-      const cursorIndex = agentList.findIndex(
-        (record) => record.agent.id === cursorId,
-      );
+      const cursorIndex = agentList.findIndex((record) => record.agent.id === cursorId);
       if (cursorIndex >= 0) {
         agentList = agentList.slice(cursorIndex + 1);
       }
@@ -691,10 +654,7 @@ export async function terminateAgent(
     if (graceful) {
       try {
         await drv.terminate(agentId, false);
-        log.warn(
-          { agentId },
-          "Graceful termination failed; force-terminated agent",
-        );
+        log.warn({ agentId }, "Graceful termination failed; force-terminated agent");
 
         audit({
           action: "agent.terminate",
@@ -723,10 +683,7 @@ export async function terminateAgent(
     });
 
     log.error({ error, agentId }, "Failed to terminate agent");
-    throw new AgentError(
-      "DRIVER_COMMUNICATION_ERROR",
-      `Failed to terminate: ${error}`,
-    );
+    throw new AgentError("DRIVER_COMMUNICATION_ERROR", `Failed to terminate: ${error}`);
   } finally {
     // Always clean up local state, even if driver termination fails.
     // This prevents orphaned entries in the agents map and ensures
@@ -789,10 +746,7 @@ export async function sendMessage(
   }
 
   if (record.agent.activityState === "error") {
-    throw new AgentError(
-      "AGENT_ERROR_STATE",
-      `Agent ${agentId} is in error state`,
-    );
+    throw new AgentError("AGENT_ERROR_STATE", `Agent ${agentId} is in error state`);
   }
 
   // Transition to EXECUTING state when processing a message
@@ -815,10 +769,7 @@ export async function sendMessage(
     // This is typically detected through output events or polling
     // For now, we stay in EXECUTING until the next status check detects idle state
 
-    log.info(
-      { agentId, messageId: result.messageId, type },
-      "Message sent to agent",
-    );
+    log.info({ agentId, messageId: result.messageId, type }, "Message sent to agent");
 
     audit({
       action: "agent.send",
@@ -854,10 +805,7 @@ export async function sendMessage(
       // Ignore invalid transitions on failure recovery.
     }
     log.error({ error, agentId }, "Failed to send message");
-    throw new AgentError(
-      "DRIVER_COMMUNICATION_ERROR",
-      `Failed to send: ${error}`,
-    );
+    throw new AgentError("DRIVER_COMMUNICATION_ERROR", `Failed to send: ${error}`);
   }
 }
 
@@ -952,10 +900,7 @@ export async function interruptAgent(
     };
   } catch (error) {
     log.error({ error, agentId }, "Failed to interrupt agent");
-    throw new AgentError(
-      "DRIVER_COMMUNICATION_ERROR",
-      `Failed to interrupt: ${error}`,
-    );
+    throw new AgentError("DRIVER_COMMUNICATION_ERROR", `Failed to interrupt: ${error}`);
   }
 }
 
@@ -1038,10 +983,7 @@ export async function initializeAgentService(): Promise<void> {
     return;
   }
 
-  log.info(
-    { count: activeAgents.length },
-    "Attempting to restore active agents from database",
-  );
+  log.info({ count: activeAgents.length }, "Attempting to restore active agents from database");
 
   let restored = 0;
   let cleaned = 0;

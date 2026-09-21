@@ -261,10 +261,7 @@ export function transitionState(
   if (isTerminalState(newState)) {
     // Keep the record for a while for debugging, but mark for cleanup
     // In production, you'd want a TTL-based cleanup
-    log.debug(
-      { agentId, finalState: newState },
-      `Agent reached terminal state`,
-    );
+    log.debug({ agentId, finalState: newState }, `Agent reached terminal state`);
   }
 
   return transition;
@@ -419,22 +416,14 @@ export function markAgentPaused(
  * Helper: Start graceful termination.
  */
 export function markAgentTerminating(agentId: string): StateTransition {
-  return transitionState(
-    agentId,
-    LifecycleState.TERMINATING,
-    "terminate_requested",
-  );
+  return transitionState(agentId, LifecycleState.TERMINATING, "terminate_requested");
 }
 
 /**
  * Helper: Mark agent as successfully terminated.
  */
 export function markAgentTerminated(agentId: string): StateTransition {
-  return transitionState(
-    agentId,
-    LifecycleState.TERMINATED,
-    "terminate_complete",
-  );
+  return transitionState(agentId, LifecycleState.TERMINATED, "terminate_complete");
 }
 
 /**

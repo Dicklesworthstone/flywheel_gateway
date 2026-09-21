@@ -12,11 +12,7 @@ import { parseListQuery } from "@flywheel/shared/api/pagination";
 import { Hono } from "hono";
 import { z } from "zod";
 import { getLogger } from "../middleware/correlation";
-import {
-  getJobService,
-  JobNotFoundError,
-  JobValidationError,
-} from "../services/job.service";
+import { getJobService, JobNotFoundError, JobValidationError } from "../services/job.service";
 import type { Job, JobPriority, JobStatus, JobType } from "../types/job.types";
 import { getLinkContext, jobLinks, jobListLinks } from "../utils/links";
 import {
@@ -81,15 +77,7 @@ const ListJobsQuerySchema = z.object({
     ])
     .optional(),
   status: z
-    .enum([
-      "pending",
-      "running",
-      "paused",
-      "completed",
-      "failed",
-      "cancelled",
-      "timeout",
-    ])
+    .enum(["pending", "running", "paused", "completed", "failed", "cancelled", "timeout"])
     .optional(),
   sessionId: z.string().optional(),
   agentId: z.string().optional(),
@@ -466,10 +454,7 @@ jobs.get("/:id/logs", async (c) => {
   const id = c.req.param("id");
 
   try {
-    const limit = Math.min(
-      parseInt(c.req.query("limit") ?? "100", 10) || 100,
-      1000,
-    );
+    const limit = Math.min(parseInt(c.req.query("limit") ?? "100", 10) || 100, 1000);
 
     const jobService = getJobService();
 

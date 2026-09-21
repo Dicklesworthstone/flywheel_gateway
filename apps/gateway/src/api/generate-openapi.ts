@@ -212,14 +212,12 @@ registry.registerPath({
   method: "get",
   path: "/agents",
   summary: "List agents",
-  description:
-    "Returns a paginated list of all agents accessible to the authenticated user.",
+  description: "Returns a paginated list of all agents accessible to the authenticated user.",
   tags: ["Agents"],
   request: {
     query: PaginationQuerySchema.extend({
       state: AgentStateSchema.optional().openapi({
-        description:
-          "Filter by agent activity state (comma-separated for multiple values)",
+        description: "Filter by agent activity state (comma-separated for multiple values)",
       }),
     }),
   },
@@ -325,8 +323,7 @@ registry.registerPath({
   method: "post",
   path: "/agents/{agentId}/messages",
   summary: "Send message to agent",
-  description:
-    "Sends a message to the agent and optionally streams the response.",
+  description: "Sends a message to the agent and optionally streams the response.",
   tags: ["Agents"],
   request: {
     params: z.object({
@@ -538,8 +535,7 @@ registry.registerPath({
   method: "post",
   path: "/reservations",
   summary: "Create file reservation",
-  description:
-    "Creates a reservation to prevent concurrent edits to specified files.",
+  description: "Creates a reservation to prevent concurrent edits to specified files.",
   tags: ["Reservations"],
   request: {
     body: {
@@ -583,9 +579,7 @@ registry.registerPath({
   tags: ["Conflicts"],
   request: {
     query: PaginationQuerySchema.extend({
-      status: z
-        .enum(["pending", "resolved", "escalated", "auto_resolved"])
-        .optional(),
+      status: z.enum(["pending", "resolved", "escalated", "auto_resolved"]).optional(),
     }),
   },
   responses: {
@@ -616,14 +610,7 @@ registry.registerPath({
         description: "Only return unread notifications",
       }),
       category: z
-        .enum([
-          "agents",
-          "coordination",
-          "tasks",
-          "costs",
-          "security",
-          "system",
-        ])
+        .enum(["agents", "coordination", "tasks", "costs", "security", "system"])
         .optional(),
     }),
   },
@@ -2082,8 +2069,7 @@ registry.registerPath({
   },
   responses: {
     200: {
-      description:
-        "Readiness status with manifest metadata and recommendations",
+      description: "Readiness status with manifest metadata and recommendations",
       content: {
         "application/json": {
           schema: ReadinessStatusResponseSchema,
@@ -2225,8 +2211,7 @@ registry.registerPath({
   method: "post",
   path: "/setup/verify/{name}",
   summary: "Verify tool installation",
-  description:
-    "Forces a fresh detection of the specified tool to verify its installation status.",
+  description: "Forces a fresh detection of the specified tool to verify its installation status.",
   tags: ["Setup"],
   request: {
     params: z.object({
@@ -2259,8 +2244,7 @@ registry.registerPath({
   method: "delete",
   path: "/setup/cache",
   summary: "Clear detection cache",
-  description:
-    "Clears the tool detection cache, forcing fresh detection on next readiness check.",
+  description: "Clears the tool detection cache, forcing fresh detection on next readiness check.",
   tags: ["Setup"],
   responses: {
     200: {
@@ -2460,8 +2444,7 @@ registry.registerPath({
   method: "delete",
   path: "/beads/{id}",
   summary: "Close a bead",
-  description:
-    "Closes the specified bead. Use query params for reason and force.",
+  description: "Closes the specified bead. Use query params for reason and force.",
   tags: ["Beads"],
   request: {
     params: z.object({
@@ -2576,8 +2559,7 @@ registry.registerPath({
   method: "get",
   path: "/beads/list/ready",
   summary: "List ready beads",
-  description:
-    "Returns beads that are ready to work on (no blocking dependencies).",
+  description: "Returns beads that are ready to work on (no blocking dependencies).",
   tags: ["Beads"],
   request: {
     query: z.object({
@@ -2617,8 +2599,7 @@ registry.registerPath({
   method: "get",
   path: "/beads/triage",
   summary: "Get BV triage",
-  description:
-    "Returns BV triage recommendations, quick wins, and blockers to clear.",
+  description: "Returns BV triage recommendations, quick wins, and blockers to clear.",
   tags: ["Beads"],
   request: {
     query: z.object({
@@ -2804,8 +2785,7 @@ registry.registerPath({
   method: "post",
   path: "/mail/projects",
   summary: "Ensure project exists",
-  description:
-    "Idempotently create or ensure a project exists for agent coordination.",
+  description: "Idempotently create or ensure a project exists for agent coordination.",
   tags: ["Mail"],
   responses: {
     200: { description: "Project ensured" },
@@ -2828,8 +2808,7 @@ registry.registerPath({
   method: "post",
   path: "/mail/messages",
   summary: "Send message",
-  description:
-    "Send a message to one or more agent recipients with priority and TTL.",
+  description: "Send a message to one or more agent recipients with priority and TTL.",
   tags: ["Mail"],
   responses: {
     201: { description: "Message sent" },
@@ -2885,8 +2864,7 @@ registry.registerPath({
   method: "get",
   path: "/mail/messages/search",
   summary: "Search messages",
-  description:
-    "Full-text search over message subjects and bodies using FTS5 syntax.",
+  description: "Full-text search over message subjects and bodies using FTS5 syntax.",
   tags: ["Mail"],
   responses: {
     200: { description: "Search results" },
@@ -2897,8 +2875,7 @@ registry.registerPath({
   method: "get",
   path: "/mail/threads/{threadId}/summary",
   summary: "Summarize thread",
-  description:
-    "Extract participants, key points, and action items from a thread.",
+  description: "Extract participants, key points, and action items from a thread.",
   tags: ["Mail"],
   responses: {
     200: { description: "Thread summary" },
@@ -2909,8 +2886,7 @@ registry.registerPath({
   method: "post",
   path: "/mail/reservations",
   summary: "Request file reservation",
-  description:
-    "Request advisory file reservations on project-relative paths or globs.",
+  description: "Request advisory file reservations on project-relative paths or globs.",
   tags: ["Mail"],
   responses: {
     201: { description: "Reservation granted" },
@@ -2944,8 +2920,7 @@ registry.registerPath({
   method: "post",
   path: "/mail/reservations/renew",
   summary: "Renew reservations",
-  description:
-    "Extend expiry for active file reservations without reissuing them.",
+  description: "Extend expiry for active file reservations without reissuing them.",
   tags: ["Mail"],
   responses: {
     200: { description: "Reservations renewed" },
@@ -2956,8 +2931,7 @@ registry.registerPath({
   method: "get",
   path: "/mail/agents/{agentName}/whois",
   summary: "Agent profile lookup",
-  description:
-    "Return enriched profile details for an agent, optionally including recent commits.",
+  description: "Return enriched profile details for an agent, optionally including recent commits.",
   tags: ["Mail"],
   responses: {
     200: { description: "Agent profile" },
@@ -2995,9 +2969,7 @@ registry.registerPath({
  * Generate the complete OpenAPI 3.1 specification.
  * Returns an OpenAPI 3.1 document object.
  */
-export function generateOpenAPISpec(): ReturnType<
-  OpenApiGeneratorV31["generateDocument"]
-> {
+export function generateOpenAPISpec(): ReturnType<OpenApiGeneratorV31["generateDocument"]> {
   const generator = new OpenApiGeneratorV31(registry.definitions);
 
   return generator.generateDocument({
@@ -3160,8 +3132,7 @@ See \`/docs/robot-mode-api.md\` for complete WebSocket documentation.
       },
       {
         name: "Cost Analytics",
-        description:
-          "Cost tracking, budgets, forecasting, and optimization recommendations",
+        description: "Cost tracking, budgets, forecasting, and optimization recommendations",
       },
       {
         name: "Mail",

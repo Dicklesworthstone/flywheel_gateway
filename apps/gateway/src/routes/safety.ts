@@ -19,10 +19,7 @@ import {
   loadToolRegistry,
 } from "../services/tool-registry.service";
 import { getUBSService } from "../services/ubs.service";
-import {
-  getChecksumAge,
-  listToolsWithChecksums,
-} from "../services/update-checker.service";
+import { getChecksumAge, listToolsWithChecksums } from "../services/update-checker.service";
 import { sendResource, sendValidationError } from "../utils/response";
 
 const safety = new Hono();
@@ -167,9 +164,7 @@ function getToolInstallRecommendation(
   // Use install command from manifest if available (legacy)
   if (toolDef?.install?.[0]) {
     const installSpec = toolDef.install[0];
-    const args = Array.isArray(installSpec.args)
-      ? installSpec.args.join(" ")
-      : "";
+    const args = Array.isArray(installSpec.args) ? installSpec.args.join(" ") : "";
     const cmd = `${installSpec.command} ${args}`.trim();
     return `Install ${displayName}: ${cmd}`;
   }
@@ -267,8 +262,7 @@ async function getChecksumStatuses(): Promise<{
     const registryAgeMs = registryGeneratedAt
       ? now - new Date(registryGeneratedAt).getTime()
       : null;
-    const isStale =
-      registryAgeMs !== null && registryAgeMs > STALE_CHECKSUM_THRESHOLD_MS;
+    const isStale = registryAgeMs !== null && registryAgeMs > STALE_CHECKSUM_THRESHOLD_MS;
 
     const tools: ChecksumStatus[] = [];
 
@@ -276,9 +270,7 @@ async function getChecksumStatuses(): Promise<{
       const checksumInfo = await getChecksumAge(toolId);
       if (checksumInfo) {
         const toolGenAt = checksumInfo.registryGeneratedAt ?? null;
-        const toolAgeMs = toolGenAt
-          ? now - new Date(toolGenAt).getTime()
-          : null;
+        const toolAgeMs = toolGenAt ? now - new Date(toolGenAt).getTime() : null;
         tools.push({
           toolId,
           hasChecksums: checksumInfo.hasChecksums,
@@ -396,9 +388,7 @@ safety.get("/posture", async (c) => {
   // Check checksums
   if (!checksumsAvailable) {
     issues.push("No ACFS checksums available for tool verification");
-    recommendations.push(
-      "Ensure acfs.manifest.yaml is present and contains checksums",
-    );
+    recommendations.push("Ensure acfs.manifest.yaml is present and contains checksums");
   }
   if (checksumsStale) {
     issues.push(
@@ -515,11 +505,7 @@ safety.get("/tools", async (c) => {
   }
 
   // Return all tool statuses
-  const [dcg, slb, ubs] = await Promise.all([
-    checkDcgStatus(),
-    checkSlbStatus(),
-    checkUbsStatus(),
-  ]);
+  const [dcg, slb, ubs] = await Promise.all([checkDcgStatus(), checkSlbStatus(), checkUbsStatus()]);
 
   log.debug("All tool statuses checked");
   return sendResource(c, "tool_statuses", {

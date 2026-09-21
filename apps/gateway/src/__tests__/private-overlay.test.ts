@@ -222,14 +222,8 @@ describe("loadOverlay", () => {
 
   it("loads both manifest and env mapping", async () => {
     const dir = mkdtempSync(join(tmpdir(), "overlay-full-"));
-    writeFileSync(
-      join(dir, "overlay.manifest.yaml"),
-      'schemaVersion: "1.0"\ntools: []',
-    );
-    writeFileSync(
-      join(dir, "env-mapping.yaml"),
-      "toolSecrets:\n  dcg: DCG_KEY",
-    );
+    writeFileSync(join(dir, "overlay.manifest.yaml"), 'schemaVersion: "1.0"\ntools: []');
+    writeFileSync(join(dir, "env-mapping.yaml"), "toolSecrets:\n  dcg: DCG_KEY");
 
     const result = await loadOverlay(dir);
     expect(result.available).toBe(true);
@@ -431,9 +425,7 @@ describe("applyOverlay", () => {
   it("does not duplicate additional tools already in registry", () => {
     const overlay: OverlayManifest = {
       schemaVersion: "1.0",
-      additionalTools: [
-        makeTool({ id: "tools.dcg", name: "dcg", displayName: "Duplicate" }),
-      ],
+      additionalTools: [makeTool({ id: "tools.dcg", name: "dcg", displayName: "Duplicate" })],
     };
     const result = applyOverlay(baseRegistry, overlay);
     expect(result.tools).toHaveLength(3);
@@ -442,9 +434,7 @@ describe("applyOverlay", () => {
   it("does not mutate input registry", () => {
     const overlay: OverlayManifest = {
       schemaVersion: "1.0",
-      tools: [
-        { name: "dcg", overrides: { docsUrl: "https://modified.example.com" } },
-      ],
+      tools: [{ name: "dcg", overrides: { docsUrl: "https://modified.example.com" } }],
     };
     const original = baseRegistry.tools.find((t) => t.name === "dcg")!;
     applyOverlay(baseRegistry, overlay);

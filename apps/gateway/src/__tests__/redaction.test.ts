@@ -1,10 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  redactApiKey,
-  redactEmail,
-  redactPassword,
-  redactSensitive,
-} from "../utils/redaction";
+import { redactApiKey, redactEmail, redactPassword, redactSensitive } from "../utils/redaction";
 
 describe("redaction utilities", () => {
   const passwordField = "pass" + "word";
@@ -42,9 +37,7 @@ describe("redaction utilities", () => {
   describe("redactPassword", () => {
     test("always returns [REDACTED]", () => {
       const secretWord = ["se", "cret"].join("");
-      expect(redactPassword(`my${secretWord}${passwordField}`)).toBe(
-        "[REDACTED]",
-      );
+      expect(redactPassword(`my${secretWord}${passwordField}`)).toBe("[REDACTED]");
       expect(redactPassword("")).toBe("[REDACTED]");
       expect(redactPassword(undefined)).toBe("[REDACTED]");
     });
@@ -138,12 +131,8 @@ describe("redaction utilities", () => {
     test("handles arrays", () => {
       const input = [{ [tokenField]: "abc" }, { [tokenField]: "def" }];
       const result = redactSensitive(input);
-      expect((result[0] as Record<string, unknown>)[tokenField]).toBe(
-        "[REDACTED]",
-      );
-      expect((result[1] as Record<string, unknown>)[tokenField]).toBe(
-        "[REDACTED]",
-      );
+      expect((result[0] as Record<string, unknown>)[tokenField]).toBe("[REDACTED]");
+      expect((result[1] as Record<string, unknown>)[tokenField]).toBe("[REDACTED]");
     });
 
     test("handles null and undefined", () => {

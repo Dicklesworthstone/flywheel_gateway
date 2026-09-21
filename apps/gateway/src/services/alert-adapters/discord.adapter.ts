@@ -10,12 +10,7 @@
 
 import { getLogger } from "../../middleware/correlation";
 import { isPrivateNetworkUrl } from "../../utils/url-security";
-import type {
-  AlertPayload,
-  ChannelAdapter,
-  ChannelConfig,
-  DeliveryResult,
-} from "./types";
+import type { AlertPayload, ChannelAdapter, ChannelConfig, DeliveryResult } from "./types";
 
 /** Discord embed color by severity (decimal color values) */
 const SEVERITY_COLORS: Record<string, number> = {
@@ -104,10 +99,7 @@ function buildDiscordPayload(
 
   const emoji = severityEmoji[alert.severity] ?? "";
   const title = truncateText(`${emoji} ${alert.title}`, 256);
-  const description = truncateText(
-    escapeDiscordMarkdown(alert.body),
-    DESCRIPTION_MAX_LENGTH,
-  );
+  const description = truncateText(escapeDiscordMarkdown(alert.body), DESCRIPTION_MAX_LENGTH);
 
   const fields: Array<{ name: string; value: string; inline?: boolean }> = [
     {
@@ -177,10 +169,7 @@ function buildDiscordPayload(
 export const discordAdapter: ChannelAdapter<DiscordConfig> = {
   type: "discord",
 
-  async send(
-    alert: AlertPayload,
-    config: DiscordConfig,
-  ): Promise<DeliveryResult> {
+  async send(alert: AlertPayload, config: DiscordConfig): Promise<DeliveryResult> {
     const log = getLogger();
     const startTime = Date.now();
 
@@ -220,10 +209,7 @@ export const discordAdapter: ChannelAdapter<DiscordConfig> = {
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(
-        () => controller.abort(),
-        WEBHOOK_TIMEOUT_MS,
-      );
+      const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
 
       try {
         const response = await fetch(url, {
@@ -302,22 +288,16 @@ export const discordAdapter: ChannelAdapter<DiscordConfig> = {
     try {
       const url = new URL(c["webhookUrl"]);
       // Discord webhooks should be on discord.com
-      if (
-        !url.hostname.endsWith("discord.com") &&
-        !url.hostname.endsWith("discordapp.com")
-      ) {
+      if (!url.hostname.endsWith("discord.com") && !url.hostname.endsWith("discordapp.com")) {
         return false;
       }
     } catch {
       return false;
     }
 
-    if (c["username"] !== undefined && typeof c["username"] !== "string")
-      return false;
-    if (c["avatarUrl"] !== undefined && typeof c["avatarUrl"] !== "string")
-      return false;
-    if (c["threadId"] !== undefined && typeof c["threadId"] !== "string")
-      return false;
+    if (c["username"] !== undefined && typeof c["username"] !== "string") return false;
+    if (c["avatarUrl"] !== undefined && typeof c["avatarUrl"] !== "string") return false;
+    if (c["threadId"] !== undefined && typeof c["threadId"] !== "string") return false;
 
     return true;
   },

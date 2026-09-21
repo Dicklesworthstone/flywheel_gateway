@@ -126,10 +126,7 @@ export interface CostAggregate {
   byModel: Record<string, { costUnits: number; tokens: number; count: number }>;
 
   // By provider breakdown (JSON)
-  byProvider: Record<
-    ProviderId,
-    { costUnits: number; tokens: number; count: number }
-  >;
+  byProvider: Record<ProviderId, { costUnits: number; tokens: number; count: number }>;
 }
 
 /**
@@ -248,12 +245,7 @@ export interface BudgetInput {
 /**
  * Forecasting methodology.
  */
-export type ForecastMethodology =
-  | "linear"
-  | "arima"
-  | "prophet"
-  | "exponential"
-  | "ensemble";
+export type ForecastMethodology = "linear" | "arima" | "prophet" | "exponential" | "ensemble";
 
 /**
  * Daily forecast point.
@@ -580,10 +572,5 @@ export interface CostEvent {
   type: CostEventType;
   timestamp: Date;
   correlationId?: string;
-  data:
-    | CostRecord
-    | CostAggregate
-    | BudgetStatus
-    | CostForecast
-    | OptimizationRecommendation;
+  data: CostRecord | CostAggregate | BudgetStatus | CostForecast | OptimizationRecommendation;
 }

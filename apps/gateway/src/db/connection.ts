@@ -9,8 +9,7 @@ import { logger } from "../services/logger";
 import * as schema from "./schema";
 
 const isDev = process.env["NODE_ENV"] !== "production";
-const isTest =
-  process.env["NODE_ENV"] === "test" || process.env["BUN_TEST"] === "1";
+const isTest = process.env["NODE_ENV"] === "test" || process.env["BUN_TEST"] === "1";
 const rawSlowQueryThresholdMs = Number(process.env["DB_SLOW_QUERY_MS"] ?? 100);
 const slowQueryThresholdMs = Number.isFinite(rawSlowQueryThresholdMs)
   ? rawSlowQueryThresholdMs
@@ -22,16 +21,13 @@ class PinoLogWriter implements LogWriter {
   }
 }
 
-const drizzleLogger =
-  isDev && !isTest ? new DefaultLogger({ writer: new PinoLogWriter() }) : false;
+const drizzleLogger = isDev && !isTest ? new DefaultLogger({ writer: new PinoLogWriter() }) : false;
 
 type DatabaseUrlParseResult =
   | { ok: true; dbFile: string }
   | { ok: false; reason: "unsupported_scheme" | "invalid"; value: string };
 
-function parseSqliteDbFileFromDatabaseUrl(
-  value: string,
-): DatabaseUrlParseResult {
+function parseSqliteDbFileFromDatabaseUrl(value: string): DatabaseUrlParseResult {
   const raw = value.trim();
   if (raw.length === 0) {
     return { ok: false, reason: "invalid", value };
@@ -42,12 +38,7 @@ function parseSqliteDbFileFromDatabaseUrl(
   const schemeMatch = raw.match(/^([a-z][a-z0-9+.-]*):\/\//i);
   if (schemeMatch) {
     const scheme = schemeMatch[1]?.toLowerCase();
-    if (
-      scheme &&
-      scheme !== "file" &&
-      scheme !== "sqlite" &&
-      scheme !== "sqlite3"
-    ) {
+    if (scheme && scheme !== "file" && scheme !== "sqlite" && scheme !== "sqlite3") {
       return { ok: false, reason: "unsupported_scheme", value: raw };
     }
   }
@@ -78,8 +69,7 @@ function resolveDbFile(defaultDbFile: string): string {
   const explicit = process.env["DB_FILE_NAME"]?.trim();
   if (explicit) return explicit;
 
-  const legacyPath =
-    process.env["DATABASE_PATH"]?.trim() ?? process.env["DB_PATH"]?.trim();
+  const legacyPath = process.env["DATABASE_PATH"]?.trim() ?? process.env["DB_PATH"]?.trim();
 
   const databaseUrl = process.env["DATABASE_URL"]?.trim();
   if (databaseUrl) {
@@ -143,9 +133,7 @@ const shouldAutoMigrate =
   process.env["DB_AUTO_MIGRATE"] === "true";
 
 if (shouldAutoMigrate) {
-  const migrationsFolder = fileURLToPath(
-    new URL("./migrations", import.meta.url),
-  );
+  const migrationsFolder = fileURLToPath(new URL("./migrations", import.meta.url));
   migrate(db, { migrationsFolder });
 }
 

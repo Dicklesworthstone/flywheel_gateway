@@ -66,8 +66,7 @@ function getRequestUserId(c: Context): string {
 
     // Allow admin/internal to optionally "act as" a user for debugging via headers.
     if (auth?.isAdmin === true) {
-      const overrideUserId =
-        c.req.header("X-User-Id") ?? c.req.header("X-User");
+      const overrideUserId = c.req.header("X-User-Id") ?? c.req.header("X-User");
       if (overrideUserId) return overrideUserId;
       if (typeof auth.userId === "string" && auth.userId.length > 0) {
         return auth.userId;
@@ -83,11 +82,7 @@ function getRequestUserId(c: Context): string {
     return DEFAULT_DASHBOARD_USER_ID;
   }
 
-  return (
-    c.req.header("X-User-Id") ??
-    c.req.header("X-User") ??
-    DEFAULT_DASHBOARD_USER_ID
-  );
+  return c.req.header("X-User-Id") ?? c.req.header("X-User") ?? DEFAULT_DASHBOARD_USER_ID;
 }
 
 // ============================================================================
@@ -97,12 +92,8 @@ function getRequestUserId(c: Context): string {
 const LayoutSchema = z.object({
   columns: z.number().int().min(1).max(24).optional(),
   rowHeight: z.number().int().min(20).max(200).optional(),
-  margin: z
-    .tuple([z.number().int().min(0), z.number().int().min(0)])
-    .optional(),
-  containerPadding: z
-    .tuple([z.number().int().min(0), z.number().int().min(0)])
-    .optional(),
+  margin: z.tuple([z.number().int().min(0), z.number().int().min(0)]).optional(),
+  containerPadding: z.tuple([z.number().int().min(0), z.number().int().min(0)]).optional(),
 });
 
 const PositionSchema = z.object({
@@ -250,14 +241,9 @@ dashboards.get("/", async (c) => {
   const userId = getRequestUserId(c);
   const workspaceId = c.req.query("workspaceId");
   const rawVisibility = c.req.query("visibility");
-  const validVisibilities: DashboardVisibility[] = [
-    "private",
-    "team",
-    "public",
-  ];
+  const validVisibilities: DashboardVisibility[] = ["private", "team", "public"];
   const visibility: DashboardVisibility | undefined =
-    rawVisibility &&
-    validVisibilities.includes(rawVisibility as DashboardVisibility)
+    rawVisibility && validVisibilities.includes(rawVisibility as DashboardVisibility)
       ? (rawVisibility as DashboardVisibility)
       : undefined;
   const parsedLimit = Number.parseInt(c.req.query("limit") ?? "50", 10);
@@ -345,12 +331,7 @@ dashboards.get("/public/:slug", async (c) => {
     return sendResource(c, "dashboard", dashboard);
   } catch (error) {
     log.error({ error, slug }, "Failed to get public dashboard");
-    return sendError(
-      c,
-      "INTERNAL_ERROR",
-      "Failed to get public dashboard",
-      500,
-    );
+    return sendError(c, "INTERNAL_ERROR", "Failed to get public dashboard", 500);
   }
 });
 
@@ -371,12 +352,7 @@ dashboards.get("/:id", async (c) => {
     }
 
     if (!(await canUserAccess(dashboard, userId))) {
-      return sendError(
-        c,
-        "FORBIDDEN",
-        "You do not have access to this dashboard",
-        403,
-      );
+      return sendError(c, "FORBIDDEN", "You do not have access to this dashboard", 403);
     }
 
     return sendResource(c, "dashboard", dashboard);
@@ -402,10 +378,7 @@ dashboards.post("/", async (c) => {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const dashboard = await createDashboard(
-      parsed.data as CreateDashboardInput,
-      userId,
-    );
+    const dashboard = await createDashboard(parsed.data as CreateDashboardInput, userId);
 
     log.info({ dashboardId: dashboard.id }, "Dashboard created");
     return sendResource(c, "dashboard", dashboard, 201);
@@ -432,12 +405,7 @@ dashboards.put("/:id", async (c) => {
     }
 
     if (!(await canUserEdit(existingDashboard, userId))) {
-      return sendError(
-        c,
-        "FORBIDDEN",
-        "You do not have edit access to this dashboard",
-        403,
-      );
+      return sendError(c, "FORBIDDEN", "You do not have edit access to this dashboard", 403);
     }
 
     const body = await c.req.json();
@@ -447,10 +415,7 @@ dashboards.put("/:id", async (c) => {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const dashboard = await updateDashboard(
-      id,
-      parsed.data as UpdateDashboardInput,
-    );
+    const dashboard = await updateDashboard(id, parsed.data as UpdateDashboardInput);
 
     if (!dashboard) {
       return sendNotFound(c, "Dashboard", id);
@@ -481,12 +446,7 @@ dashboards.delete("/:id", async (c) => {
     }
 
     if (dashboard.ownerId !== userId) {
-      return sendError(
-        c,
-        "FORBIDDEN",
-        "Only the owner can delete this dashboard",
-        403,
-      );
+      return sendError(c, "FORBIDDEN", "Only the owner can delete this dashboard", 403);
     }
 
     const deleted = await deleteDashboard(id);
@@ -520,12 +480,7 @@ dashboards.post("/:id/duplicate", async (c) => {
     }
 
     if (!(await canUserAccess(existingDashboard, userId))) {
-      return sendError(
-        c,
-        "FORBIDDEN",
-        "You do not have access to this dashboard",
-        403,
-      );
+      return sendError(c, "FORBIDDEN", "You do not have access to this dashboard", 403);
     }
 
     const body = await c.req.json().catch(() => ({}));
@@ -566,12 +521,7 @@ dashboards.post("/:id/widgets", async (c) => {
     }
 
     if (!(await canUserEdit(dashboard, userId))) {
-      return sendError(
-        c,
-        "FORBIDDEN",
-        "You do not have edit access to this dashboard",
-        403,
-      );
+      return sendError(c, "FORBIDDEN", "You do not have edit access to this dashboard", 403);
     }
 
     const body = await c.req.json();
@@ -613,12 +563,7 @@ dashboards.put("/:id/widgets/:widgetId", async (c) => {
     }
 
     if (!(await canUserEdit(dashboard, userId))) {
-      return sendError(
-        c,
-        "FORBIDDEN",
-        "You do not have edit access to this dashboard",
-        403,
-      );
+      return sendError(c, "FORBIDDEN", "You do not have edit access to this dashboard", 403);
     }
 
     const body = await c.req.json();
@@ -628,11 +573,7 @@ dashboards.put("/:id/widgets/:widgetId", async (c) => {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const updated = await updateWidget(
-      id,
-      widgetId,
-      parsed.data as Partial<Widget>,
-    );
+    const updated = await updateWidget(id, widgetId, parsed.data as Partial<Widget>);
 
     if (!updated) {
       return sendNotFound(c, "Widget", widgetId);
@@ -664,12 +605,7 @@ dashboards.delete("/:id/widgets/:widgetId", async (c) => {
     }
 
     if (!(await canUserEdit(dashboard, userId))) {
-      return sendError(
-        c,
-        "FORBIDDEN",
-        "You do not have edit access to this dashboard",
-        403,
-      );
+      return sendError(c, "FORBIDDEN", "You do not have edit access to this dashboard", 403);
     }
 
     const updated = await removeWidget(id, widgetId);
@@ -704,22 +640,14 @@ dashboards.get("/:id/widgets/:widgetId/data", async (c) => {
     }
 
     if (!(await canUserAccess(dashboard, userId))) {
-      return sendError(
-        c,
-        "FORBIDDEN",
-        "You do not have access to this dashboard",
-        403,
-      );
+      return sendError(c, "FORBIDDEN", "You do not have access to this dashboard", 403);
     }
 
     const data = await fetchWidgetData(id, widgetId);
 
     return sendResource(c, "widgetData", data);
   } catch (error) {
-    log.error(
-      { error, dashboardId: id, widgetId },
-      "Failed to fetch widget data",
-    );
+    log.error({ error, dashboardId: id, widgetId }, "Failed to fetch widget data");
     return sendError(c, "INTERNAL_ERROR", "Failed to fetch widget data", 500);
   }
 });
@@ -745,12 +673,7 @@ dashboards.put("/:id/sharing", async (c) => {
     }
 
     if (dashboard.ownerId !== userId) {
-      return sendError(
-        c,
-        "FORBIDDEN",
-        "Only the owner can update sharing settings",
-        403,
-      );
+      return sendError(c, "FORBIDDEN", "Only the owner can update sharing settings", 403);
     }
 
     const body = await c.req.json();
@@ -760,10 +683,7 @@ dashboards.put("/:id/sharing", async (c) => {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const updated = await updateSharing(
-      id,
-      parsed.data as Partial<DashboardSharing>,
-    );
+    const updated = await updateSharing(id, parsed.data as Partial<DashboardSharing>);
 
     if (!updated) {
       return sendNotFound(c, "Dashboard", id);
@@ -794,12 +714,7 @@ dashboards.get("/:id/permissions", async (c) => {
     }
 
     if (dashboard.ownerId !== userId) {
-      return sendError(
-        c,
-        "FORBIDDEN",
-        "Only the owner can view permissions",
-        403,
-      );
+      return sendError(c, "FORBIDDEN", "Only the owner can view permissions", 403);
     }
 
     const permissions = await listPermissions(id);
@@ -830,12 +745,7 @@ dashboards.post("/:id/permissions", async (c) => {
     }
 
     if (dashboard.ownerId !== userId) {
-      return sendError(
-        c,
-        "FORBIDDEN",
-        "Only the owner can grant permissions",
-        403,
-      );
+      return sendError(c, "FORBIDDEN", "Only the owner can grant permissions", 403);
     }
 
     const body = await c.req.json();
@@ -862,10 +772,7 @@ dashboards.post("/:id/permissions", async (c) => {
       return sendNotFound(c, "Dashboard", id);
     }
 
-    log.info(
-      { dashboardId: id, targetUserId, permission },
-      "Permission granted",
-    );
+    log.info({ dashboardId: id, targetUserId, permission }, "Permission granted");
     return sendResource(c, "permission", entry, 201);
   } catch (error) {
     log.error({ error, dashboardId: id }, "Failed to grant permission");
@@ -891,12 +798,7 @@ dashboards.delete("/:id/permissions/:targetUserId", async (c) => {
     }
 
     if (dashboard.ownerId !== userId) {
-      return sendError(
-        c,
-        "FORBIDDEN",
-        "Only the owner can revoke permissions",
-        403,
-      );
+      return sendError(c, "FORBIDDEN", "Only the owner can revoke permissions", 403);
     }
 
     const revoked = await revokePermission(id, targetUserId);
@@ -908,10 +810,7 @@ dashboards.delete("/:id/permissions/:targetUserId", async (c) => {
     log.info({ dashboardId: id, targetUserId }, "Permission revoked");
     return c.json({ success: true });
   } catch (error) {
-    log.error(
-      { error, dashboardId: id, targetUserId },
-      "Failed to revoke permission",
-    );
+    log.error({ error, dashboardId: id, targetUserId }, "Failed to revoke permission");
     return sendError(c, "INTERNAL_ERROR", "Failed to revoke permission", 500);
   }
 });
@@ -937,12 +836,7 @@ dashboards.post("/:id/favorite", async (c) => {
     }
 
     if (!(await canUserAccess(dashboard, userId))) {
-      return sendError(
-        c,
-        "FORBIDDEN",
-        "You do not have access to this dashboard",
-        403,
-      );
+      return sendError(c, "FORBIDDEN", "You do not have access to this dashboard", 403);
     }
 
     const added = await addFavorite(userId, id);

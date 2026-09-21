@@ -40,11 +40,7 @@ import { sendMessage, spawnAgent, terminateAgent } from "./agent";
 const UNSAFE_CONTEXT_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 
 export const TRANSFORM_MAP_ALLOWED_IDENTIFIERS = ["$item", "$index"] as const;
-export const TRANSFORM_REDUCE_ALLOWED_IDENTIFIERS = [
-  "$acc",
-  "$item",
-  "$index",
-] as const;
+export const TRANSFORM_REDUCE_ALLOWED_IDENTIFIERS = ["$acc", "$item", "$index"] as const;
 
 /**
  * Mask a URL for safe logging (show only host, hide path/query).
@@ -69,10 +65,7 @@ const pipelines = new Map<string, Pipeline>();
 const runs = new Map<string, PipelineRun>();
 
 /** Pending approvals: runId -> stepId -> Promise resolver */
-const pendingApprovals = new Map<
-  string,
-  Map<string, (decision: ApprovalRecord) => void>
->();
+const pendingApprovals = new Map<string, Map<string, (decision: ApprovalRecord) => void>>();
 
 /** Active run controllers for cancellation */
 const activeRunControllers = new Map<string, AbortController>();
@@ -109,10 +102,7 @@ function generateRunId(): string {
  * Substitute variables in a string using the context.
  * Supports ${context.variable} syntax.
  */
-function substituteVariables(
-  template: string,
-  context: Record<string, unknown>,
-): string {
+function substituteVariables(template: string, context: Record<string, unknown>): string {
   return template.replace(/\$\{context\.([^}]+)\}/g, (_, path) => {
     const parts = path.split(".");
     let value: unknown = context;
@@ -133,10 +123,7 @@ function substituteVariables(
  * Evaluate a simple condition expression.
  * Supports: ==, !=, >, <, >=, <=, &&, ||
  */
-function evaluateCondition(
-  condition: string,
-  context: Record<string, unknown>,
-): boolean {
+function evaluateCondition(condition: string, context: Record<string, unknown>): boolean {
   // Substitute variables first
   const substituted = substituteVariables(condition, context);
 
@@ -148,9 +135,7 @@ function evaluateCondition(
     if (substituted === "false") return false;
 
     // Handle comparison operators
-    const comparisonMatch = substituted.match(
-      /^(.+?)\s*(===?|!==?|>=?|<=?)\s*(.+)$/,
-    );
+    const comparisonMatch = substituted.match(/^(.+?)\s*(===?|!==?|>=?|<=?)\s*(.+)$/);
     if (comparisonMatch) {
       const [, left, op, right] = comparisonMatch;
       const leftVal = left?.trim();
@@ -164,10 +149,7 @@ function evaluateCondition(
         if (v === "null") return null;
         if (/^-?\d+(\.\d+)?$/.test(v)) return parseFloat(v);
         // Remove quotes for strings
-        if (
-          (v.startsWith('"') && v.endsWith('"')) ||
-          (v.startsWith("'") && v.endsWith("'"))
-        ) {
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
           return v.slice(1, -1);
         }
         return v;
@@ -216,10 +198,7 @@ function sleep(ms: number): Promise<void> {
 /**
  * Calculate delay for retry with exponential backoff.
  */
-function calculateRetryDelay(
-  attemptNumber: number,
-  policy: RetryPolicy,
-): number {
+function calculateRetryDelay(attemptNumber: number, policy: RetryPolicy): number {
   const multiplier = policy.multiplier ?? 2;
   const delay = policy.initialDelay * multiplier ** attemptNumber;
   // Add jitter (10% random variation)
@@ -295,9 +274,7 @@ async function executeAgentTask(
   const log = getLogger();
   const prompt = substituteVariables(config.prompt, context);
   const workingDirectory =
-    config.workingDirectory ??
-    (context["workingDirectory"] as string) ??
-    "/tmp";
+    config.workingDirectory ?? (context["workingDirectory"] as string) ?? "/tmp";
 
   log.info(
     { workingDirectory, promptLength: prompt.length },
@@ -354,10 +331,7 @@ async function executeConditional(
   const log = getLogger();
   const result = evaluateCondition(config.condition, context);
 
-  log.info(
-    { condition: config.condition, result },
-    "[PIPELINE] Evaluated conditional",
-  );
+  log.info({ condition: config.condition, result }, "[PIPELINE] Evaluated conditional");
 
   if (result) {
     await executeSteps(config.thenSteps);
@@ -453,10 +427,7 @@ async function executeApproval(
   const log = getLogger();
   const approvals: ApprovalRecord[] = [];
 
-  log.info(
-    { stepId, runId, approvers: config.approvers },
-    "[PIPELINE] Waiting for approval",
-  );
+  log.info({ stepId, runId, approvers: config.approvers }, "[PIPELINE] Waiting for approval");
 
   // Create approval promise
   return new Promise((resolve, reject) => {
@@ -491,12 +462,8 @@ async function executeApproval(
       approvals.push(record);
 
       // Check if we have enough approvals
-      const approvedCount = approvals.filter(
-        (a) => a.decision === "approved",
-      ).length;
-      const rejectedCount = approvals.filter(
-        (a) => a.decision === "rejected",
-      ).length;
+      const approvedCount = approvals.filter((a) => a.decision === "approved").length;
+      const rejectedCount = approvals.filter((a) => a.decision === "rejected").length;
       const minApprovals = config.minApprovals ?? 1;
 
       if (approvedCount >= minApprovals) {
@@ -540,9 +507,7 @@ async function executeScript(
   // SECURITY: Do not substitute variables in inline scripts to prevent command injection.
   // Users should use environment variables (e.g., $PIPELINE_VAR) instead.
   // We only substitute for file paths to resolve locations.
-  const script = isPathScript
-    ? substituteVariables(config.script, context)
-    : config.script;
+  const script = isPathScript ? substituteVariables(config.script, context) : config.script;
 
   log.info(
     { isPath: config.isPath, workingDirectory: config.workingDirectory },
@@ -615,11 +580,7 @@ async function executeScript(
   })();
 
   try {
-    const result = await Promise.race([
-      resultPromise,
-      timeoutPromise,
-      abortPromise,
-    ]);
+    const result = await Promise.race([resultPromise, timeoutPromise, abortPromise]);
     return result;
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
@@ -654,10 +615,7 @@ async function executeLoop(
   const getIterator = (): IterableIterator<unknown> | undefined => {
     switch (config.mode) {
       case "for_each": {
-        const collectionPath = substituteVariables(
-          config.collection ?? "",
-          context,
-        );
+        const collectionPath = substituteVariables(config.collection ?? "", context);
         const collection = getValueByPath(context, collectionPath);
         if (Array.isArray(collection)) {
           return collection[Symbol.iterator]();
@@ -703,12 +661,8 @@ async function executeLoop(
     isolated = false,
   ): Promise<unknown> => {
     // Set loop variables - for parallel execution, use unique keys per iteration
-    const itemKey = isolated
-      ? `${config.itemVariable}_${index}`
-      : config.itemVariable;
-    const indexKey = isolated
-      ? `${config.indexVariable}_${index}`
-      : config.indexVariable;
+    const itemKey = isolated ? `${config.itemVariable}_${index}` : config.itemVariable;
+    const indexKey = isolated ? `${config.indexVariable}_${index}` : config.indexVariable;
 
     setContextKey(context, itemKey, item);
     setContextKey(context, indexKey, index);
@@ -800,10 +754,7 @@ async function executeWait(
   const log = getLogger();
   const startTime = Date.now();
 
-  log.info(
-    { mode: config.mode, timeout: config.timeout },
-    "[PIPELINE] Starting wait step",
-  );
+  log.info({ mode: config.mode, timeout: config.timeout }, "[PIPELINE] Starting wait step");
 
   switch (config.mode) {
     case "duration": {
@@ -813,11 +764,7 @@ async function executeWait(
       await Promise.race([
         sleep(actualWait),
         new Promise<never>((_, reject) => {
-          signal?.addEventListener(
-            "abort",
-            () => reject(new Error("Cancelled")),
-            { once: true },
-          );
+          signal?.addEventListener("abort", () => reject(new Error("Cancelled")), { once: true });
         }),
       ]).catch((err) => {
         if (err.message !== "Cancelled") throw err;
@@ -840,11 +787,7 @@ async function executeWait(
       await Promise.race([
         sleep(waitTime),
         new Promise<never>((_, reject) => {
-          signal?.addEventListener(
-            "abort",
-            () => reject(new Error("Cancelled")),
-            { once: true },
-          );
+          signal?.addEventListener("abort", () => reject(new Error("Cancelled")), { once: true });
         }),
       ]).catch((err) => {
         if (err.message !== "Cancelled") throw err;
@@ -859,18 +802,12 @@ async function executeWait(
     case "webhook": {
       // For webhook mode, we'd normally wait for an external callback
       // This is a placeholder - in production, you'd register a callback handler
-      log.warn(
-        "[PIPELINE] Webhook wait mode not fully implemented - timing out",
-      );
+      log.warn("[PIPELINE] Webhook wait mode not fully implemented - timing out");
 
       await Promise.race([
         sleep(config.timeout),
         new Promise<never>((_, reject) => {
-          signal?.addEventListener(
-            "abort",
-            () => reject(new Error("Cancelled")),
-            { once: true },
-          );
+          signal?.addEventListener("abort", () => reject(new Error("Cancelled")), { once: true });
         }),
       ]).catch((err) => {
         if (err.message !== "Cancelled") throw err;
@@ -933,11 +870,7 @@ type SafeExprToken =
   | { type: "punctuation"; value: string; pos: number }
   | { type: "eof"; pos: number };
 
-function formatSafeExpressionError(
-  message: string,
-  expression: string,
-  pos: number,
-): string {
+function formatSafeExpressionError(message: string, expression: string, pos: number): string {
   const prefix = expression.slice(0, pos);
   const line = expression;
   const caret = `${" ".repeat(prefix.length)}^`;
@@ -950,9 +883,7 @@ function tokenizeSafeExpression(expression: string): SafeExprToken[] {
     throw new Error("Expression is empty");
   }
   if (trimmed.length > MAX_SAFE_TRANSFORM_EXPRESSION_LENGTH) {
-    throw new Error(
-      `Expression too long (max ${MAX_SAFE_TRANSFORM_EXPRESSION_LENGTH} chars)`,
-    );
+    throw new Error(`Expression too long (max ${MAX_SAFE_TRANSFORM_EXPRESSION_LENGTH} chars)`);
   }
 
   const tokens: SafeExprToken[] = [];
@@ -990,9 +921,7 @@ function tokenizeSafeExpression(expression: string): SafeExprToken[] {
         if (c === "\\") {
           const next = consume();
           if (next === undefined) {
-            throw new Error(
-              formatSafeExpressionError("Unterminated string", trimmed, start),
-            );
+            throw new Error(formatSafeExpressionError("Unterminated string", trimmed, start));
           }
           switch (next) {
             case "n":
@@ -1023,9 +952,7 @@ function tokenizeSafeExpression(expression: string): SafeExprToken[] {
       }
 
       if (tokens.length === 0 || tokens[tokens.length - 1]?.pos !== start) {
-        throw new Error(
-          formatSafeExpressionError("Unterminated string", trimmed, start),
-        );
+        throw new Error(formatSafeExpressionError("Unterminated string", trimmed, start));
       }
       continue;
     }
@@ -1051,9 +978,7 @@ function tokenizeSafeExpression(expression: string): SafeExprToken[] {
 
       const parsed = Number(numStr);
       if (!Number.isFinite(parsed)) {
-        throw new Error(
-          formatSafeExpressionError("Invalid number literal", trimmed, start),
-        );
+        throw new Error(formatSafeExpressionError("Invalid number literal", trimmed, start));
       }
       tokens.push({ type: "number", value: parsed, pos: start });
       continue;
@@ -1078,20 +1003,12 @@ function tokenizeSafeExpression(expression: string): SafeExprToken[] {
     const rest = trimmed.slice(index);
     if (rest.startsWith("==") && !rest.startsWith("===")) {
       throw new Error(
-        formatSafeExpressionError(
-          'Use strict equality (===) instead of "=="',
-          trimmed,
-          start,
-        ),
+        formatSafeExpressionError('Use strict equality (===) instead of "=="', trimmed, start),
       );
     }
     if (rest.startsWith("!=") && !rest.startsWith("!==")) {
       throw new Error(
-        formatSafeExpressionError(
-          'Use strict inequality (!==) instead of "!="',
-          trimmed,
-          start,
-        ),
+        formatSafeExpressionError('Use strict inequality (!==) instead of "!="', trimmed, start),
       );
     }
     const multi = rest.startsWith("!==")
@@ -1141,20 +1058,12 @@ function tokenizeSafeExpression(expression: string): SafeExprToken[] {
         tokens.push({ type: "punctuation", value: ch, pos: start });
         continue;
       default:
-        throw new Error(
-          formatSafeExpressionError(
-            `Unexpected character "${ch}"`,
-            trimmed,
-            start,
-          ),
-        );
+        throw new Error(formatSafeExpressionError(`Unexpected character "${ch}"`, trimmed, start));
     }
   }
 
   if (tokens.length > MAX_SAFE_TRANSFORM_EXPRESSION_TOKENS) {
-    throw new Error(
-      `Expression too complex (max ${MAX_SAFE_TRANSFORM_EXPRESSION_TOKENS} tokens)`,
-    );
+    throw new Error(`Expression too complex (max ${MAX_SAFE_TRANSFORM_EXPRESSION_TOKENS} tokens)`);
   }
 
   tokens.push({ type: "eof", pos: trimmed.length });
@@ -1438,10 +1347,7 @@ class SafeExpressionParser {
   }
 }
 
-function validateIdentifiersInAst(
-  node: SafeExprNode,
-  allowed: ReadonlySet<string>,
-): void {
+function validateIdentifiersInAst(node: SafeExprNode, allowed: ReadonlySet<string>): void {
   switch (node.type) {
     case "literal":
       return;
@@ -1482,9 +1388,7 @@ function compileSafeTransformExpression(
   const ast = parser.parseExpression();
   if (!parser.isAtEnd()) {
     const tok = parser.currentToken();
-    throw new Error(
-      formatSafeExpressionError("Unexpected token", expression, tok.pos),
-    );
+    throw new Error(formatSafeExpressionError("Unexpected token", expression, tok.pos));
   }
   validateIdentifiersInAst(ast, new Set(allowedIdentifiers));
   return ast;
@@ -1521,8 +1425,7 @@ function evaluateSafeExpression(
     case "member": {
       const obj = evaluateSafeExpression(node.object, env, depth + 1);
       if (obj === null || obj === undefined) return undefined;
-      if (typeof obj !== "object" && typeof obj !== "function")
-        return undefined;
+      if (typeof obj !== "object" && typeof obj !== "function") return undefined;
       if (UNSAFE_CONTEXT_KEYS.has(node.property)) {
         throw new Error(`Property access is not allowed: ${node.property}`);
       }
@@ -1621,10 +1524,7 @@ async function executeTransform(
   const log = getLogger();
   let transformedCount = 0;
 
-  log.info(
-    { operationsCount: config.operations.length },
-    "[PIPELINE] Starting transform step",
-  );
+  log.info({ operationsCount: config.operations.length }, "[PIPELINE] Starting transform step");
 
   for (const operation of config.operations) {
     switch (operation.op) {
@@ -1643,10 +1543,7 @@ async function executeTransform(
       case "merge": {
         const sourceValue = getValueByPath(context, operation.source);
         const targetValue = getValueByPath(context, operation.target);
-        if (
-          typeof sourceValue === "object" &&
-          typeof targetValue === "object"
-        ) {
+        if (typeof sourceValue === "object" && typeof targetValue === "object") {
           setValueByPath(context, operation.target, {
             ...(targetValue as object),
             ...(sourceValue as object),
@@ -1680,9 +1577,7 @@ async function executeTransform(
             TRANSFORM_MAP_ALLOWED_IDENTIFIERS,
           );
           const filtered = filterSource.filter((item, index) =>
-            Boolean(
-              evaluateSafeExpression(ast, { $item: item, $index: index }),
-            ),
+            Boolean(evaluateSafeExpression(ast, { $item: item, $index: index })),
           );
           setValueByPath(context, operation.target, filtered);
           transformedCount++;
@@ -1756,10 +1651,7 @@ async function executeWebhook(
     );
   }
 
-  log.info(
-    { method: config.method, url: maskedUrl },
-    "[PIPELINE] Starting webhook step",
-  );
+  log.info({ method: config.method, url: maskedUrl }, "[PIPELINE] Starting webhook step");
 
   // Build headers
   const headers: Record<string, string> = {};
@@ -1773,14 +1665,8 @@ async function executeWebhook(
   if (config.auth) {
     switch (config.auth.type) {
       case "basic": {
-        const username = substituteVariables(
-          config.auth.username ?? "",
-          context,
-        );
-        const password = substituteVariables(
-          config.auth.password ?? "",
-          context,
-        );
+        const username = substituteVariables(config.auth.username ?? "", context);
+        const password = substituteVariables(config.auth.password ?? "", context);
         headers["Authorization"] = `Basic ${btoa(`${username}:${password}`)}`;
         break;
       }
@@ -1856,9 +1742,7 @@ async function executeWebhook(
     };
 
     if (config.extractFields) {
-      for (const [targetKey, jsonPath] of Object.entries(
-        config.extractFields,
-      )) {
+      for (const [targetKey, jsonPath] of Object.entries(config.extractFields)) {
         result[targetKey] = getValueByPath(
           { data: responseData } as Record<string, unknown>,
           jsonPath.replace(/^\$\.?data\.?/, "data."),
@@ -2021,11 +1905,7 @@ function assertSafePipelineContextPath(path: string, purpose: string): void {
   }
 }
 
-function setContextKey(
-  context: Record<string, unknown>,
-  key: string,
-  value: unknown,
-): void {
+function setContextKey(context: Record<string, unknown>, key: string, value: unknown): void {
   assertSafePipelineContextKey(key, "context key");
   context[key] = value;
 }
@@ -2055,11 +1935,7 @@ function getValueByPath(obj: Record<string, unknown>, path: string): unknown {
 /**
  * Set a value in context by dot-notation path.
  */
-function setValueByPath(
-  obj: Record<string, unknown>,
-  path: string,
-  value: unknown,
-): void {
+function setValueByPath(obj: Record<string, unknown>, path: string, value: unknown): void {
   assertSafePipelineContextPath(path, "path");
   const parts = path.split(".");
   let current: Record<string, unknown> = obj;
@@ -2068,11 +1944,7 @@ function setValueByPath(
     const part = parts[i];
     if (!part) continue;
     // Note: typeof null === "object" in JS, so we need an explicit null check
-    if (
-      !(part in current) ||
-      current[part] === null ||
-      typeof current[part] !== "object"
-    ) {
+    if (!(part in current) || current[part] === null || typeof current[part] !== "object") {
       current[part] = {};
     }
     current = current[part] as Record<string, unknown>;
@@ -2096,11 +1968,7 @@ function deleteValueByPath(obj: Record<string, unknown>, path: string): void {
     const part = parts[i];
     if (!part) continue;
     // Note: typeof null === "object" in JS, so we need an explicit null check
-    if (
-      !(part in current) ||
-      current[part] === null ||
-      typeof current[part] !== "object"
-    ) {
+    if (!(part in current) || current[part] === null || typeof current[part] !== "object") {
       return; // Path doesn't exist or is not traversable
     }
     current = current[part] as Record<string, unknown>;
@@ -2157,16 +2025,13 @@ async function executeStep(
   }
 
   // Get retry policy
-  const retryPolicy =
-    step.retryPolicy ?? pipeline.retryPolicy ?? DEFAULT_RETRY_POLICY;
+  const retryPolicy = step.retryPolicy ?? pipeline.retryPolicy ?? DEFAULT_RETRY_POLICY;
 
   // Determine if error is retryable
   const isRetryable = (error: unknown): boolean => {
     if (retryPolicy.retryableErrors?.length) {
       const errorCode =
-        error instanceof Error
-          ? (error as Error & { code?: string }).code
-          : undefined;
+        error instanceof Error ? (error as Error & { code?: string }).code : undefined;
       return retryPolicy.retryableErrors.includes(errorCode ?? "UNKNOWN");
     }
     // Default: retry on transient errors
@@ -2189,11 +2054,7 @@ async function executeStep(
               type: "conditional";
               config: ConditionalConfig;
             };
-            return executeConditional(
-              config.config,
-              run.context,
-              executeStepsById,
-            );
+            return executeConditional(config.config, run.context, executeStepsById);
           }
           case "parallel": {
             const config = step.config as {
@@ -2214,26 +2075,15 @@ async function executeStep(
               type: "script";
               config: ScriptConfig;
             };
-            const result = await executeScript(
-              config.config,
-              run.context,
-              signal,
-            );
+            const result = await executeScript(config.config, run.context, signal);
             if (result.exitCode !== 0) {
-              throw new Error(
-                `Script failed with exit code ${result.exitCode}: ${result.stderr}`,
-              );
+              throw new Error(`Script failed with exit code ${result.exitCode}: ${result.stderr}`);
             }
             return result;
           }
           case "loop": {
             const config = step.config as { type: "loop"; config: LoopConfig };
-            return executeLoop(
-              config.config,
-              run.context,
-              executeStepsById,
-              signal,
-            );
+            return executeLoop(config.config, run.context, executeStepsById, signal);
           }
           case "wait": {
             const config = step.config as { type: "wait"; config: WaitConfig };
@@ -2294,21 +2144,16 @@ async function executeStep(
 
     // Extract retry count and original error from RetryError
     const actualRetryCount = error instanceof RetryError ? error.retryCount : 0;
-    const originalError =
-      error instanceof RetryError ? error.originalCause : error;
+    const originalError = error instanceof RetryError ? error.originalCause : error;
 
     return {
       success: false,
       error: {
         code:
           originalError instanceof Error
-            ? ((originalError as Error & { code?: string }).code ??
-              "STEP_FAILED")
+            ? ((originalError as Error & { code?: string }).code ?? "STEP_FAILED")
             : "STEP_FAILED",
-        message:
-          originalError instanceof Error
-            ? originalError.message
-            : String(originalError),
+        message: originalError instanceof Error ? originalError.message : String(originalError),
       },
       durationMs: Date.now() - startTime,
       retryCount: actualRetryCount,
@@ -2326,10 +2171,7 @@ async function executePipeline(
 ): Promise<void> {
   const log = getLogger();
 
-  log.info(
-    { pipelineId: pipeline.id, runId: run.id },
-    "[PIPELINE] Starting pipeline execution",
-  );
+  log.info({ pipelineId: pipeline.id, runId: run.id }, "[PIPELINE] Starting pipeline execution");
 
   // Build step lookup from the run's copy of steps
   const stepMap = new Map(run.steps.map((s) => [s.id, s]));
@@ -2355,13 +2197,9 @@ async function executePipeline(
 
       // Check dependencies
       if (step.dependsOn?.length) {
-        const unmetDeps = step.dependsOn.filter(
-          (depId) => !run.executedStepIds.includes(depId),
-        );
+        const unmetDeps = step.dependsOn.filter((depId) => !run.executedStepIds.includes(depId));
         if (unmetDeps.length > 0) {
-          throw new Error(
-            `Step ${stepId} has unmet dependencies: ${unmetDeps.join(", ")}`,
-          );
+          throw new Error(`Step ${stepId} has unmet dependencies: ${unmetDeps.join(", ")}`);
         }
       }
 
@@ -2370,13 +2208,7 @@ async function executePipeline(
       step.startedAt = new Date();
 
       // Execute the step
-      const result = await executeStep(
-        step,
-        run,
-        pipeline,
-        executeStepsById,
-        signal,
-      );
+      const result = await executeStep(step, run, pipeline, executeStepsById, signal);
 
       // Update step with result
       step.status = result.success ? "completed" : "failed";
@@ -2414,8 +2246,7 @@ async function executePipeline(
     pipeline.stats.totalRuns++;
     pipeline.stats.successfulRuns++;
     pipeline.stats.averageDurationMs =
-      (pipeline.stats.averageDurationMs * (pipeline.stats.totalRuns - 1) +
-        run.durationMs) /
+      (pipeline.stats.averageDurationMs * (pipeline.stats.totalRuns - 1) + run.durationMs) /
       pipeline.stats.totalRuns;
     pipeline.lastRunAt = new Date();
 
@@ -2439,15 +2270,9 @@ async function executePipeline(
       pipeline.stats.failedRuns++;
       pipeline.lastRunAt = new Date();
 
-      log.error(
-        { error, pipelineId: pipeline.id, runId: run.id },
-        "[PIPELINE] Pipeline failed",
-      );
+      log.error({ error, pipelineId: pipeline.id, runId: run.id }, "[PIPELINE] Pipeline failed");
     } else {
-      log.info(
-        { pipelineId: pipeline.id, runId: run.id },
-        "[PIPELINE] Pipeline paused",
-      );
+      log.info({ pipelineId: pipeline.id, runId: run.id }, "[PIPELINE] Pipeline paused");
     }
 
     throw error;
@@ -2524,10 +2349,7 @@ export function getPipeline(id: string): Pipeline | undefined {
 /**
  * Update a pipeline.
  */
-export function updatePipeline(
-  id: string,
-  input: UpdatePipelineInput,
-): Pipeline | undefined {
+export function updatePipeline(id: string, input: UpdatePipelineInput): Pipeline | undefined {
   const pipeline = pipelines.get(id);
   if (!pipeline) {
     return undefined;
@@ -2537,19 +2359,15 @@ export function updatePipeline(
   if (input.name !== undefined) pipeline.name = input.name;
   if (input.description !== undefined) pipeline.description = input.description;
   if (input.enabled !== undefined) pipeline.enabled = input.enabled;
-  if (input.contextDefaults !== undefined)
-    pipeline.contextDefaults = input.contextDefaults;
+  if (input.contextDefaults !== undefined) pipeline.contextDefaults = input.contextDefaults;
   if (input.retryPolicy !== undefined) pipeline.retryPolicy = input.retryPolicy;
   if (input.tags !== undefined) pipeline.tags = input.tags;
 
   // Update trigger
   if (input.trigger) {
-    if (input.trigger.type !== undefined)
-      pipeline.trigger.type = input.trigger.type;
-    if (input.trigger.config !== undefined)
-      pipeline.trigger.config = input.trigger.config;
-    if (input.trigger.enabled !== undefined)
-      pipeline.trigger.enabled = input.trigger.enabled;
+    if (input.trigger.type !== undefined) pipeline.trigger.type = input.trigger.type;
+    if (input.trigger.config !== undefined) pipeline.trigger.config = input.trigger.config;
+    if (input.trigger.enabled !== undefined) pipeline.trigger.enabled = input.trigger.enabled;
   }
 
   // Update steps (replace all)
@@ -2611,17 +2429,13 @@ export function listPipelines(filter: PipelineFilter = {}): {
   }
 
   if (filter.tags?.length) {
-    result = result.filter((p) =>
-      filter.tags?.some((tag) => p.tags?.includes(tag)),
-    );
+    result = result.filter((p) => filter.tags?.some((tag) => p.tags?.includes(tag)));
   }
 
   if (filter.search) {
     const search = filter.search.toLowerCase();
     result = result.filter(
-      (p) =>
-        p.name.toLowerCase().includes(search) ||
-        p.description?.toLowerCase().includes(search),
+      (p) => p.name.toLowerCase().includes(search) || p.description?.toLowerCase().includes(search),
     );
   }
 
@@ -2642,9 +2456,7 @@ export function listPipelines(filter: PipelineFilter = {}): {
   const limit = filter.limit ?? 50;
   const paginatedResult = result.slice(startIndex, startIndex + limit);
   const hasMore = startIndex + limit < total;
-  const nextCursor = hasMore
-    ? paginatedResult[paginatedResult.length - 1]?.id
-    : undefined;
+  const nextCursor = hasMore ? paginatedResult[paginatedResult.length - 1]?.id : undefined;
 
   return {
     pipelines: paginatedResult,
@@ -2712,10 +2524,7 @@ export async function runPipeline(
   runs.set(runId, run);
   activeRunControllers.set(runId, abortController);
 
-  log.info(
-    { pipelineId: id, runId, triggeredBy: run.triggeredBy },
-    "[PIPELINE] Starting run",
-  );
+  log.info({ pipelineId: id, runId, triggeredBy: run.triggeredBy }, "[PIPELINE] Starting run");
 
   // Execute pipeline in background
   executePipeline(pipeline, run, abortController.signal).catch(() => {
@@ -2752,9 +2561,7 @@ export function pauseRun(runId: string): PipelineRun | undefined {
 /**
  * Resume a paused pipeline run.
  */
-export async function resumeRun(
-  runId: string,
-): Promise<PipelineRun | undefined> {
+export async function resumeRun(runId: string): Promise<PipelineRun | undefined> {
   const log = getLogger();
   const run = runs.get(runId);
 
@@ -2826,9 +2633,7 @@ export function listRuns(
   hasMore: boolean;
   nextCursor?: string;
 } {
-  let result = Array.from(runs.values()).filter(
-    (r) => r.pipelineId === pipelineId,
-  );
+  let result = Array.from(runs.values()).filter((r) => r.pipelineId === pipelineId);
 
   // Apply filters
   if (filter.status?.length) {
@@ -2860,9 +2665,7 @@ export function listRuns(
   const limit = filter.limit ?? 50;
   const paginatedResult = result.slice(startIndex, startIndex + limit);
   const hasMore = startIndex + limit < total;
-  const nextCursor = hasMore
-    ? paginatedResult[paginatedResult.length - 1]?.id
-    : undefined;
+  const nextCursor = hasMore ? paginatedResult[paginatedResult.length - 1]?.id : undefined;
 
   return {
     runs: paginatedResult,
@@ -2875,11 +2678,7 @@ export function listRuns(
 /**
  * Submit an approval decision.
  */
-export function submitApproval(
-  runId: string,
-  stepId: string,
-  decision: ApprovalRecord,
-): boolean {
+export function submitApproval(runId: string, stepId: string, decision: ApprovalRecord): boolean {
   const runApprovals = pendingApprovals.get(runId);
   if (!runApprovals) {
     return false;

@@ -5,9 +5,7 @@ import { redactSensitiveData } from "./audit-redaction.service";
 
 let auditDb = realDb;
 
-export function setAuditDbForTesting(
-  dbOverride: typeof realDb | undefined,
-): void {
+export function setAuditDbForTesting(dbOverride: typeof realDb | undefined): void {
   auditDb = dbOverride ?? realDb;
 }
 
@@ -113,8 +111,7 @@ export function audit(options: AuditEventOptions): AuditEvent {
   };
 
   // Conditionally add optional fields
-  if (options.workspaceId !== undefined)
-    event.workspaceId = options.workspaceId;
+  if (options.workspaceId !== undefined) event.workspaceId = options.workspaceId;
   if (options.userId !== undefined) event.userId = options.userId;
   if (options.apiKeyId !== undefined) event.apiKeyId = options.apiKeyId;
   if (options.metadata !== undefined) event.metadata = options.metadata;
@@ -160,17 +157,13 @@ export function audit(options: AuditEventOptions): AuditEvent {
 /**
  * Helper to create a success audit event.
  */
-export function auditSuccess(
-  options: Omit<AuditEventOptions, "outcome">,
-): AuditEvent {
+export function auditSuccess(options: Omit<AuditEventOptions, "outcome">): AuditEvent {
   return audit({ ...options, outcome: "success" });
 }
 
 /**
  * Helper to create a failure audit event.
  */
-export function auditFailure(
-  options: Omit<AuditEventOptions, "outcome">,
-): AuditEvent {
+export function auditFailure(options: Omit<AuditEventOptions, "outcome">): AuditEvent {
   return audit({ ...options, outcome: "failure" });
 }

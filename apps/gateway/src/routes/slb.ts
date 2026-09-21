@@ -9,11 +9,7 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
-import {
-  getSlbService,
-  type SlbRequestStatus,
-  type SlbTier,
-} from "../services/slb.service";
+import { getSlbService, type SlbRequestStatus, type SlbTier } from "../services/slb.service";
 import {
   sendError,
   sendInternalError,
@@ -149,10 +145,7 @@ function handleError(error: unknown, c: Context) {
 
   if (error instanceof Error) {
     // Check for slb not installed error
-    if (
-      error.message.includes("not installed") ||
-      error.message.includes("ENOENT")
-    ) {
+    if (error.message.includes("not installed") || error.message.includes("ENOENT")) {
       return sendError(
         c,
         "SLB_NOT_INSTALLED",
@@ -183,10 +176,7 @@ function handleError(error: unknown, c: Context) {
 slb.get("/status", async (c) => {
   try {
     const service = getSlbService();
-    const [available, version] = await Promise.all([
-      service.isAvailable(),
-      service.getVersion(),
-    ]);
+    const [available, version] = await Promise.all([service.isAvailable(), service.getVersion()]);
 
     return sendResource(c, "slb_status", {
       available,
@@ -379,8 +369,7 @@ slb.post("/requests", async (c) => {
     if (validated.reason !== undefined) options.reason = validated.reason;
     if (validated.safety !== undefined) options.safety = validated.safety;
     if (validated.goal !== undefined) options.goal = validated.goal;
-    if (validated.expectedEffect !== undefined)
-      options.expectedEffect = validated.expectedEffect;
+    if (validated.expectedEffect !== undefined) options.expectedEffect = validated.expectedEffect;
     if (validated.project !== undefined) options.project = validated.project;
 
     const request = await service.createRequest(validated.command, options);
@@ -406,10 +395,8 @@ slb.get("/requests/pending", async (c) => {
       allProjects?: boolean;
     } = {};
     if (validated.project !== undefined) options.project = validated.project;
-    if (validated.reviewPool !== undefined)
-      options.reviewPool = validated.reviewPool;
-    if (validated.allProjects !== undefined)
-      options.allProjects = validated.allProjects;
+    if (validated.reviewPool !== undefined) options.reviewPool = validated.reviewPool;
+    if (validated.allProjects !== undefined) options.allProjects = validated.allProjects;
 
     const requests = await service.listPendingRequests(options);
 
@@ -509,17 +496,12 @@ slb.post("/requests/:id/approve", async (c) => {
     };
 
     if (validated.comments !== undefined) options.comments = validated.comments;
-    if (validated.reasonResponse !== undefined)
-      options.reasonResponse = validated.reasonResponse;
-    if (validated.safetyResponse !== undefined)
-      options.safetyResponse = validated.safetyResponse;
-    if (validated.goalResponse !== undefined)
-      options.goalResponse = validated.goalResponse;
-    if (validated.effectResponse !== undefined)
-      options.effectResponse = validated.effectResponse;
+    if (validated.reasonResponse !== undefined) options.reasonResponse = validated.reasonResponse;
+    if (validated.safetyResponse !== undefined) options.safetyResponse = validated.safetyResponse;
+    if (validated.goalResponse !== undefined) options.goalResponse = validated.goalResponse;
+    if (validated.effectResponse !== undefined) options.effectResponse = validated.effectResponse;
     if (validated.project !== undefined) options.project = validated.project;
-    if (validated.targetProject !== undefined)
-      options.targetProject = validated.targetProject;
+    if (validated.targetProject !== undefined) options.targetProject = validated.targetProject;
 
     const request = await service.approveRequest(requestId, options);
 

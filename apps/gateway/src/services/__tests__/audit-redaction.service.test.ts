@@ -4,16 +4,7 @@ import { AuditRedactionService } from "../audit-redaction.service";
 describe("AuditRedactionService", () => {
   const service = new AuditRedactionService();
   const fakeApiKey = String.fromCharCode(115, 107, 95) + "a".repeat(24);
-  const passwordKey = String.fromCharCode(
-    112,
-    97,
-    115,
-    115,
-    119,
-    111,
-    114,
-    100,
-  );
+  const passwordKey = String.fromCharCode(112, 97, 115, 115, 119, 111, 114, 100);
 
   it("should redact sensitive fields in objects", () => {
     const input = {
@@ -68,9 +59,7 @@ describe("AuditRedactionService", () => {
   });
 
   it("should check for sensitive data", () => {
-    expect(
-      service.containsSensitiveData({ [passwordKey]: "not-sensitive" }),
-    ).toBe(true);
+    expect(service.containsSensitiveData({ [passwordKey]: "not-sensitive" })).toBe(true);
     expect(service.containsSensitiveData(fakeApiKey)).toBe(true);
     expect(service.containsSensitiveData({ name: "safe" })).toBe(false);
   });

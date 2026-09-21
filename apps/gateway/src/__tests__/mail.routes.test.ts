@@ -90,9 +90,7 @@ describe("mail routes", () => {
 
   test("GET /mail/messages/inbox returns inbox", async () => {
     const { app } = createTestApp();
-    const res = await app.request(
-      "/mail/messages/inbox?projectId=proj-1&agentId=agent-1",
-    );
+    const res = await app.request("/mail/messages/inbox?projectId=proj-1&agentId=agent-1");
 
     expect(res.status).toBe(200);
     const data = await res.json();
@@ -261,9 +259,7 @@ describe("mail routes - conflict engine integration", () => {
     const data = await res2.json();
     expect(data.error.code).toBe("RESERVATION_CONFLICT");
     expect(data.error.details.conflicts).toHaveLength(1);
-    expect(
-      data.error.details.conflicts[0].existingReservation.requesterId,
-    ).toBe("agent-1");
+    expect(data.error.details.conflicts[0].existingReservation.requesterId).toBe("agent-1");
   });
 
   test("POST /mail/reservations returns one conflict per existing reservation", async () => {
@@ -533,10 +529,9 @@ describe("mail routes - conflict engine integration", () => {
     expect(conflictEngine.getActiveReservations("proj-1")).toHaveLength(1);
 
     // Delete it
-    const deleteRes = await app.request(
-      `/mail/reservations/${reservationId}?projectId=proj-1`,
-      { method: "DELETE" },
-    );
+    const deleteRes = await app.request(`/mail/reservations/${reservationId}?projectId=proj-1`, {
+      method: "DELETE",
+    });
     expect(deleteRes.status).toBe(200);
 
     const deleteData = await deleteRes.json();
@@ -549,10 +544,9 @@ describe("mail routes - conflict engine integration", () => {
 
   test("DELETE /mail/reservations/:id returns 404 for unknown id", async () => {
     const { app } = createTestAppWithConflictEngine();
-    const res = await app.request(
-      "/mail/reservations/unknown-id?projectId=proj-1",
-      { method: "DELETE" },
-    );
+    const res = await app.request("/mail/reservations/unknown-id?projectId=proj-1", {
+      method: "DELETE",
+    });
     expect(res.status).toBe(404);
   });
 

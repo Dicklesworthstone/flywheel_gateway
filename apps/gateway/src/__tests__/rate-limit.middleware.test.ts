@@ -317,10 +317,7 @@ describe("Rate Limit Middleware", () => {
     test("byWorkspace extracts from context", async () => {
       const app = new Hono<TestEnv>();
       app.use("*", (c, next) => {
-        (c.set as (key: string, value: unknown) => void)(
-          "workspaceId",
-          "ws_456",
-        );
+        (c.set as (key: string, value: unknown) => void)("workspaceId", "ws_456");
         return next();
       });
       app.get("/test", (c) => c.text(byWorkspace(c as unknown as Context)));
@@ -335,9 +332,7 @@ describe("Rate Limit Middleware", () => {
         (c.set as (key: string, value: unknown) => void)("userId", "user_abc");
         return next();
       });
-      app.get("/test", (c) =>
-        c.text(compositeKey(byUser, byIP)(c as unknown as Context)),
-      );
+      app.get("/test", (c) => c.text(compositeKey(byUser, byIP)(c as unknown as Context)));
 
       const res = await app.request("/test", {
         headers: { "X-Real-IP": "10.0.0.5" },

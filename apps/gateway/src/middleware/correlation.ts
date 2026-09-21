@@ -120,11 +120,7 @@ export function correlationMiddleware() {
 
     const tracer = trace.getTracer("flywheel-gateway");
     const parentContext = shouldTrustIncomingTraceContext()
-      ? propagation.extract(
-          otelContext.active(),
-          c.req.raw.headers,
-          headersGetter,
-        )
+      ? propagation.extract(otelContext.active(), c.req.raw.headers, headersGetter)
       : otelContext.active();
 
     const span = tracer.startSpan(
@@ -162,9 +158,7 @@ export function correlationMiddleware() {
           if (caughtError) {
             span.setStatus({ code: SpanStatusCode.ERROR });
             const error =
-              caughtError instanceof Error
-                ? caughtError
-                : new Error(String(caughtError));
+              caughtError instanceof Error ? caughtError : new Error(String(caughtError));
             span.recordException(error);
           } else if (status >= 500) {
             span.setStatus({ code: SpanStatusCode.ERROR });

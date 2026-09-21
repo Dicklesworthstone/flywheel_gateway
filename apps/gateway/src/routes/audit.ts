@@ -96,12 +96,8 @@ function cleanupExpiredExportJobs(): number {
   // If we're still over the limit, remove oldest jobs
   if (exportJobs.size > MAX_EXPORT_JOBS) {
     const sortedJobs = Array.from(exportJobs.entries()).sort((a, b) => {
-      const timeA = a[1].createdAt
-        ? new Date(a[1].createdAt).getTime()
-        : Date.now();
-      const timeB = b[1].createdAt
-        ? new Date(b[1].createdAt).getTime()
-        : Date.now();
+      const timeA = a[1].createdAt ? new Date(a[1].createdAt).getTime() : Date.now();
+      const timeB = b[1].createdAt ? new Date(b[1].createdAt).getTime() : Date.now();
       return timeA - timeB;
     });
 
@@ -119,10 +115,7 @@ function cleanupExpiredExportJobs(): number {
 }
 
 // Start periodic cleanup (with unref to not block process exit)
-const cleanupInterval = setInterval(
-  cleanupExpiredExportJobs,
-  CLEANUP_INTERVAL_MS,
-);
+const cleanupInterval = setInterval(cleanupExpiredExportJobs, CLEANUP_INTERVAL_MS);
 cleanupInterval.unref();
 
 /**
@@ -296,10 +289,7 @@ app.post("/retention-policies", async (c) => {
     } as RetentionPolicy;
 
     retentionPolicies.set(id, policy);
-    log.info(
-      { policyId: id, name: validBody.name },
-      "Retention policy created",
-    );
+    log.info({ policyId: id, name: validBody.name }, "Retention policy created");
 
     return c.json(policy, 201);
   } catch (error) {
@@ -390,12 +380,7 @@ app.delete("/retention-policies/:id", async (c) => {
   }
 
   if (policy.name === "Default Policy") {
-    return sendError(
-      c,
-      "CANNOT_DELETE_DEFAULT",
-      "Cannot delete the default retention policy",
-      400,
-    );
+    return sendError(c, "CANNOT_DELETE_DEFAULT", "Cannot delete the default retention policy", 400);
   }
 
   retentionPolicies.delete(id);
@@ -475,10 +460,7 @@ app.post("/export", async (c) => {
           exportJobs.set(jobId, job);
         }
 
-        log.info(
-          { jobId, recordCount: redactedEvents.length },
-          "Audit export completed",
-        );
+        log.info({ jobId, recordCount: redactedEvents.length }, "Audit export completed");
       } catch (error) {
         log.error({ error, jobId }, "Audit export failed");
         const job = exportJobs.get(jobId);
@@ -547,12 +529,7 @@ app.get("/export/:jobId/download", async (c) => {
   }
 
   if (job.status !== "completed") {
-    return sendError(
-      c,
-      "EXPORT_NOT_READY",
-      `Export job status: ${job.status}`,
-      400,
-    );
+    return sendError(c, "EXPORT_NOT_READY", `Export job status: ${job.status}`, 400);
   }
 
   try {
@@ -608,34 +585,29 @@ app.get("/analytics/summary", async (c) => {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const [totalResult, byActionResult, byOutcomeResult, byResourceTypeResult] =
-      await Promise.all([
-        db.select({ count: count() }).from(auditLogs).where(whereClause),
-        db
-          .select({ action: auditLogs.action, count: count() })
-          .from(auditLogs)
-          .where(whereClause)
-          .groupBy(auditLogs.action),
-        db
-          .select({ outcome: auditLogs.outcome, count: count() })
-          .from(auditLogs)
-          .where(whereClause)
-          .groupBy(auditLogs.outcome),
-        db
-          .select({ resourceType: auditLogs.resourceType, count: count() })
-          .from(auditLogs)
-          .where(whereClause)
-          .groupBy(auditLogs.resourceType),
-      ]);
+    const [totalResult, byActionResult, byOutcomeResult, byResourceTypeResult] = await Promise.all([
+      db.select({ count: count() }).from(auditLogs).where(whereClause),
+      db
+        .select({ action: auditLogs.action, count: count() })
+        .from(auditLogs)
+        .where(whereClause)
+        .groupBy(auditLogs.action),
+      db
+        .select({ outcome: auditLogs.outcome, count: count() })
+        .from(auditLogs)
+        .where(whereClause)
+        .groupBy(auditLogs.outcome),
+      db
+        .select({ resourceType: auditLogs.resourceType, count: count() })
+        .from(auditLogs)
+        .where(whereClause)
+        .groupBy(auditLogs.resourceType),
+    ]);
 
     return c.json({
       total: totalResult[0]?.count ?? 0,
-      byAction: Object.fromEntries(
-        byActionResult.map((r) => [r.action, r.count]),
-      ),
-      byOutcome: Object.fromEntries(
-        byOutcomeResult.map((r) => [r.outcome, r.count]),
-      ),
+      byAction: Object.fromEntries(byActionResult.map((r) => [r.action, r.count])),
+      byOutcome: Object.fromEntries(byOutcomeResult.map((r) => [r.outcome, r.count])),
       byResourceType: Object.fromEntries(
         byResourceTypeResult.map((r) => [r.resourceType, r.count]),
       ),
@@ -678,18 +650,13 @@ app.get("/", async (c) => {
     const query = parseResult.data;
     const conditions: ReturnType<typeof eq>[] = [];
 
-    if (query.startDate)
-      conditions.push(gte(auditLogs.createdAt, new Date(query.startDate)));
-    if (query.endDate)
-      conditions.push(lte(auditLogs.createdAt, new Date(query.endDate)));
-    if (query.correlationId)
-      conditions.push(eq(auditLogs.correlationId, query.correlationId));
+    if (query.startDate) conditions.push(gte(auditLogs.createdAt, new Date(query.startDate)));
+    if (query.endDate) conditions.push(lte(auditLogs.createdAt, new Date(query.endDate)));
+    if (query.correlationId) conditions.push(eq(auditLogs.correlationId, query.correlationId));
     if (query.actorId) conditions.push(eq(auditLogs.accountId, query.actorId));
     if (query.action) conditions.push(eq(auditLogs.action, query.action));
-    if (query.resourceType)
-      conditions.push(eq(auditLogs.resourceType, query.resourceType));
-    if (query.resourceId)
-      conditions.push(eq(auditLogs.resource, query.resourceId));
+    if (query.resourceType) conditions.push(eq(auditLogs.resourceType, query.resourceType));
+    if (query.resourceId) conditions.push(eq(auditLogs.resource, query.resourceId));
     if (query.status) conditions.push(eq(auditLogs.outcome, query.status));
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -699,11 +666,7 @@ app.get("/", async (c) => {
         .select()
         .from(auditLogs)
         .where(whereClause)
-        .orderBy(
-          query.sort === "desc"
-            ? desc(auditLogs.createdAt)
-            : auditLogs.createdAt,
-        )
+        .orderBy(query.sort === "desc" ? desc(auditLogs.createdAt) : auditLogs.createdAt)
         .limit(query.limit)
         .offset(query.offset),
       db.select({ count: count() }).from(auditLogs).where(whereClause),
@@ -740,11 +703,7 @@ app.get("/:id", async (c) => {
   const id = c.req.param("id");
 
   try {
-    const [event] = await db
-      .select()
-      .from(auditLogs)
-      .where(eq(auditLogs.id, id))
-      .limit(1);
+    const [event] = await db.select().from(auditLogs).where(eq(auditLogs.id, id)).limit(1);
 
     if (!event) {
       return sendNotFound(c, "audit_event", id);

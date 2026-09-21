@@ -10,10 +10,7 @@
 import { type Context, Hono } from "hono";
 import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
-import {
-  DaemonNotFoundError,
-  getSupervisor,
-} from "../services/supervisor.service";
+import { DaemonNotFoundError, getSupervisor } from "../services/supervisor.service";
 import { daemonLinks, getLinkContext } from "../utils/links";
 import {
   sendEmptyList,

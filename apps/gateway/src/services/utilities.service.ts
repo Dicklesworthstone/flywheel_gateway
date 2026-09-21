@@ -142,10 +142,7 @@ const KNOWN_UTILITIES: Array<
 ];
 
 // Cache for utility status (invalidated after 5 minutes)
-const statusCache = new Map<
-  string,
-  { status: DeveloperUtility; checkedAt: Date }
->();
+const statusCache = new Map<string, { status: DeveloperUtility; checkedAt: Date }>();
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 /**
@@ -248,10 +245,7 @@ async function executeCommand(
  * Check if a utility is installed and get its version.
  */
 async function checkUtility(
-  utility: Omit<
-    DeveloperUtility,
-    "installed" | "installedVersion" | "lastCheckedAt"
-  >,
+  utility: Omit<DeveloperUtility, "installed" | "installedVersion" | "lastCheckedAt">,
 ): Promise<DeveloperUtility> {
   const cached = statusCache.get(utility.name);
   if (cached && Date.now() - cached.checkedAt.getTime() < CACHE_TTL_MS) {
@@ -293,8 +287,7 @@ async function checkUtility(
     installed,
     lastCheckedAt: now,
   };
-  if (installedVersion !== undefined)
-    status.installedVersion = installedVersion;
+  if (installedVersion !== undefined) status.installedVersion = installedVersion;
 
   statusCache.set(utility.name, { status, checkedAt: now });
 
@@ -324,9 +317,7 @@ export async function listUtilities(): Promise<UtilityStatus[]> {
 /**
  * Get status of a specific utility.
  */
-export async function getUtilityStatus(
-  name: string,
-): Promise<UtilityStatus | null> {
+export async function getUtilityStatus(name: string): Promise<UtilityStatus | null> {
   const utility = KNOWN_UTILITIES.find((u) => u.name === name);
   if (!utility) {
     return null;
@@ -341,10 +332,8 @@ export async function getUtilityStatus(
     installCommand: checked.installCommand,
     description: checked.description,
   };
-  if (checked.installedVersion !== undefined)
-    status.version = checked.installedVersion;
-  if (checked.lastCheckedAt)
-    status.lastCheckedAt = checked.lastCheckedAt.toISOString();
+  if (checked.installedVersion !== undefined) status.version = checked.installedVersion;
+  if (checked.lastCheckedAt) status.lastCheckedAt = checked.lastCheckedAt.toISOString();
 
   return status;
 }
@@ -362,10 +351,7 @@ export async function runDoctor(): Promise<DoctorResult> {
     if (!u.installed) {
       status = "missing";
       message = `Not installed. Run: ${u.installCommand}`;
-    } else if (
-      u.installedVersion &&
-      compareSemver(u.installedVersion, u.version) < 0
-    ) {
+    } else if (u.installedVersion && compareSemver(u.installedVersion, u.version) < 0) {
       status = "outdated";
       message = `Version ${u.installedVersion} installed, ${u.version} available`;
     } else {
@@ -476,10 +462,7 @@ export async function runGiil(request: GiilRequest): Promise<GiilResponse> {
   const result = await executeCommand("giil", args, { timeout: 60000 });
 
   if (result.exitCode !== 0) {
-    log.warn(
-      { exitCode: result.exitCode, stderr: result.stderr.slice(0, 200) },
-      "giil failed",
-    );
+    log.warn({ exitCode: result.exitCode, stderr: result.stderr.slice(0, 200) }, "giil failed");
     return {
       success: false,
       error: result.stderr || `giil exited with code ${result.exitCode}`,
@@ -493,15 +476,12 @@ export async function runGiil(request: GiilRequest): Promise<GiilResponse> {
       const jsonResponse: GiilResponse = { success: true };
       if (parsed.path) jsonResponse.path = parsed.path;
       if (typeof parsed.width === "number") jsonResponse.width = parsed.width;
-      if (typeof parsed.height === "number")
-        jsonResponse.height = parsed.height;
-      if (parsed.captureMethod)
-        jsonResponse.captureMethod = parsed.captureMethod;
+      if (typeof parsed.height === "number") jsonResponse.height = parsed.height;
+      if (parsed.captureMethod) jsonResponse.captureMethod = parsed.captureMethod;
       return jsonResponse;
     } catch {
       const fallbackResponse: GiilResponse = { success: true };
-      if (validation.resolvedPath)
-        fallbackResponse.path = validation.resolvedPath;
+      if (validation.resolvedPath) fallbackResponse.path = validation.resolvedPath;
       return fallbackResponse;
     }
   }
@@ -557,19 +537,13 @@ export async function runCsctf(request: CsctfRequest): Promise<CsctfResponse> {
 
   // Log sanitized request
   const urlHash = Buffer.from(request.url).toString("base64").slice(0, 8);
-  log.info(
-    { urlHash, outputDir: validation.resolvedPath, formats },
-    "Running csctf",
-  );
+  log.info({ urlHash, outputDir: validation.resolvedPath, formats }, "Running csctf");
 
   // Execute csctf
   const result = await executeCommand("csctf", args, { timeout: 120000 });
 
   if (result.exitCode !== 0) {
-    log.warn(
-      { exitCode: result.exitCode, stderr: result.stderr.slice(0, 200) },
-      "csctf failed",
-    );
+    log.warn({ exitCode: result.exitCode, stderr: result.stderr.slice(0, 200) }, "csctf failed");
     return {
       success: false,
       error: result.stderr || `csctf exited with code ${result.exitCode}`,

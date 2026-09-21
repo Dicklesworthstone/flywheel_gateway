@@ -96,9 +96,7 @@ describe("Robot-mode API doc parser", () => {
   });
 
   test("extracts agent endpoints", () => {
-    const agentEndpoints = endpoints.filter((e) =>
-      e.path.startsWith("/agents"),
-    );
+    const agentEndpoints = endpoints.filter((e) => e.path.startsWith("/agents"));
     expect(agentEndpoints.length).toBeGreaterThanOrEqual(4);
 
     const paths = agentEndpoints.map((e) => `${e.method} ${e.path}`);
@@ -190,10 +188,7 @@ describe("Route registration conformance", () => {
   });
 
   test("documented response type names follow conventions", () => {
-    const docPath2 = join(
-      import.meta.dir,
-      "../../../../docs/robot-mode-api.md",
-    );
+    const docPath2 = join(import.meta.dir, "../../../../docs/robot-mode-api.md");
     let md: string;
     try {
       md = readFileSync(docPath2, "utf-8");

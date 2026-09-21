@@ -1,7 +1,4 @@
-import {
-  AgentMailClientError,
-  type AgentMailToolCaller,
-} from "@flywheel/flywheel-clients";
+import { AgentMailClientError, type AgentMailToolCaller } from "@flywheel/flywheel-clients";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { createChildLogger } from "./logger";
@@ -35,19 +32,15 @@ function parseArgs(value: string): string[] {
 
 function getAgentMailConfigFromEnv(): McpAgentMailConfig | undefined {
   const enabled =
-    process.env["AGENT_MAIL_MCP_ENABLED"] === "true" ||
-    process.env["AGENT_MAIL_MCP_COMMAND"];
+    process.env["AGENT_MAIL_MCP_ENABLED"] === "true" || process.env["AGENT_MAIL_MCP_COMMAND"];
 
   if (!enabled) return undefined;
 
   const command = process.env["AGENT_MAIL_MCP_COMMAND"] ?? "mcp-agent-mail";
   const args = parseArgs(process.env["AGENT_MAIL_MCP_ARGS"] ?? "serve");
-  const clientName =
-    process.env["AGENT_MAIL_MCP_CLIENT_NAME"] ?? "flywheel-gateway";
+  const clientName = process.env["AGENT_MAIL_MCP_CLIENT_NAME"] ?? "flywheel-gateway";
 
-  const envVersion =
-    process.env["AGENT_MAIL_MCP_CLIENT_VERSION"] ??
-    process.env["GATEWAY_VERSION"];
+  const envVersion = process.env["AGENT_MAIL_MCP_CLIENT_VERSION"] ?? process.env["GATEWAY_VERSION"];
 
   if (!envVersion) {
     const log = createChildLogger({ component: "agentmail-mcp-config" });
@@ -74,9 +67,7 @@ function normalizeToolResult(result: unknown): unknown {
     return result;
   }
 
-  const first = content[0] as
-    | { type?: string; text?: string; json?: unknown }
-    | undefined;
+  const first = content[0] as { type?: string; text?: string; json?: unknown } | undefined;
   if (!first) return result;
 
   if (first.type === "json" && "json" in first) {
@@ -102,13 +93,9 @@ function normalizeToolResult(result: unknown): unknown {
   return result;
 }
 
-export function createMcpAgentMailToolCaller(
-  config: McpAgentMailConfig,
-): AgentMailToolCaller {
+export function createMcpAgentMailToolCaller(config: McpAgentMailConfig): AgentMailToolCaller {
   if (!config.command || config.command.trim() === "") {
-    throw new Error(
-      "Invalid Agent Mail configuration: command must be a non-empty string",
-    );
+    throw new Error("Invalid Agent Mail configuration: command must be a non-empty string");
   }
 
   const log = createChildLogger({
@@ -160,29 +147,22 @@ export function createMcpAgentMailToolCaller(
     const timeoutPromise =
       timeoutMs && timeoutMs > 0
         ? new Promise((_, reject) => {
-            timeoutId = setTimeout(
-              () => reject(new Error("Tool call timed out")),
-              timeoutMs,
-            );
+            timeoutId = setTimeout(() => reject(new Error("Tool call timed out")), timeoutMs);
           })
         : null;
 
     const abortPromise = options?.signal
       ? new Promise((_, reject) => {
-          options.signal?.addEventListener(
-            "abort",
-            () => reject(new Error("Tool call aborted")),
-            { once: true },
-          );
+          options.signal?.addEventListener("abort", () => reject(new Error("Tool call aborted")), {
+            once: true,
+          });
         })
       : null;
 
     let result: unknown;
     try {
       result = (await Promise.race(
-        [callPromise, timeoutPromise, abortPromise].filter(
-          Boolean,
-        ) as Promise<unknown>[],
+        [callPromise, timeoutPromise, abortPromise].filter(Boolean) as Promise<unknown>[],
       )) as unknown;
     } catch (error) {
       // Invalidate client on error to force reconnection next time
@@ -216,10 +196,7 @@ export function registerAgentMailToolCallerFromEnv(): boolean {
     return false;
   }
 
-  registerGlobalToolCaller(
-    "agentMailCallTool",
-    createMcpAgentMailToolCaller(config),
-  );
+  registerGlobalToolCaller("agentMailCallTool", createMcpAgentMailToolCaller(config));
 
   return true;
 }

@@ -148,16 +148,11 @@ function formatYamlLoadError(subject: string, error: unknown): string {
   const linePosRaw = (error as unknown as { linePos?: unknown }).linePos;
   const linePos = Array.isArray(linePosRaw) ? linePosRaw : undefined;
   const firstPos =
-    linePos &&
-    linePos.length > 0 &&
-    linePos[0] &&
-    typeof linePos[0] === "object"
+    linePos && linePos.length > 0 && linePos[0] && typeof linePos[0] === "object"
       ? (linePos[0] as { line?: unknown; col?: unknown })
       : undefined;
-  const line =
-    typeof firstPos?.line === "number" ? Math.max(1, firstPos.line) : undefined;
-  const col =
-    typeof firstPos?.col === "number" ? Math.max(1, firstPos.col) : undefined;
+  const line = typeof firstPos?.line === "number" ? Math.max(1, firstPos.line) : undefined;
+  const col = typeof firstPos?.col === "number" ? Math.max(1, firstPos.col) : undefined;
 
   const detailParts: string[] = [error.name];
   if (errorCode) detailParts.push(errorCode);
@@ -171,9 +166,7 @@ function formatYamlLoadError(subject: string, error: unknown): string {
 /**
  * Load all overlay data from the private directory.
  */
-export async function loadOverlay(
-  privateDir?: string,
-): Promise<OverlayLoadResult> {
+export async function loadOverlay(privateDir?: string): Promise<OverlayLoadResult> {
   const dir = privateDir ?? resolvePrivateDir();
 
   if (!existsSync(dir)) {
@@ -227,10 +220,7 @@ export function resolveToolSecret(
 /**
  * Resolve a config value from environment variables via mapping.
  */
-export function resolveConfigValue(
-  key: string,
-  envMapping?: EnvMapping,
-): string | undefined {
+export function resolveConfigValue(key: string, envMapping?: EnvMapping): string | undefined {
   const mappedVar = envMapping?.config?.[key];
   if (mappedVar) return process.env[mappedVar];
   return undefined;

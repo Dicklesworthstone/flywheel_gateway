@@ -2,11 +2,7 @@
  * Handoff Routes - REST API endpoints for session handoff protocol.
  */
 
-import type {
-  HandoffPreferences,
-  HandoffReason,
-  HandoffUrgency,
-} from "@flywheel/shared/types";
+import type { HandoffPreferences, HandoffReason, HandoffUrgency } from "@flywheel/shared/types";
 import { Hono } from "hono";
 import { z } from "zod";
 import { getLogger } from "../middleware/correlation";
@@ -28,10 +24,7 @@ import {
   buildContext,
   calculateContextSize,
 } from "../services/handoff-context.service";
-import {
-  buildResourceManifest,
-  transferResources,
-} from "../services/handoff-transfer.service";
+import { buildResourceManifest, transferResources } from "../services/handoff-transfer.service";
 import {
   sendCreated,
   sendError,
@@ -232,9 +225,7 @@ const HandoffPreferencesSchema = z.object({
   requireAcknowledgment: z.boolean().optional(),
   allowPartialTransfer: z.boolean().optional(),
   timeoutMs: z.number().min(1000).max(1800000).optional(),
-  fallbackBehavior: z
-    .enum(["retry", "broadcast", "escalate", "abort"])
-    .optional(),
+  fallbackBehavior: z.enum(["retry", "broadcast", "escalate", "abort"]).optional(),
   priorityAgents: z.array(z.string()).optional(),
 });
 
@@ -358,10 +349,7 @@ handoffs.post("/", async (c) => {
     }
 
     // Build resource manifest
-    const resourceManifest = await buildResourceManifest(
-      data.projectId,
-      data.sourceAgentId,
-    );
+    const resourceManifest = await buildResourceManifest(data.projectId, data.sourceAgentId);
 
     // Initiate the handoff
     const result = await initiateHandoff({
@@ -379,12 +367,7 @@ handoffs.post("/", async (c) => {
     });
 
     if (!result.success) {
-      return sendError(
-        c,
-        "HANDOFF_FAILED",
-        result.error ?? "Unknown error",
-        400,
-      );
+      return sendError(c, "HANDOFF_FAILED", result.error ?? "Unknown error", 400);
     }
 
     log.info({ handoffId: result.handoffId }, "Handoff initiated");
@@ -515,12 +498,7 @@ handoffs.post("/:handoffId/accept", async (c) => {
     );
 
     if (!result.success) {
-      return sendError(
-        c,
-        "HANDOFF_ACCEPT_FAILED",
-        result.error ?? "Unknown error",
-        400,
-      );
+      return sendError(c, "HANDOFF_ACCEPT_FAILED", result.error ?? "Unknown error", 400);
     }
 
     // Get the handoff to transfer resources
@@ -535,12 +513,9 @@ handoffs.post("/:handoffId/accept", async (c) => {
           handoffId,
           transferSummary: {
             filesModified: handoff.request.context.filesModified.length,
-            reservationsTransferred:
-              handoff.request.resourceManifest.fileReservations.length,
-            checkpointsTransferred:
-              handoff.request.resourceManifest.checkpoints.length,
-            messagesForwarded:
-              handoff.request.resourceManifest.pendingMessages.length,
+            reservationsTransferred: handoff.request.resourceManifest.fileReservations.length,
+            checkpointsTransferred: handoff.request.resourceManifest.checkpoints.length,
+            messagesForwarded: handoff.request.resourceManifest.pendingMessages.length,
           },
         });
       } else {
@@ -554,10 +529,7 @@ handoffs.post("/:handoffId/accept", async (c) => {
       }
     }
 
-    log.info(
-      { handoffId, receivingAgentId: data.receivingAgentId },
-      "Handoff accepted",
-    );
+    log.info({ handoffId, receivingAgentId: data.receivingAgentId }, "Handoff accepted");
 
     return sendResource(c, "handoff_acceptance", {
       handoffId,
@@ -597,12 +569,7 @@ handoffs.post("/:handoffId/reject", async (c) => {
     );
 
     if (!result.success) {
-      return sendError(
-        c,
-        "HANDOFF_REJECT_FAILED",
-        result.error ?? "Unknown error",
-        400,
-      );
+      return sendError(c, "HANDOFF_REJECT_FAILED", result.error ?? "Unknown error", 400);
     }
 
     log.info({ handoffId, reason: data.reason }, "Handoff rejected");
@@ -642,12 +609,7 @@ handoffs.post("/:handoffId/cancel", async (c) => {
     );
 
     if (!result.success) {
-      return sendError(
-        c,
-        "HANDOFF_CANCEL_FAILED",
-        result.error ?? "Unknown error",
-        400,
-      );
+      return sendError(c, "HANDOFF_CANCEL_FAILED", result.error ?? "Unknown error", 400);
     }
 
     log.info({ handoffId, agentId: data.agentId }, "Handoff cancelled");

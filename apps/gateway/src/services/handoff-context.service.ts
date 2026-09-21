@@ -115,9 +115,7 @@ export function buildContext(params: BuildContextParams): BuildContextResult {
   });
 
   // Build conversation summary
-  const conversationSummary = summarizeConversation(
-    params.conversationHistory ?? [],
-  );
+  const conversationSummary = summarizeConversation(params.conversationHistory ?? []);
 
   // Sanitize environment variables
   const sanitizedEnvVars = sanitizeEnvVars(params.envVars ?? {});
@@ -134,10 +132,7 @@ export function buildContext(params: BuildContextParams): BuildContextResult {
   // Trim decisions if too many
   let decisions = params.decisionsMade ?? [];
   if (decisions.length > MAX_DECISIONS) {
-    log.debug(
-      { original: decisions.length, trimmed: MAX_DECISIONS },
-      "Trimmed decisions list",
-    );
+    log.debug({ original: decisions.length, trimmed: MAX_DECISIONS }, "Trimmed decisions list");
     decisions = decisions.slice(-MAX_DECISIONS);
   }
 
@@ -236,15 +231,11 @@ function summarizeConversation(
 /**
  * Sanitize environment variables by redacting sensitive values.
  */
-function sanitizeEnvVars(
-  envVars: Record<string, string>,
-): Record<string, string> {
+function sanitizeEnvVars(envVars: Record<string, string>): Record<string, string> {
   const sanitized: Record<string, string> = {};
 
   for (const [key, value] of Object.entries(envVars)) {
-    const isSensitive = SENSITIVE_ENV_PATTERNS.some((pattern) =>
-      pattern.test(key),
-    );
+    const isSensitive = SENSITIVE_ENV_PATTERNS.some((pattern) => pattern.test(key));
 
     if (isSensitive) {
       sanitized[key] = "[REDACTED]";
@@ -259,15 +250,11 @@ function sanitizeEnvVars(
 /**
  * Sanitize working memory by removing any sensitive-looking keys.
  */
-function sanitizeWorkingMemory(
-  memory: Record<string, unknown>,
-): Record<string, unknown> {
+function sanitizeWorkingMemory(memory: Record<string, unknown>): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(memory)) {
-    const isSensitive = SENSITIVE_ENV_PATTERNS.some((pattern) =>
-      pattern.test(key),
-    );
+    const isSensitive = SENSITIVE_ENV_PATTERNS.some((pattern) => pattern.test(key));
 
     if (isSensitive) {
       sanitized[key] = "[REDACTED]";
@@ -316,10 +303,7 @@ export function validateContext(context: HandoffContext): ValidationResult {
   }
 
   // Warnings for missing optional but useful fields
-  if (
-    !context.conversationSummary ||
-    context.conversationSummary.trim() === ""
-  ) {
+  if (!context.conversationSummary || context.conversationSummary.trim() === "") {
     warnings.push("No conversation summary provided");
   }
 
@@ -436,9 +420,7 @@ export function extractFileModifications(gitDiff: string): FileModification[] {
 /**
  * Extract uncommitted changes from git status output.
  */
-export function extractUncommittedChanges(
-  gitStatus: string,
-): UncommittedChange[] {
+export function extractUncommittedChanges(gitStatus: string): UncommittedChange[] {
   const changes: UncommittedChange[] = [];
   const lines = gitStatus.split("\n");
 
@@ -462,11 +444,7 @@ export function extractUncommittedChanges(
         diff: "",
         reason: "Modified",
       });
-    } else if (
-      line.startsWith(" M ") ||
-      line.startsWith(" D ") ||
-      line.startsWith(" A ")
-    ) {
+    } else if (line.startsWith(" M ") || line.startsWith(" D ") || line.startsWith(" A ")) {
       // Working tree change: " M", " D", " A" (X=space, Y=M/D/A)
       const path = line.slice(3).trim();
       changes.push({
@@ -496,10 +474,7 @@ export function extractUncommittedChanges(
 /**
  * Create a minimal context for quick handoffs.
  */
-export function createMinimalContext(
-  taskDescription: string,
-  summary: string,
-): HandoffContext {
+export function createMinimalContext(taskDescription: string, summary: string): HandoffContext {
   return {
     taskDescription,
     currentPhase: "planning",

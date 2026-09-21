@@ -341,9 +341,7 @@ describe("Setup Routes", () => {
         expect(res.status).toBeGreaterThanOrEqual(500);
         expect(body.error).toBeDefined();
         // Error code may be SYSTEM_UNAVAILABLE (original) or INTERNAL_ERROR (wrapped)
-        expect(["SYSTEM_UNAVAILABLE", "INTERNAL_ERROR"]).toContain(
-          body.error?.code ?? "",
-        );
+        expect(["SYSTEM_UNAVAILABLE", "INTERNAL_ERROR"]).toContain(body.error?.code ?? "");
       }
     });
 
@@ -496,9 +494,7 @@ describe("Setup Routes", () => {
       expect(typeof body.data.timestamp).toBe("string");
 
       // Should be valid ISO timestamp
-      expect(new Date(body.data.timestamp).toISOString()).toBe(
-        body.data.timestamp,
-      );
+      expect(new Date(body.data.timestamp).toISOString()).toBe(body.data.timestamp);
     });
 
     test("returns success even when cache is already empty", async () => {

@@ -7,15 +7,8 @@
 
 import { describe, expect, test } from "bun:test";
 
-import {
-  getBudgetPeriodBoundaries,
-  getDaysRemainingInPeriod,
-} from "../services/budget.service";
-import {
-  dollarsToUnits,
-  formatCostUnits,
-  unitsToDollars,
-} from "../services/cost-tracker.service";
+import { getBudgetPeriodBoundaries, getDaysRemainingInPeriod } from "../services/budget.service";
+import { dollarsToUnits, formatCostUnits, unitsToDollars } from "../services/cost-tracker.service";
 
 // ============================================================================
 // Cost Formatting Tests
@@ -141,8 +134,7 @@ describe("Budget Period Calculations", () => {
         expect(start.getDay()).toBe(0);
 
         // Duration should be exactly 7 days
-        const daysDiff =
-          (end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000);
+        const daysDiff = (end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000);
         expect(daysDiff).toBe(7);
       });
 
@@ -301,9 +293,7 @@ describe("Cost Models", () => {
   test("Anthropic models have correct pricing structure", async () => {
     const { DEFAULT_RATE_CARDS } = await import("../models/cost");
 
-    const anthropicCards = DEFAULT_RATE_CARDS.filter(
-      (rc) => rc.provider === "anthropic",
-    );
+    const anthropicCards = DEFAULT_RATE_CARDS.filter((rc) => rc.provider === "anthropic");
 
     expect(anthropicCards.length).toBeGreaterThan(0);
 
@@ -313,9 +303,7 @@ describe("Cost Models", () => {
 
     if (opusCard && haikuCard) {
       // Opus should be more expensive than Haiku
-      expect(opusCard.promptCostPer1kTokens).toBeGreaterThan(
-        haikuCard.promptCostPer1kTokens,
-      );
+      expect(opusCard.promptCostPer1kTokens).toBeGreaterThan(haikuCard.promptCostPer1kTokens);
       expect(opusCard.completionCostPer1kTokens).toBeGreaterThan(
         haikuCard.completionCostPer1kTokens,
       );
@@ -335,9 +323,7 @@ describe("Cost Models", () => {
     // Cached cost should be less than regular prompt cost
     for (const card of cardsWithCaching) {
       if (card.cachedPromptCostPer1kTokens !== undefined) {
-        expect(card.cachedPromptCostPer1kTokens).toBeLessThanOrEqual(
-          card.promptCostPer1kTokens,
-        );
+        expect(card.cachedPromptCostPer1kTokens).toBeLessThanOrEqual(card.promptCostPer1kTokens);
       }
     }
   });

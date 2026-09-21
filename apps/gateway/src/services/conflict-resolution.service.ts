@@ -43,10 +43,7 @@ import { getHub } from "../ws/hub";
 import type { MessageType } from "../ws/messages";
 import { getBvTriage } from "./bv.service";
 import * as cassService from "./cass.service";
-import {
-  type ConfidenceScoringInput,
-  calculateConfidence,
-} from "./confidence-scorer";
+import { type ConfidenceScoringInput, calculateConfidence } from "./confidence-scorer";
 import { type Conflict, getConflict } from "./conflict.service";
 import { generateRationale, type RationaleInput } from "./rationale-generator";
 import * as reservationService from "./reservation.service";
@@ -403,9 +400,7 @@ async function gatherInputData(
 /**
  * Fetch BV priority information.
  */
-async function fetchBvPriority(
-  bvId?: string,
-): Promise<BvPriorityInfo | undefined> {
+async function fetchBvPriority(bvId?: string): Promise<BvPriorityInfo | undefined> {
   if (!bvId) return undefined;
 
   try {
@@ -498,9 +493,7 @@ async function fetchCassHistory(
 /**
  * Analyze historical outcomes from CASS search hits.
  */
-function analyzeHistoricalOutcomes(
-  _hits: unknown[],
-): CassHistoryInfo["strategyOutcomes"] {
+function analyzeHistoricalOutcomes(_hits: unknown[]): CassHistoryInfo["strategyOutcomes"] {
   // Simplified analysis - in a full implementation, this would parse
   // the session summaries to extract resolution outcomes
   return [
@@ -564,9 +557,7 @@ async function fetchReservationInfo(
 
     // Find reservation matching contested resources
     for (const res of reservations.reservations) {
-      if (
-        resources?.some((r) => res.patterns.some((p) => r.path.includes(p)))
-      ) {
+      if (resources?.some((r) => res.patterns.some((p) => r.path.includes(p)))) {
         return {
           expiresAt: res.expiresAt,
           patterns: res.patterns,
@@ -718,9 +709,7 @@ function scoreSplitStrategy(
   // Check if resources can be split
   const canSplit =
     request.contestedResources.length > 1 ||
-    request.contestedResources.some(
-      (r) => r.type === "directory" || r.type === "pattern",
-    );
+    request.contestedResources.some((r) => r.type === "directory" || r.type === "pattern");
 
   if (!canSplit) {
     return null; // Can't split a single file
@@ -903,9 +892,7 @@ function scoreEscalateStrategy(
   let score = weights.base;
 
   // Uncertainty bonus - escalate when other strategies have low confidence
-  const hasCriticalResources = request.contestedResources.some(
-    (r) => r.critical,
-  );
+  const hasCriticalResources = request.contestedResources.some((r) => r.critical);
   if (hasCriticalResources) {
     score += weights.uncertaintyBonus * 0.5;
   }
@@ -978,9 +965,7 @@ function estimateWaitTime(inputData: InputData): number {
     // Handle both Date objects and ISO strings from JSON deserialization
     const expiresAt = inputData.reservationInfo.expiresAt;
     const expiryTime =
-      expiresAt instanceof Date
-        ? expiresAt.getTime()
-        : new Date(expiresAt).getTime();
+      expiresAt instanceof Date ? expiresAt.getTime() : new Date(expiresAt).getTime();
     const msUntilExpiry = expiryTime - Date.now();
     if (msUntilExpiry > 0) {
       return msUntilExpiry;
@@ -1010,10 +995,7 @@ function estimateWaitTime(inputData: InputData): number {
 /**
  * Get priority difference (positive means requester has higher priority).
  */
-function getPriorityDifference(
-  requesting?: BvPriorityInfo,
-  holding?: BvPriorityInfo,
-): number {
+function getPriorityDifference(requesting?: BvPriorityInfo, holding?: BvPriorityInfo): number {
   const priorityValues: Record<string, number> = {
     P0: 4,
     P1: 3,
@@ -1212,9 +1194,7 @@ function checkAutoResolutionEligibility(
   // Check confidence
   if (confidence < criteria.minConfidence) {
     eligible = false;
-    reasons.push(
-      `Confidence ${confidence} below threshold ${criteria.minConfidence}`,
-    );
+    reasons.push(`Confidence ${confidence} below threshold ${criteria.minConfidence}`);
   } else {
     reasons.push(`Confidence ${confidence} meets threshold`);
   }
@@ -1237,9 +1217,7 @@ function checkAutoResolutionEligibility(
   // Only wait strategy is eligible for auto-resolution
   if (strategy.type !== "wait" && confidence < 95) {
     eligible = false;
-    reasons.push(
-      "Only WAIT strategy qualifies for auto-resolution below 95% confidence",
-    );
+    reasons.push("Only WAIT strategy qualifies for auto-resolution below 95% confidence");
   }
 
   return {
@@ -1289,10 +1267,7 @@ function getCachedSuggestion(conflictId: string): ResolutionSuggestion | null {
 /**
  * Cache a suggestion.
  */
-function cacheSuggestion(
-  conflictId: string,
-  suggestion: ResolutionSuggestion,
-): void {
+function cacheSuggestion(conflictId: string, suggestion: ResolutionSuggestion): void {
   suggestionCache.set(conflictId, {
     suggestion,
     fetchedAt: Date.now(),
@@ -1335,8 +1310,7 @@ function createAuditRecord(
     confidence: suggestion.confidence,
     autoResolved: false,
     inputSources: {
-      bvPriorityAvailable:
-        !!inputData.requestingPriority || !!inputData.holdingPriority,
+      bvPriorityAvailable: !!inputData.requestingPriority || !!inputData.holdingPriority,
       checkpointProgressAvailable: !!inputData.holdingProgress,
       cassHistoryRecords: inputData.cassHistory?.similarConflictCount ?? 0,
       activeReservations: inputData.reservationInfo ? 1 : 0,

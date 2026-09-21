@@ -132,18 +132,12 @@ describe("Safety Routes", () => {
       expect(body.data.tools.ubs).toBeDefined();
 
       // Each tool should have the expected structure
-      for (const tool of [
-        body.data.tools.dcg,
-        body.data.tools.slb,
-        body.data.tools.ubs,
-      ]) {
+      for (const tool of [body.data.tools.dcg, body.data.tools.slb, body.data.tools.ubs]) {
         expect(typeof tool.installed).toBe("boolean");
         expect(typeof tool.healthy).toBe("boolean");
         expect(typeof tool.latencyMs).toBe("number");
         // version can be string or null
-        expect(tool.version === null || typeof tool.version === "string").toBe(
-          true,
-        );
+        expect(tool.version === null || typeof tool.version === "string").toBe(true);
       }
     });
 
@@ -180,8 +174,7 @@ describe("Safety Routes", () => {
 
       // If all tools are installed and healthy, status should be healthy
       // (unless checksums are stale)
-      const { allToolsInstalled, allToolsHealthy, checksumsStale } =
-        body.data.summary;
+      const { allToolsInstalled, allToolsHealthy, checksumsStale } = body.data.summary;
 
       if (allToolsInstalled && allToolsHealthy && !checksumsStale) {
         expect(body.data.status).toBe("healthy");
@@ -205,32 +198,20 @@ describe("Safety Routes", () => {
 
       // If DCG is not installed, should have recommendation
       if (!body.data.tools.dcg.installed) {
-        expect(body.data.summary.issues.some((i) => i.includes("DCG"))).toBe(
-          true,
-        );
-        expect(
-          body.data.summary.recommendations.some((r) => r.includes("dcg")),
-        ).toBe(true);
+        expect(body.data.summary.issues.some((i) => i.includes("DCG"))).toBe(true);
+        expect(body.data.summary.recommendations.some((r) => r.includes("dcg"))).toBe(true);
       }
 
       // If SLB is not installed, should have recommendation
       if (!body.data.tools.slb.installed) {
-        expect(body.data.summary.issues.some((i) => i.includes("SLB"))).toBe(
-          true,
-        );
-        expect(
-          body.data.summary.recommendations.some((r) => r.includes("slb")),
-        ).toBe(true);
+        expect(body.data.summary.issues.some((i) => i.includes("SLB"))).toBe(true);
+        expect(body.data.summary.recommendations.some((r) => r.includes("slb"))).toBe(true);
       }
 
       // If UBS is not installed, should have recommendation
       if (!body.data.tools.ubs.installed) {
-        expect(body.data.summary.issues.some((i) => i.includes("UBS"))).toBe(
-          true,
-        );
-        expect(
-          body.data.summary.recommendations.some((r) => r.includes("ubs")),
-        ).toBe(true);
+        expect(body.data.summary.issues.some((i) => i.includes("UBS"))).toBe(true);
+        expect(body.data.summary.recommendations.some((r) => r.includes("ubs"))).toBe(true);
       }
     });
   });
@@ -339,9 +320,7 @@ describe("Safety Routes", () => {
       // Issues should mention each missing tool
       for (const tool of missingTools) {
         if (typeof tool === "string") {
-          const hasIssue = issues.some((i) =>
-            i.toUpperCase().includes(tool.toUpperCase()),
-          );
+          const hasIssue = issues.some((i) => i.toUpperCase().includes(tool.toUpperCase()));
           expect(hasIssue).toBe(true);
         }
       }
@@ -368,8 +347,7 @@ describe("Safety Routes", () => {
         expect(["manifest", "fallback"]).toContain(data.manifest.source);
         // schemaVersion can be null for fallback
         expect(
-          data.manifest.schemaVersion === null ||
-            typeof data.manifest.schemaVersion === "string",
+          data.manifest.schemaVersion === null || typeof data.manifest.schemaVersion === "string",
         ).toBe(true);
       }
     });

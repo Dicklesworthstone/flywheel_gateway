@@ -1,9 +1,4 @@
-import {
-  context,
-  propagation,
-  type TextMapPropagator,
-  trace,
-} from "@opentelemetry/api";
+import { context, propagation, type TextMapPropagator, trace } from "@opentelemetry/api";
 import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
 import {
   CompositePropagator,
@@ -13,10 +8,7 @@ import {
 import { OTLPTraceExporter as OTLPHttpTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { OTLPTraceExporter as OTLPProtoTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
 import { resourceFromAttributes } from "@opentelemetry/resources";
-import {
-  BasicTracerProvider,
-  BatchSpanProcessor,
-} from "@opentelemetry/sdk-trace-base";
+import { BasicTracerProvider, BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
 import type { OtelConfig } from "./config.service";
 import { logger } from "./logger";
@@ -73,9 +65,7 @@ function shouldEnableTracing(config: OtelConfig): boolean {
   return config.enabled || config.tracesExporter !== "none";
 }
 
-function resolveExporter(
-  config: OtelConfig,
-): Exclude<OtelConfig["tracesExporter"], "none"> | null {
+function resolveExporter(config: OtelConfig): Exclude<OtelConfig["tracesExporter"], "none"> | null {
   if (config.tracesExporter !== "none") {
     return config.tracesExporter;
   }
@@ -165,9 +155,7 @@ export function initTracing(config: OtelConfig): OtelBootstrapResult {
   }
 }
 
-export async function shutdownTracing(options?: {
-  timeoutMs?: number;
-}): Promise<void> {
+export async function shutdownTracing(options?: { timeoutMs?: number }): Promise<void> {
   const provider = tracerProvider;
   tracerProvider = null;
   tracerEnabled = false;

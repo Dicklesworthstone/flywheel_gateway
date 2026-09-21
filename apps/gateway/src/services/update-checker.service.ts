@@ -165,9 +165,7 @@ export interface AcfsRefreshResult {
 // Update Checker Implementation
 // ============================================================================
 
-export function createUpdateCheckerService(
-  config: UpdateCheckerConfig,
-): UpdateCheckerService {
+export function createUpdateCheckerService(config: UpdateCheckerConfig): UpdateCheckerService {
   const {
     owner,
     repo,
@@ -237,18 +235,13 @@ export function createUpdateCheckerService(
     const data = await response.json();
 
     // Fetch checksums.json from release assets
-    const checksumsAsset = data.assets?.find(
-      (a: { name: string }) => a.name === "checksums.json",
-    );
+    const checksumsAsset = data.assets?.find((a: { name: string }) => a.name === "checksums.json");
 
-    const checksums: Map<string, { sha256: string; sha512?: string }> =
-      new Map();
+    const checksums: Map<string, { sha256: string; sha512?: string }> = new Map();
 
     if (checksumsAsset) {
       try {
-        const checksumsResponse = await fetch(
-          checksumsAsset.browser_download_url,
-        );
+        const checksumsResponse = await fetch(checksumsAsset.browser_download_url);
         const manifest: ChecksumManifest = await checksumsResponse.json();
 
         for (const file of manifest.files) {
@@ -258,10 +251,7 @@ export function createUpdateCheckerService(
           });
         }
       } catch (error) {
-        log.warn(
-          { error },
-          "Failed to fetch checksums.json, proceeding without checksums",
-        );
+        log.warn({ error }, "Failed to fetch checksums.json, proceeding without checksums");
       }
     }
 
@@ -421,10 +411,7 @@ export function createUpdateCheckerService(
           );
         }
 
-        const contentLength = parseInt(
-          response.headers.get("content-length") ?? "0",
-          10,
-        );
+        const contentLength = parseInt(response.headers.get("content-length") ?? "0", 10);
         const chunks: Uint8Array[] = [];
         let downloaded = 0;
         let lastProgressUpdate = 0;
@@ -451,16 +438,12 @@ export function createUpdateCheckerService(
           if (onProgress && now - lastProgressUpdate > 100) {
             const elapsed = (now - startTime) / 1000;
             const speed = downloaded / elapsed;
-            const eta =
-              contentLength > 0 ? (contentLength - downloaded) / speed : null;
+            const eta = contentLength > 0 ? (contentLength - downloaded) / speed : null;
 
             const progress: DownloadProgress = {
               downloaded,
               total: contentLength,
-              percentage:
-                contentLength > 0
-                  ? Math.round((downloaded / contentLength) * 100)
-                  : null,
+              percentage: contentLength > 0 ? Math.round((downloaded / contentLength) * 100) : null,
               speed: Math.round(speed),
               eta: eta !== null ? Math.round(eta) : null,
             };
@@ -474,9 +457,7 @@ export function createUpdateCheckerService(
         const content = Buffer.concat(chunks);
 
         // Verify checksum BEFORE writing to disk
-        const actualChecksum = createHash("sha256")
-          .update(content)
-          .digest("hex");
+        const actualChecksum = createHash("sha256").update(content).digest("hex");
 
         if (asset.sha256 && !secureCompare(actualChecksum, asset.sha256)) {
           throw new UpdateError(
@@ -508,8 +489,7 @@ export function createUpdateCheckerService(
           filePath: destPath,
           actualChecksum,
           expectedChecksum: asset.sha256,
-          verified:
-            !!asset.sha256 && secureCompare(actualChecksum, asset.sha256),
+          verified: !!asset.sha256 && secureCompare(actualChecksum, asset.sha256),
           size: content.length,
           durationMs,
         };
@@ -609,10 +589,7 @@ export async function verifyAgainstAcfsChecksums(
 ): Promise<AcfsVerifyResult> {
   const log = getLogger();
 
-  log.debug(
-    { toolId, filename, filePath },
-    "Verifying file against ACFS checksums",
-  );
+  log.debug({ toolId, filename, filePath }, "Verifying file against ACFS checksums");
 
   // Load tool registry
   const registry = await loadToolRegistry();
@@ -672,10 +649,7 @@ export async function verifyAgainstAcfsChecksums(
       "ACFS checksum mismatch",
     );
   } else {
-    log.info(
-      { toolId, filename, algorithm, size: content.length },
-      "ACFS checksum verified",
-    );
+    log.info({ toolId, filename, algorithm, size: content.length }, "ACFS checksum verified");
   }
 
   return result;
@@ -773,11 +747,7 @@ export async function verifyAcfsBatch(
 
   for (const { filename, filePath } of files) {
     try {
-      const result = await verifyAgainstAcfsChecksums(
-        toolId,
-        filename,
-        filePath,
-      );
+      const result = await verifyAgainstAcfsChecksums(toolId, filename, filePath);
       results.push(result);
     } catch (_error) {
       // Include failed verifications with verified=false

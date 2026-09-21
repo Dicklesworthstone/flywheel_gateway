@@ -18,12 +18,7 @@ import {
   searchSessions,
   viewSessionLine,
 } from "../services/cass.service";
-import {
-  sendError,
-  sendGatewayError,
-  sendResource,
-  sendValidationError,
-} from "../utils/response";
+import { sendError, sendGatewayError, sendResource, sendValidationError } from "../utils/response";
 import { transformZodError } from "../utils/validation";
 
 const cass = new Hono();
@@ -60,11 +55,7 @@ function handleError(error: unknown, c: Context) {
         );
         break;
       case "timeout":
-        gatewayError = createGatewayError(
-          "AGENT_TIMEOUT",
-          "CASS request timed out",
-          errorOptions,
-        );
+        gatewayError = createGatewayError("AGENT_TIMEOUT", "CASS request timed out", errorOptions);
         break;
       case "command_failed":
         gatewayError = createGatewayError(
@@ -211,15 +202,13 @@ cass.get("/search", async (c) => {
     if (options.limit !== undefined) searchOptions.limit = options.limit;
     if (options.offset !== undefined) searchOptions.offset = options.offset;
     if (options.agent !== undefined) searchOptions.agent = options.agent;
-    if (options.workspace !== undefined)
-      searchOptions.workspace = options.workspace;
+    if (options.workspace !== undefined) searchOptions.workspace = options.workspace;
     if (options.days !== undefined) searchOptions.days = options.days;
     if (options.since !== undefined) searchOptions.since = options.since;
     if (options.until !== undefined) searchOptions.until = options.until;
     if (options.fields !== undefined) searchOptions.fields = options.fields;
     if (options.mode !== undefined) searchOptions.mode = options.mode;
-    if (options.highlight !== undefined)
-      searchOptions.highlight = options.highlight;
+    if (options.highlight !== undefined) searchOptions.highlight = options.highlight;
 
     const result = await searchSessions(q, searchOptions);
 
@@ -319,10 +308,7 @@ cass.get("/expand/*", async (c) => {
       expandOptions.context = parsed.data.context;
     }
 
-    const result = await expandSessionContext(
-      decodeURIComponent(path),
-      expandOptions,
-    );
+    const result = await expandSessionContext(decodeURIComponent(path), expandOptions);
 
     return sendResource(c, "cass_expand_result", {
       path: result.path,

@@ -164,17 +164,15 @@ describe("analyzeToolMigration", () => {
 
 describe("getInstallerSource", () => {
   it("returns verified_installer when present", () => {
-    expect(
-      getInstallerSource(makeTool({ verifiedInstaller: { runner: "cargo" } })),
-    ).toBe("verified_installer");
+    expect(getInstallerSource(makeTool({ verifiedInstaller: { runner: "cargo" } }))).toBe(
+      "verified_installer",
+    );
   });
 
   it("returns install_array when install[] present", () => {
-    expect(
-      getInstallerSource(
-        makeTool({ install: [{ command: "cargo install x" }] }),
-      ),
-    ).toBe("install_array");
+    expect(getInstallerSource(makeTool({ install: [{ command: "cargo install x" }] }))).toBe(
+      "install_array",
+    );
   });
 
   it("returns none when neither present", () => {
@@ -201,17 +199,13 @@ describe("checkInstallerDeprecation", () => {
   beforeEach(() => clearDeprecations());
 
   it("records deprecation for install_array usage", () => {
-    checkInstallerDeprecation(
-      makeTool({ install: [{ command: "cargo install x" }] }),
-    );
+    checkInstallerDeprecation(makeTool({ install: [{ command: "cargo install x" }] }));
     expect(getDeprecations()).toHaveLength(1);
     expect(getDeprecations()[0]!.oldSource).toBe("install_array");
   });
 
   it("no deprecation for verified_installer", () => {
-    checkInstallerDeprecation(
-      makeTool({ verifiedInstaller: { runner: "cargo" } }),
-    );
+    checkInstallerDeprecation(makeTool({ verifiedInstaller: { runner: "cargo" } }));
     expect(getDeprecations()).toHaveLength(0);
   });
 
@@ -313,18 +307,10 @@ describe("buildCompatibilityReport", () => {
       verifiedInstaller: { runner: "cargo", args: ["install", "modern"] },
     });
 
-    const firstReport = buildCompatibilityReport(
-      [toolWithLegacyInstall],
-      "manifest",
-      {},
-    );
+    const firstReport = buildCompatibilityReport([toolWithLegacyInstall], "manifest", {});
     expect(firstReport.warnings).toHaveLength(1);
 
-    const secondReport = buildCompatibilityReport(
-      [toolWithVerifiedInstaller],
-      "manifest",
-      {},
-    );
+    const secondReport = buildCompatibilityReport([toolWithVerifiedInstaller], "manifest", {});
     expect(secondReport.warnings).toHaveLength(0);
   });
 });

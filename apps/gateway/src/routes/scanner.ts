@@ -13,11 +13,7 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
-import {
-  type FindingFilter,
-  getUBSService,
-  type ScanOptions,
-} from "../services/ubs.service";
+import { type FindingFilter, getUBSService, type ScanOptions } from "../services/ubs.service";
 import {
   sendCreated,
   sendError,
@@ -109,21 +105,15 @@ scanner.post("/run", async (c) => {
     if (validated.paths !== undefined) options.paths = validated.paths;
     if (validated.staged !== undefined) options.staged = validated.staged;
     if (validated.diff !== undefined) options.diff = validated.diff;
-    if (validated.languages !== undefined)
-      options.languages = validated.languages;
-    if (validated.categories !== undefined)
-      options.categories = validated.categories;
-    if (validated.skipCategories !== undefined)
-      options.skipCategories = validated.skipCategories;
+    if (validated.languages !== undefined) options.languages = validated.languages;
+    if (validated.categories !== undefined) options.categories = validated.categories;
+    if (validated.skipCategories !== undefined) options.skipCategories = validated.skipCategories;
     if (validated.profile !== undefined) options.profile = validated.profile;
-    if (validated.failOnWarning !== undefined)
-      options.failOnWarning = validated.failOnWarning;
+    if (validated.failOnWarning !== undefined) options.failOnWarning = validated.failOnWarning;
     if (validated.exclude !== undefined) options.exclude = validated.exclude;
     if (validated.rulesDir !== undefined) options.rulesDir = validated.rulesDir;
 
-    const result = await service.runScan(
-      Object.keys(options).length > 0 ? options : undefined,
-    );
+    const result = await service.runScan(Object.keys(options).length > 0 ? options : undefined);
 
     return sendCreated(
       c,
@@ -196,16 +186,12 @@ scanner.get("/findings", async (c) => {
     };
 
     const findings = service.getFindings(
-      Object.keys(filter).length > 0
-        ? filterWithExtra
-        : { limit: requestedLimit + 1 },
+      Object.keys(filter).length > 0 ? filterWithExtra : { limit: requestedLimit + 1 },
     );
 
     // Check if we got more than requested (indicates more results exist)
     const hasMore = findings.length > requestedLimit;
-    const resultFindings = hasMore
-      ? findings.slice(0, requestedLimit)
-      : findings;
+    const resultFindings = hasMore ? findings.slice(0, requestedLimit) : findings;
 
     return sendList(
       c,
@@ -280,11 +266,7 @@ scanner.post("/findings/:id/dismiss", async (c) => {
     const validated = DismissFindingSchema.parse(body);
 
     const service = getUBSService();
-    const success = service.dismissFinding(
-      id,
-      validated.dismissedBy,
-      validated.reason,
-    );
+    const success = service.dismissFinding(id, validated.dismissedBy, validated.reason);
 
     if (!success) {
       return sendNotFound(c, "finding", id);
@@ -381,16 +363,8 @@ scanner.post("/findings/:id/create-bead", async (c) => {
 
     if (proc.exitCode !== 0) {
       const log = getLogger();
-      log.error(
-        { stderr, exitCode: proc.exitCode },
-        "Failed to create bead from finding",
-      );
-      return sendError(
-        c,
-        "BEAD_CREATION_FAILED",
-        stderr || "Failed to create bead",
-        500,
-      );
+      log.error({ stderr, exitCode: proc.exitCode }, "Failed to create bead from finding");
+      return sendError(c, "BEAD_CREATION_FAILED", stderr || "Failed to create bead", 500);
     }
 
     // Parse bead ID from output

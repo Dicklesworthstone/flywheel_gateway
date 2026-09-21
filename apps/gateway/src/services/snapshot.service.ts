@@ -15,10 +15,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { BvTriageResult, NtmClient } from "@flywheel/flywheel-clients";
-import {
-  createBunNtmCommandRunner,
-  createNtmClient,
-} from "@flywheel/flywheel-clients";
+import { createBunNtmCommandRunner, createNtmClient } from "@flywheel/flywheel-clients";
 import type {
   AgentMailAgentSnapshot,
   AgentMailMessageSummary,
@@ -52,10 +49,7 @@ import { incrementCounter, recordHistogram, setGauge } from "./metrics";
 import * as slbService from "./slb.service";
 import { loadToolRegistry } from "./tool-registry.service";
 import { getUBSService } from "./ubs.service";
-import {
-  getChecksumAge,
-  listToolsWithChecksums,
-} from "./update-checker.service";
+import { getChecksumAge, listToolsWithChecksums } from "./update-checker.service";
 
 // ============================================================================
 // Constants
@@ -124,10 +118,7 @@ async function withTimeout<T>(
     clearTimeout(timer);
     return {
       success: false,
-      error:
-        error instanceof Error
-          ? `${errorMessage}: ${error.message}`
-          : errorMessage,
+      error: error instanceof Error ? `${errorMessage}: ${error.message}` : errorMessage,
       latencyMs: Math.round(performance.now() - start),
     };
   }
@@ -184,10 +175,7 @@ async function collectNtmSnapshot(
         }
       } catch (error) {
         // Log but don't fail - alerts are optional
-        log.debug(
-          { error },
-          "Failed to fetch NTM alerts, continuing without them",
-        );
+        log.debug({ error }, "Failed to fetch NTM alerts, continuing without them");
       }
 
       // Map to our snapshot format
@@ -202,18 +190,15 @@ async function collectNtmSnapshot(
               state: agent.is_active ? "active" : "idle",
             };
             if (agent.variant !== undefined) agentBase.variant = agent.variant;
-            if (agent.is_active !== undefined)
-              agentBase.isActive = agent.is_active;
+            if (agent.is_active !== undefined) agentBase.isActive = agent.is_active;
             if (agent.window !== undefined) agentBase.window = agent.window;
-            if (agent.pane_idx !== undefined)
-              agentBase.paneIdx = agent.pane_idx;
+            if (agent.pane_idx !== undefined) agentBase.paneIdx = agent.pane_idx;
             return agentBase;
           }),
         };
         if (session.windows !== undefined) base.windows = session.windows;
         if (session.panes !== undefined) base.panes = session.panes;
-        if (session.created_at !== undefined)
-          base.createdAt = session.created_at;
+        if (session.created_at !== undefined) base.createdAt = session.created_at;
         return base;
       });
 
@@ -285,9 +270,7 @@ function createEmptyNtmSnapshot(available: boolean): NtmSnapshot {
 /**
  * Collect beads (br/bv) snapshot data.
  */
-async function collectBeadsSnapshot(
-  timeoutMs: number,
-): Promise<CollectionResult<BeadsSnapshot>> {
+async function collectBeadsSnapshot(timeoutMs: number): Promise<CollectionResult<BeadsSnapshot>> {
   const start = performance.now();
 
   const result = await withTimeout(
@@ -336,9 +319,7 @@ async function collectBeadsSnapshot(
 
       // Extract counts from triage data
       // Use bracket notation to access index signature properties
-      const triageObj = triageData?.triage as
-        | Record<string, unknown>
-        | undefined;
+      const triageObj = triageData?.triage as Record<string, unknown> | undefined;
       const health = triageObj?.["project_health"] as
         | {
             counts?: {
@@ -397,9 +378,7 @@ async function collectBeadsSnapshot(
           return base;
         });
 
-      const quickWins: BeadsTriageRecommendation[] = (
-        triageData?.triage?.quick_wins ?? []
-      )
+      const quickWins: BeadsTriageRecommendation[] = (triageData?.triage?.quick_wins ?? [])
         .slice(0, 3)
         .map((rec) => ({
           id: rec.id,
@@ -510,10 +489,8 @@ async function collectToolHealthSnapshot(
       ]);
 
       // Determine overall status
-      const allInstalled =
-        dcgResult.installed && slbResult.installed && ubsResult.installed;
-      const allHealthy =
-        dcgResult.healthy && slbResult.healthy && ubsResult.healthy;
+      const allInstalled = dcgResult.installed && slbResult.installed && ubsResult.installed;
+      const allHealthy = dcgResult.healthy && slbResult.healthy && ubsResult.healthy;
 
       let status: "healthy" | "degraded" | "unhealthy";
       if (allInstalled && allHealthy && !checksumInfo.isStale) {
@@ -536,9 +513,7 @@ async function collectToolHealthSnapshot(
       }
       if (!slbResult.installed) {
         issues.push("SLB (Simultaneous Launch Button) is not installed");
-        recommendations.push(
-          "Install SLB: go install github.com/Dicklesworthstone/slb@latest",
-        );
+        recommendations.push("Install SLB: go install github.com/Dicklesworthstone/slb@latest");
       }
       if (!ubsResult.installed) {
         issues.push("UBS (Ultimate Bug Scanner) is not installed");
@@ -561,14 +536,8 @@ async function collectToolHealthSnapshot(
             tool: tool.name,
           });
         }
-        setGauge(
-          "flywheel_ecosystem_agents_available",
-          ecosystem.agentsAvailable,
-        );
-        setGauge(
-          "flywheel_ecosystem_tools_available",
-          ecosystem.toolsAvailable,
-        );
+        setGauge("flywheel_ecosystem_agents_available", ecosystem.agentsAvailable);
+        setGauge("flywheel_ecosystem_tools_available", ecosystem.toolsAvailable);
       }
 
       return {
@@ -757,17 +726,12 @@ async function collectEcosystemDetection(): Promise<ToolEcosystemSummary | null>
         available: cli.available,
         detectionMs: cli.durationMs,
       };
-      if (cli.version !== undefined && cli.version !== null)
-        summary.version = cli.version;
+      if (cli.version !== undefined && cli.version !== null) summary.version = cli.version;
       if (cli.path !== undefined && cli.path !== null) summary.path = cli.path;
       if (cli.authenticated !== undefined && cli.authenticated !== null)
         summary.authenticated = cli.authenticated;
-      if (cli.authError !== undefined && cli.authError !== null)
-        summary.authError = cli.authError;
-      if (
-        cli.unavailabilityReason !== undefined &&
-        cli.unavailabilityReason !== null
-      )
+      if (cli.authError !== undefined && cli.authError !== null) summary.authError = cli.authError;
+      if (cli.unavailabilityReason !== undefined && cli.unavailabilityReason !== null)
         summary.unavailabilityReason = cli.unavailabilityReason;
       return summary;
     };
@@ -807,17 +771,14 @@ async function collectChecksumInfo(): Promise<{
     const registryAgeMs = registryGeneratedAt
       ? now - new Date(registryGeneratedAt).getTime()
       : null;
-    const isStale =
-      registryAgeMs !== null && registryAgeMs > STALE_CHECKSUM_THRESHOLD_MS;
+    const isStale = registryAgeMs !== null && registryAgeMs > STALE_CHECKSUM_THRESHOLD_MS;
 
     const tools: ToolChecksumStatus[] = [];
     for (const toolId of SAFETY_TOOLS) {
       const checksumInfo = await getChecksumAge(toolId);
       if (checksumInfo) {
         const toolGenAt = checksumInfo.registryGeneratedAt ?? null;
-        const toolAgeMs = toolGenAt
-          ? now - new Date(toolGenAt).getTime()
-          : null;
+        const toolAgeMs = toolGenAt ? now - new Date(toolGenAt).getTime() : null;
         tools.push({
           toolId,
           hasChecksums: checksumInfo.hasChecksums,
@@ -1017,8 +978,7 @@ function parseAgentMailAgentSnapshot(
           : undefined;
     if (agentType) derived["agentType"] = agentType;
 
-    if (typeof value["status"] === "string")
-      derived["status"] = value["status"];
+    if (typeof value["status"] === "string") derived["status"] = value["status"];
     if (typeof value["event"] === "string") derived["event"] = value["event"];
 
     if (Object.keys(derived).length > 0) snapshot.metadata = derived;
@@ -1174,8 +1134,7 @@ export class SnapshotService {
   constructor(config: SnapshotServiceConfig = {}) {
     this.config = {
       cacheTtlMs: config.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS,
-      collectionTimeoutMs:
-        config.collectionTimeoutMs ?? DEFAULT_COLLECTION_TIMEOUT_MS,
+      collectionTimeoutMs: config.collectionTimeoutMs ?? DEFAULT_COLLECTION_TIMEOUT_MS,
       cwd: config.cwd ?? process.cwd(),
     };
 
@@ -1193,9 +1152,7 @@ export class SnapshotService {
    * Uses caching to reduce load on underlying services.
    * Returns partial data when some sources fail.
    */
-  async getSnapshot(options?: {
-    bypassCache?: boolean;
-  }): Promise<SystemSnapshot> {
+  async getSnapshot(options?: { bypassCache?: boolean }): Promise<SystemSnapshot> {
     const log = getLogger();
 
     // Check cache
@@ -1212,16 +1169,12 @@ export class SnapshotService {
     log.info("Collecting system snapshot");
 
     // Collect all data sources in parallel
-    const [ntmResult, beadsResult, toolsResult, agentMailResult] =
-      await Promise.all([
-        collectNtmSnapshot(this.ntmClient, this.config.collectionTimeoutMs),
-        collectBeadsSnapshot(this.config.collectionTimeoutMs),
-        collectToolHealthSnapshot(this.config.collectionTimeoutMs),
-        collectAgentMailSnapshot(
-          this.config.cwd,
-          this.config.collectionTimeoutMs,
-        ),
-      ]);
+    const [ntmResult, beadsResult, toolsResult, agentMailResult] = await Promise.all([
+      collectNtmSnapshot(this.ntmClient, this.config.collectionTimeoutMs),
+      collectBeadsSnapshot(this.config.collectionTimeoutMs),
+      collectToolHealthSnapshot(this.config.collectionTimeoutMs),
+      collectAgentMailSnapshot(this.config.cwd, this.config.collectionTimeoutMs),
+    ]);
 
     // Log collection results
     log.debug(
@@ -1245,19 +1198,13 @@ export class SnapshotService {
 
     // Use collected data or fallbacks
     const ntm =
-      ntmResult.success && ntmResult.data
-        ? ntmResult.data
-        : createEmptyNtmSnapshot(false);
+      ntmResult.success && ntmResult.data ? ntmResult.data : createEmptyNtmSnapshot(false);
 
     const beads =
-      beadsResult.success && beadsResult.data
-        ? beadsResult.data
-        : createEmptyBeadsSnapshot();
+      beadsResult.success && beadsResult.data ? beadsResult.data : createEmptyBeadsSnapshot();
 
     const tools =
-      toolsResult.success && toolsResult.data
-        ? toolsResult.data
-        : createEmptyToolHealthSnapshot();
+      toolsResult.success && toolsResult.data ? toolsResult.data : createEmptyToolHealthSnapshot();
 
     const agentMail =
       agentMailResult.success && agentMailResult.data
@@ -1279,10 +1226,7 @@ export class SnapshotService {
     const generationDurationMs = Math.round(performance.now() - startTime);
 
     // Emit snapshot generation duration metric
-    recordHistogram(
-      "flywheel_snapshot_generation_duration_ms",
-      generationDurationMs,
-    );
+    recordHistogram("flywheel_snapshot_generation_duration_ms", generationDurationMs);
 
     // Build metadata
     const meta: SystemSnapshotMeta = {
@@ -1346,9 +1290,7 @@ export class SnapshotService {
         : "unhealthy"
       : "unknown";
 
-    const toolsHealth: SystemHealthStatus = toolsResult.success
-      ? tools.status
-      : "unknown";
+    const toolsHealth: SystemHealthStatus = toolsResult.success ? tools.status : "unknown";
 
     // Count by status
     const statuses = [ntmHealth, agentMailHealth, beadsHealth, toolsHealth];
@@ -1453,9 +1395,7 @@ export function getSnapshotService(): SnapshotService {
  * Create a new snapshot service with custom configuration.
  * Useful for testing or specialized use cases.
  */
-export function createSnapshotService(
-  config?: SnapshotServiceConfig,
-): SnapshotService {
+export function createSnapshotService(config?: SnapshotServiceConfig): SnapshotService {
   return new SnapshotService(config);
 }
 

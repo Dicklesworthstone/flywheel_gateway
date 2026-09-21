@@ -2,15 +2,7 @@
  * Tests for agent-events service.
  */
 
-import {
-  afterAll,
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  test,
-} from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import type { WebSocketHub } from "../ws/hub";
 
 // Track state change subscribers
@@ -58,12 +50,7 @@ describe("Agent Events Service", () => {
   beforeEach(() => {
     publishCalls = [];
     mockHub = {
-      publish: (
-        channel: unknown,
-        type: string,
-        payload: unknown,
-        metadata: unknown,
-      ) => {
+      publish: (channel: unknown, type: string, payload: unknown, metadata: unknown) => {
         publishCalls.push({ channel, type, payload, metadata });
       },
     } as unknown as WebSocketHub;
@@ -215,13 +202,7 @@ describe("Agent Events Service", () => {
       const service = new AgentEventsService(mockHub);
       const input = { path: "/test/file.ts" };
 
-      service.publishToolCall(
-        "agent-123",
-        "read_file",
-        "tool-456",
-        input,
-        "corr-123",
-      );
+      service.publishToolCall("agent-123", "read_file", "tool-456", input, "corr-123");
 
       expect(publishCalls).toHaveLength(1);
       expect(publishCalls[0]?.type).toBe("tool.start");

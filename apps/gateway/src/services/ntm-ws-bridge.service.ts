@@ -20,11 +20,7 @@ import { getLogger } from "../middleware/correlation";
 import type { WebSocketHub } from "../ws/hub";
 import type { MessageMetadata } from "../ws/messages";
 import type { AgentOutputPayload, AgentStatePayload } from "./agent-events";
-import type {
-  NtmIngestService,
-  NtmStateChangeEvent,
-  TrackedNtmAgent,
-} from "./ntm-ingest.service";
+import type { NtmIngestService, NtmStateChangeEvent, TrackedNtmAgent } from "./ntm-ingest.service";
 
 // =============================================================================
 // Throttling Constants
@@ -79,9 +75,7 @@ export class ThrottledEventBatcher<T> {
   private lastFlushTime = Date.now();
 
   constructor(
-    private readonly onFlush: (
-      events: Array<{ key: string; event: T }>,
-    ) => void,
+    private readonly onFlush: (events: Array<{ key: string; event: T }>) => void,
     private readonly config: {
       batchWindowMs: number;
       maxEventsPerBatch: number;
@@ -281,8 +275,7 @@ export class NtmWsBridgeService {
   private tailPollGeneration = 0;
   private outputStates = new Map<string, OutputState>();
   private running = false;
-  private stateBatcher: ThrottledEventBatcher<BatchableStateEvent> | null =
-    null;
+  private stateBatcher: ThrottledEventBatcher<BatchableStateEvent> | null = null;
 
   constructor(
     private hub: WebSocketHub,
@@ -295,8 +288,7 @@ export class NtmWsBridgeService {
       tailLines: config.tailLines ?? 50,
       enableOutputStreaming: config.enableOutputStreaming ?? true,
       batchWindowMs: config.batchWindowMs ?? DEFAULT_BATCH_WINDOW_MS,
-      maxEventsPerBatch:
-        config.maxEventsPerBatch ?? DEFAULT_MAX_EVENTS_PER_BATCH,
+      maxEventsPerBatch: config.maxEventsPerBatch ?? DEFAULT_MAX_EVENTS_PER_BATCH,
       debounceMs: config.debounceMs ?? DEFAULT_DEBOUNCE_MS,
       enableThrottling: config.enableThrottling ?? true,
     };
@@ -465,31 +457,18 @@ export class NtmWsBridgeService {
    * Flush batched events to the WebSocket hub.
    * Called by the ThrottledEventBatcher when the batch window expires.
    */
-  private flushBatchedEvents(
-    events: Array<{ key: string; event: BatchableStateEvent }>,
-  ): void {
+  private flushBatchedEvents(events: Array<{ key: string; event: BatchableStateEvent }>): void {
     const log = getLogger();
 
     if (events.length === 0) return;
 
-    log.debug(
-      { eventCount: events.length },
-      "[NTM-WS-BRIDGE] Flushing batched events",
-    );
+    log.debug({ eventCount: events.length }, "[NTM-WS-BRIDGE] Flushing batched events");
 
     for (const { event: batchedEvent } of events) {
       if (batchedEvent.isHealthChange) {
-        this.publishHealthChange(
-          batchedEvent.agentId,
-          batchedEvent.event,
-          batchedEvent.tracked,
-        );
+        this.publishHealthChange(batchedEvent.agentId, batchedEvent.event, batchedEvent.tracked);
       } else {
-        this.publishStateChange(
-          batchedEvent.agentId,
-          batchedEvent.event,
-          batchedEvent.tracked,
-        );
+        this.publishStateChange(batchedEvent.agentId, batchedEvent.event, batchedEvent.tracked);
       }
     }
   }
@@ -516,12 +495,7 @@ export class NtmWsBridgeService {
       agentId,
     };
 
-    this.hub.publish(
-      { type: "agent:state", agentId },
-      "state.change",
-      payload,
-      metadata,
-    );
+    this.hub.publish({ type: "agent:state", agentId }, "state.change", payload, metadata);
 
     getLogger().debug(
       { agentId, previousState: event.previousValue, newState: event.newValue },
@@ -552,12 +526,7 @@ export class NtmWsBridgeService {
       agentId,
     };
 
-    this.hub.publish(
-      { type: "agent:state", agentId },
-      "state.change",
-      payload,
-      metadata,
-    );
+    this.hub.publish({ type: "agent:state", agentId }, "state.change", payload, metadata);
 
     getLogger().debug(
       {
@@ -586,10 +555,7 @@ export class NtmWsBridgeService {
 
       this.pollTailOutput(generation)
         .catch((err) => {
-          getLogger().warn(
-            { error: String(err) },
-            "[NTM-WS-BRIDGE] Tail poll error",
-          );
+          getLogger().warn({ error: String(err) }, "[NTM-WS-BRIDGE] Tail poll error");
         })
         .finally(() => {
           // Always clear in-flight state; generation guard prevents stale publishes.
@@ -767,10 +733,7 @@ export class NtmWsBridgeService {
   /**
    * Find the pane key in tail output that matches the agent's pane.
    */
-  private findPaneKey(
-    agentPane: string,
-    panes: Record<string, unknown>,
-  ): string | undefined {
+  private findPaneKey(agentPane: string, panes: Record<string, unknown>): string | undefined {
     // Direct match
     if (agentPane in panes) return agentPane;
 
@@ -791,11 +754,7 @@ export class NtmWsBridgeService {
   /**
    * Publish output to the WebSocket hub.
    */
-  private publishOutput(
-    agentId: string,
-    content: string,
-    ntmState: string,
-  ): void {
+  private publishOutput(agentId: string, content: string, ntmState: string): void {
     const payload: AgentOutputPayload = {
       agentId,
       type: "text",
@@ -811,12 +770,7 @@ export class NtmWsBridgeService {
       agentId,
     };
 
-    this.hub.publish(
-      { type: "agent:output", agentId },
-      "output.chunk",
-      payload,
-      metadata,
-    );
+    this.hub.publish({ type: "agent:output", agentId }, "output.chunk", payload, metadata);
   }
 
   // ===========================================================================
@@ -882,9 +836,7 @@ export function getNtmWsBridgeService(): NtmWsBridgeService | null {
 /**
  * Set the default NTM WebSocket bridge service instance (for testing).
  */
-export function setNtmWsBridgeService(
-  service: NtmWsBridgeService | null,
-): void {
+export function setNtmWsBridgeService(service: NtmWsBridgeService | null): void {
   defaultInstance = service;
 }
 
@@ -900,12 +852,7 @@ export function startNtmWsBridge(
   if (defaultInstance) {
     defaultInstance.stop();
   }
-  defaultInstance = new NtmWsBridgeService(
-    hub,
-    ingestService,
-    ntmClient,
-    config,
-  );
+  defaultInstance = new NtmWsBridgeService(hub, ingestService, ntmClient, config);
   defaultInstance.start();
   return defaultInstance;
 }

@@ -7,10 +7,7 @@
  */
 
 import type { ToolDefinition } from "@flywheel/shared";
-import {
-  getUnavailabilityLabel,
-  type ToolUnavailabilityReason,
-} from "@flywheel/shared/errors";
+import { getUnavailabilityLabel, type ToolUnavailabilityReason } from "@flywheel/shared/errors";
 import type { DetectedCLI } from "./agent-detection.service";
 
 // ============================================================================
@@ -107,12 +104,7 @@ function findRootCausePath(
   const deps = dependsOn.get(toolId) ?? [];
   for (const dep of deps) {
     if (availabilityMap.get(dep) === false) {
-      const deeper = findRootCausePath(
-        dep,
-        availabilityMap,
-        dependsOn,
-        visited,
-      );
+      const deeper = findRootCausePath(dep, availabilityMap, dependsOn, visited);
       return [...deeper, toolId];
     }
   }
@@ -161,9 +153,7 @@ export function computeHealthDiagnostics(
   for (const def of toolDefs) {
     const cli = detectionMap.get(def.name);
     const available = cli?.available ?? false;
-    const reason = cli?.unavailabilityReason as
-      | ToolUnavailabilityReason
-      | undefined;
+    const reason = cli?.unavailabilityReason as ToolUnavailabilityReason | undefined;
 
     const diagnostic: ToolDiagnostic = {
       toolId: def.id,
@@ -175,15 +165,11 @@ export function computeHealthDiagnostics(
 
     if (!available) {
       diagnostic.reason = reason ?? "unknown";
-      diagnostic.reasonLabel = reason
-        ? getUnavailabilityLabel(reason)
-        : "Unknown Error";
+      diagnostic.reasonLabel = reason ? getUnavailabilityLabel(reason) : "Unknown Error";
 
       // Check if the failure is caused by a missing dependency
       const deps = dependsOn.get(def.id) ?? [];
-      const unavailableDeps = deps.filter(
-        (dep) => availabilityMap.get(dep) === false,
-      );
+      const unavailableDeps = deps.filter((dep) => availabilityMap.get(dep) === false);
 
       if (unavailableDeps.length > 0) {
         // Find deepest root cause

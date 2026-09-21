@@ -148,14 +148,10 @@ pt.post("/scan", async (c) => {
     if (validated.minScore !== undefined) options.minScore = validated.minScore;
     if (validated.minRuntimeSeconds !== undefined)
       options.minRuntimeSeconds = validated.minRuntimeSeconds;
-    if (validated.minMemoryMb !== undefined)
-      options.minMemoryMb = validated.minMemoryMb;
-    if (validated.minCpuPercent !== undefined)
-      options.minCpuPercent = validated.minCpuPercent;
-    if (validated.namePattern !== undefined)
-      options.namePattern = validated.namePattern;
-    if (validated.excludePattern !== undefined)
-      options.excludePattern = validated.excludePattern;
+    if (validated.minMemoryMb !== undefined) options.minMemoryMb = validated.minMemoryMb;
+    if (validated.minCpuPercent !== undefined) options.minCpuPercent = validated.minCpuPercent;
+    if (validated.namePattern !== undefined) options.namePattern = validated.namePattern;
+    if (validated.excludePattern !== undefined) options.excludePattern = validated.excludePattern;
     if (validated.users !== undefined) options.users = validated.users;
     if (validated.limit !== undefined) options.limit = validated.limit;
 
@@ -291,18 +287,12 @@ pt.post("/processes/:pid/kill", async (c) => {
     if (validated.signal !== undefined) options.signal = validated.signal;
     if (validated.force !== undefined) options.force = validated.force;
     if (validated.wait !== undefined) options.wait = validated.wait;
-    if (validated.waitTimeout !== undefined)
-      options.waitTimeout = validated.waitTimeout;
+    if (validated.waitTimeout !== undefined) options.waitTimeout = validated.waitTimeout;
 
     const result = await service.killProcess(pid, options);
 
     if (!result.success) {
-      return sendError(
-        c,
-        "KILL_FAILED",
-        result.error ?? "Failed to terminate process",
-        400,
-      );
+      return sendError(c, "KILL_FAILED", result.error ?? "Failed to terminate process", 400);
     }
 
     return sendResource(c, "pt_kill_result", result);
@@ -320,10 +310,7 @@ pt.post("/processes/kill", async (c) => {
     const validated = BulkKillRequestSchema.parse(body);
     const log = getLogger();
 
-    log.info(
-      { pids: validated.pids, signal: validated.signal },
-      "Bulk kill request",
-    );
+    log.info({ pids: validated.pids, signal: validated.signal }, "Bulk kill request");
 
     const service = getPtService();
 
@@ -395,10 +382,7 @@ pt.post("/agents/cleanup", async (c) => {
     // Default to dry run for safety
     const dryRun = validated.dryRun ?? true;
 
-    log.info(
-      { minRuntimeSeconds: validated.minRuntimeSeconds, dryRun },
-      "Agent cleanup request",
-    );
+    log.info({ minRuntimeSeconds: validated.minRuntimeSeconds, dryRun }, "Agent cleanup request");
 
     const service = getPtService();
 

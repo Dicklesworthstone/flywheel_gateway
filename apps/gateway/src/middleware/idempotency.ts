@@ -67,8 +67,7 @@ function getIdempotencyScopeKey(c: Context): string | null {
   if (!auth || typeof auth !== "object") return null;
 
   const userId = typeof auth.userId === "string" ? auth.userId : undefined;
-  const apiKeyId =
-    typeof auth.apiKeyId === "string" ? auth.apiKeyId : undefined;
+  const apiKeyId = typeof auth.apiKeyId === "string" ? auth.apiKeyId : undefined;
   const isAdmin = auth.isAdmin === true;
   const workspaceIds = Array.isArray(auth.workspaceIds)
     ? auth.workspaceIds.filter((id): id is string => typeof id === "string")
@@ -81,8 +80,7 @@ function getIdempotencyScopeKey(c: Context): string | null {
   if (isAdmin) parts.push("admin");
   if (userId) parts.push(`user:${userId}`);
   if (apiKeyId) parts.push(`apiKey:${apiKeyId}`);
-  if (workspaceIds.length > 0)
-    parts.push(`workspaces:${workspaceIds.join(",")}`);
+  if (workspaceIds.length > 0) parts.push(`workspaces:${workspaceIds.join(",")}`);
 
   return parts.length > 0 ? parts.join("|") : null;
 }
@@ -105,9 +103,7 @@ let cleanupIntervalHandle: ReturnType<typeof setInterval> | null = null;
 /**
  * Get a cached idempotency record.
  */
-export function getIdempotencyRecord(
-  key: string,
-): IdempotencyRecord | undefined {
+export function getIdempotencyRecord(key: string): IdempotencyRecord | undefined {
   const record = idempotencyStore.get(key);
   if (!record) {
     return undefined;
@@ -431,10 +427,7 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
     // Check for pending request with same key
     const pending = pendingRequests.get(scopedKey);
     if (pending) {
-      log.debug(
-        { idempotencyKey },
-        "Waiting for concurrent request to complete",
-      );
+      log.debug({ idempotencyKey }, "Waiting for concurrent request to complete");
       try {
         const record = await pending.promise;
 
@@ -476,10 +469,7 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
         });
       } catch (_error) {
         // Original request failed, let this one try
-        log.debug(
-          { idempotencyKey },
-          "Concurrent request failed, proceeding with new attempt",
-        );
+        log.debug({ idempotencyKey }, "Concurrent request failed, proceeding with new attempt");
       }
     }
 
@@ -512,17 +502,13 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
       const headers: Record<string, string> = {};
       response.headers.forEach((value, key) => {
         // Only cache content-related headers
-        if (
-          key.toLowerCase() === "content-type" ||
-          key.toLowerCase().startsWith("x-")
-        ) {
+        if (key.toLowerCase() === "content-type" || key.toLowerCase().startsWith("x-")) {
           headers[key] = value;
         }
       });
 
       // Only cache successful responses (2xx and 4xx client errors that should be stable)
-      const shouldCache =
-        (status >= 200 && status < 300) || (status >= 400 && status < 500);
+      const shouldCache = (status >= 200 && status < 300) || (status >= 400 && status < 500);
       if (shouldCache) {
         const record: IdempotencyRecord = {
           key: scopedKey,
@@ -544,9 +530,7 @@ export function idempotencyMiddleware(config: IdempotencyConfig = {}) {
         // If we didn't cache, downstream duplicates should proceed with a new attempt.
         pendingRequests
           .get(scopedKey)
-          ?.reject(
-            new Error(`Idempotency response not cached (status ${status})`),
-          );
+          ?.reject(new Error(`Idempotency response not cached (status ${status})`));
       }
     } catch (error) {
       pendingRequests.get(scopedKey)?.reject(error as Error);

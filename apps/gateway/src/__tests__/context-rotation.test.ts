@@ -34,15 +34,10 @@ async function ensureAgent(agentId: string) {
 }
 
 // Helper to create a mock agent
-function createMockAgent(
-  id: string,
-  tokenUsage: TokenUsage,
-  maxTokens = 100000,
-): Agent {
+function createMockAgent(id: string, tokenUsage: TokenUsage, maxTokens = 100000): Agent {
   const safeMaxTokens = maxTokens > 0 ? maxTokens : DEFAULT_MAX_TOKENS;
   const usagePercent = (tokenUsage.totalTokens / safeMaxTokens) * 100;
-  let contextHealth: "healthy" | "warning" | "critical" | "emergency" =
-    "healthy";
+  let contextHealth: "healthy" | "warning" | "critical" | "emergency" = "healthy";
   if (usagePercent >= 95) {
     contextHealth = "emergency";
   } else if (usagePercent >= 85) {
@@ -122,9 +117,7 @@ describe("Context Rotation Service", () => {
         critical: 60,
         emergency: 80,
       };
-      expect(
-        calculateHealthLevel(tokenUsage, maxTokens, customThresholds),
-      ).toBe("warning");
+      expect(calculateHealthLevel(tokenUsage, maxTokens, customThresholds)).toBe("warning");
     });
 
     test("returns 'emergency' at 100%", () => {
@@ -171,9 +164,7 @@ describe("Context Rotation Service", () => {
 
       const health = getContextHealth(agent);
       expect(health.level).toBe("warning");
-      expect(health.suggestion).toBe(
-        "Context usage elevated. Monitor closely.",
-      );
+      expect(health.suggestion).toBe("Context usage elevated. Monitor closely.");
     });
 
     test("returns critical suggestion near limit", () => {
@@ -185,9 +176,7 @@ describe("Context Rotation Service", () => {
 
       const health = getContextHealth(agent);
       expect(health.level).toBe("critical");
-      expect(health.suggestion).toBe(
-        "Consider rotating soon. Context nearing limit.",
-      );
+      expect(health.suggestion).toBe("Consider rotating soon. Context nearing limit.");
     });
 
     test("returns emergency suggestion at capacity", () => {
@@ -199,9 +188,7 @@ describe("Context Rotation Service", () => {
 
       const health = getContextHealth(agent);
       expect(health.level).toBe("emergency");
-      expect(health.suggestion).toBe(
-        "Immediate rotation required. Context at capacity.",
-      );
+      expect(health.suggestion).toBe("Immediate rotation required. Context at capacity.");
     });
 
     test("uses default maxTokens when configured value is invalid", () => {
@@ -316,11 +303,7 @@ describe("Context Rotation Service", () => {
         getToolState: async () => ({ files: [] }),
       };
 
-      const result = await executeRotation(
-        testAgent,
-        "summarize_and_continue",
-        handlers,
-      );
+      const result = await executeRotation(testAgent, "summarize_and_continue", handlers);
 
       expect(result.success).toBe(true);
       expect(result.strategy).toBe("summarize_and_continue");
@@ -360,17 +343,11 @@ describe("Context Rotation Service", () => {
       const handlers: RotationHandlers = {
         spawnAgent: async () => ({ agentId: "restarted-agent" }),
         terminateAgent: async () => {},
-        getConversationHistory: async () => [
-          { role: "user", content: "important context" },
-        ],
+        getConversationHistory: async () => [{ role: "user", content: "important context" }],
         getToolState: async () => ({ session: "active" }),
       };
 
-      const result = await executeRotation(
-        testAgent,
-        "checkpoint_and_restart",
-        handlers,
-      );
+      const result = await executeRotation(testAgent, "checkpoint_and_restart", handlers);
 
       expect(result.success).toBe(true);
       expect(result.strategy).toBe("checkpoint_and_restart");
@@ -397,11 +374,7 @@ describe("Context Rotation Service", () => {
         getToolState: async () => ({}),
       };
 
-      const result = await executeRotation(
-        testAgent,
-        "graceful_handoff",
-        handlers,
-      );
+      const result = await executeRotation(testAgent, "graceful_handoff", handlers);
 
       expect(result.success).toBe(true);
       expect(result.strategy).toBe("graceful_handoff");
@@ -477,9 +450,7 @@ describe("Context Rotation Service", () => {
       const handlers: RotationHandlers = {
         spawnAgent: async () => ({ agentId: "new-agent" }),
         terminateAgent: async () => {},
-        getConversationHistory: async () => [
-          { role: "user", content: "Context preserved" },
-        ],
+        getConversationHistory: async () => [{ role: "user", content: "Context preserved" }],
         getToolState: async () => ({ state: "preserved" }),
       };
 

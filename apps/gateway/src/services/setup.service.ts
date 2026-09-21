@@ -5,11 +5,7 @@
  * agent CLIs and developer tools for the Flywheel Gateway setup wizard.
  */
 
-import type {
-  InstallSpec,
-  ToolDefinition,
-  VerifiedInstallerSpec,
-} from "@flywheel/shared";
+import type { InstallSpec, ToolDefinition, VerifiedInstallerSpec } from "@flywheel/shared";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
   type DetectedCLI,
@@ -284,9 +280,7 @@ function buildInstallCommand(install?: InstallSpec[]): string | undefined {
  * Convert VerifiedInstallerSpec from manifest to VerifiedInstallerInfo for API.
  * Maps snake_case to camelCase and ensures public-safe output.
  */
-function toVerifiedInstallerInfo(
-  spec: VerifiedInstallerSpec,
-): VerifiedInstallerInfo {
+function toVerifiedInstallerInfo(spec: VerifiedInstallerSpec): VerifiedInstallerInfo {
   return {
     runner: spec.runner,
     ...(spec.args && { args: spec.args }),
@@ -299,9 +293,7 @@ function toVerifiedInstallerInfo(
  * Build install command from verified installer spec.
  * Constructs a shell command from runner + args.
  */
-function buildVerifiedInstallerCommand(
-  spec: VerifiedInstallerSpec,
-): string | undefined {
+function buildVerifiedInstallerCommand(spec: VerifiedInstallerSpec): string | undefined {
   if (!spec.runner) return undefined;
   const args = spec.args?.length ? ` ${spec.args.join(" ")}` : "";
   return `${spec.runner}${args}`.trim();
@@ -323,9 +315,7 @@ function toToolInfo(tool: ToolDefinition, manifestVersion?: string): ToolInfo {
 
   // Use verified installer fallback_url, then install url, then fallback
   const installUrl =
-    tool.verifiedInstaller?.fallback_url ??
-    tool.install?.[0]?.url ??
-    fallback?.installUrl;
+    tool.verifiedInstaller?.fallback_url ?? tool.install?.[0]?.url ?? fallback?.installUrl;
 
   const docsUrl = tool.docsUrl ?? fallback?.docsUrl;
 
@@ -365,9 +355,7 @@ async function getRegistryToolInfo(): Promise<ToolInfo[] | null> {
       log.debug("ToolRegistry returned empty tools list");
       return null;
     }
-    const mapped = registry.tools.map((tool) =>
-      toToolInfo(tool, registry.schemaVersion),
-    );
+    const mapped = registry.tools.map((tool) => toToolInfo(tool, registry.schemaVersion));
     log.debug({ count: mapped.length }, "Loaded tool info from registry");
     return mapped;
   } catch (error) {
@@ -422,9 +410,7 @@ async function getRequiredToolNames(): Promise<DetectedType[]> {
 /**
  * Get readiness status by detecting all installed CLIs.
  */
-export async function getReadinessStatus(
-  bypassCache = false,
-): Promise<ReadinessStatus> {
+export async function getReadinessStatus(bypassCache = false): Promise<ReadinessStatus> {
   const log = getLogger();
   const startTime = performance.now();
 
@@ -472,9 +458,7 @@ export async function getReadinessStatus(
   const recommendations: string[] = [];
 
   if (missingRequired.length > 0) {
-    recommendations.push(
-      `Install required tools: ${missingRequired.join(", ")}`,
-    );
+    recommendations.push(`Install required tools: ${missingRequired.join(", ")}`);
   }
 
   if (detection.summary.authIssues.length > 0) {
@@ -567,9 +551,7 @@ export async function getReadinessStatus(
 /**
  * Get information about a specific tool.
  */
-export async function getToolInfo(
-  name: DetectedType,
-): Promise<ToolInfo | undefined> {
+export async function getToolInfo(name: DetectedType): Promise<ToolInfo | undefined> {
   const tools = await getAllToolInfo();
   return tools.find((tool) => tool.name === name);
 }
@@ -653,9 +635,7 @@ export async function installTool(
   }
 
   // Determine install source for logging
-  const installSource = toolInfo.verifiedInstaller
-    ? "verified_installer"
-    : "install_spec";
+  const installSource = toolInfo.verifiedInstaller ? "verified_installer" : "install_spec";
 
   log.info(
     {
@@ -698,10 +678,7 @@ export async function installTool(
     const existing = await service.detect(request.tool);
 
     if (existing?.available) {
-      log.info(
-        { tool: request.tool, version: existing.version },
-        "Tool already installed",
-      );
+      log.info({ tool: request.tool, version: existing.version }, "Tool already installed");
 
       emitProgress({
         tool: request.tool,
@@ -730,9 +707,7 @@ export async function installTool(
 
     // Run installer
     const installCmd =
-      request.mode === "easy"
-        ? `${toolInfo.installCommand} --easy`
-        : toolInfo.installCommand;
+      request.mode === "easy" ? `${toolInfo.installCommand} --easy` : toolInfo.installCommand;
 
     emitProgress({
       tool: request.tool,
@@ -763,9 +738,7 @@ export async function installTool(
         } catch {
           // Process may have already exited
         }
-        reject(
-          new Error(`Installation timed out after ${INSTALL_TIMEOUT_MS}ms`),
-        );
+        reject(new Error(`Installation timed out after ${INSTALL_TIMEOUT_MS}ms`));
       }, INSTALL_TIMEOUT_MS);
     });
 

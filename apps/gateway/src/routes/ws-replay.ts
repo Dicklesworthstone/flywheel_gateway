@@ -11,11 +11,7 @@
 
 import { Hono } from "hono";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
-import {
-  getStats,
-  type ReplayRequest,
-  replayEvents,
-} from "../services/ws-event-log.service";
+import { getStats, type ReplayRequest, replayEvents } from "../services/ws-event-log.service";
 import { sendResource } from "../utils/response";
 
 const wsReplay = new Hono<{
@@ -63,8 +59,7 @@ wsReplay.get("/replay", async (c) => {
   const limit = limitStr ? Math.min(parseInt(limitStr, 10) || 100, 1000) : 100;
 
   // Get connection ID from header or generate one
-  const connectionId =
-    c.req.header("X-Connection-Id") || `http-${crypto.randomUUID()}`;
+  const connectionId = c.req.header("X-Connection-Id") || `http-${crypto.randomUUID()}`;
 
   // Get user ID from auth context if available
   const userId = c.get("userId");
@@ -80,10 +75,7 @@ wsReplay.get("/replay", async (c) => {
     }),
   };
 
-  log.info(
-    { channel, cursor, limit, connectionId },
-    "WebSocket replay requested",
-  );
+  log.info({ channel, cursor, limit, connectionId }, "WebSocket replay requested");
 
   const result = await replayEvents(request, limit);
 

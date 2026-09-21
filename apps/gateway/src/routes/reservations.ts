@@ -26,11 +26,7 @@ import {
   renewReservation,
   resolveConflict,
 } from "../services/reservation.service";
-import {
-  conflictLinks,
-  getLinkContext,
-  reservationLinks,
-} from "../utils/links";
+import { conflictLinks, getLinkContext, reservationLinks } from "../utils/links";
 import {
   sendConflict,
   sendCreated,
@@ -265,10 +261,8 @@ reservations.get("/conflicts", async (c) => {
     };
     if (query.status !== undefined) conflictParams.status = query.status;
     if (query.limit !== undefined) conflictParams.limit = query.limit;
-    if (query.starting_after !== undefined)
-      conflictParams.startingAfter = query.starting_after;
-    if (query.ending_before !== undefined)
-      conflictParams.endingBefore = query.ending_before;
+    if (query.starting_after !== undefined) conflictParams.startingAfter = query.starting_after;
+    if (query.ending_before !== undefined) conflictParams.endingBefore = query.ending_before;
 
     const result = await listConflicts(conflictParams);
     const ctx = getLinkContext(c);
@@ -292,8 +286,7 @@ reservations.get("/conflicts", async (c) => {
           id: conflict.conflict.existingReservation.id,
           requesterId: conflict.conflict.existingReservation.requesterId,
           patterns: conflict.conflict.existingReservation.patterns,
-          expiresAt:
-            conflict.conflict.existingReservation.expiresAt.toISOString(),
+          expiresAt: conflict.conflict.existingReservation.expiresAt.toISOString(),
         },
         requestedPatterns: conflict.conflict.requestedPatterns,
         resolutions: conflict.conflict.resolutions,
@@ -336,8 +329,7 @@ reservations.post("/conflicts/:id/resolve", async (c) => {
     const resolveParams: ResolveConflictParams = {
       conflictId: id,
     };
-    if (validated.resolvedBy !== undefined)
-      resolveParams.resolvedBy = validated.resolvedBy;
+    if (validated.resolvedBy !== undefined) resolveParams.resolvedBy = validated.resolvedBy;
     if (validated.reason !== undefined) resolveParams.reason = validated.reason;
 
     const result = await resolveConflict(resolveParams);
@@ -391,10 +383,8 @@ reservations.get("/", async (c) => {
     if (query.agentId !== undefined) listParams.agentId = query.agentId;
     if (query.filePath !== undefined) listParams.filePath = query.filePath;
     if (query.limit !== undefined) listParams.limit = query.limit;
-    if (query.starting_after !== undefined)
-      listParams.startingAfter = query.starting_after;
-    if (query.ending_before !== undefined)
-      listParams.endingBefore = query.ending_before;
+    if (query.starting_after !== undefined) listParams.startingAfter = query.starting_after;
+    if (query.ending_before !== undefined) listParams.endingBefore = query.ending_before;
 
     const result = await listReservations(listParams);
     const ctx = getLinkContext(c);
@@ -507,24 +497,15 @@ reservations.delete("/:id", async (c) => {
         );
       } catch {
         // No body or invalid body, that's fine if header is provided
-        log.debug(
-          { reservationId: id },
-          "DELETE body parsing skipped, using header",
-        );
+        log.debug({ reservationId: id }, "DELETE body parsing skipped, using header");
       }
     }
 
     if (!agentId) {
-      return sendError(
-        c,
-        "MISSING_AGENT_ID",
-        "X-Agent-Id header is required",
-        400,
-        {
-          hint: "Provide the agent ID via X-Agent-Id header for authorization",
-          example: { header: "X-Agent-Id: agent-123" },
-        },
-      );
+      return sendError(c, "MISSING_AGENT_ID", "X-Agent-Id header is required", 400, {
+        hint: "Provide the agent ID via X-Agent-Id header for authorization",
+        example: { header: "X-Agent-Id: agent-123" },
+      });
     }
 
     const result = await releaseReservation({
@@ -566,8 +547,7 @@ reservations.post("/:id/renew", async (c) => {
       reservationId: id,
       agentId: validated.agentId,
     };
-    if (validated.additionalTtl !== undefined)
-      renewParams.additionalTtl = validated.additionalTtl;
+    if (validated.additionalTtl !== undefined) renewParams.additionalTtl = validated.additionalTtl;
 
     const result = await renewReservation(renewParams);
 

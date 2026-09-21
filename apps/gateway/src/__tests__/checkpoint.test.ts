@@ -137,9 +137,7 @@ describe("Checkpoint Service", () => {
       expect(checkpoint).toBeDefined();
       expect(checkpoint?.id).toBe(metadata.id);
       expect(checkpoint?.agentId).toBe(testAgentId);
-      expect(checkpoint?.conversationHistory).toEqual([
-        { role: "user", content: "Test" },
-      ]);
+      expect(checkpoint?.conversationHistory).toEqual([{ role: "user", content: "Test" }]);
       expect(checkpoint?.toolState).toEqual({ key: "value" });
     });
 
@@ -200,9 +198,7 @@ describe("Checkpoint Service", () => {
 
       const latest = await getLatestCheckpoint(uniqueAgentId);
       expect(latest?.id).toBe(second.id);
-      expect(latest?.conversationHistory).toEqual([
-        { role: "user", content: "Second" },
-      ]);
+      expect(latest?.conversationHistory).toEqual([{ role: "user", content: "Second" }]);
     });
 
     test("returns undefined for agent with no checkpoints", async () => {
@@ -232,9 +228,7 @@ describe("Checkpoint Service", () => {
     });
 
     test("throws CheckpointError for non-existent checkpoint", async () => {
-      await expect(restoreCheckpoint("chk_nonexistent_123456")).rejects.toThrow(
-        CheckpointError,
-      );
+      await expect(restoreCheckpoint("chk_nonexistent_123456")).rejects.toThrow(CheckpointError);
     });
 
     test("restores with verification when requested", async () => {
@@ -300,9 +294,7 @@ describe("Checkpoint Service", () => {
     });
 
     test("throws for non-existent checkpoint", async () => {
-      await expect(exportCheckpoint("chk_nonexistent_123456")).rejects.toThrow(
-        CheckpointError,
-      );
+      await expect(exportCheckpoint("chk_nonexistent_123456")).rejects.toThrow(CheckpointError);
     });
   });
 
@@ -323,9 +315,7 @@ describe("Checkpoint Service", () => {
       expect(imported.agentId).toBe(originalAgentId); // Same agent ID
 
       const checkpoint = await getCheckpoint(imported.id);
-      expect(checkpoint?.conversationHistory).toEqual([
-        { role: "user", content: "Import test" },
-      ]);
+      expect(checkpoint?.conversationHistory).toEqual([{ role: "user", content: "Import test" }]);
     });
 
     test("imports to different agent when specified", async () => {
@@ -581,9 +571,7 @@ describe("Checkpoint Service", () => {
       expect(metadata.compressionStats).toBeUndefined();
 
       const restored = await restoreCheckpoint(metadata.id);
-      expect(restored.conversationHistory).toEqual([
-        { role: "user", content: "Test" },
-      ]);
+      expect(restored.conversationHistory).toEqual([{ role: "user", content: "Test" }]);
     });
   });
 
@@ -616,10 +604,7 @@ describe("Checkpoint Service", () => {
       // Verify error context is in toolState
       const restored = await restoreCheckpoint(metadata!.id);
       expect(restored.toolState["_errorContext"]).toBeDefined();
-      const ctx = restored.toolState["_errorContext"] as Record<
-        string,
-        unknown
-      >;
+      const ctx = restored.toolState["_errorContext"] as Record<string, unknown>;
       expect(ctx["errorType"]).toBe("TestError");
       expect(ctx["errorMessage"]).toBe("Something went wrong");
     });
@@ -673,9 +658,7 @@ describe("Checkpoint Service", () => {
 
       // Verify an error checkpoint was created
       const checkpoints = await getAgentCheckpoints(uniqueAgentId);
-      const errorCheckpoint = checkpoints.find((c) =>
-        c.tags?.includes("error"),
-      );
+      const errorCheckpoint = checkpoints.find((c) => c.tags?.includes("error"));
       expect(errorCheckpoint).toBeDefined();
     });
   });

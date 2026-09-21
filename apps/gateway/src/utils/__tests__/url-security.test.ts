@@ -66,9 +66,7 @@ describe("isPrivateNetworkUrl", () => {
 
   describe("cloud metadata endpoints", () => {
     test("blocks metadata.google.internal", () => {
-      expect(
-        isPrivateNetworkUrl("http://metadata.google.internal/computeMetadata"),
-      ).toBe(true);
+      expect(isPrivateNetworkUrl("http://metadata.google.internal/computeMetadata")).toBe(true);
     });
 
     test("blocks generic metadata hostname", () => {
@@ -83,12 +81,8 @@ describe("isPrivateNetworkUrl", () => {
 
   describe("public URLs", () => {
     test("allows external public URLs", () => {
-      expect(isPrivateNetworkUrl("https://api.example.com/webhook")).toBe(
-        false,
-      );
-      expect(
-        isPrivateNetworkUrl("https://hooks.slack.com/services/T00/B00"),
-      ).toBe(false);
+      expect(isPrivateNetworkUrl("https://api.example.com/webhook")).toBe(false);
+      expect(isPrivateNetworkUrl("https://hooks.slack.com/services/T00/B00")).toBe(false);
       expect(isPrivateNetworkUrl("https://api.github.com/repos")).toBe(false);
       expect(isPrivateNetworkUrl("http://8.8.8.8/api")).toBe(false);
     });
@@ -112,17 +106,13 @@ describe("isPrivateNetworkUrl", () => {
     });
 
     test("blocks metadata endpoints with trailing dot", () => {
-      expect(isPrivateNetworkUrl("http://metadata.google.internal./api")).toBe(
-        true,
-      );
+      expect(isPrivateNetworkUrl("http://metadata.google.internal./api")).toBe(true);
       expect(isPrivateNetworkUrl("http://service.internal./api")).toBe(true);
     });
 
     test("allows public URLs with trailing dot", () => {
       expect(isPrivateNetworkUrl("https://example.com./api")).toBe(false);
-      expect(isPrivateNetworkUrl("https://api.github.com./webhook")).toBe(
-        false,
-      );
+      expect(isPrivateNetworkUrl("https://api.github.com./webhook")).toBe(false);
     });
   });
 
@@ -140,9 +130,7 @@ describe("isPrivateNetworkUrl", () => {
 
     test("handles URLs with credentials", () => {
       expect(isPrivateNetworkUrl("http://user:pass@localhost/api")).toBe(true);
-      expect(isPrivateNetworkUrl("http://user:pass@example.com/api")).toBe(
-        false,
-      );
+      expect(isPrivateNetworkUrl("http://user:pass@example.com/api")).toBe(false);
     });
 
     test("handles URLs with ports", () => {
@@ -154,17 +142,15 @@ describe("isPrivateNetworkUrl", () => {
 
 describe("assertSafeExternalUrl", () => {
   test("throws for private network URLs", () => {
-    expect(() =>
-      assertSafeExternalUrl("http://localhost/api", "webhook"),
-    ).toThrow(/webhook URL blocked/i);
-    expect(() =>
-      assertSafeExternalUrl("http://10.0.0.1/api", "notification"),
-    ).toThrow(/notification URL blocked/i);
+    expect(() => assertSafeExternalUrl("http://localhost/api", "webhook")).toThrow(
+      /webhook URL blocked/i,
+    );
+    expect(() => assertSafeExternalUrl("http://10.0.0.1/api", "notification")).toThrow(
+      /notification URL blocked/i,
+    );
   });
 
   test("does not throw for public URLs", () => {
-    expect(() =>
-      assertSafeExternalUrl("https://api.example.com/webhook", "webhook"),
-    ).not.toThrow();
+    expect(() => assertSafeExternalUrl("https://api.example.com/webhook", "webhook")).not.toThrow();
   });
 });

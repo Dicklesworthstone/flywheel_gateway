@@ -12,10 +12,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import {
-  type RequestContext,
-  requestContextStorage,
-} from "../../middleware/correlation";
+import { type RequestContext, requestContextStorage } from "../../middleware/correlation";
 import { logger } from "../../services/logger";
 import {
   buildCliCommandLogFields,
@@ -166,10 +163,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
     });
 
     test("redacts single-dash sensitive flags", () => {
-      const args = [
-        `${passwordShortArgPrefix}${secretValue}`,
-        `${tokenShortArgPrefix}abc`,
-      ];
+      const args = [`${passwordShortArgPrefix}${secretValue}`, `${tokenShortArgPrefix}abc`];
       const redacted = redactArgs(args);
 
       expect(redacted[0]).toBe(`${passwordShortArgPrefix}[REDACTED]`);
@@ -180,12 +174,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
       const args = ["--verbose", "--output=file.txt", "--count=10", "list"];
       const redacted = redactArgs(args);
 
-      expect(redacted).toEqual([
-        "--verbose",
-        "--output=file.txt",
-        "--count=10",
-        "list",
-      ]);
+      expect(redacted).toEqual(["--verbose", "--output=file.txt", "--count=10", "list"]);
     });
 
     test("handles empty args array", () => {
@@ -252,9 +241,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
       const output = "y".repeat(600);
       const truncated = truncateOutput(output);
 
-      expect(truncated).toBe(
-        `${"y".repeat(500)}... [truncated, 600 total bytes]`,
-      );
+      expect(truncated).toBe(`${"y".repeat(500)}... [truncated, 600 total bytes]`);
     });
 
     test("uses custom max length when specified", () => {
@@ -294,9 +281,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
     };
 
     test("includes all required fields", () => {
-      const fields = withRequestContext(() =>
-        buildCliCommandLogFields(baseInput),
-      );
+      const fields = withRequestContext(() => buildCliCommandLogFields(baseInput));
 
       // Required fields per ADR-007
       expect(fields.tool).toBe("br");
@@ -410,9 +395,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
 
   describe("buildCliResultLogFields", () => {
     test("includes required result fields", () => {
-      const fields = withRequestContext(() =>
-        buildCliResultLogFields("br", "br list", 100),
-      );
+      const fields = withRequestContext(() => buildCliResultLogFields("br", "br list", 100));
 
       expect(fields.tool).toBe("br");
       expect(fields.operation).toBe("br list");
@@ -543,9 +526,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
       };
       const error = new Error("Test error");
 
-      expect(() =>
-        logCliError(input, "br command failed", error),
-      ).not.toThrow();
+      expect(() => logCliError(input, "br command failed", error)).not.toThrow();
     });
   });
 
@@ -568,12 +549,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
       const brLogger = createToolLogger("br");
 
       expect(() =>
-        brLogger.command(
-          "list",
-          ["--json"],
-          { exitCode: 0, latencyMs: 50 },
-          "completed",
-        ),
+        brLogger.command("list", ["--json"], { exitCode: 0, latencyMs: 50 }, "completed"),
       ).not.toThrow();
     });
 
@@ -594,9 +570,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
     test("result() executes without throwing", () => {
       const brLogger = createToolLogger("br");
 
-      expect(() =>
-        brLogger.result("br list", 50, "fetched issues", { count: 5 }),
-      ).not.toThrow();
+      expect(() => brLogger.result("br list", 50, "fetched issues", { count: 5 })).not.toThrow();
     });
 
     test("warning() executes without throwing", () => {
@@ -630,13 +604,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
       const error = new Error("Test");
 
       expect(() =>
-        brLogger.error(
-          "list",
-          [],
-          { exitCode: 1, latencyMs: 10 },
-          "failed",
-          error,
-        ),
+        brLogger.error("list", [], { exitCode: 1, latencyMs: 10 }, "failed", error),
       ).not.toThrow();
     });
 
@@ -696,10 +664,7 @@ describe("CLI Logging Standards (ADR-007)", () => {
       const fields = withRequestContext(() => buildCliCommandLogFields(input));
 
       // Verify sensitive data is redacted
-      expect(fields.args).toEqual([
-        `${apiKeyHyphenArgPrefix}[REDACTED]`,
-        "--query=test",
-      ]);
+      expect(fields.args).toEqual([`${apiKeyHyphenArgPrefix}[REDACTED]`, "--query=test"]);
 
       // Verify required fields present
       expect(fields.tool).toBe("cass");

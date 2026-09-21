@@ -120,10 +120,7 @@ export interface HubStats {
     /** Timestamp of last drop event */
     lastDropAt: string | null;
     /** Per-channel drop counts (only channels with drops) */
-    byChannel: Record<
-      string,
-      { capacityEvictions: number; ttlExpirations: number }
-    >;
+    byChannel: Record<string, { capacityEvictions: number; ttlExpirations: number }>;
   };
 }
 
@@ -150,17 +147,11 @@ export class WebSocketHub {
    * @param auth - Authentication context
    * @returns Connection handle with assigned ID
    */
-  addConnection(
-    ws: ServerWebSocket<ConnectionData>,
-    auth: AuthContext,
-  ): ConnectionHandle {
+  addConnection(ws: ServerWebSocket<ConnectionData>, auth: AuthContext): ConnectionHandle {
     const connectionId = ws.data.connectionId;
     this.connections.set(connectionId, ws);
 
-    logger.info(
-      { connectionId, userId: auth.userId },
-      "WebSocket connection added to hub",
-    );
+    logger.info({ connectionId, userId: auth.userId }, "WebSocket connection added to hub");
 
     return {
       connectionId,
@@ -215,10 +206,7 @@ export class WebSocketHub {
     try {
       ws.close(code, reason);
     } catch (err) {
-      logger.warn(
-        { connectionId, error: err },
-        "Error closing WebSocket connection",
-      );
+      logger.warn({ connectionId, error: err }, "Error closing WebSocket connection");
     }
 
     // Remove from hub tracking
@@ -279,9 +267,7 @@ export class WebSocketHub {
     let missedMessages: HubMessage[] | undefined;
     if (cursor) {
       // Replay messages since the cursor (or full buffer if cursor expired/invalid)
-      missedMessages = buffer.isValidCursor(cursor)
-        ? buffer.slice(cursor)
-        : buffer.getAll();
+      missedMessages = buffer.isValidCursor(cursor) ? buffer.slice(cursor) : buffer.getAll();
     }
 
     logger.debug(
@@ -324,10 +310,7 @@ export class WebSocketHub {
       }
     }
 
-    logger.debug(
-      { connectionId, channel: channelStr },
-      "Connection unsubscribed from channel",
-    );
+    logger.debug({ connectionId, channel: channelStr }, "Connection unsubscribed from channel");
   }
 
   /**
@@ -349,12 +332,7 @@ export class WebSocketHub {
     const requiresAck = channelRequiresAck(channel);
 
     // Create message (cursor will be set by buffer)
-    const message = createHubMessage(
-      type,
-      channelStr,
-      payload,
-      metadata,
-    ) as HubMessage;
+    const message = createHubMessage(type, channelStr, payload, metadata) as HubMessage;
 
     // Add to ring buffer
     const buffer = this.getOrCreateBuffer(channelStr);
@@ -458,10 +436,7 @@ export class WebSocketHub {
     }
 
     if (acknowledged.length > 0) {
-      logger.debug(
-        { connectionId, acknowledged: acknowledged.length },
-        "Messages acknowledged",
-      );
+      logger.debug({ connectionId, acknowledged: acknowledged.length }, "Messages acknowledged");
     }
 
     return {
@@ -490,19 +465,13 @@ export class WebSocketHub {
    * @param messageIds - Optional subset of message IDs to replay
    * @returns Number of messages replayed
    */
-  replayPendingAcks(
-    connectionId: string,
-    messageIds?: ReadonlySet<string>,
-  ): number {
+  replayPendingAcks(connectionId: string, messageIds?: ReadonlySet<string>): number {
     const ws = this.connections.get(connectionId);
     if (!ws) return 0;
 
     let replayed = 0;
     const entries = messageIds
-      ? Array.from(
-          messageIds,
-          (id) => [id, ws.data.pendingAcks.get(id)] as const,
-        )
+      ? Array.from(messageIds, (id) => [id, ws.data.pendingAcks.get(id)] as const)
       : Array.from(ws.data.pendingAcks.entries());
 
     for (const [msgId, pending] of entries) {
@@ -526,10 +495,7 @@ export class WebSocketHub {
     }
 
     if (replayed > 0) {
-      logger.info(
-        { connectionId, replayed },
-        "Replayed pending ack messages on reconnect",
-      );
+      logger.info({ connectionId, replayed }, "Replayed pending ack messages on reconnect");
     }
 
     return replayed;
@@ -569,8 +535,7 @@ export class WebSocketHub {
       const messages = buffer.getAll(limit + 1);
       const hasMore = messages.length > limit;
       const trimmed = hasMore ? messages.slice(0, limit) : messages;
-      const lastCursor =
-        trimmed.length > 0 ? trimmed[trimmed.length - 1]?.cursor : undefined;
+      const lastCursor = trimmed.length > 0 ? trimmed[trimmed.length - 1]?.cursor : undefined;
 
       return {
         messages: trimmed,
@@ -584,8 +549,7 @@ export class WebSocketHub {
     const messages = buffer.slice(cursor, limit + 1);
     const hasMore = messages.length > limit;
     const trimmed = hasMore ? messages.slice(0, limit) : messages;
-    const lastCursor =
-      trimmed.length > 0 ? trimmed[trimmed.length - 1]?.cursor : undefined;
+    const lastCursor = trimmed.length > 0 ? trimmed[trimmed.length - 1]?.cursor : undefined;
 
     return {
       messages: trimmed,
@@ -664,10 +628,7 @@ export class WebSocketHub {
               });
             }
           } catch (err) {
-            logger.warn(
-              { connectionId, error: err },
-              "Failed to replay message",
-            );
+            logger.warn({ connectionId, error: err }, "Failed to replay message");
           }
         }
 
@@ -687,10 +648,7 @@ export class WebSocketHub {
     }
 
     // Also replay any previously pending acks that weren't acknowledged
-    const pendingAcksReplayed = this.replayPendingAcks(
-      connectionId,
-      pendingAckIdsBefore,
-    );
+    const pendingAcksReplayed = this.replayPendingAcks(connectionId, pendingAckIdsBefore);
 
     logger.info(
       { connectionId, replayed, expired: expired.length, pendingAcksReplayed },
@@ -774,8 +732,7 @@ export class WebSocketHub {
       const channel = parseChannel(channelStr);
       if (channel) {
         const prefix = getChannelTypePrefix(channel);
-        subscriptionsByChannel[prefix] =
-          (subscriptionsByChannel[prefix] ?? 0) + subs.size;
+        subscriptionsByChannel[prefix] = (subscriptionsByChannel[prefix] ?? 0) + subs.size;
       }
     }
 
@@ -802,10 +759,7 @@ export class WebSocketHub {
     let totalCapacityEvictions = 0;
     let totalTtlExpirations = 0;
     let lastDropAt: number | null = null;
-    const byChannel: Record<
-      string,
-      { capacityEvictions: number; ttlExpirations: number }
-    > = {};
+    const byChannel: Record<string, { capacityEvictions: number; ttlExpirations: number }> = {};
 
     for (const [channelStr, buffer] of this.buffers) {
       const stats = buffer.dropStats;
@@ -823,10 +777,7 @@ export class WebSocketHub {
         totalCapacityEvictions += stats.capacityEvictions;
         totalTtlExpirations += stats.ttlExpirations;
 
-        const lastDrop = Math.max(
-          stats.lastEvictionAt ?? 0,
-          stats.lastExpirationAt ?? 0,
-        );
+        const lastDrop = Math.max(stats.lastEvictionAt ?? 0, stats.lastExpirationAt ?? 0);
         if (lastDrop > 0 && (lastDropAt === null || lastDrop > lastDropAt)) {
           lastDropAt = lastDrop;
         }

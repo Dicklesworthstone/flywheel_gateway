@@ -13,11 +13,7 @@ describe("Version Comparison", () => {
     const currentParts = current.replace(/^v/, "").split(".").map(Number);
     const latestParts = latest.replace(/^v/, "").split(".").map(Number);
 
-    for (
-      let i = 0;
-      i < Math.max(currentParts.length, latestParts.length);
-      i++
-    ) {
+    for (let i = 0; i < Math.max(currentParts.length, latestParts.length); i++) {
       const currentPart = currentParts[i] ?? 0;
       const latestPart = latestParts[i] ?? 0;
 
@@ -179,9 +175,7 @@ describe("Platform Identifier", () => {
     const knownArchs = ["x64", "arm64", "arm"];
 
     const [platform, arch] = identifier.split("-");
-    expect(
-      knownPlatforms.some((p) => identifier.includes(p)) || platform,
-    ).toBeTruthy();
+    expect(knownPlatforms.some((p) => identifier.includes(p)) || platform).toBeTruthy();
     expect(knownArchs.some((a) => identifier.includes(a)) || arch).toBeTruthy();
   });
 });
@@ -257,9 +251,7 @@ describe("Release Asset Matching", () => {
     platform: string,
   ): (typeof mockAssets)[0] | undefined {
     return assets.find(
-      (a) =>
-        a.name.includes(platform) &&
-        (a.name.endsWith(".tar.gz") || a.name.endsWith(".zip")),
+      (a) => a.name.includes(platform) && (a.name.endsWith(".tar.gz") || a.name.endsWith(".zip")),
     );
   }
 
@@ -336,12 +328,8 @@ describe("Checksum Manifest Parsing", () => {
     }
 
     expect(checksums.size).toBe(2);
-    expect(
-      checksums.get("flywheel-gateway-1.0.0-linux-x64.tar.gz")?.sha256,
-    ).toBe("abc123");
-    expect(
-      checksums.get("flywheel-gateway-1.0.0-darwin-x64.tar.gz")?.sha256,
-    ).toBe("ghi789");
+    expect(checksums.get("flywheel-gateway-1.0.0-linux-x64.tar.gz")?.sha256).toBe("abc123");
+    expect(checksums.get("flywheel-gateway-1.0.0-darwin-x64.tar.gz")?.sha256).toBe("ghi789");
     expect(checksums.get("unknown-file.tar.gz")).toBeUndefined();
   });
 });

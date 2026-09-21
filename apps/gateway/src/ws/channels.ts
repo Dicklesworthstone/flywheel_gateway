@@ -439,10 +439,7 @@ export function channelPrefixRequiresAck(prefix: ChannelTypePrefix): boolean {
  * @param pattern - The pattern to match against
  * @returns true if the channel matches the pattern
  */
-export function channelMatchesPattern(
-  channel: Channel,
-  pattern: string,
-): boolean {
+export function channelMatchesPattern(channel: Channel, pattern: string): boolean {
   const channelStr = channelToString(channel);
 
   // Simple case: exact match

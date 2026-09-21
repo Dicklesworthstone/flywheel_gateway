@@ -135,11 +135,7 @@ function publishHandoffEvent(
  * Add to index. Uses get-or-create pattern that's safe
  * against async interleaving.
  */
-function addToIndex(
-  index: Map<string, Set<string>>,
-  key: string,
-  id: string,
-): void {
+function addToIndex(index: Map<string, Set<string>>, key: string, id: string): void {
   let set = index.get(key);
   if (!set) {
     set = new Set();
@@ -154,11 +150,7 @@ function addToIndex(
 /**
  * Remove from index.
  */
-function removeFromIndex(
-  index: Map<string, Set<string>>,
-  key: string,
-  id: string,
-): void {
+function removeFromIndex(index: Map<string, Set<string>>, key: string, id: string): void {
   const set = index.get(key);
   if (set) {
     set.delete(id);
@@ -238,10 +230,7 @@ export async function initiateHandoff(params: {
   const preferences: HandoffPreferences = {
     requireAcknowledgment: true,
     allowPartialTransfer: false,
-    timeoutMs: Math.min(
-      params.preferences?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-      MAX_TIMEOUT_MS,
-    ),
+    timeoutMs: Math.min(params.preferences?.timeoutMs ?? DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS),
     fallbackBehavior: params.preferences?.fallbackBehavior ?? "escalate",
     priorityAgents: params.preferences?.priorityAgents ?? [],
   };
@@ -301,10 +290,7 @@ export async function initiateHandoff(params: {
   stats.byUrgency[params.urgency ?? "normal"] =
     (stats.byUrgency[params.urgency ?? "normal"] ?? 0) + 1;
 
-  log.info(
-    { handoffId, expiresAt: expiresAt.toISOString() },
-    "Handoff initiated",
-  );
+  log.info({ handoffId, expiresAt: expiresAt.toISOString() }, "Handoff initiated");
 
   // Publish event
   publishHandoffEvent(params.projectId, "handoff.initiated", {
@@ -369,25 +355,16 @@ async function transitionPhase(
     // Remove from indices to prevent memory leak
     removeFromIndex(sourceAgentIndex, record.request.sourceAgentId, handoffId);
     if (record.request.targetAgentId) {
-      removeFromIndex(
-        targetAgentIndex,
-        record.request.targetAgentId,
-        handoffId,
-      );
+      removeFromIndex(targetAgentIndex, record.request.targetAgentId, handoffId);
     }
     if (record.acknowledgment?.receivingAgentId) {
-      removeFromIndex(
-        targetAgentIndex,
-        record.acknowledgment.receivingAgentId,
-        handoffId,
-      );
+      removeFromIndex(targetAgentIndex, record.acknowledgment.receivingAgentId, handoffId);
     }
 
     // Update stats
     if (newPhase === "complete") {
       stats.completedHandoffs++;
-      const transferTime =
-        record.completedAt.getTime() - record.createdAt.getTime();
+      const transferTime = record.completedAt.getTime() - record.createdAt.getTime();
       stats.totalTransferTimeMs += transferTime;
     } else if (newPhase === "failed") {
       stats.failedHandoffs++;
@@ -455,10 +432,7 @@ export async function acceptHandoff(params: {
   }
 
   // Validate target agent (if specific target was requested)
-  if (
-    record.request.targetAgentId &&
-    record.request.targetAgentId !== params.receivingAgentId
-  ) {
+  if (record.request.targetAgentId && record.request.targetAgentId !== params.receivingAgentId) {
     return {
       success: false,
       handoffId: params.handoffId,
@@ -603,18 +577,12 @@ async function handleFallback(record: HandoffRecord): Promise<void> {
   switch (fallback) {
     case "broadcast":
       // Re-initiate as broadcast (implementation would create new handoff)
-      logger.info(
-        { handoffId: record.id },
-        "Fallback: would broadcast to available agents",
-      );
+      logger.info({ handoffId: record.id }, "Fallback: would broadcast to available agents");
       break;
 
     case "retry":
       // Retry same target
-      logger.info(
-        { handoffId: record.id },
-        "Fallback: would retry same target",
-      );
+      logger.info({ handoffId: record.id }, "Fallback: would retry same target");
       break;
 
     case "escalate":
@@ -775,10 +743,7 @@ export async function completeHandoff(params: {
 
   await transitionPhase(params.handoffId, "complete");
 
-  log.info(
-    { receivingAgentId, transferSummary: params.transferSummary },
-    "Handoff completed",
-  );
+  log.info({ receivingAgentId, transferSummary: params.transferSummary }, "Handoff completed");
 
   // Publish event
   publishHandoffEvent(record.request.projectId, "handoff.completed", {
@@ -787,9 +752,7 @@ export async function completeHandoff(params: {
     receivingAgentId,
     transferSummary: params.transferSummary,
     completedAt: new Date().toISOString(),
-    durationMs: record.completedAt
-      ? record.completedAt.getTime() - record.createdAt.getTime()
-      : 0,
+    durationMs: record.completedAt ? record.completedAt.getTime() - record.createdAt.getTime() : 0,
   });
 
   return {
@@ -841,10 +804,7 @@ export async function failHandoff(params: {
     errorCode: params.errorCode,
   });
 
-  log.error(
-    { errorCode: params.errorCode, errorMessage: params.errorMessage },
-    "Handoff failed",
-  );
+  log.error({ errorCode: params.errorCode, errorMessage: params.errorMessage }, "Handoff failed");
 
   // Publish event
   publishHandoffEvent(record.request.projectId, "handoff.failed", {
@@ -1058,10 +1018,7 @@ export function startCleanupJob(): void {
     cleanupInterval.unref();
   }
 
-  logger.info(
-    { intervalMs: CLEANUP_INTERVAL_MS },
-    "Handoff cleanup job started",
-  );
+  logger.info({ intervalMs: CLEANUP_INTERVAL_MS }, "Handoff cleanup job started");
 }
 
 /**

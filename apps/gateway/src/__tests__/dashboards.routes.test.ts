@@ -7,10 +7,7 @@ import { createHmac } from "node:crypto";
 import { Hono } from "hono";
 import { authMiddleware } from "../middleware/auth";
 import { dashboards as dashboardsRoutes } from "../routes/dashboards";
-import {
-  clearDashboardStore,
-  createDashboard,
-} from "../services/dashboard.service";
+import { clearDashboardStore, createDashboard } from "../services/dashboard.service";
 
 const TEST_JWT_SECRET = "test-secret-please-change";
 
@@ -19,9 +16,7 @@ function createJwt(payload: Record<string, unknown>, secret: string) {
   const headerB64 = Buffer.from(JSON.stringify(header)).toString("base64url");
   const payloadB64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const data = `${headerB64}.${payloadB64}`;
-  const signature = createHmac("sha256", secret)
-    .update(data)
-    .digest("base64url");
+  const signature = createHmac("sha256", secret).update(data).digest("base64url");
   return `${data}.${signature}`;
 }
 

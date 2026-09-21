@@ -4,15 +4,7 @@
  * Tests profile management, pool operations, and rotation strategies.
  */
 
-import {
-  afterAll,
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  test,
-} from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { restoreRealDb } from "./test-utils/db-mock-restore";
 
 // Mock the logger with child method (needed for service dependencies)
@@ -77,9 +69,7 @@ function runMigrations(sqliteDb: Database): void {
     }
 
     sqliteDb
-      .query(
-        `INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES (?, ?)`,
-      )
+      .query(`INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES (?, ?)`)
       .run(file, Date.now());
   }
 }
@@ -102,10 +92,7 @@ afterAll(() => {
   restoreRealDb();
 });
 
-import {
-  createMockCaamExecutor,
-  type MockCaamExecutor,
-} from "@flywheel/test-utils";
+import { createMockCaamExecutor, type MockCaamExecutor } from "@flywheel/test-utils";
 import { eq } from "drizzle-orm";
 import {
   activateProfile,
@@ -120,20 +107,11 @@ import {
   setCooldown,
   updateProfile,
 } from "../caam/account.service";
-import {
-  handleRateLimit,
-  isRateLimitError,
-  peekNextProfile,
-  rotate,
-} from "../caam/rotation";
+import { handleRateLimit, isRateLimitError, peekNextProfile, rotate } from "../caam/rotation";
 import { CaamRunner } from "../caam/runner";
 import type { ProviderId } from "../caam/types";
 import { db } from "../db";
-import {
-  accountPoolMembers,
-  accountPools,
-  accountProfiles,
-} from "../db/schema";
+import { accountPoolMembers, accountPools, accountProfiles } from "../db/schema";
 
 describe("CAAM Account Service", () => {
   // Clean up test data after each test
@@ -387,12 +365,8 @@ describe("CAAM Account Service", () => {
 
       expect(activated!.lastUsedAt).toBeDefined();
       // Allow 2 second tolerance for database timestamp precision
-      expect(activated!.lastUsedAt!.getTime()).toBeGreaterThanOrEqual(
-        before - 2000,
-      );
-      expect(activated!.lastUsedAt!.getTime()).toBeLessThanOrEqual(
-        Date.now() + 2000,
-      );
+      expect(activated!.lastUsedAt!.getTime()).toBeGreaterThanOrEqual(before - 2000);
+      expect(activated!.lastUsedAt!.getTime()).toBeLessThanOrEqual(Date.now() + 2000);
     });
 
     test("updates pool's active profile", async () => {
@@ -594,11 +568,7 @@ describe("CAAM Rotation", () => {
       await markVerified(p2.id);
       await activateProfile(p1.id);
 
-      const result = await handleRateLimit(
-        "test-ws",
-        "claude",
-        "429 Too Many Requests",
-      );
+      const result = await handleRateLimit("test-ws", "claude", "429 Too Many Requests");
 
       expect(result.success).toBe(true);
       expect(result.newProfileId).toBe(p2.id);
@@ -796,9 +766,7 @@ describe("CAAM Types", () => {
 
     test("claude has longer cooldown than gemini", () => {
       // Claude has stricter rate limits, so longer cooldown
-      expect(DEFAULT_COOLDOWN_MINUTES.claude).toBeGreaterThan(
-        DEFAULT_COOLDOWN_MINUTES.gemini,
-      );
+      expect(DEFAULT_COOLDOWN_MINUTES.claude).toBeGreaterThan(DEFAULT_COOLDOWN_MINUTES.gemini);
     });
   });
 });
@@ -938,9 +906,7 @@ describe("CAAM Runner", () => {
     test("throws on CLI failure", async () => {
       mockExecutor.injectFailure("cooldown set", "Failed to set", 1);
 
-      await expect(
-        runner.setCooldown("test-ws", "claude", "work", 15),
-      ).rejects.toThrow();
+      await expect(runner.setCooldown("test-ws", "claude", "work", 15)).rejects.toThrow();
     });
   });
 

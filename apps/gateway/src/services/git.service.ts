@@ -244,11 +244,7 @@ function generatePredictionId(): string {
 /**
  * Create a cache key for conflict predictions.
  */
-function predictionCacheKey(
-  repositoryId: string,
-  branchA: string,
-  branchB: string,
-): string {
+function predictionCacheKey(repositoryId: string, branchA: string, branchB: string): string {
   const sorted = [branchA, branchB].sort();
   return `${repositoryId}:${sorted[0]}:${sorted[1]}`;
 }
@@ -256,11 +252,7 @@ function predictionCacheKey(
 /**
  * Create a cache key for merge base info.
  */
-function mergeBaseCacheKey(
-  repositoryId: string,
-  branch: string,
-  target: string,
-): string {
+function mergeBaseCacheKey(repositoryId: string, branch: string, target: string): string {
   return `${repositoryId}:${branch}:${target}`;
 }
 
@@ -284,9 +276,7 @@ function publishGitEvent(
 /**
  * Assign a branch to an agent with exclusive ownership.
  */
-export async function assignBranch(
-  params: AssignBranchParams,
-): Promise<AssignBranchResult> {
+export async function assignBranch(params: AssignBranchParams): Promise<AssignBranchResult> {
   const correlationId = getCorrelationId();
   const log = logger.child({
     correlationId,
@@ -397,9 +387,7 @@ export async function assignBranch(
 /**
  * Release branch assignment(s) for an agent.
  */
-export async function releaseBranch(
-  params: ReleaseBranchParams,
-): Promise<ReleaseBranchResult> {
+export async function releaseBranch(params: ReleaseBranchParams): Promise<ReleaseBranchResult> {
   const correlationId = getCorrelationId();
   const log = logger.child({
     correlationId,
@@ -478,10 +466,7 @@ export async function renewAssignment(
   }
 
   if (assignment.agentId !== params.agentId) {
-    log.warn(
-      { holderId: assignment.agentId },
-      "Attempt to renew assignment by non-holder",
-    );
+    log.warn({ holderId: assignment.agentId }, "Attempt to renew assignment by non-holder");
     return {
       renewed: false,
       error: "Agent does not hold this assignment",
@@ -554,9 +539,7 @@ export async function getBranchAssignments(
 /**
  * Get a specific branch assignment by ID.
  */
-export async function getAssignment(
-  assignmentId: string,
-): Promise<BranchAssignment | null> {
+export async function getAssignment(assignmentId: string): Promise<BranchAssignment | null> {
   return assignmentStore.get(assignmentId) ?? null;
 }
 
@@ -622,11 +605,7 @@ export async function predictConflicts(
   });
 
   // Check cache first
-  const cacheKey = predictionCacheKey(
-    params.repositoryId,
-    params.branchA,
-    params.branchB,
-  );
+  const cacheKey = predictionCacheKey(params.repositoryId, params.branchA, params.branchB);
   const cached = predictionCache.get(cacheKey);
 
   // Cache valid for 5 minutes
@@ -675,10 +654,7 @@ export async function predictConflicts(
       a.status === "active",
   );
 
-  if (
-    assignmentA?.metadata.reservedPatterns &&
-    assignmentB?.metadata.reservedPatterns
-  ) {
+  if (assignmentA?.metadata.reservedPatterns && assignmentB?.metadata.reservedPatterns) {
     // Simple overlap check - in production would use glob matching
     const patternsA = new Set(assignmentA.metadata.reservedPatterns);
     const patternsB = new Set(assignmentB.metadata.reservedPatterns);
@@ -740,9 +716,7 @@ export async function getOverlappingFiles(
   for (const branch of params.branches) {
     const assignment = Array.from(assignmentStore.values()).find(
       (a) =>
-        a.repositoryId === params.repositoryId &&
-        a.branchName === branch &&
-        a.status === "active",
+        a.repositoryId === params.repositoryId && a.branchName === branch && a.status === "active",
     );
 
     if (assignment?.metadata.reservedPatterns) {
@@ -781,10 +755,7 @@ export async function getOverlappingFiles(
     generatedAt: new Date(),
   };
 
-  log.info(
-    { overlappingCount: overlappingFiles.length },
-    "Overlapping files report generated",
-  );
+  log.info({ overlappingCount: overlappingFiles.length }, "Overlapping files report generated");
 
   return report;
 }
@@ -952,29 +923,20 @@ export async function coordinateSync(
     }
 
     // For pull/fetch, allow but recommend getting assignment
-    recommendations.push(
-      "Consider requesting branch assignment for coordinated work",
-    );
+    recommendations.push("Consider requesting branch assignment for coordinated work");
   }
 
   // Check for force operations
   if (operation.force) {
-    warnings.push(
-      "Force operations can cause data loss. Ensure other agents are not affected.",
-    );
+    warnings.push("Force operations can cause data loss. Ensure other agents are not affected.");
 
     // Check if other agents have work on related branches
     const otherAssignments = Array.from(assignmentStore.values()).filter(
-      (a) =>
-        a.repositoryId === repositoryId &&
-        a.agentId !== agentId &&
-        a.status === "active",
+      (a) => a.repositoryId === repositoryId && a.agentId !== agentId && a.status === "active",
     );
 
     if (otherAssignments.length > 0) {
-      warnings.push(
-        `${otherAssignments.length} other agent(s) have active branch assignments`,
-      );
+      warnings.push(`${otherAssignments.length} other agent(s) have active branch assignments`);
     }
   }
 
@@ -1081,9 +1043,7 @@ export async function recordSyncResult(
   if (result.success && result.operation.type === "push") {
     const branch = result.operation.branch;
     // Use delimiter-aware matching to avoid "main" matching "maintain-feature"
-    const branchPattern = new RegExp(
-      `(^|:)${branch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(:|$)`,
-    );
+    const branchPattern = new RegExp(`(^|:)${branch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(:|$)`);
 
     // Invalidate conflict predictions involving this branch
     for (const key of predictionCache.keys()) {
@@ -1160,10 +1120,7 @@ async function cleanupExpiredAssignments(): Promise<number> {
   // Clean old expired assignments (older than 1 hour)
   const oldThreshold = new Date(now.getTime() - 60 * 60 * 1000);
   for (const [id, assignment] of assignmentStore) {
-    if (
-      assignment.status === "expired" &&
-      assignment.expiresAt < oldThreshold
-    ) {
+    if (assignment.status === "expired" && assignment.expiresAt < oldThreshold) {
       assignmentStore.delete(id);
     }
   }
@@ -1193,10 +1150,7 @@ export function startGitCleanupJob(): void {
     cleanupInterval.unref();
   }
 
-  logger.info(
-    { intervalMs: CLEANUP_INTERVAL_MS },
-    "Git assignment cleanup job started",
-  );
+  logger.info({ intervalMs: CLEANUP_INTERVAL_MS }, "Git assignment cleanup job started");
 }
 
 /**
@@ -1238,8 +1192,7 @@ export function getGitStats(): {
   };
 
   for (const assignment of assignmentStore.values()) {
-    byRepository[assignment.repositoryId] =
-      (byRepository[assignment.repositoryId] ?? 0) + 1;
+    byRepository[assignment.repositoryId] = (byRepository[assignment.repositoryId] ?? 0) + 1;
     byStatus[assignment.status]++;
   }
 

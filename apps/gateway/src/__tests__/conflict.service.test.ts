@@ -32,12 +32,7 @@ beforeEach(() => {
 describe("Conflict Service", () => {
   describe("Reservation Conflict Detection", () => {
     test("detects no conflicts when no reservations exist", () => {
-      const result = checkReservationConflicts(
-        "project-1",
-        "agent-1",
-        ["src/**/*.ts"],
-        true,
-      );
+      const result = checkReservationConflicts("project-1", "agent-1", ["src/**/*.ts"], true);
 
       expect(result.hasConflicts).toBe(false);
       expect(result.canProceed).toBe(true);
@@ -57,12 +52,7 @@ describe("Conflict Service", () => {
       });
 
       // Check for conflict with overlapping pattern
-      const result = checkReservationConflicts(
-        "project-1",
-        "agent-2",
-        ["src/index.ts"],
-        true,
-      );
+      const result = checkReservationConflicts("project-1", "agent-2", ["src/index.ts"], true);
 
       expect(result.hasConflicts).toBe(true);
       expect(result.conflicts.length).toBeGreaterThan(0);
@@ -82,12 +72,7 @@ describe("Conflict Service", () => {
       });
 
       // Check for different directory
-      const result = checkReservationConflicts(
-        "project-1",
-        "agent-2",
-        ["test/**/*.ts"],
-        true,
-      );
+      const result = checkReservationConflicts("project-1", "agent-2", ["test/**/*.ts"], true);
 
       expect(result.hasConflicts).toBe(false);
       expect(result.canProceed).toBe(true);
@@ -106,12 +91,7 @@ describe("Conflict Service", () => {
       });
 
       // Same agent requesting overlapping pattern
-      const result = checkReservationConflicts(
-        "project-1",
-        "agent-1",
-        ["src/index.ts"],
-        true,
-      );
+      const result = checkReservationConflicts("project-1", "agent-1", ["src/index.ts"], true);
 
       expect(result.hasConflicts).toBe(false);
       expect(result.canProceed).toBe(true);
@@ -134,12 +114,7 @@ describe("Conflict Service", () => {
       expect(removed).toBe(true);
 
       // Now another agent should be able to reserve
-      const result = checkReservationConflicts(
-        "project-1",
-        "agent-2",
-        ["src/**/*.ts"],
-        true,
-      );
+      const result = checkReservationConflicts("project-1", "agent-2", ["src/**/*.ts"], true);
 
       expect(result.hasConflicts).toBe(false);
       expect(result.canProceed).toBe(true);
@@ -326,16 +301,8 @@ describe("Conflict Service", () => {
         type: ["resource_contention"],
       });
 
-      expect(
-        reservationResult.conflicts.every(
-          (c) => c.type === "reservation_overlap",
-        ),
-      ).toBe(true);
-      expect(
-        contentionResult.conflicts.every(
-          (c) => c.type === "resource_contention",
-        ),
-      ).toBe(true);
+      expect(reservationResult.conflicts.every((c) => c.type === "reservation_overlap")).toBe(true);
+      expect(contentionResult.conflicts.every((c) => c.type === "resource_contention")).toBe(true);
     });
 
     test("filters conflicts by severity", () => {
@@ -355,9 +322,7 @@ describe("Conflict Service", () => {
         severity: ["warning"],
       });
 
-      expect(
-        warningResult.conflicts.every((c) => c.severity === "warning"),
-      ).toBe(true);
+      expect(warningResult.conflicts.every((c) => c.severity === "warning")).toBe(true);
     });
 
     test("filters conflicts by project", () => {
@@ -387,12 +352,8 @@ describe("Conflict Service", () => {
       const project1Result = getActiveConflicts({ projectId: "project-1" });
       const project2Result = getActiveConflicts({ projectId: "project-2" });
 
-      expect(
-        project1Result.conflicts.every((c) => c.projectId === "project-1"),
-      ).toBe(true);
-      expect(
-        project2Result.conflicts.every((c) => c.projectId === "project-2"),
-      ).toBe(true);
+      expect(project1Result.conflicts.every((c) => c.projectId === "project-1")).toBe(true);
+      expect(project2Result.conflicts.every((c) => c.projectId === "project-2")).toBe(true);
     });
 
     test("gets conflict by ID", () => {
@@ -405,12 +366,7 @@ describe("Conflict Service", () => {
         createdAt: new Date(),
         expiresAt: new Date(Date.now() + 3600000),
       });
-      const result = checkReservationConflicts(
-        "project-1",
-        "agent-2",
-        ["src/**/*.ts"],
-        true,
-      );
+      const result = checkReservationConflicts("project-1", "agent-2", ["src/**/*.ts"], true);
 
       const conflictId = result.conflicts[0]!.id;
       const conflict = getConflict(conflictId);
@@ -436,12 +392,7 @@ describe("Conflict Service", () => {
         createdAt: new Date(),
         expiresAt: new Date(Date.now() + 3600000),
       });
-      const result = checkReservationConflicts(
-        "project-1",
-        "agent-2",
-        ["src/**/*.ts"],
-        true,
-      );
+      const result = checkReservationConflicts("project-1", "agent-2", ["src/**/*.ts"], true);
 
       const conflictId = result.conflicts[0]!.id;
 
@@ -467,12 +418,7 @@ describe("Conflict Service", () => {
         createdAt: new Date(),
         expiresAt: new Date(Date.now() + 3600000),
       });
-      const result = checkReservationConflicts(
-        "project-1",
-        "agent-2",
-        ["src/**/*.ts"],
-        true,
-      );
+      const result = checkReservationConflicts("project-1", "agent-2", ["src/**/*.ts"], true);
 
       const conflictId = result.conflicts[0]!.id;
       const beforeCount = getActiveConflicts().conflicts.length;
@@ -496,12 +442,7 @@ describe("Conflict Service", () => {
         createdAt: new Date(),
         expiresAt: new Date(Date.now() + 3600000),
       });
-      const result = checkReservationConflicts(
-        "project-1",
-        "agent-2",
-        ["src/**/*.ts"],
-        true,
-      );
+      const result = checkReservationConflicts("project-1", "agent-2", ["src/**/*.ts"], true);
 
       const conflictId = result.conflicts[0]!.id;
 
@@ -536,12 +477,7 @@ describe("Conflict Service", () => {
         createdAt: new Date(),
         expiresAt: new Date(Date.now() + 3600000),
       });
-      const result = checkReservationConflicts(
-        "project-1",
-        "agent-2",
-        ["src/**/*.ts"],
-        true,
-      );
+      const result = checkReservationConflicts("project-1", "agent-2", ["src/**/*.ts"], true);
 
       const conflict = result.conflicts[0]!;
       const actions = getRecommendedActions(conflict);
@@ -606,12 +542,7 @@ describe("Conflict Service", () => {
           createdAt: new Date(),
           expiresAt: new Date(Date.now() + 3600000),
         });
-        checkReservationConflicts(
-          `project-${i}`,
-          `agent-${i + 100}`,
-          ["src/**/*.ts"],
-          true,
-        );
+        checkReservationConflicts(`project-${i}`, `agent-${i + 100}`, ["src/**/*.ts"], true);
       }
 
       const page1 = getConflictHistory({ limit: 5 });
@@ -662,12 +593,7 @@ describe("Conflict Service", () => {
         createdAt: new Date(),
         expiresAt: new Date(Date.now() + 3600000),
       });
-      const result = checkReservationConflicts(
-        "project-1",
-        "agent-2",
-        ["src/**/*.ts"],
-        true,
-      );
+      const result = checkReservationConflicts("project-1", "agent-2", ["src/**/*.ts"], true);
 
       // Resolve the conflict
       resolveConflict(result.conflicts[0]!.id, {

@@ -177,11 +177,7 @@ export interface JobContext<TInput = unknown> {
   input: TInput;
 
   // Progress reporting
-  updateProgress(
-    current: number,
-    total: number,
-    message?: string,
-  ): Promise<void>;
+  updateProgress(current: number, total: number, message?: string): Promise<void>;
   setStage(stage: string): Promise<void>;
 
   // Checkpointing for resume
@@ -193,11 +189,7 @@ export interface JobContext<TInput = unknown> {
   throwIfCancelled(): void;
 
   // Logging
-  log(
-    level: JobLogLevel,
-    message: string,
-    data?: Record<string, unknown>,
-  ): void;
+  log(level: JobLogLevel, message: string, data?: Record<string, unknown>): void;
 }
 
 export interface JobHandler<TInput = unknown, TOutput = unknown> {

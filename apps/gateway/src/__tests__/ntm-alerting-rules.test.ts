@@ -10,11 +10,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import type {
-  AlertContext,
-  NtmHealthContext,
-  NtmIsWorkingContext,
-} from "../models/alert";
+import type { AlertContext, NtmHealthContext, NtmIsWorkingContext } from "../models/alert";
 import {
   clearAlertRules,
   clearAlerts,
@@ -710,8 +706,7 @@ describe("NTM Alerting Rules (bd-39ee)", () => {
           id: "agent-stuck",
           isWorking: false,
           recommendation: "RESTART",
-          recommendationReason:
-            "No output for 10 minutes, last activity was tool call",
+          recommendationReason: "No output for 10 minutes, last activity was tool call",
           confidence: 0.97,
         },
       ]);
@@ -727,9 +722,7 @@ describe("NTM Alerting Rules (bd-39ee)", () => {
         reason: string;
         confidence: number;
       }>;
-      expect(agents[0]?.reason).toBe(
-        "No output for 10 minutes, last activity was tool call",
-      );
+      expect(agents[0]?.reason).toBe("No output for 10 minutes, last activity was tool call");
       expect(agents[0]?.confidence).toBe(0.97);
     });
 
@@ -750,9 +743,7 @@ describe("NTM Alerting Rules (bd-39ee)", () => {
       expect(alert.metadata?.["timestamp"]).toBeDefined();
       expect(typeof alert.metadata?.["timestamp"]).toBe("string");
       // Should be ISO format
-      expect(
-        () => new Date(alert.metadata?.["timestamp"] as string),
-      ).not.toThrow();
+      expect(() => new Date(alert.metadata?.["timestamp"] as string)).not.toThrow();
     });
   });
 

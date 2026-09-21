@@ -151,9 +151,7 @@ describe("SnapshotService", () => {
 
       // Check summary structure
       expect(snapshot.summary).toBeDefined();
-      expect(["healthy", "degraded", "unhealthy", "unknown"]).toContain(
-        snapshot.summary.status,
-      );
+      expect(["healthy", "degraded", "unhealthy", "unknown"]).toContain(snapshot.summary.status);
       expect(typeof snapshot.summary.healthyCount).toBe("number");
       expect(typeof snapshot.summary.degradedCount).toBe("number");
       expect(typeof snapshot.summary.unhealthyCount).toBe("number");
@@ -200,9 +198,7 @@ describe("SnapshotService", () => {
     });
 
     test("Agent Mail unread count only includes explicit unread", async () => {
-      const tempDir = await fs.mkdtemp(
-        path.join(os.tmpdir(), "flywheel_gateway_agentmail_test_"),
-      );
+      const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "flywheel_gateway_agentmail_test_"));
       const agentMailDir = path.join(tempDir, ".agentmail");
       await fs.mkdir(agentMailDir, { recursive: true });
 
@@ -240,11 +236,7 @@ describe("SnapshotService", () => {
         }),
       ].join("\n");
 
-      await fs.writeFile(
-        path.join(agentMailDir, "messages.jsonl"),
-        messagesJsonl,
-        "utf-8",
-      );
+      await fs.writeFile(path.join(agentMailDir, "messages.jsonl"), messagesJsonl, "utf-8");
 
       const service = createSnapshotService({
         cwd: tempDir,
@@ -310,20 +302,12 @@ describe("SnapshotService", () => {
       expect(snapshot.tools.dcg).toBeDefined();
       expect(snapshot.tools.slb).toBeDefined();
       expect(snapshot.tools.ubs).toBeDefined();
-      expect(["healthy", "degraded", "unhealthy"]).toContain(
-        snapshot.tools.status,
-      );
+      expect(["healthy", "degraded", "unhealthy"]).toContain(snapshot.tools.status);
 
       // Check each tool status
-      for (const tool of [
-        snapshot.tools.dcg,
-        snapshot.tools.slb,
-        snapshot.tools.ubs,
-      ]) {
+      for (const tool of [snapshot.tools.dcg, snapshot.tools.slb, snapshot.tools.ubs]) {
         expect(typeof tool.installed).toBe("boolean");
-        expect(tool.version === null || typeof tool.version === "string").toBe(
-          true,
-        );
+        expect(tool.version === null || typeof tool.version === "string").toBe(true);
         expect(typeof tool.healthy).toBe("boolean");
       }
 
@@ -431,12 +415,10 @@ describe("SnapshotService", () => {
       });
       const snapshot = await service.getSnapshot();
 
-      const { healthyCount, degradedCount, unhealthyCount, unknownCount } =
-        snapshot.summary;
+      const { healthyCount, degradedCount, unhealthyCount, unknownCount } = snapshot.summary;
 
       // Total of all counts should equal 4
-      const total =
-        healthyCount + degradedCount + unhealthyCount + unknownCount;
+      const total = healthyCount + degradedCount + unhealthyCount + unknownCount;
       expect(total).toBe(4);
     });
 
@@ -447,18 +429,10 @@ describe("SnapshotService", () => {
       const snapshot = await service.getSnapshot();
 
       // Each component should have a status
-      expect(["healthy", "degraded", "unhealthy", "unknown"]).toContain(
-        snapshot.summary.ntm,
-      );
-      expect(["healthy", "degraded", "unhealthy", "unknown"]).toContain(
-        snapshot.summary.agentMail,
-      );
-      expect(["healthy", "degraded", "unhealthy", "unknown"]).toContain(
-        snapshot.summary.beads,
-      );
-      expect(["healthy", "degraded", "unhealthy", "unknown"]).toContain(
-        snapshot.summary.tools,
-      );
+      expect(["healthy", "degraded", "unhealthy", "unknown"]).toContain(snapshot.summary.ntm);
+      expect(["healthy", "degraded", "unhealthy", "unknown"]).toContain(snapshot.summary.agentMail);
+      expect(["healthy", "degraded", "unhealthy", "unknown"]).toContain(snapshot.summary.beads);
+      expect(["healthy", "degraded", "unhealthy", "unknown"]).toContain(snapshot.summary.tools);
     });
 
     test("status reflects unhealthy when unhealthyCount > 0", async () => {
@@ -482,8 +456,7 @@ describe("SnapshotService", () => {
       // If no unhealthy but some degraded/unknown, should be degraded
       if (
         snapshot.summary.unhealthyCount === 0 &&
-        (snapshot.summary.degradedCount > 0 ||
-          snapshot.summary.unknownCount > 0)
+        (snapshot.summary.degradedCount > 0 || snapshot.summary.unknownCount > 0)
       ) {
         expect(snapshot.summary.status).toBe("degraded");
       }
@@ -550,9 +523,7 @@ describe("SnapshotService", () => {
       expect(snapshot.tools.dcg).toBeDefined();
       expect(snapshot.tools.slb).toBeDefined();
       expect(snapshot.tools.ubs).toBeDefined();
-      expect(["healthy", "degraded", "unhealthy"]).toContain(
-        snapshot.tools.status,
-      );
+      expect(["healthy", "degraded", "unhealthy"]).toContain(snapshot.tools.status);
     });
 
     test("returns valid snapshot when agent mail is unavailable", async () => {
@@ -628,10 +599,7 @@ describe("SnapshotService", () => {
       // Verify health status hierarchy
       if (snapshot.summary.unhealthyCount > 0) {
         expect(snapshot.summary.status).toBe("unhealthy");
-      } else if (
-        snapshot.summary.degradedCount > 0 ||
-        snapshot.summary.unknownCount > 0
-      ) {
+      } else if (snapshot.summary.degradedCount > 0 || snapshot.summary.unknownCount > 0) {
         expect(snapshot.summary.status).toBe("degraded");
       } else {
         expect(snapshot.summary.status).toBe("healthy");
@@ -678,10 +646,7 @@ describe("SnapshotService", () => {
       expect(debugLog).toBeDefined();
 
       // Verify latency fields are present for each source
-      const ctx = debugLog?.context as Record<
-        string,
-        { success: boolean; latencyMs: number }
-      >;
+      const ctx = debugLog?.context as Record<string, { success: boolean; latencyMs: number }>;
       expect(ctx["ntm"]).toBeDefined();
       expect(typeof ctx["ntm"]?.success).toBe("boolean");
       expect(typeof ctx["ntm"]?.latencyMs).toBe("number");

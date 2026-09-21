@@ -32,9 +32,7 @@ async function ensureAgent(agentId: string) {
   }
 }
 
-async function preFlightCheck(
-  request: Parameters<typeof rawPreFlightCheck>[0],
-) {
+async function preFlightCheck(request: Parameters<typeof rawPreFlightCheck>[0]) {
   await ensureAgent(request.agentId);
   return rawPreFlightCheck(request);
 }
@@ -86,9 +84,7 @@ describe("Safety Service", () => {
         name: "Block tmp files",
         description: "Block writes to tmp",
         category: "filesystem",
-        conditions: [
-          { field: "path", patternType: "glob", pattern: "**/tmp/**" },
-        ],
+        conditions: [{ field: "path", patternType: "glob", pattern: "**/tmp/**" }],
         conditionLogic: "and",
         action: "deny",
         severity: "medium",

@@ -110,9 +110,7 @@ describe("Safety Rules Engine", () => {
       name: "Block dangerous path",
       description: "Block access to /etc/passwd",
       category: "filesystem",
-      conditions: [
-        { field: "path", patternType: "glob", pattern: "**/etc/passwd" },
-      ],
+      conditions: [{ field: "path", patternType: "glob", pattern: "**/etc/passwd" }],
       conditionLogic: "and",
       action: "deny",
       severity: "critical",
@@ -125,9 +123,7 @@ describe("Safety Rules Engine", () => {
       name: "Warn on node_modules",
       description: "Warn when modifying node_modules",
       category: "filesystem",
-      conditions: [
-        { field: "path", patternType: "glob", pattern: "**/node_modules/**" },
-      ],
+      conditions: [{ field: "path", patternType: "glob", pattern: "**/node_modules/**" }],
       conditionLogic: "and",
       action: "warn",
       severity: "low",
@@ -140,9 +136,7 @@ describe("Safety Rules Engine", () => {
       name: "Approve force push",
       description: "Force push requires approval",
       category: "git",
-      conditions: [
-        { field: "command", patternType: "regex", pattern: "push.*--force" },
-      ],
+      conditions: [{ field: "command", patternType: "regex", pattern: "push.*--force" }],
       conditionLogic: "and",
       action: "approve",
       severity: "high",
@@ -448,9 +442,7 @@ describe("Safety Rules Engine", () => {
         action: "deny",
         severity: "high",
         message: "Test message",
-        conditions: [
-          { field: "path", patternType: "regex", pattern: "[invalid" },
-        ],
+        conditions: [{ field: "path", patternType: "regex", pattern: "[invalid" }],
       };
 
       const errors = validateRule(rule);

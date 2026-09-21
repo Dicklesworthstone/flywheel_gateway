@@ -108,12 +108,8 @@ x = 1
         const result = extractFromOutput(output, "urls");
 
         expect(result.totalMatches).toBe(2);
-        expect(
-          result.matches.some((m) => m.content === "https://example.com"),
-        ).toBe(true);
-        expect(
-          result.matches.some((m) => m.content === "http://test.org/path"),
-        ).toBe(true);
+        expect(result.matches.some((m) => m.content === "https://example.com")).toBe(true);
+        expect(result.matches.some((m) => m.content === "http://test.org/path")).toBe(true);
       });
 
       test("extracts URLs with query params", () => {
@@ -150,9 +146,7 @@ x = 1
         const result = extractFromOutput(output, "file_paths");
 
         expect(result.totalMatches).toBeGreaterThanOrEqual(1);
-        expect(
-          result.matches.some((m) => m.content.includes("/home/user")),
-        ).toBe(true);
+        expect(result.matches.some((m) => m.content.includes("/home/user"))).toBe(true);
       });
 
       test("extracts relative paths", () => {
@@ -225,11 +219,9 @@ Test completed`;
 
         const result = extractFromOutput(output, "errors");
 
-        expect(
-          result.matches.some((m) =>
-            m.content.includes("Error: Something went wrong"),
-          ),
-        ).toBe(true);
+        expect(result.matches.some((m) => m.content.includes("Error: Something went wrong"))).toBe(
+          true,
+        );
       });
 
       test("extracts TypeError messages", () => {
@@ -238,9 +230,7 @@ Test completed`;
         const result = extractFromOutput(output, "errors");
 
         expect(result.totalMatches).toBeGreaterThanOrEqual(1);
-        expect(
-          result.matches.some((m) => m.content.includes("TypeError")),
-        ).toBe(true);
+        expect(result.matches.some((m) => m.content.includes("TypeError"))).toBe(true);
       });
 
       test("extracts multiple error types", () => {
@@ -430,9 +420,7 @@ Line 4`;
         createdAt: new Date(),
       });
 
-      await Promise.all(
-        Array.from({ length: increments }, () => incrementReplayCount(entryId)),
-      );
+      await Promise.all(Array.from({ length: increments }, () => incrementReplayCount(entryId)));
 
       const entry = await getHistoryEntry(entryId);
       expect(entry?.replayCount).toBe(increments);

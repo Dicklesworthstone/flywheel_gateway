@@ -168,16 +168,11 @@ function formatSecretsIndexError(error: unknown): string {
   const linePosRaw = (error as unknown as { linePos?: unknown }).linePos;
   const linePos = Array.isArray(linePosRaw) ? linePosRaw : undefined;
   const firstPos =
-    linePos &&
-    linePos.length > 0 &&
-    linePos[0] &&
-    typeof linePos[0] === "object"
+    linePos && linePos.length > 0 && linePos[0] && typeof linePos[0] === "object"
       ? (linePos[0] as { line?: unknown; col?: unknown })
       : undefined;
-  const line =
-    typeof firstPos?.line === "number" ? Math.max(1, firstPos.line) : undefined;
-  const col =
-    typeof firstPos?.col === "number" ? Math.max(1, firstPos.col) : undefined;
+  const line = typeof firstPos?.line === "number" ? Math.max(1, firstPos.line) : undefined;
+  const col = typeof firstPos?.col === "number" ? Math.max(1, firstPos.col) : undefined;
 
   const detailParts: string[] = [error.name];
   if (errorCode) detailParts.push(errorCode);
@@ -218,9 +213,7 @@ export async function resolveSecret(
 
   // 2. Try file-based secrets
   if (fileEntries) {
-    const entry = fileEntries.find(
-      (e) => e.tool === spec.tool && e.key === spec.key,
-    );
+    const entry = fileEntries.find((e) => e.tool === spec.tool && e.key === spec.key);
     if (entry) {
       return {
         tool: spec.tool,
@@ -256,8 +249,7 @@ export async function loadSecrets(
   if (envError) errors.push(envError);
 
   // Load file-based secrets
-  const { entries: fileEntries, error: fileError } =
-    await loadSecretsFromDir(dir);
+  const { entries: fileEntries, error: fileError } = await loadSecretsFromDir(dir);
   if (fileError) errors.push(fileError);
 
   // Resolve each spec
@@ -268,11 +260,7 @@ export async function loadSecrets(
   }
 
   const missingRequired = secrets
-    .filter(
-      (s) =>
-        !s.found &&
-        specs.find((sp) => sp.tool === s.tool && sp.key === s.key)?.required,
-    )
+    .filter((s) => !s.found && specs.find((sp) => sp.tool === s.tool && sp.key === s.key)?.required)
     .map((s) => `${s.tool}:${s.key}`);
 
   return {

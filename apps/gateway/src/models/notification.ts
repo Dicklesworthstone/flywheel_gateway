@@ -29,13 +29,7 @@ export type NotificationChannel = "in_app" | "email" | "slack" | "webhook";
 /**
  * Notification status for tracking delivery.
  */
-export type NotificationStatus =
-  | "pending"
-  | "sent"
-  | "delivered"
-  | "read"
-  | "actioned"
-  | "failed";
+export type NotificationStatus = "pending" | "sent" | "delivered" | "read" | "actioned" | "failed";
 
 /**
  * Source of a notification.
@@ -206,9 +200,7 @@ export interface PreferencesUpdateRequest {
   enabled?: boolean;
   defaultChannels?: NotificationChannel[];
   quietHours?: Partial<QuietHours>;
-  categories?: Partial<
-    Record<NotificationCategory, Partial<CategoryPreference>>
-  >;
+  categories?: Partial<Record<NotificationCategory, Partial<CategoryPreference>>>;
   digest?: Partial<DigestConfig>;
   channelConfig?: NotificationPreferences["channelConfig"];
 }
@@ -226,10 +218,7 @@ export const PRIORITY_ORDER: Record<NotificationPriority, number> = {
 /**
  * Default preferences for new users.
  */
-export const DEFAULT_PREFERENCES: Omit<
-  NotificationPreferences,
-  "userId" | "updatedAt"
-> = {
+export const DEFAULT_PREFERENCES: Omit<NotificationPreferences, "userId" | "updatedAt"> = {
   enabled: true,
   defaultChannels: ["in_app"],
   categories: {

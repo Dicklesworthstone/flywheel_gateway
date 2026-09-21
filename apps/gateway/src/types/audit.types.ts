@@ -374,12 +374,7 @@ export const DEFAULT_RETENTION_POLICIES: Omit<
     name: "Authentication Events",
     description: "Login, logout, and authentication failures",
     filter: {
-      actions: [
-        "auth.login",
-        "auth.logout",
-        "auth.login_failed",
-        "auth.password_changed",
-      ],
+      actions: ["auth.login", "auth.logout", "auth.login_failed", "auth.password_changed"],
     },
     retention: { duration: 365, archiveFirst: true },
     enabled: true,
@@ -404,11 +399,7 @@ export const DEFAULT_RETENTION_POLICIES: Omit<
     name: "Security Events",
     description: "DCG blocks, exceptions, and security-related events",
     filter: {
-      actions: [
-        "dcg.command_blocked",
-        "dcg.exception_approved",
-        "dcg.exception_denied",
-      ],
+      actions: ["dcg.command_blocked", "dcg.exception_approved", "dcg.exception_denied"],
     },
     retention: { duration: 730, archiveFirst: true }, // 2 years
     enabled: true,

@@ -77,9 +77,7 @@ function runMigrations(sqliteDb: Database): void {
     }
 
     sqliteDb
-      .query(
-        `INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES (?, ?)`,
-      )
+      .query(`INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES (?, ?)`)
       .run(file, Date.now());
   }
 }
@@ -156,23 +154,11 @@ export function restoreCorrelation(): void {
  * Call this in afterAll() for any test file that uses mock.module("../services/tool-registry.service", ...).
  */
 export function restoreToolRegistryService(): void {
-  mock.module(
-    "../services/tool-registry.service",
-    () => toolRegistryServiceExports,
-  );
-  mock.module(
-    "../../services/tool-registry.service",
-    () => toolRegistryServiceExports,
-  );
+  mock.module("../services/tool-registry.service", () => toolRegistryServiceExports);
+  mock.module("../../services/tool-registry.service", () => toolRegistryServiceExports);
   mock.module("./tool-registry.service", () => toolRegistryServiceExports);
-  mock.module(
-    "../../services/tool-registry.service.ts",
-    () => toolRegistryServiceExports,
-  );
-  mock.module(
-    "../services/tool-registry.service.ts",
-    () => toolRegistryServiceExports,
-  );
+  mock.module("../../services/tool-registry.service.ts", () => toolRegistryServiceExports);
+  mock.module("../services/tool-registry.service.ts", () => toolRegistryServiceExports);
   mock.module("./tool-registry.service.ts", () => toolRegistryServiceExports);
 }
 
@@ -181,27 +167,12 @@ export function restoreToolRegistryService(): void {
  * Call this in afterAll() for any test file that uses mock.module("../services/agent-detection.service", ...).
  */
 export function restoreAgentDetectionService(): void {
-  mock.module(
-    "../services/agent-detection.service",
-    () => agentDetectionServiceExports,
-  );
-  mock.module(
-    "../../services/agent-detection.service",
-    () => agentDetectionServiceExports,
-  );
+  mock.module("../services/agent-detection.service", () => agentDetectionServiceExports);
+  mock.module("../../services/agent-detection.service", () => agentDetectionServiceExports);
   mock.module("./agent-detection.service", () => agentDetectionServiceExports);
-  mock.module(
-    "../../services/agent-detection.service.ts",
-    () => agentDetectionServiceExports,
-  );
-  mock.module(
-    "../services/agent-detection.service.ts",
-    () => agentDetectionServiceExports,
-  );
-  mock.module(
-    "./agent-detection.service.ts",
-    () => agentDetectionServiceExports,
-  );
+  mock.module("../../services/agent-detection.service.ts", () => agentDetectionServiceExports);
+  mock.module("../services/agent-detection.service.ts", () => agentDetectionServiceExports);
+  mock.module("./agent-detection.service.ts", () => agentDetectionServiceExports);
 }
 
 /**

@@ -47,12 +47,7 @@ function generateId(prefix: string, length = 12): string {
 /**
  * Status of an approval request.
  */
-export type ApprovalStatus =
-  | "pending"
-  | "approved"
-  | "denied"
-  | "expired"
-  | "cancelled";
+export type ApprovalStatus = "pending" | "approved" | "denied" | "expired" | "cancelled";
 
 /**
  * An approval request.
@@ -165,18 +160,13 @@ let expirationTimer: ReturnType<typeof setInterval> | null = null;
  * Map DB row to ApprovalRequest interface.
  * Reconstructs a partial SafetyRule since we only store minimal rule info.
  */
-function mapToApprovalRequest(
-  row: typeof approvalRequests.$inferSelect,
-): ApprovalRequest {
+function mapToApprovalRequest(row: typeof approvalRequests.$inferSelect): ApprovalRequest {
   // Parse JSON fields
   // Handle case where json mode text might be returned as string if not properly typed by drizzle-orm/sqlite-core depending on version
   let operationDetails: Record<string, unknown> = {};
   if (typeof row.operationDetails === "string") {
     try {
-      operationDetails = JSON.parse(row.operationDetails) as Record<
-        string,
-        unknown
-      >;
+      operationDetails = JSON.parse(row.operationDetails) as Record<string, unknown>;
     } catch {
       logger.warn(
         { id: row.id, operationDetails: row.operationDetails },
@@ -241,12 +231,8 @@ function mapToApprovalRequest(
     status: row.status as ApprovalStatus,
     requestedAt: row.requestedAt,
     expiresAt: row.expiresAt,
-    ...(row.decidedBy !== null && row.decidedBy !== undefined
-      ? { decidedBy: row.decidedBy }
-      : {}),
-    ...(row.decidedAt !== null && row.decidedAt !== undefined
-      ? { decidedAt: row.decidedAt }
-      : {}),
+    ...(row.decidedBy !== null && row.decidedBy !== undefined ? { decidedBy: row.decidedBy } : {}),
+    ...(row.decidedAt !== null && row.decidedAt !== undefined ? { decidedAt: row.decidedAt } : {}),
     ...(row.decisionReason !== null && row.decisionReason !== undefined
       ? { decisionReason: row.decisionReason }
       : {}),
@@ -317,12 +303,10 @@ export async function createApprovalRequest(
       type: request.operation.type,
       description: request.operation.description,
       details: request.operation.details ?? {},
-      ...(request.operation.command !== null &&
-      request.operation.command !== undefined
+      ...(request.operation.command !== null && request.operation.command !== undefined
         ? { command: request.operation.command }
         : {}),
-      ...(request.operation.path !== null &&
-      request.operation.path !== undefined
+      ...(request.operation.path !== null && request.operation.path !== undefined
         ? { path: request.operation.path }
         : {}),
     },
@@ -351,9 +335,7 @@ export async function createApprovalRequest(
 /**
  * Make a decision on an approval request.
  */
-export async function decideApproval(
-  decision: ApprovalDecision,
-): Promise<ApprovalDecisionResult> {
+export async function decideApproval(decision: ApprovalDecision): Promise<ApprovalDecisionResult> {
   const request = await getApproval(decision.requestId);
 
   if (!request) {
@@ -395,12 +377,7 @@ export async function decideApproval(
       decidedAt,
       decisionReason: decision.reason,
     })
-    .where(
-      and(
-        eq(approvalRequests.id, decision.requestId),
-        eq(approvalRequests.status, "pending"),
-      ),
-    )
+    .where(and(eq(approvalRequests.id, decision.requestId), eq(approvalRequests.status, "pending")))
     .returning({ id: approvalRequests.id });
 
   // If no row was updated, another decision was made concurrently
@@ -504,9 +481,7 @@ export async function cancelApproval(
 /**
  * Get an approval request by ID.
  */
-export async function getApproval(
-  requestId: string,
-): Promise<ApprovalRequest | undefined> {
+export async function getApproval(requestId: string): Promise<ApprovalRequest | undefined> {
   const result = await db
     .select()
     .from(approvalRequests)
@@ -522,9 +497,7 @@ export async function getApproval(
 /**
  * Get approval requests matching criteria.
  */
-export async function listApprovals(
-  options?: ListApprovalsOptions,
-): Promise<ApprovalRequest[]> {
+export async function listApprovals(options?: ListApprovalsOptions): Promise<ApprovalRequest[]> {
   const conditions = [];
 
   if (options?.workspaceId) {
@@ -546,10 +519,7 @@ export async function listApprovals(
     // Use proper Drizzle comparisons - note: SQLite stores timestamps as integers
     const now = new Date();
     conditions.push(
-      and(
-        sql`${approvalRequests.status} != 'expired'`,
-        gt(approvalRequests.expiresAt, now),
-      ),
+      and(sql`${approvalRequests.status} != 'expired'`, gt(approvalRequests.expiresAt, now)),
     );
   }
 
@@ -579,9 +549,7 @@ export async function listApprovals(
 /**
  * Get pending approvals for a workspace (the approval queue).
  */
-export async function getPendingApprovals(
-  workspaceId: string,
-): Promise<ApprovalRequest[]> {
+export async function getPendingApprovals(workspaceId: string): Promise<ApprovalRequest[]> {
   return listApprovals({
     workspaceId,
     status: "pending",
@@ -608,9 +576,7 @@ export async function getQueueDepth(workspaceId?: string): Promise<number> {
 /**
  * Get approval statistics.
  */
-export async function getApprovalStats(
-  workspaceId?: string,
-): Promise<ApprovalStats> {
+export async function getApprovalStats(workspaceId?: string): Promise<ApprovalStats> {
   const conditions = [];
   if (workspaceId) {
     conditions.push(eq(approvalRequests.workspaceId, workspaceId));
@@ -656,8 +622,7 @@ export async function getApprovalStats(
     if (stats.byCategory[category] !== undefined) stats.byCategory[category]++;
 
     if (row.decidedAt && row.requestedAt) {
-      totalDecisionTimeMs +=
-        row.decidedAt.getTime() - row.requestedAt.getTime();
+      totalDecisionTimeMs += row.decidedAt.getTime() - row.requestedAt.getTime();
       decidedCount++;
     }
   }
@@ -683,24 +648,14 @@ export async function processExpiredApprovals(): Promise<number> {
   const expired = await db
     .select({ id: approvalRequests.id })
     .from(approvalRequests)
-    .where(
-      and(
-        eq(approvalRequests.status, "pending"),
-        lt(approvalRequests.expiresAt, now),
-      ),
-    );
+    .where(and(eq(approvalRequests.status, "pending"), lt(approvalRequests.expiresAt, now)));
 
   if (expired.length === 0) return 0;
 
   const _result = await db
     .update(approvalRequests)
     .set({ status: "expired" })
-    .where(
-      and(
-        eq(approvalRequests.status, "pending"),
-        lt(approvalRequests.expiresAt, now),
-      ),
-    );
+    .where(and(eq(approvalRequests.status, "pending"), lt(approvalRequests.expiresAt, now)));
 
   if (expired.length > 0) {
     logger.warn({ count: expired.length }, "Expired pending approval requests");
@@ -862,10 +817,7 @@ export async function _getApprovals(): Promise<ApprovalRequest[]> {
 /**
  * Set approval expiration directly (for testing).
  */
-export async function _setApprovalExpiration(
-  requestId: string,
-  expiresAt: Date,
-): Promise<boolean> {
+export async function _setApprovalExpiration(requestId: string, expiresAt: Date): Promise<boolean> {
   const result = await db
     .update(approvalRequests)
     .set({ expiresAt })

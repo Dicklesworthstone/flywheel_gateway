@@ -16,24 +16,12 @@
 /**
  * Status of a pipeline execution.
  */
-export type PipelineStatus =
-  | "idle"
-  | "running"
-  | "paused"
-  | "completed"
-  | "failed"
-  | "cancelled";
+export type PipelineStatus = "idle" | "running" | "paused" | "completed" | "failed" | "cancelled";
 
 /**
  * Status of an individual pipeline step.
  */
-export type StepStatus =
-  | "pending"
-  | "running"
-  | "completed"
-  | "failed"
-  | "skipped"
-  | "cancelled";
+export type StepStatus = "pending" | "running" | "completed" | "failed" | "skipped" | "cancelled";
 
 /**
  * Types of pipeline steps.

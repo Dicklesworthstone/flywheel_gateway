@@ -18,10 +18,7 @@ import {
   wrapResource,
   wrapValidationError,
 } from "@flywheel/shared";
-import {
-  type GatewayError,
-  serializeGatewayError,
-} from "@flywheel/shared/errors";
+import { type GatewayError, serializeGatewayError } from "@flywheel/shared/errors";
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { getCorrelationId } from "../middleware/correlation";
@@ -56,10 +53,7 @@ export function sendResource<T>(
   options: Omit<WrapResourceOptions, "requestId"> = {},
 ) {
   const requestId = getCorrelationId();
-  return c.json(
-    wrapResource(objectType, data, { ...options, requestId }),
-    status,
-  );
+  return c.json(wrapResource(objectType, data, { ...options, requestId }), status);
 }
 
 /**
@@ -88,10 +82,7 @@ export function sendCreated<T>(
   options: Omit<WrapResourceOptions, "requestId" | "links"> = {},
 ) {
   const requestId = getCorrelationId();
-  return c.json(
-    wrapCreated(objectType, data, selfUrl, { ...options, requestId }),
-    201,
-  );
+  return c.json(wrapCreated(objectType, data, selfUrl, { ...options, requestId }), 201);
 }
 
 // ============================================================================
@@ -188,11 +179,7 @@ export function sendError(
  * }
  * ```
  */
-export function sendNotFound(
-  c: Context,
-  resourceType: string,
-  identifier: string,
-) {
+export function sendNotFound(c: Context, resourceType: string, identifier: string) {
   const requestId = getCorrelationId();
   return c.json(wrapNotFound(resourceType, identifier, { requestId }), 404);
 }
@@ -227,10 +214,7 @@ export function sendValidationError(
  * @param message - Error message (default: "Internal server error")
  * @returns JSON response with internal error
  */
-export function sendInternalError(
-  c: Context,
-  message = "Internal server error",
-) {
+export function sendInternalError(c: Context, message = "Internal server error") {
   const requestId = getCorrelationId();
   return c.json(
     wrapError({
@@ -291,10 +275,7 @@ export function sendForbidden(c: Context, message = "Access denied") {
  * @param message - Error message (default: "Authentication required")
  * @returns JSON response with unauthorized error
  */
-export function sendUnauthorized(
-  c: Context,
-  message = "Authentication required",
-) {
+export function sendUnauthorized(c: Context, message = "Authentication required") {
   const requestId = getCorrelationId();
   return c.json(
     wrapError({
@@ -353,14 +334,8 @@ export function sendNoContent(c: Context) {
 export function sendGatewayError(c: Context, error: GatewayError) {
   const timestamp = new Date().toISOString();
   const payload = serializeGatewayError(error);
-  return sendError(
-    c,
-    payload.code,
-    payload.message,
-    payload.httpStatus as ContentfulStatusCode,
-    {
-      ...(payload.details && { details: payload.details }),
-      timestamp,
-    },
-  );
+  return sendError(c, payload.code, payload.message, payload.httpStatus as ContentfulStatusCode, {
+    ...(payload.details && { details: payload.details }),
+    timestamp,
+  });
 }

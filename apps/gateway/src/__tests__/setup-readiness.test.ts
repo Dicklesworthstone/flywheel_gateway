@@ -10,15 +10,7 @@
  * and detection layer, allowing tests to run without requiring actual CLIs.
  */
 
-import {
-  afterAll,
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  mock,
-} from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { Hono } from "hono";
 import { requestContextStorage } from "../middleware/correlation";
 import {
@@ -162,13 +154,10 @@ mock.module("../services/tool-registry.service", () => ({
   getRecommendedTools: async () =>
     mockRegistryTools.filter(
       (t) =>
-        t.tags?.includes("recommended") ||
-        (t.optional === true && t.enabledByDefault === true),
+        t.tags?.includes("recommended") || (t.optional === true && t.enabledByDefault === true),
     ),
   getOptionalTools: async () =>
-    mockRegistryTools.filter(
-      (t) => t.optional === true && !t.tags?.includes("recommended"),
-    ),
+    mockRegistryTools.filter((t) => t.optional === true && !t.tags?.includes("recommended")),
   categorizeTools: async () => {
     const required = mockRegistryTools.filter(
       (t) =>
@@ -179,8 +168,7 @@ mock.module("../services/tool-registry.service", () => ({
     const recommended = mockRegistryTools.filter(
       (t) =>
         !required.includes(t) &&
-        (t.tags?.includes("recommended") ||
-          (t.optional === true && t.enabledByDefault === true)),
+        (t.tags?.includes("recommended") || (t.optional === true && t.enabledByDefault === true)),
     );
     const optional = mockRegistryTools.filter(
       (t) => !required.includes(t) && !recommended.includes(t),
@@ -326,18 +314,14 @@ function getLogEventsByLevel(level: LogLevel): LogEvent[] {
   return logEvents.filter((e) => e.level === level);
 }
 
-function findLogWithMessage(
-  level: LogLevel,
-  messageSubstring: string,
-): LogEvent | undefined {
+function findLogWithMessage(level: LogLevel, messageSubstring: string): LogEvent | undefined {
   return logEvents.find(
     (e) =>
       e.level === level &&
       e.args.some(
         (arg) =>
           (typeof arg === "string" && arg.includes(messageSubstring)) ||
-          (typeof arg === "object" &&
-            JSON.stringify(arg).includes(messageSubstring)),
+          (typeof arg === "object" && JSON.stringify(arg).includes(messageSubstring)),
       ),
   );
 }
@@ -527,12 +511,8 @@ describe("Setup Readiness Test Harness (bd-a1jg)", () => {
 
       expect(res.status).toBe(200);
       expect(body.data.summary.toolsAvailable).toBe(1);
-      expect(body.data.tools.find((t) => t.name === "dcg")?.available).toBe(
-        true,
-      );
-      expect(body.data.tools.find((t) => t.name === "br")?.available).toBe(
-        false,
-      );
+      expect(body.data.tools.find((t) => t.name === "dcg")?.available).toBe(true);
+      expect(body.data.tools.find((t) => t.name === "br")?.available).toBe(false);
     });
 
     it("generates recommendations for missing tools", async () => {
@@ -542,14 +522,10 @@ describe("Setup Readiness Test Harness (bd-a1jg)", () => {
       const body = (await res.json()) as Envelope<ReadinessData>;
 
       expect(res.status).toBe(200);
-      expect(
-        body.data.recommendations.some((r) =>
-          r.includes("Install required tools"),
-        ),
-      ).toBe(true);
-      expect(
-        body.data.recommendations.some((r) => r.includes("agent CLI")),
-      ).toBe(true);
+      expect(body.data.recommendations.some((r) => r.includes("Install required tools"))).toBe(
+        true,
+      );
+      expect(body.data.recommendations.some((r) => r.includes("agent CLI"))).toBe(true);
     });
   });
 
@@ -570,9 +546,7 @@ describe("Setup Readiness Test Harness (bd-a1jg)", () => {
       expect(res.status).toBe(200);
       expect(body.data.ready).toBe(false); // Auth issues prevent ready state
       expect(body.data.summary.authIssues.length).toBeGreaterThan(0);
-      expect(
-        body.data.recommendations.some((r) => r.includes("authentication")),
-      ).toBe(true);
+      expect(body.data.recommendations.some((r) => r.includes("authentication"))).toBe(true);
     });
 
     it("reports ready=true when auth issues are resolved", async () => {
@@ -777,12 +751,8 @@ describe("Setup Readiness Test Harness (bd-a1jg)", () => {
       const res3 = await app.request("/setup/readiness?bypass_cache=true");
       const body3 = (await res3.json()) as Envelope<ReadinessData>;
 
-      expect(body1.data.tools.find((t) => t.name === "dcg")?.available).toBe(
-        true,
-      );
-      expect(body3.data.tools.find((t) => t.name === "dcg")?.available).toBe(
-        false,
-      );
+      expect(body1.data.tools.find((t) => t.name === "dcg")?.available).toBe(true);
+      expect(body3.data.tools.find((t) => t.name === "dcg")?.available).toBe(false);
     });
   });
 

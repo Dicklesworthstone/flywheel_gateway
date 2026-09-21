@@ -11,11 +11,7 @@ import type {
 } from "@flywheel/flywheel-clients";
 import { createBvClient } from "@flywheel/flywheel-clients";
 import { getLogger } from "../middleware/correlation";
-import {
-  createToolLogger,
-  logCliCommand,
-  logCliWarning,
-} from "../utils/cli-logging";
+import { createToolLogger, logCliCommand, logCliWarning } from "../utils/cli-logging";
 
 interface RunOptions {
   cwd?: string;
@@ -37,9 +33,7 @@ function resolveProjectRoot(): string {
 
 export function getBvProjectRoot(): string {
   return (
-    process.env["BV_PROJECT_ROOT"] ??
-    process.env["BEADS_PROJECT_ROOT"] ??
-    resolveProjectRoot()
+    process.env["BV_PROJECT_ROOT"] ?? process.env["BEADS_PROJECT_ROOT"] ?? resolveProjectRoot()
   );
 }
 
@@ -130,10 +124,7 @@ export async function runCommand(
       "bv command timed out",
     );
   } else {
-    logCliCommand(
-      { tool: "bv", command, args, exitCode, latencyMs },
-      "bv command completed",
-    );
+    logCliCommand({ tool: "bv", command, args, exitCode, latencyMs }, "bv command completed");
   }
 
   return {
@@ -146,9 +137,7 @@ export async function runCommand(
 // Create a scoped logger for bv operations
 const bvLogger = createToolLogger("bv");
 
-export function createBvCommandRunner(
-  executor: typeof runCommand = runCommand,
-): BvCommandRunner {
+export function createBvCommandRunner(executor: typeof runCommand = runCommand): BvCommandRunner {
   return {
     run: (command, args, options) => executor(command, args, options),
   };
@@ -176,25 +165,16 @@ export async function getBvTriage(options?: {
   maxOutputBytes?: number;
 }): Promise<BvTriageResult> {
   const log = getLogger();
-  const ttlMs = Number(
-    process.env["BV_TRIAGE_TTL_MS"] ?? DEFAULT_TRIAGE_TTL_MS,
-  );
-  if (
-    cachedTriage &&
-    Date.now() - cachedTriage.fetchedAt < Math.max(0, ttlMs)
-  ) {
+  const ttlMs = Number(process.env["BV_TRIAGE_TTL_MS"] ?? DEFAULT_TRIAGE_TTL_MS);
+  if (cachedTriage && Date.now() - cachedTriage.fetchedAt < Math.max(0, ttlMs)) {
     log.debug({ ttlMs }, "BV triage cache hit");
     return cachedTriage.data;
   }
 
   const start = performance.now();
   const data = await getBvClient().getTriage({
-    ...(options?.timeoutMs !== undefined
-      ? { timeoutMs: options.timeoutMs }
-      : {}),
-    ...(options?.maxOutputBytes !== undefined
-      ? { maxOutputBytes: options.maxOutputBytes }
-      : {}),
+    ...(options?.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
+    ...(options?.maxOutputBytes !== undefined ? { maxOutputBytes: options.maxOutputBytes } : {}),
   });
   const latencyMs = Math.round(performance.now() - start);
   bvLogger.result("bv --robot-triage", latencyMs, "bv triage fetched", {
@@ -224,9 +204,7 @@ export async function getBvPlan(): Promise<BvPlanResult> {
   return data;
 }
 
-export async function getBvGraph(
-  options?: BvGraphOptions,
-): Promise<BvGraphResult> {
+export async function getBvGraph(options?: BvGraphOptions): Promise<BvGraphResult> {
   const start = performance.now();
   const data = await getBvClient().getGraph(options);
   const latencyMs = Math.round(performance.now() - start);
