@@ -15,9 +15,7 @@ export function CostAnalyticsPage() {
     <div className="page">
       <header className="page__header">
         <h1>Cost Analytics</h1>
-        <p className="muted">
-          Track usage, manage budgets, and optimize AI costs.
-        </p>
+        <p className="muted">Track usage, manage budgets, and optimize AI costs.</p>
       </header>
 
       <CostDashboard />

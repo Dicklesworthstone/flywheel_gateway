@@ -143,9 +143,7 @@ export function useMobileGestures(config: GestureConfig = {}) {
         window.scrollY === 0 &&
         mergedConfig.onPullToRefresh !== DEFAULT_CONFIG.onPullToRefresh;
 
-      const pullProgress = isPulling
-        ? Math.min(1, deltaY / mergedConfig.pullThreshold)
-        : 0;
+      const pullProgress = isPulling ? Math.min(1, deltaY / mergedConfig.pullThreshold) : 0;
 
       // Prevent default on horizontal swipes if configured
       if (
@@ -174,11 +172,7 @@ export function useMobileGestures(config: GestureConfig = {}) {
 
   const handleTouchEnd = useCallback(
     async (_e: TouchEvent) => {
-      if (
-        !mergedConfig.enabled ||
-        !touchStartRef.current ||
-        !touchCurrentRef.current
-      ) {
+      if (!mergedConfig.enabled || !touchStartRef.current || !touchCurrentRef.current) {
         return;
       }
 
@@ -194,8 +188,7 @@ export function useMobileGestures(config: GestureConfig = {}) {
       // Check if swipe was fast enough and far enough
       const isValidSwipe =
         velocity >= mergedConfig.velocityThreshold &&
-        (absDeltaX >= mergedConfig.swipeThreshold ||
-          absDeltaY >= mergedConfig.swipeThreshold);
+        (absDeltaX >= mergedConfig.swipeThreshold || absDeltaY >= mergedConfig.swipeThreshold);
 
       if (isValidSwipe && !isScrollingRef.current) {
         // Determine primary direction
@@ -304,12 +297,8 @@ export function useSwipeToDismiss(
   const [isDismissing, setIsDismissing] = useState(false);
 
   const { handlers, state } = useMobileGestures({
-    ...(direction === "left" || direction === "both"
-      ? { onSwipeLeft: onDismiss }
-      : {}),
-    ...(direction === "right" || direction === "both"
-      ? { onSwipeRight: onDismiss }
-      : {}),
+    ...(direction === "left" || direction === "both" ? { onSwipeLeft: onDismiss } : {}),
+    ...(direction === "right" || direction === "both" ? { onSwipeRight: onDismiss } : {}),
     swipeThreshold: threshold,
     preventDefaultOnHorizontal: true,
   });

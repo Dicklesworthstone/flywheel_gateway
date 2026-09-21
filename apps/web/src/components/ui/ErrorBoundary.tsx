@@ -12,10 +12,7 @@ interface ErrorBoundaryState {
   correlationId: string | null;
 }
 
-export class ErrorBoundary extends Component<
-  ErrorBoundaryProps,
-  ErrorBoundaryState
-> {
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null, correlationId: null };
@@ -58,11 +55,7 @@ export class ErrorBoundary extends Component<
               Reference: <code>{this.state.correlationId}</code>
             </p>
           ) : null}
-          <button
-            type="button"
-            className="primary-button"
-            onClick={this.handleRetry}
-          >
+          <button type="button" className="primary-button" onClick={this.handleRetry}>
             <RefreshCw size={16} />
             Try again
           </button>

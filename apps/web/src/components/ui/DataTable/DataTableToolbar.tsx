@@ -74,11 +74,7 @@ export function DataTableToolbar({
             </button>
           ))}
           {filters.length > 1 && (
-            <button
-              type="button"
-              className="data-table__filter-chip"
-              onClick={onClearFilters}
-            >
+            <button type="button" className="data-table__filter-chip" onClick={onClearFilters}>
               Clear all
             </button>
           )}

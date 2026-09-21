@@ -55,8 +55,7 @@ export function BudgetGauge({
   const radius = 45;
   const circumference = 2 * Math.PI * radius;
   const clampedPercent = Math.min(usedPercent, 100);
-  const strokeDashoffset =
-    circumference - (clampedPercent / 100) * circumference;
+  const strokeDashoffset = circumference - (clampedPercent / 100) * circumference;
 
   const periodLabel = {
     daily: "Today",
@@ -76,14 +75,7 @@ export function BudgetGauge({
         <svg viewBox="0 0 100 100" className="budget-gauge__svg">
           <title>Budget gauge visualization</title>
           {/* Background circle */}
-          <circle
-            cx="50"
-            cy="50"
-            r={radius}
-            fill="none"
-            stroke="var(--border)"
-            strokeWidth="8"
-          />
+          <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--border)" strokeWidth="8" />
           {/* Progress arc */}
           <circle
             cx="50"
@@ -99,9 +91,7 @@ export function BudgetGauge({
           />
         </svg>
         <div className="budget-gauge__center">
-          <span className="budget-gauge__percent">
-            {Math.round(usedPercent)}%
-          </span>
+          <span className="budget-gauge__percent">{Math.round(usedPercent)}%</span>
           <span className="budget-gauge__label">used</span>
         </div>
       </div>
@@ -113,9 +103,7 @@ export function BudgetGauge({
         </div>
         <div className="budget-gauge__row">
           <span className="budget-gauge__key">Used</span>
-          <span className="budget-gauge__value budget-gauge__value--used">
-            {formattedUsed}
-          </span>
+          <span className="budget-gauge__value budget-gauge__value--used">{formattedUsed}</span>
         </div>
         <div className="budget-gauge__row">
           <span className="budget-gauge__key">Remaining</span>

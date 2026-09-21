@@ -65,9 +65,7 @@ const _ConflictFilterSchema = z.object({
       ]),
     )
     .optional(),
-  severity: z
-    .array(z.enum(["info", "warning", "error", "critical"]))
-    .optional(),
+  severity: z.array(z.enum(["info", "warning", "error", "critical"])).optional(),
   projectId: z.string().optional(),
   agentId: z.string().optional(),
 });

@@ -28,9 +28,7 @@ const baseLogger = pino({
 // Capture the native child() function before we override it below.
 // Otherwise, `ensureChild()` would call itself in non-Bun runtimes.
 const nativeChild =
-  typeof baseLogger.child === "function"
-    ? baseLogger.child.bind(baseLogger)
-    : undefined;
+  typeof baseLogger.child === "function" ? baseLogger.child.bind(baseLogger) : undefined;
 
 /**
  * Defensive wrapper that ensures child() method is always available.

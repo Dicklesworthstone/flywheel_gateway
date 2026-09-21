@@ -1,13 +1,12 @@
 import { StatusPill } from "../components/ui/StatusPill";
 import { mockAgents } from "../lib/mock-data";
 
-const statusTone: Record<string, "positive" | "warning" | "danger" | "muted"> =
-  {
-    ready: "positive",
-    executing: "warning",
-    paused: "muted",
-    failed: "danger",
-  };
+const statusTone: Record<string, "positive" | "warning" | "danger" | "muted"> = {
+  ready: "positive",
+  executing: "warning",
+  paused: "muted",
+  failed: "danger",
+};
 
 export function AgentsPage() {
   return (
@@ -27,9 +26,7 @@ export function AgentsPage() {
           {mockAgents.map((agent) => (
             <div key={agent.id} className="table__row">
               <span>{agent.name}</span>
-              <StatusPill tone={statusTone[agent.status] ?? "muted"}>
-                {agent.status}
-              </StatusPill>
+              <StatusPill tone={statusTone[agent.status] ?? "muted"}>{agent.status}</StatusPill>
               <span>{agent.model}</span>
               <span className="mono">{agent.id}</span>
             </div>

@@ -141,8 +141,7 @@ export function NotificationItem({
   const [isHovered, setIsHovered] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const isUnread =
-    notification.status !== "read" && notification.status !== "actioned";
+  const isUnread = notification.status !== "read" && notification.status !== "actioned";
   const priorityClasses = useMemo(
     () => getPriorityClasses(notification.priority),
     [notification.priority],
@@ -222,17 +221,13 @@ export function NotificationItem({
             <div className="flex-grow min-w-0">
               <h4
                 className={`text-sm font-medium truncate ${
-                  isUnread
-                    ? "text-gray-900 dark:text-white"
-                    : "text-gray-600 dark:text-gray-400"
+                  isUnread ? "text-gray-900 dark:text-white" : "text-gray-600 dark:text-gray-400"
                 }`}
               >
                 {notification.title}
               </h4>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {timeAgo}
-                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">{timeAgo}</span>
                 {notification.priority === "urgent" && (
                   <span className="flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400">
                     <AlertTriangle className="w-3 h-3" />
@@ -284,26 +279,24 @@ export function NotificationItem({
           )}
 
           {/* Actions */}
-          {notification.actions &&
-            notification.actions.length > 0 &&
-            !compact && (
-              <div className="flex flex-wrap gap-2 mt-3">
-                {notification.actions.map((action) => (
-                  <button
-                    type="button"
-                    key={action.id}
-                    onClick={(e) => handleAction(action, e)}
-                    className={`
+          {notification.actions && notification.actions.length > 0 && !compact && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {notification.actions.map((action) => (
+                <button
+                  type="button"
+                  key={action.id}
+                  onClick={(e) => handleAction(action, e)}
+                  className={`
                     px-3 py-1.5 text-xs font-medium rounded-md transition-colors
                     ${getActionButtonClasses(action.style)}
                     ${action.style === "link" ? "" : "shadow-sm"}
                   `}
-                  >
-                    {action.label}
-                  </button>
-                ))}
-              </div>
-            )}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Source */}
           {!compact && notification.source && (

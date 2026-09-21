@@ -248,23 +248,21 @@ export type ErrorCode = keyof typeof ErrorCodes;
 
 export const ERROR_CODE_LIST = Object.keys(ErrorCodes) as ErrorCode[];
 
-export const HTTP_STATUS_MAP: Record<ErrorCode, number> =
-  ERROR_CODE_LIST.reduce(
-    (acc, code) => {
-      acc[code] = ErrorCodes[code].httpStatus;
-      return acc;
-    },
-    {} as Record<ErrorCode, number>,
-  );
+export const HTTP_STATUS_MAP: Record<ErrorCode, number> = ERROR_CODE_LIST.reduce(
+  (acc, code) => {
+    acc[code] = ErrorCodes[code].httpStatus;
+    return acc;
+  },
+  {} as Record<ErrorCode, number>,
+);
 
-export const DEFAULT_ERROR_MESSAGES: Record<ErrorCode, string> =
-  ERROR_CODE_LIST.reduce(
-    (acc, code) => {
-      acc[code] = ErrorCodes[code].message;
-      return acc;
-    },
-    {} as Record<ErrorCode, string>,
-  );
+export const DEFAULT_ERROR_MESSAGES: Record<ErrorCode, string> = ERROR_CODE_LIST.reduce(
+  (acc, code) => {
+    acc[code] = ErrorCodes[code].message;
+    return acc;
+  },
+  {} as Record<ErrorCode, string>,
+);
 
 /** Returns the HTTP status code for the given error code. */
 export function getHttpStatus(code: ErrorCode): number {

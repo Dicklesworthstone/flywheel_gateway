@@ -7,9 +7,7 @@ const DEFAULT_MOCK = import.meta.env["VITE_MOCK_DATA"] === "true";
 
 export const getSystemTheme = (): ThemeName => {
   if (typeof window === "undefined") return "dawn";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dusk"
-    : "dawn";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dusk" : "dawn";
 };
 
 const readThemePreference = (): ThemePreference => {
@@ -157,6 +155,5 @@ export const useUiStore = create<UiState>((set, get) => ({
   activeModals: [],
   pushModal: (id) => set({ activeModals: [...get().activeModals, id] }),
   popModal: () => set({ activeModals: get().activeModals.slice(0, -1) }),
-  closeAllModals: () =>
-    set({ activeModals: [], paletteOpen: false, drawerOpen: false }),
+  closeAllModals: () => set({ activeModals: [], paletteOpen: false, drawerOpen: false }),
 }));

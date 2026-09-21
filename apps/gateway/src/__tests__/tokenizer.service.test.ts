@@ -69,8 +69,7 @@ describe("Tokenizer Service", () => {
     test("sums tokens from multiple texts", () => {
       const texts = ["Hello", "World", "Test"];
       const total = countTokensMultiple(texts);
-      const individual =
-        countTokens("Hello") + countTokens("World") + countTokens("Test");
+      const individual = countTokens("Hello") + countTokens("World") + countTokens("Test");
       expect(total).toBe(individual);
     });
   });
@@ -100,8 +99,7 @@ describe("Tokenizer Service", () => {
     });
 
     test("uses custom ellipsis", () => {
-      const text =
-        "This is a long text that needs truncation for the token budget.";
+      const text = "This is a long text that needs truncation for the token budget.";
       const result = truncateToTokens(text, 5, " [truncated]");
       expect(result.endsWith("[truncated]")).toBe(true);
     });

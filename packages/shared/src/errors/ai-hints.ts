@@ -6,8 +6,7 @@ const AI_HINT_OVERRIDES: Partial<Record<ErrorCode, AIHint>> = {
   AGENT_NOT_FOUND: {
     severity: "terminal",
     suggestedAction: "List active agents and use a valid agent ID.",
-    alternativeApproach:
-      "Spawn a new agent if the intended one was terminated.",
+    alternativeApproach: "Spawn a new agent if the intended one was terminated.",
   },
   RATE_LIMIT_EXCEEDED: {
     severity: "retry",
@@ -24,8 +23,7 @@ const AI_HINT_OVERRIDES: Partial<Record<ErrorCode, AIHint>> = {
   SPAWN_QUOTA_EXCEEDED: {
     severity: "recoverable",
     suggestedAction: "Terminate unused agents before spawning new ones.",
-    alternativeApproach:
-      "Request additional quota if more agents are required.",
+    alternativeApproach: "Request additional quota if more agents are required.",
   },
   QUOTA_EXCEEDED: {
     severity: "recoverable",
@@ -50,8 +48,7 @@ const AI_HINT_OVERRIDES: Partial<Record<ErrorCode, AIHint>> = {
   TOOL_NOT_INSTALLED: {
     severity: "terminal",
     suggestedAction: "Install the tool and retry detection.",
-    alternativeApproach:
-      "Use the setup page to install missing tools automatically.",
+    alternativeApproach: "Use the setup page to install missing tools automatically.",
   },
   TOOL_NOT_IN_PATH: {
     severity: "recoverable",
@@ -79,8 +76,7 @@ const AI_HINT_OVERRIDES: Partial<Record<ErrorCode, AIHint>> = {
   },
   TOOL_CONFIG_INVALID: {
     severity: "recoverable",
-    suggestedAction:
-      "Fix the tool configuration file — check syntax and required fields.",
+    suggestedAction: "Fix the tool configuration file — check syntax and required fields.",
   },
   TOOL_DEPENDENCY_MISSING: {
     severity: "terminal",
@@ -103,8 +99,7 @@ const AI_HINT_OVERRIDES: Partial<Record<ErrorCode, AIHint>> = {
   },
   TOOL_CRASH: {
     severity: "retry",
-    suggestedAction:
-      "The tool crashed — check for updates or report the issue upstream.",
+    suggestedAction: "The tool crashed — check for updates or report the issue upstream.",
     retryAfterMs: 5000,
   },
 };
@@ -120,8 +115,7 @@ function defaultHintForCode(code: ErrorCode): AIHint {
   if (code.endsWith("_ALREADY_EXISTS") || code.endsWith("_ALREADY_RUNNING")) {
     return {
       severity: "recoverable",
-      suggestedAction:
-        "Reuse the existing resource or choose a different identifier.",
+      suggestedAction: "Reuse the existing resource or choose a different identifier.",
     };
   }
 
@@ -167,23 +161,17 @@ function defaultHintForCode(code: ErrorCode): AIHint {
     };
   }
 
-  if (
-    code.endsWith("_FAILED") ||
-    code.includes("ERROR") ||
-    code.includes("INTERNAL")
-  ) {
+  if (code.endsWith("_FAILED") || code.includes("ERROR") || code.includes("INTERNAL")) {
     return {
       severity: "retry",
-      suggestedAction:
-        "Retry the request and check logs if the issue persists.",
+      suggestedAction: "Retry the request and check logs if the issue persists.",
     };
   }
 
   if (code.includes("SUSPENDED") || code.includes("DISABLED")) {
     return {
       severity: "terminal",
-      suggestedAction:
-        "Contact support or an administrator to resolve the account status.",
+      suggestedAction: "Contact support or an administrator to resolve the account status.",
     };
   }
 

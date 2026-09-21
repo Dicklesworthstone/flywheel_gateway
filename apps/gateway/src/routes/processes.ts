@@ -99,10 +99,7 @@ function handleError(error: unknown, c: Context) {
     }
 
     // Check for permission errors
-    if (
-      error.message.includes("permission") ||
-      error.message.includes("EPERM")
-    ) {
+    if (error.message.includes("permission") || error.message.includes("EPERM")) {
       return sendError(
         c,
         "PT_PERMISSION_ERROR",
@@ -202,14 +199,10 @@ processes.get("/scan", async (c) => {
     if (validated.minScore !== undefined) options.minScore = validated.minScore;
     if (validated.minRuntimeSeconds !== undefined)
       options.minRuntimeSeconds = validated.minRuntimeSeconds;
-    if (validated.minMemoryMb !== undefined)
-      options.minMemoryMb = validated.minMemoryMb;
-    if (validated.minCpuPercent !== undefined)
-      options.minCpuPercent = validated.minCpuPercent;
-    if (validated.namePattern !== undefined)
-      options.namePattern = validated.namePattern;
-    if (validated.excludePattern !== undefined)
-      options.excludePattern = validated.excludePattern;
+    if (validated.minMemoryMb !== undefined) options.minMemoryMb = validated.minMemoryMb;
+    if (validated.minCpuPercent !== undefined) options.minCpuPercent = validated.minCpuPercent;
+    if (validated.namePattern !== undefined) options.namePattern = validated.namePattern;
+    if (validated.excludePattern !== undefined) options.excludePattern = validated.excludePattern;
     if (validated.users !== undefined)
       options.users = validated.users.split(",").map((u) => u.trim());
     if (validated.limit !== undefined) options.limit = validated.limit;
@@ -316,8 +309,7 @@ processes.post("/:pid/kill", async (c) => {
     if (validated.signal !== undefined) options.signal = validated.signal;
     if (validated.force !== undefined) options.force = validated.force;
     if (validated.wait !== undefined) options.wait = validated.wait;
-    if (validated.waitTimeout !== undefined)
-      options.waitTimeout = validated.waitTimeout;
+    if (validated.waitTimeout !== undefined) options.waitTimeout = validated.waitTimeout;
 
     const result = await pt.killProcess(pid, options);
 
@@ -377,8 +369,7 @@ processes.post("/kill", async (c) => {
     if (validated.signal !== undefined) options.signal = validated.signal;
     if (validated.force !== undefined) options.force = validated.force;
     if (validated.wait !== undefined) options.wait = validated.wait;
-    if (validated.waitTimeout !== undefined)
-      options.waitTimeout = validated.waitTimeout;
+    if (validated.waitTimeout !== undefined) options.waitTimeout = validated.waitTimeout;
 
     const results = await pt.killProcesses(validated.pids, options);
 
@@ -452,8 +443,7 @@ processes.get("/agents", async (c) => {
     if (validated.minRuntimeSeconds !== undefined)
       options.minRuntimeSeconds = validated.minRuntimeSeconds;
     if (validated.minScore !== undefined) options.minScore = validated.minScore;
-    if (validated.includeGateway !== undefined)
-      options.includeGateway = validated.includeGateway;
+    if (validated.includeGateway !== undefined) options.includeGateway = validated.includeGateway;
 
     const result = await pt.scanAgentProcesses(options);
 

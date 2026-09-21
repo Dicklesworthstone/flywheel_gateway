@@ -307,10 +307,7 @@ export class RingBuffer<T> {
     // Binary search would be more efficient, but for typical buffer sizes
     // (< 10000) linear scan is fast enough
     for (const entry of this.buffer) {
-      if (
-        entry.sequence === cursorData.sequence &&
-        entry.timestamp === cursorData.timestamp
-      ) {
+      if (entry.sequence === cursorData.sequence && entry.timestamp === cursorData.timestamp) {
         return entry;
       }
     }

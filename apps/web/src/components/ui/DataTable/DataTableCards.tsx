@@ -117,9 +117,7 @@ export function DataTableCards<T>({
               <div>
                 {primaryValue !== null && primaryValue !== undefined ? (
                   <div className="responsive-card__title">
-                    {primaryColumn?.cell
-                      ? primaryColumn.cell(row, index)
-                      : String(primaryValue)}
+                    {primaryColumn?.cell ? primaryColumn.cell(row, index) : String(primaryValue)}
                   </div>
                 ) : null}
                 {secondaryValue !== null && secondaryValue !== undefined ? (
@@ -145,9 +143,7 @@ export function DataTableCards<T>({
                   const value = getNestedValue(row, String(column.accessor));
                   return (
                     <div key={column.id} className="responsive-card__row">
-                      <span className="responsive-card__label">
-                        {column.header}
-                      </span>
+                      <span className="responsive-card__label">{column.header}</span>
                       <span>
                         {column.cell
                           ? column.cell(row, index)

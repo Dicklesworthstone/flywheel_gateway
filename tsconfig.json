@@ -34,12 +34,5 @@
       "@flywheel/test-utils/*": ["packages/test-utils/src/*"]
     }
   },
-  "exclude": [
-    "node_modules",
-    "dist",
-    "build",
-    ".turbo",
-    "drizzle.config.ts",
-    "tests/e2e"
-  ]
+  "exclude": ["node_modules", "dist", "build", ".turbo", "drizzle.config.ts", "tests/e2e"]
 }

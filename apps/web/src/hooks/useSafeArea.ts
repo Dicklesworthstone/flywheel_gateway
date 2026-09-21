@@ -27,10 +27,7 @@ export function useSafeArea(): SafeAreaInsets {
   const [insets, setInsets] = useState<SafeAreaInsets>(DEFAULT_INSETS);
 
   useEffect(() => {
-    if (
-      typeof window === "undefined" ||
-      !CSS.supports("padding", "env(safe-area-inset-top)")
-    ) {
+    if (typeof window === "undefined" || !CSS.supports("padding", "env(safe-area-inset-top)")) {
       return;
     }
 

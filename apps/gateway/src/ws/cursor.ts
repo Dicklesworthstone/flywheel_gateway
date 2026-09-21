@@ -46,8 +46,7 @@ export function decodeCursor(cursor: string): CursorData | undefined {
 
     const timestampStr = parts[0];
     const sequenceStr = parts[1];
-    if (timestampStr === undefined || sequenceStr === undefined)
-      return undefined;
+    if (timestampStr === undefined || sequenceStr === undefined) return undefined;
 
     const timestamp = parseInt(timestampStr, 10);
     const sequence = parseInt(sequenceStr, 10);

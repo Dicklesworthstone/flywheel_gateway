@@ -140,9 +140,7 @@ describe("parseToon", () => {
 ──────────────────`;
     const result = parseToon(toon);
     expect(result.ok).toBe(true);
-    const config = (result.data as Record<string, Record<string, string>>)[
-      "Config"
-    ]!;
+    const config = (result.data as Record<string, Record<string, string>>)["Config"]!;
     expect(config["host"]).toBe("localhost");
     expect(config["port"]).toBe("8080");
   });
@@ -155,9 +153,7 @@ describe("parseToon", () => {
 ────────────`;
     const result = parseToon(toon);
     expect(result.ok).toBe(true);
-    const data = (result.data as Record<string, Record<string, string>>)[
-      "Data"
-    ]!;
+    const data = (result.data as Record<string, Record<string, string>>)["Data"]!;
     expect(data["key"]).toBe("val");
   });
 

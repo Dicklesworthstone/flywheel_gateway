@@ -2336,13 +2336,7 @@
         },
         "cost_aggregates_unique_idx": {
           "name": "cost_aggregates_unique_idx",
-          "columns": [
-            "period",
-            "period_start",
-            "organization_id",
-            "project_id",
-            "agent_id"
-          ],
+          "columns": ["period", "period_start", "organization_id", "project_id", "agent_id"],
           "isUnique": true
         }
       },

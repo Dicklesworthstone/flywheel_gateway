@@ -26,9 +26,7 @@ function createJwt(payload: Record<string, unknown>, secret: string) {
   const headerB64 = Buffer.from(JSON.stringify(header)).toString("base64url");
   const payloadB64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const data = `${headerB64}.${payloadB64}`;
-  const signature = createHmac("sha256", secret)
-    .update(data)
-    .digest("base64url");
+  const signature = createHmac("sha256", secret).update(data).digest("base64url");
   return `${data}.${signature}`;
 }
 

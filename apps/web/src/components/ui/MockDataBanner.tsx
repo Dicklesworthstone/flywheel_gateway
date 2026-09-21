@@ -20,11 +20,7 @@ export function MockDataBanner({
   className = "",
 }: MockDataBannerProps) {
   return (
-    <div
-      className={`mock-data-banner ${className}`}
-      role="alert"
-      aria-live="polite"
-    >
+    <div className={`mock-data-banner ${className}`} role="alert" aria-live="polite">
       <AlertTriangle size={16} className="mock-data-banner__icon" />
       <span className="mock-data-banner__text">{message}</span>
     </div>

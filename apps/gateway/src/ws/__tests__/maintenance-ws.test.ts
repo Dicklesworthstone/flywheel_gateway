@@ -78,8 +78,7 @@ describe("maintenance WS behavior", () => {
     expect(sent.length).toBe(1);
     const parsed = JSON.parse(sent[0]!) as ServerMessage;
     expect(parsed.type).toBe("message");
-    const msg = (parsed as { message: { channel: string; type: string } })
-      .message;
+    const msg = (parsed as { message: { channel: string; type: string } }).message;
     expect(msg.channel).toBe("system:maintenance");
     expect(msg.type).toBe("maintenance.state_changed");
 
@@ -99,8 +98,7 @@ describe("maintenance WS behavior", () => {
     expect(sent.length).toBe(1);
     const parsed = JSON.parse(sent[0]!) as ServerMessage;
     expect(parsed.type).toBe("message");
-    const msg = (parsed as { message: { channel: string; type: string } })
-      .message;
+    const msg = (parsed as { message: { channel: string; type: string } }).message;
     expect(msg.channel).toBe("system:maintenance");
     expect(msg.type).toBe("maintenance.state_changed");
 
