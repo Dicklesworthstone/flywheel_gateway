@@ -33,22 +33,16 @@ async function gw(
  * Check if NTM is available by querying the health endpoint.
  * Returns true if the NTM component reports healthy or degraded.
  */
-async function isNtmAvailable(
-  logEvent: (msg: string) => void,
-): Promise<boolean> {
+async function isNtmAvailable(logEvent: (msg: string) => void): Promise<boolean> {
   try {
     const { body } = await gw("/health/detailed");
-    const components = body["components"] as
-      | Record<string, Record<string, unknown>>
-      | undefined;
+    const components = body["components"] as Record<string, Record<string, unknown>> | undefined;
 
     // Check agent CLI detection for NTM
     const agentCLIs = components?.["agentCLIs"];
     if (agentCLIs?.["detection"]) {
       const detection = agentCLIs["detection"] as Record<string, unknown>;
-      const clis = detection["clis"] as
-        | Record<string, Record<string, unknown>>
-        | undefined;
+      const clis = detection["clis"] as Record<string, Record<string, unknown>> | undefined;
       if (clis?.["ntm"]?.["available"]) {
         logEvent("NTM is available via agent CLI detection");
         return true;
@@ -56,14 +50,9 @@ async function isNtmAvailable(
     }
 
     // Also check if NTM appears in diagnostics
-    const diagnostics = body["diagnostics"] as
-      | Record<string, unknown>
-      | undefined;
+    const diagnostics = body["diagnostics"] as Record<string, unknown> | undefined;
     if (diagnostics?.["tools"]) {
-      const tools = diagnostics["tools"] as Record<
-        string,
-        Record<string, unknown>
-      >;
+      const tools = diagnostics["tools"] as Record<string, Record<string, unknown>>;
       if (tools["ntm"]?.["available"]) {
         logEvent("NTM is available via health diagnostics");
         return true;
@@ -89,10 +78,7 @@ test.describe("NTM availability detection", () => {
 
     expect([200, 503]).toContain(status);
 
-    const components = body["components"] as Record<
-      string,
-      Record<string, unknown>
-    >;
+    const components = body["components"] as Record<string, Record<string, unknown>>;
     expect(components).toBeDefined();
 
     // agentCLIs component should exist and report detection results
@@ -109,9 +95,7 @@ test.describe("NTM availability detection", () => {
 // =============================================================================
 
 test.describe("System snapshot - NTM data", () => {
-  test("GET /system/snapshot returns structured response", async ({
-    logEvent,
-  }) => {
+  test("GET /system/snapshot returns structured response", async ({ logEvent }) => {
     logEvent("Fetching system snapshot");
     const { status, body } = await gw("/system/snapshot");
 
@@ -122,9 +106,7 @@ test.describe("System snapshot - NTM data", () => {
       // Snapshot should include agents section
       if (data["agents"]) {
         const agents = data["agents"];
-        logEvent(
-          `Snapshot contains ${Array.isArray(agents) ? agents.length : "N/A"} agents`,
-        );
+        logEvent(`Snapshot contains ${Array.isArray(agents) ? agents.length : "N/A"} agents`);
       }
 
       // Should include metadata
@@ -158,9 +140,7 @@ test.describe("System snapshot - NTM data", () => {
 // =============================================================================
 
 test.describe("NTM ingest pipeline", () => {
-  test("agents endpoint reflects NTM-tracked agents when available", async ({
-    logEvent,
-  }) => {
+  test("agents endpoint reflects NTM-tracked agents when available", async ({ logEvent }) => {
     const ntmReady = await isNtmAvailable(logEvent);
     if (!ntmReady) {
       logEvent("SKIPPED: NTM not available - install NTM to enable this test");
@@ -185,9 +165,7 @@ test.describe("NTM ingest pipeline", () => {
       expect(agent).toHaveProperty("config");
 
       if (agent["driverType"] === "ntm") {
-        logEvent(
-          `NTM agent: ${agent["id"]} (state: ${agent["activityState"]})`,
-        );
+        logEvent(`NTM agent: ${agent["id"]} (state: ${agent["activityState"]})`);
         expect(agent).toHaveProperty("activityState");
         expect(agent).toHaveProperty("startedAt");
       }
@@ -376,14 +354,9 @@ test.describe("NTM WebSocket bridge", () => {
       const _timeout = setTimeout(resolve, 5000);
       ws.onmessage = (event) => {
         try {
-          const msg = JSON.parse(event.data as string) as Record<
-            string,
-            unknown
-          >;
+          const msg = JSON.parse(event.data as string) as Record<string, unknown>;
           messages.push(msg);
-          logEvent(
-            `WS message: type=${msg["type"]}, channel=${msg["channel"]}`,
-          );
+          logEvent(`WS message: type=${msg["type"]}, channel=${msg["channel"]}`);
         } catch {
           // ignore parse errors
         }
@@ -395,8 +368,7 @@ test.describe("NTM WebSocket bridge", () => {
 
     // If we got state change messages, validate their structure
     const stateChanges = messages.filter(
-      (m) =>
-        m["type"] === "event" && String(m["channel"]).startsWith("agent:state"),
+      (m) => m["type"] === "event" && String(m["channel"]).startsWith("agent:state"),
     );
 
     if (stateChanges.length > 0) {
@@ -415,18 +387,14 @@ test.describe("NTM WebSocket bridge", () => {
 test.describe("NTM unavailable diagnostics", () => {
   test("health diagnostics explain NTM absence", async ({ logEvent }) => {
     const { body } = await gw("/health/detailed");
-    const diagnostics = body["diagnostics"] as
-      | Record<string, unknown>
-      | undefined;
+    const diagnostics = body["diagnostics"] as Record<string, unknown> | undefined;
 
     if (!diagnostics) {
       logEvent("No diagnostics available (detection may have failed)");
       return;
     }
 
-    const tools = diagnostics["tools"] as
-      | Record<string, Record<string, unknown>>
-      | undefined;
+    const tools = diagnostics["tools"] as Record<string, Record<string, unknown>> | undefined;
     if (!tools?.["ntm"]) {
       logEvent("NTM not in diagnostics tool list");
       return;

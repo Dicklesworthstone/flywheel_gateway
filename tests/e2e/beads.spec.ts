@@ -39,14 +39,10 @@ if (isPlaywright) {
 
     test("should display beads page with header", async ({ page }) => {
       await expect(page.locator(".page")).toBeVisible();
-      await expect(
-        page.locator("h3").filter({ hasText: "Beads" }),
-      ).toBeVisible();
+      await expect(page.locator("h3").filter({ hasText: "Beads" })).toBeVisible();
     });
 
-    test("should display beads table with correct columns", async ({
-      page,
-    }) => {
+    test("should display beads table with correct columns", async ({ page }) => {
       const header = page.locator(".table__row--header");
       await expect(header).toBeVisible();
 
@@ -73,16 +69,12 @@ if (isPlaywright) {
     });
 
     test("should display refresh button", async ({ page }) => {
-      const refreshBtn = page
-        .locator(".btn--secondary")
-        .filter({ hasText: "Refresh" });
+      const refreshBtn = page.locator(".btn--secondary").filter({ hasText: "Refresh" });
       await expect(refreshBtn).toBeVisible();
     });
 
     test("should display new bead button", async ({ page }) => {
-      const newBeadBtn = page
-        .locator(".btn--primary")
-        .filter({ hasText: "New Bead" });
+      const newBeadBtn = page.locator(".btn--primary").filter({ hasText: "New Bead" });
       await expect(newBeadBtn).toBeVisible();
     });
   });
@@ -100,12 +92,8 @@ if (isPlaywright) {
       }
     });
 
-    test("should display in_progress status with warning tone", async ({
-      page,
-    }) => {
-      const inProgressPill = page
-        .locator(".pill")
-        .filter({ hasText: "in progress" });
+    test("should display in_progress status with warning tone", async ({ page }) => {
+      const inProgressPill = page.locator(".pill").filter({ hasText: "in progress" });
       if ((await inProgressPill.count()) > 0) {
         await expect(inProgressPill.first()).toBeVisible();
         await expect(inProgressPill.first()).toHaveClass(/pill--warning/);
@@ -120,9 +108,7 @@ if (isPlaywright) {
       }
     });
 
-    test("should display closed status with positive tone", async ({
-      page,
-    }) => {
+    test("should display closed status with positive tone", async ({ page }) => {
       const closedPill = page.locator(".pill").filter({ hasText: "closed" });
       if ((await closedPill.count()) > 0) {
         await expect(closedPill.first()).toBeVisible();
@@ -134,19 +120,13 @@ if (isPlaywright) {
   test.describe("Beads - Create Flow", () => {
     test.beforeEach(async ({ page }) => {
       page.on("request", (request) => {
-        if (
-          request.url().includes("/api/beads") &&
-          request.method() === "POST"
-        ) {
+        if (request.url().includes("/api/beads") && request.method() === "POST") {
           console.log(`[CREATE REQ] ${request.method()} ${request.url()}`);
           console.log(`[CREATE BODY] ${request.postData()}`);
         }
       });
       page.on("response", (response) => {
-        if (
-          response.url().includes("/api/beads") &&
-          response.request().method() === "POST"
-        ) {
+        if (response.url().includes("/api/beads") && response.request().method() === "POST") {
           console.log(`[CREATE RES] ${response.status()}`);
         }
       });
@@ -154,9 +134,7 @@ if (isPlaywright) {
       await page.goto("/beads");
     });
 
-    test("should open create modal when clicking New Bead", async ({
-      page,
-    }) => {
+    test("should open create modal when clicking New Bead", async ({ page }) => {
       await page.click(".btn--primary >> text=New Bead");
 
       // Modal should be visible
@@ -174,27 +152,19 @@ if (isPlaywright) {
       await expect(page.locator("#bead-type")).toBeVisible();
     });
 
-    test("should disable create button when title is empty", async ({
-      page,
-    }) => {
+    test("should disable create button when title is empty", async ({ page }) => {
       await page.click(".btn--primary >> text=New Bead");
 
-      const createBtn = page
-        .locator(".modal .btn--primary")
-        .filter({ hasText: "Create" });
+      const createBtn = page.locator(".modal .btn--primary").filter({ hasText: "Create" });
       await expect(createBtn).toBeDisabled();
     });
 
-    test("should enable create button when title is filled", async ({
-      page,
-    }) => {
+    test("should enable create button when title is filled", async ({ page }) => {
       await page.click(".btn--primary >> text=New Bead");
 
       await page.fill("#bead-title", "Test Bead Title");
 
-      const createBtn = page
-        .locator(".modal .btn--primary")
-        .filter({ hasText: "Create" });
+      const createBtn = page.locator(".modal .btn--primary").filter({ hasText: "Create" });
       await expect(createBtn).toBeEnabled();
     });
 
@@ -284,17 +254,13 @@ if (isPlaywright) {
         const statusText = await statusPill.textContent();
 
         if (statusText?.includes("open")) {
-          const claimBtn = row
-            .locator(".btn--secondary")
-            .filter({ hasText: "Claim" });
+          const claimBtn = row.locator(".btn--secondary").filter({ hasText: "Claim" });
           await expect(claimBtn).toBeVisible();
         }
       }
     });
 
-    test("should not show Claim button for in_progress beads", async ({
-      page,
-    }) => {
+    test("should not show Claim button for in_progress beads", async ({ page }) => {
       const rows = page
         .locator(".table__row")
         .filter({ hasNot: page.locator(".table__row--header") });
@@ -306,9 +272,7 @@ if (isPlaywright) {
         const statusText = await statusPill.textContent();
 
         if (statusText?.includes("in progress")) {
-          const claimBtn = row
-            .locator(".btn--secondary")
-            .filter({ hasText: "Claim" });
+          const claimBtn = row.locator(".btn--secondary").filter({ hasText: "Claim" });
           await expect(claimBtn).not.toBeVisible();
         }
       }
@@ -326,17 +290,13 @@ if (isPlaywright) {
         const statusText = await statusPill.textContent();
 
         if (statusText?.includes("closed")) {
-          const claimBtn = row
-            .locator(".btn--secondary")
-            .filter({ hasText: "Claim" });
+          const claimBtn = row.locator(".btn--secondary").filter({ hasText: "Claim" });
           await expect(claimBtn).not.toBeVisible();
         }
       }
     });
 
-    test("should change status to in_progress when claiming", async ({
-      page,
-    }) => {
+    test("should change status to in_progress when claiming", async ({ page }) => {
       // Find an open bead and claim it
       const rows = page
         .locator(".table__row")
@@ -349,9 +309,7 @@ if (isPlaywright) {
         const statusText = await statusPill.textContent();
 
         if (statusText?.includes("open")) {
-          const claimBtn = row
-            .locator(".btn--secondary")
-            .filter({ hasText: "Claim" });
+          const claimBtn = row.locator(".btn--secondary").filter({ hasText: "Claim" });
           await claimBtn.click();
 
           // Status should change to in_progress
@@ -393,9 +351,7 @@ if (isPlaywright) {
         const statusText = await statusPill.textContent();
 
         if (!statusText?.includes("closed")) {
-          const closeBtn = row
-            .locator(".btn--danger")
-            .filter({ hasText: "Close" });
+          const closeBtn = row.locator(".btn--danger").filter({ hasText: "Close" });
           await expect(closeBtn).toBeVisible();
         }
       }
@@ -413,9 +369,7 @@ if (isPlaywright) {
         const statusText = await statusPill.textContent();
 
         if (statusText?.includes("closed")) {
-          const closeBtn = row
-            .locator(".btn--danger")
-            .filter({ hasText: "Close" });
+          const closeBtn = row.locator(".btn--danger").filter({ hasText: "Close" });
           await expect(closeBtn).not.toBeVisible();
         }
       }
@@ -433,9 +387,7 @@ if (isPlaywright) {
         const statusText = await statusPill.textContent();
 
         if (!statusText?.includes("closed")) {
-          const closeBtn = row
-            .locator(".btn--danger")
-            .filter({ hasText: "Close" });
+          const closeBtn = row.locator(".btn--danger").filter({ hasText: "Close" });
           await closeBtn.click();
 
           await expect(page.locator(".modal")).toBeVisible();
@@ -459,9 +411,7 @@ if (isPlaywright) {
       }
     });
 
-    test("should have optional reason input in close modal", async ({
-      page,
-    }) => {
+    test("should have optional reason input in close modal", async ({ page }) => {
       const rows = page
         .locator(".table__row")
         .filter({ hasNot: page.locator(".table__row--header") });
@@ -469,9 +419,7 @@ if (isPlaywright) {
 
       for (let i = 0; i < count; i++) {
         const row = rows.nth(i);
-        const closeBtn = row
-          .locator(".btn--danger")
-          .filter({ hasText: "Close" });
+        const closeBtn = row.locator(".btn--danger").filter({ hasText: "Close" });
         if (await closeBtn.isVisible()) {
           await closeBtn.click();
           await expect(page.locator("#bead-close-reason")).toBeVisible();
@@ -480,9 +428,7 @@ if (isPlaywright) {
       }
     });
 
-    test("should close modal when clicking Cancel in close dialog", async ({
-      page,
-    }) => {
+    test("should close modal when clicking Cancel in close dialog", async ({ page }) => {
       const rows = page
         .locator(".table__row")
         .filter({ hasNot: page.locator(".table__row--header") });
@@ -490,9 +436,7 @@ if (isPlaywright) {
 
       for (let i = 0; i < count; i++) {
         const row = rows.nth(i);
-        const closeBtn = row
-          .locator(".btn--danger")
-          .filter({ hasText: "Close" });
+        const closeBtn = row.locator(".btn--danger").filter({ hasText: "Close" });
         if (await closeBtn.isVisible()) {
           await closeBtn.click();
           await expect(page.locator(".modal")).toBeVisible();
@@ -516,9 +460,7 @@ if (isPlaywright) {
         const statusText = await statusPill.textContent();
 
         if (!statusText?.includes("closed")) {
-          const closeBtn = row
-            .locator(".btn--danger")
-            .filter({ hasText: "Close" });
+          const closeBtn = row.locator(".btn--danger").filter({ hasText: "Close" });
           await closeBtn.click();
 
           await page.fill("#bead-close-reason", "Completed via E2E test");
@@ -540,19 +482,13 @@ if (isPlaywright) {
   test.describe("Beads - Edit Flow", () => {
     test.beforeEach(async ({ page }) => {
       page.on("request", (request) => {
-        if (
-          request.url().includes("/api/beads/") &&
-          request.method() === "PATCH"
-        ) {
+        if (request.url().includes("/api/beads/") && request.method() === "PATCH") {
           console.log(`[EDIT REQ] ${request.method()} ${request.url()}`);
           console.log(`[EDIT BODY] ${request.postData()}`);
         }
       });
       page.on("response", (response) => {
-        if (
-          response.url().includes("/api/beads/") &&
-          response.request().method() === "PATCH"
-        ) {
+        if (response.url().includes("/api/beads/") && response.request().method() === "PATCH") {
           console.log(`[EDIT RES] ${response.status()}`);
         }
       });
@@ -568,9 +504,7 @@ if (isPlaywright) {
 
       for (let i = 0; i < Math.min(count, 5); i++) {
         const row = rows.nth(i);
-        const editBtn = row
-          .locator(".btn--secondary")
-          .filter({ hasText: "Edit" });
+        const editBtn = row.locator(".btn--secondary").filter({ hasText: "Edit" });
         await expect(editBtn).toBeVisible();
       }
     });
@@ -579,10 +513,7 @@ if (isPlaywright) {
       const rows = page
         .locator(".table__row")
         .filter({ hasNot: page.locator(".table__row--header") });
-      const editBtn = rows
-        .first()
-        .locator(".btn--secondary")
-        .filter({ hasText: "Edit" });
+      const editBtn = rows.first().locator(".btn--secondary").filter({ hasText: "Edit" });
 
       await editBtn.click();
 
@@ -594,10 +525,7 @@ if (isPlaywright) {
       const rows = page
         .locator(".table__row")
         .filter({ hasNot: page.locator(".table__row--header") });
-      const editBtn = rows
-        .first()
-        .locator(".btn--secondary")
-        .filter({ hasText: "Edit" });
+      const editBtn = rows.first().locator(".btn--secondary").filter({ hasText: "Edit" });
 
       await editBtn.click();
 
@@ -614,9 +542,7 @@ if (isPlaywright) {
       const row = rows.first();
 
       const title = await row.locator("span").nth(2).textContent(); // Title is 3rd column
-      const editBtn = row
-        .locator(".btn--secondary")
-        .filter({ hasText: "Edit" });
+      const editBtn = row.locator(".btn--secondary").filter({ hasText: "Edit" });
 
       await editBtn.click();
 
@@ -628,10 +554,7 @@ if (isPlaywright) {
       const rows = page
         .locator(".table__row")
         .filter({ hasNot: page.locator(".table__row--header") });
-      const editBtn = rows
-        .first()
-        .locator(".btn--secondary")
-        .filter({ hasText: "Edit" });
+      const editBtn = rows.first().locator(".btn--secondary").filter({ hasText: "Edit" });
 
       await editBtn.click();
       await expect(page.locator(".modal")).toBeVisible();
@@ -645,9 +568,7 @@ if (isPlaywright) {
         .locator(".table__row")
         .filter({ hasNot: page.locator(".table__row--header") });
       const row = rows.first();
-      const editBtn = row
-        .locator(".btn--secondary")
-        .filter({ hasText: "Edit" });
+      const editBtn = row.locator(".btn--secondary").filter({ hasText: "Edit" });
 
       await editBtn.click();
 
@@ -669,9 +590,7 @@ if (isPlaywright) {
         .locator(".table__row")
         .filter({ hasNot: page.locator(".table__row--header") });
       const row = rows.first();
-      const editBtn = row
-        .locator(".btn--secondary")
-        .filter({ hasText: "Edit" });
+      const editBtn = row.locator(".btn--secondary").filter({ hasText: "Edit" });
 
       await editBtn.click();
 
@@ -684,18 +603,13 @@ if (isPlaywright) {
       const rows = page
         .locator(".table__row")
         .filter({ hasNot: page.locator(".table__row--header") });
-      const editBtn = rows
-        .first()
-        .locator(".btn--secondary")
-        .filter({ hasText: "Edit" });
+      const editBtn = rows.first().locator(".btn--secondary").filter({ hasText: "Edit" });
 
       await editBtn.click();
 
       await page.fill("#bead-edit-title", "");
 
-      const saveBtn = page
-        .locator(".modal .btn--primary")
-        .filter({ hasText: "Save" });
+      const saveBtn = page.locator(".modal .btn--primary").filter({ hasText: "Save" });
       await expect(saveBtn).toBeDisabled();
     });
   });
@@ -738,9 +652,7 @@ if (isPlaywright) {
 
       // Page should still load without errors
       await expect(page.locator(".page")).toBeVisible();
-      await expect(
-        page.locator("h3").filter({ hasText: "Beads" }),
-      ).toBeVisible();
+      await expect(page.locator("h3").filter({ hasText: "Beads" })).toBeVisible();
     });
   });
 
@@ -750,9 +662,7 @@ if (isPlaywright) {
     });
 
     test("should show loading state when refreshing", async ({ page }) => {
-      const refreshBtn = page
-        .locator(".btn--secondary")
-        .filter({ hasText: "Refresh" });
+      const refreshBtn = page.locator(".btn--secondary").filter({ hasText: "Refresh" });
       await refreshBtn.click();
 
       // Button should show loading state (might be brief)
@@ -762,10 +672,7 @@ if (isPlaywright) {
     test("should reload beads on refresh click", async ({ page }) => {
       let requestCount = 0;
       page.on("request", (request) => {
-        if (
-          request.url().includes("/api/beads") &&
-          request.method() === "GET"
-        ) {
+        if (request.url().includes("/api/beads") && request.method() === "GET") {
           requestCount++;
         }
       });
@@ -784,9 +691,7 @@ if (isPlaywright) {
       await page.goto("/beads");
 
       await expect(page.locator(".table")).toBeVisible();
-      await expect(
-        page.locator("h3").filter({ hasText: "Beads" }),
-      ).toBeVisible();
+      await expect(page.locator("h3").filter({ hasText: "Beads" })).toBeVisible();
     });
 
     test("should display beads on tablet viewport", async ({ page }) => {
@@ -794,9 +699,7 @@ if (isPlaywright) {
       await page.goto("/beads");
 
       await expect(page.locator(".table")).toBeVisible();
-      await expect(
-        page.locator("h3").filter({ hasText: "Beads" }),
-      ).toBeVisible();
+      await expect(page.locator("h3").filter({ hasText: "Beads" })).toBeVisible();
     });
 
     test("should display beads on mobile viewport", async ({ page }) => {
@@ -824,9 +727,7 @@ if (isPlaywright) {
       await page.goto("/beads");
     });
 
-    test("should show correct action buttons based on status", async ({
-      page,
-    }) => {
+    test("should show correct action buttons based on status", async ({ page }) => {
       const rows = page
         .locator(".table__row")
         .filter({ hasNot: page.locator(".table__row--header") });
@@ -839,14 +740,10 @@ if (isPlaywright) {
         const trimmedStatus = statusText?.trim().toLowerCase() ?? "";
 
         // Edit should always be visible
-        await expect(
-          row.locator(".btn--secondary").filter({ hasText: "Edit" }),
-        ).toBeVisible();
+        await expect(row.locator(".btn--secondary").filter({ hasText: "Edit" })).toBeVisible();
 
         // Claim: visible only for open and blocked statuses
-        const claimBtn = row
-          .locator(".btn--secondary")
-          .filter({ hasText: "Claim" });
+        const claimBtn = row.locator(".btn--secondary").filter({ hasText: "Claim" });
         if (trimmedStatus === "open" || trimmedStatus === "blocked") {
           await expect(claimBtn).toBeVisible();
         } else {
@@ -854,9 +751,7 @@ if (isPlaywright) {
         }
 
         // Close: visible for non-closed statuses
-        const closeBtn = row
-          .locator(".btn--danger")
-          .filter({ hasText: "Close" });
+        const closeBtn = row.locator(".btn--danger").filter({ hasText: "Close" });
         if (trimmedStatus !== "closed") {
           await expect(closeBtn).toBeVisible();
         } else {
@@ -872,14 +767,10 @@ if (isPlaywright) {
       await page.click('a[href="/beads"]');
 
       await expect(page).toHaveURL("/beads");
-      await expect(
-        page.locator("h3").filter({ hasText: "Beads" }),
-      ).toBeVisible();
+      await expect(page.locator("h3").filter({ hasText: "Beads" })).toBeVisible();
     });
 
-    test("should preserve state when navigating away and back", async ({
-      page,
-    }) => {
+    test("should preserve state when navigating away and back", async ({ page }) => {
       await page.goto("/beads");
 
       // Note initial count (unused but documents intent)

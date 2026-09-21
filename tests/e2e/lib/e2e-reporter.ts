@@ -182,9 +182,7 @@ export default class E2EReporter implements Reporter {
       failed: stats.failed,
       skipped: stats.skipped,
       timedOut: stats.timedOut,
-      flaky: this.testResults.filter(
-        (t) => t.retryCount > 0 && t.status === "passed",
-      ).length,
+      flaky: this.testResults.filter((t) => t.retryCount > 0 && t.status === "passed").length,
       projects: [...new Set(this.testResults.map((t) => t.browser))],
       workers: this.config?.workers ?? 1,
       tests: this.testResults,
@@ -202,10 +200,7 @@ export default class E2EReporter implements Reporter {
     // Create latest symlink (for easy access)
     const latestPath = join(this.outputDir, "latest.json");
     try {
-      writeFileSync(
-        latestPath,
-        JSON.stringify({ runId: this.runId, path: summaryPath }),
-      );
+      writeFileSync(latestPath, JSON.stringify({ runId: this.runId, path: summaryPath }));
     } catch {
       // Ignore symlink errors
     }
@@ -275,11 +270,7 @@ export default class E2EReporter implements Reporter {
       .slice(0, 50);
   }
 
-  private logTestSummary(
-    test: TestCase,
-    result: TestResult,
-    bundle: TestLogBundle,
-  ): void {
+  private logTestSummary(test: TestCase, result: TestResult, bundle: TestLogBundle): void {
     const statusIcon =
       result.status === "passed"
         ? "✅"
@@ -302,9 +293,7 @@ export default class E2EReporter implements Reporter {
     }
 
     if (result.error) {
-      summary.push(
-        `   Error: ${(result.error.message ?? "Unknown error").slice(0, 100)}`,
-      );
+      summary.push(`   Error: ${(result.error.message ?? "Unknown error").slice(0, 100)}`);
     }
 
     console.log(summary.join("\n"));

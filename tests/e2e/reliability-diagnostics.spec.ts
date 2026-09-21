@@ -41,9 +41,7 @@ test.describe("Health endpoints", () => {
     expect(body).toHaveProperty("uptime");
   });
 
-  test("GET /health/ready returns readiness with components", async ({
-    logEvent,
-  }) => {
+  test("GET /health/ready returns readiness with components", async ({ logEvent }) => {
     logEvent("Checking readiness probe");
     const { status, body } = await gw("/health/ready");
 
@@ -54,9 +52,7 @@ test.describe("Health endpoints", () => {
     expect(typeof body["checks"]).toBe("object");
   });
 
-  test("GET /health/detailed returns comprehensive diagnostics", async ({
-    logEvent,
-  }) => {
+  test("GET /health/detailed returns comprehensive diagnostics", async ({ logEvent }) => {
     logEvent("Checking detailed health");
     const { status, body } = await gw("/health/detailed");
 
@@ -82,17 +78,13 @@ test.describe("Health endpoints", () => {
 // =============================================================================
 
 test.describe("Circuit breaker diagnostics", () => {
-  test("detailed health includes circuit breaker statuses", async ({
-    logEvent,
-  }) => {
+  test("detailed health includes circuit breaker statuses", async ({ logEvent }) => {
     logEvent("Checking circuit breaker status in health response");
     const { body } = await gw("/health/detailed");
 
     // circuitBreakers may be absent if no breakers have been triggered
     if (body["circuitBreakers"]) {
-      const breakers = body["circuitBreakers"] as Array<
-        Record<string, unknown>
-      >;
+      const breakers = body["circuitBreakers"] as Array<Record<string, unknown>>;
       expect(Array.isArray(breakers)).toBe(true);
 
       for (const breaker of breakers) {
@@ -108,15 +100,10 @@ test.describe("Circuit breaker diagnostics", () => {
     }
   });
 
-  test("CLI tools have circuitBreakerOpen flag when cached", async ({
-    logEvent,
-  }) => {
+  test("CLI tools have circuitBreakerOpen flag when cached", async ({ logEvent }) => {
     logEvent("Checking circuit breaker cache flags");
     const { body } = await gw("/health/detailed");
-    const components = body["components"] as Record<
-      string,
-      Record<string, unknown>
-    >;
+    const components = body["components"] as Record<string, Record<string, unknown>>;
 
     // Check dcg, cass, ubs components for circuitBreakerOpen flag
     for (const tool of ["dcg", "cass", "ubs"]) {
@@ -140,9 +127,7 @@ test.describe("Circuit breaker diagnostics", () => {
 // =============================================================================
 
 test.describe("Dependency-aware diagnostics", () => {
-  test("detailed health may include diagnostics section", async ({
-    logEvent,
-  }) => {
+  test("detailed health may include diagnostics section", async ({ logEvent }) => {
     logEvent("Checking dependency diagnostics");
     const { body } = await gw("/health/detailed");
 
@@ -168,18 +153,14 @@ test.describe("Dependency-aware diagnostics", () => {
 
           if (!tool["available"]) {
             // Unavailable tools should have reason info
-            logEvent(
-              `Tool ${name} unavailable: ${tool["reasonLabel"] ?? "unknown"}`,
-            );
+            logEvent(`Tool ${name} unavailable: ${tool["reasonLabel"] ?? "unknown"}`);
           }
         }
       }
 
       // Cascade failures
       if (diag["cascadeFailures"]) {
-        const cascades = diag["cascadeFailures"] as Array<
-          Record<string, unknown>
-        >;
+        const cascades = diag["cascadeFailures"] as Array<Record<string, unknown>>;
         expect(Array.isArray(cascades)).toBe(true);
         for (const cascade of cascades) {
           expect(cascade).toHaveProperty("affectedTool");
@@ -191,9 +172,7 @@ test.describe("Dependency-aware diagnostics", () => {
     }
   });
 
-  test("diagnostics root cause paths are valid chains", async ({
-    logEvent,
-  }) => {
+  test("diagnostics root cause paths are valid chains", async ({ logEvent }) => {
     const { body } = await gw("/health/detailed");
     const diag = body["diagnostics"] as Record<string, unknown> | undefined;
     if (!diag?.["cascadeFailures"]) {
@@ -221,16 +200,11 @@ test.describe("Component status structure", () => {
   test("all components have required fields", async ({ logEvent }) => {
     logEvent("Validating component structure");
     const { body } = await gw("/health/detailed");
-    const components = body["components"] as Record<
-      string,
-      Record<string, unknown>
-    >;
+    const components = body["components"] as Record<string, Record<string, unknown>>;
 
     for (const [name, component] of Object.entries(components)) {
       expect(component).toHaveProperty("status");
-      expect(["healthy", "degraded", "unhealthy"]).toContain(
-        component["status"],
-      );
+      expect(["healthy", "degraded", "unhealthy"]).toContain(component["status"]);
 
       logEvent(`${name}: ${component["status"]}`);
     }
@@ -238,10 +212,7 @@ test.describe("Component status structure", () => {
 
   test("database component includes latency", async () => {
     const { body } = await gw("/health/detailed");
-    const components = body["components"] as Record<
-      string,
-      Record<string, unknown>
-    >;
+    const components = body["components"] as Record<string, Record<string, unknown>>;
     const db = components["database"];
 
     expect(db).toBeDefined();
@@ -253,10 +224,7 @@ test.describe("Component status structure", () => {
 
   test("websocket component includes hub stats", async () => {
     const { body } = await gw("/health/detailed");
-    const components = body["components"] as Record<
-      string,
-      Record<string, unknown>
-    >;
+    const components = body["components"] as Record<string, Record<string, unknown>>;
     const ws = components["websocket"];
 
     expect(ws).toBeDefined();
@@ -281,9 +249,7 @@ test.describe("Component status structure", () => {
 // =============================================================================
 
 test.describe("Health response caching", () => {
-  test("second request within cache window returns cachedAt", async ({
-    logEvent,
-  }) => {
+  test("second request within cache window returns cachedAt", async ({ logEvent }) => {
     logEvent("Testing cache behavior");
 
     // First request populates cache

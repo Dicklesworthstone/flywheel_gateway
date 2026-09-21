@@ -121,9 +121,7 @@ export default function () {
 }
 
 export function setup() {
-  console.log(
-    `Starting WebSocket load test against ${WS_PROTOCOL}://${TARGET_HOST}`,
-  );
+  console.log(`Starting WebSocket load test against ${WS_PROTOCOL}://${TARGET_HOST}`);
   return { startTime: Date.now() };
 }
 

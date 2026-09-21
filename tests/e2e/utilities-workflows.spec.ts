@@ -16,9 +16,7 @@ const GATEWAY_URL = process.env["E2E_GATEWAY_URL"] ?? "http://localhost:3456";
 // Helpers
 // ============================================================================
 
-async function apiGet(
-  path: string,
-): Promise<{ status: number; body: Record<string, unknown> }> {
+async function apiGet(path: string): Promise<{ status: number; body: Record<string, unknown> }> {
   const res = await fetch(`${GATEWAY_URL}${path}`);
   const data = (await res.json()) as Record<string, unknown>;
   return { status: res.status, body: data };
@@ -42,9 +40,7 @@ async function apiPost(
 // ============================================================================
 
 test.describe("Utilities List API", () => {
-  test("list all utilities returns structured response", async ({
-    loggedPage,
-  }) => {
+  test("list all utilities returns structured response", async ({ loggedPage }) => {
     const { status, body } = await apiGet("/utilities");
     expect(status).toBe(200);
 
@@ -56,9 +52,7 @@ test.describe("Utilities List API", () => {
     await expect(loggedPage.locator(".page")).toBeVisible();
   });
 
-  test("utility doctor endpoint returns health checks", async ({
-    loggedPage,
-  }) => {
+  test("utility doctor endpoint returns health checks", async ({ loggedPage }) => {
     const { status } = await apiGet("/utilities/doctor");
     expect([200, 503]).toContain(status);
 
@@ -92,9 +86,7 @@ test.describe("Giil Utility Workflow", () => {
     await expect(loggedPage.locator(".page")).toBeVisible();
   });
 
-  test("giil run with valid URL returns result or tool unavailable", async ({
-    loggedPage,
-  }) => {
+  test("giil run with valid URL returns result or tool unavailable", async ({ loggedPage }) => {
     const { status, body } = await apiPost("/utilities/giil/run", {
       url: "https://example.com/image.png",
       format: "json",
@@ -137,9 +129,7 @@ test.describe("Giil Utility Workflow", () => {
 // ============================================================================
 
 test.describe("CSCTF Utility Workflow", () => {
-  test("csctf run endpoint validates request schema", async ({
-    loggedPage,
-  }) => {
+  test("csctf run endpoint validates request schema", async ({ loggedPage }) => {
     const { status } = await apiPost("/utilities/csctf/run", {});
     expect([400, 422]).toContain(status);
 
@@ -147,9 +137,7 @@ test.describe("CSCTF Utility Workflow", () => {
     await expect(loggedPage.locator(".page")).toBeVisible();
   });
 
-  test("csctf run with valid URL returns result or unavailable", async ({
-    loggedPage,
-  }) => {
+  test("csctf run with valid URL returns result or unavailable", async ({ loggedPage }) => {
     const { status } = await apiPost("/utilities/csctf/run", {
       url: "https://chatgpt.com/share/example-id",
       formats: ["md"],
@@ -238,10 +226,7 @@ test.describe("PT Utility Workflow", () => {
 // ============================================================================
 
 test.describe("Utilities Page E2E", () => {
-  test("utilities page renders without errors", async ({
-    loggedPage,
-    testLogger,
-  }) => {
+  test("utilities page renders without errors", async ({ loggedPage, testLogger }) => {
     await loggedPage.goto("/utilities");
     await loggedPage.waitForLoadState("networkidle");
 
@@ -262,15 +247,11 @@ test.describe("Utilities Page E2E", () => {
     await loggedPage.goto("/utilities");
 
     // Should have buttons or input forms
-    const interactiveCount = await loggedPage
-      .locator("button, input, textarea")
-      .count();
+    const interactiveCount = await loggedPage.locator("button, input, textarea").count();
     expect(interactiveCount).toBeGreaterThan(0);
   });
 
-  test("screenshot capture on utilities page", async ({
-    loggedPage,
-  }, testInfo) => {
+  test("screenshot capture on utilities page", async ({ loggedPage }, testInfo) => {
     await loggedPage.goto("/utilities");
     await loggedPage.waitForLoadState("networkidle");
 

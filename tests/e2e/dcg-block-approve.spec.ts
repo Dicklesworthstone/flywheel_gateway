@@ -37,9 +37,7 @@ if (isPlaywright) {
     // 1. Block event ingestion
     // ========================================================================
 
-    test("POST /dcg/blocks ingests a block event", async ({
-      testLogger: _testLogger,
-    }) => {
+    test("POST /dcg/blocks ingests a block event", async ({ testLogger: _testLogger }) => {
       const { status, body } = await gw("/dcg/blocks", {
         method: "POST",
         body: JSON.stringify({
@@ -58,9 +56,7 @@ if (isPlaywright) {
       expect(body.data).toBeDefined();
     });
 
-    test("GET /dcg/blocks returns ingested events", async ({
-      testLogger: _testLogger,
-    }) => {
+    test("GET /dcg/blocks returns ingested events", async ({ testLogger: _testLogger }) => {
       // First ingest a block
       await gw("/dcg/blocks", {
         method: "POST",
@@ -87,9 +83,7 @@ if (isPlaywright) {
     // 2. DCG test/explain endpoints
     // ========================================================================
 
-    test("POST /dcg/test identifies dangerous command", async ({
-      testLogger: _testLogger,
-    }) => {
+    test("POST /dcg/test identifies dangerous command", async ({ testLogger: _testLogger }) => {
       const { status, body } = await gw("/dcg/test", {
         method: "POST",
         body: JSON.stringify({ command: "rm -rf /" }),
@@ -100,9 +94,7 @@ if (isPlaywright) {
       expect(data.blocked).toBe(true);
     });
 
-    test("POST /dcg/test allows safe command", async ({
-      testLogger: _testLogger,
-    }) => {
+    test("POST /dcg/test allows safe command", async ({ testLogger: _testLogger }) => {
       const { status, body } = await gw("/dcg/test", {
         method: "POST",
         body: JSON.stringify({ command: "git status" }),
@@ -113,9 +105,7 @@ if (isPlaywright) {
       expect(data.blocked).toBe(false);
     });
 
-    test("POST /dcg/explain provides analysis", async ({
-      testLogger: _testLogger,
-    }) => {
+    test("POST /dcg/explain provides analysis", async ({ testLogger: _testLogger }) => {
       const { status, body } = await gw("/dcg/explain", {
         method: "POST",
         body: JSON.stringify({ command: "git reset --hard HEAD" }),
@@ -130,13 +120,9 @@ if (isPlaywright) {
     // 3. Pending exception lifecycle: create → approve → validate
     // ========================================================================
 
-    test("pending exception: full approve workflow", async ({
-      testLogger: _testLogger,
-    }) => {
+    test("pending exception: full approve workflow", async ({ testLogger: _testLogger }) => {
       const dangerousCommand = `rm -rf /tmp/e2e-test-${Date.now()}`;
-      const _commandHash = createHash("sha256")
-        .update(dangerousCommand)
-        .digest("hex");
+      const _commandHash = createHash("sha256").update(dangerousCommand).digest("hex");
 
       // Step 1: Create a pending exception via pre-validate
       const preValidate = await gw("/dcg/pre-validate", {
@@ -194,9 +180,7 @@ if (isPlaywright) {
       }
     });
 
-    test("pending exception: deny workflow", async ({
-      testLogger: _testLogger,
-    }) => {
+    test("pending exception: deny workflow", async ({ testLogger: _testLogger }) => {
       // List any pending exceptions
       const listRes = await gw("/dcg/pending?status=pending");
       expect(listRes.status).toBe(200);
@@ -253,9 +237,7 @@ if (isPlaywright) {
     // 4. Audit trail verification
     // ========================================================================
 
-    test("GET /dcg/stats reflects block events", async ({
-      testLogger: _testLogger,
-    }) => {
+    test("GET /dcg/stats reflects block events", async ({ testLogger: _testLogger }) => {
       const { status, body } = await gw("/dcg/stats");
       expect(status).toBe(200);
 
@@ -278,9 +260,7 @@ if (isPlaywright) {
       expect(data.overview).toBeDefined();
     });
 
-    test("GET /dcg/blocks supports filtering by agentId", async ({
-      testLogger: _testLogger,
-    }) => {
+    test("GET /dcg/blocks supports filtering by agentId", async ({ testLogger: _testLogger }) => {
       const { status, body } = await gw("/dcg/blocks?agentId=e2e-agent-1");
       expect(status).toBe(200);
 
@@ -288,9 +268,7 @@ if (isPlaywright) {
       expect(data.events).toBeDefined();
     });
 
-    test("GET /dcg/blocks supports filtering by severity", async ({
-      testLogger: _testLogger,
-    }) => {
+    test("GET /dcg/blocks supports filtering by severity", async ({ testLogger: _testLogger }) => {
       const { status, body } = await gw("/dcg/blocks?severity=critical");
       expect(status).toBe(200);
 
@@ -313,9 +291,7 @@ if (isPlaywright) {
       expect(data.enabledPacks!.length).toBeGreaterThan(0);
     });
 
-    test("false positive marking creates audit entry", async ({
-      testLogger: _testLogger,
-    }) => {
+    test("false positive marking creates audit entry", async ({ testLogger: _testLogger }) => {
       // Get existing blocks
       const blocksRes = await gw("/dcg/blocks");
       const blocksData = blocksRes.body.data as {
@@ -342,16 +318,11 @@ if (isPlaywright) {
   // ==========================================================================
 
   test.describe("DCG UI Workflow with Logging", () => {
-    test("navigate to DCG page and verify dashboard loads", async ({
-      page,
-      testLogger,
-    }) => {
+    test("navigate to DCG page and verify dashboard loads", async ({ page, testLogger }) => {
       await page.goto("/dcg");
 
       // Verify page title
-      const header = page
-        .locator("h2")
-        .filter({ hasText: "Destructive Command Guard" });
+      const header = page.locator("h2").filter({ hasText: "Destructive Command Guard" });
       await expect(header).toBeVisible();
 
       // Verify stats cards load
@@ -363,10 +334,7 @@ if (isPlaywright) {
       expect(summary.networkRequests).toBeGreaterThan(0);
     });
 
-    test("test dangerous command via UI command tester", async ({
-      page,
-      testLogger,
-    }) => {
+    test("test dangerous command via UI command tester", async ({ page, testLogger }) => {
       await page.goto("/dcg");
 
       // Switch to Test Command tab
@@ -391,41 +359,29 @@ if (isPlaywright) {
       expect(summary.networkRequests).toBeGreaterThan(0);
     });
 
-    test("verify pending exceptions tab shows count", async ({
-      page,
-      testLogger: _testLogger,
-    }) => {
+    test("verify pending exceptions tab shows count", async ({ page, testLogger: _testLogger }) => {
       await page.goto("/dcg");
 
       // Switch to Pending tab
       await page.click('button:text("Pending")');
 
       // Should show either pending exceptions or empty state
-      const pendingHeader = page
-        .locator("h3")
-        .filter({ hasText: "Pending Exceptions" });
+      const pendingHeader = page.locator("h3").filter({ hasText: "Pending Exceptions" });
       await expect(pendingHeader).toBeVisible();
     });
 
-    test("statistics tab shows audit data", async ({
-      page,
-      testLogger: _testLogger,
-    }) => {
+    test("statistics tab shows audit data", async ({ page, testLogger: _testLogger }) => {
       await page.goto("/dcg");
 
       // Switch to Statistics tab
       await page.click('button:text("Statistics")');
 
       // Verify severity breakdown
-      const severitySection = page
-        .locator("h3")
-        .filter({ hasText: "Blocks by Severity" });
+      const severitySection = page.locator("h3").filter({ hasText: "Blocks by Severity" });
       await expect(severitySection).toBeVisible();
 
       // Verify top packs section
-      const packsSection = page
-        .locator("h3")
-        .filter({ hasText: "Top Blocking Packs" });
+      const packsSection = page.locator("h3").filter({ hasText: "Top Blocking Packs" });
       await expect(packsSection).toBeVisible();
     });
   });

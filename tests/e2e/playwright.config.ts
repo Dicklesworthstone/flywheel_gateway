@@ -13,8 +13,7 @@ async function pickAvailablePort(preferredPort: number): Promise<number> {
       server.once("error", reject);
       server.listen(port, "127.0.0.1", () => {
         const address = server.address();
-        const resolvedPort =
-          typeof address === "object" && address ? address.port : port;
+        const resolvedPort = typeof address === "object" && address ? address.port : port;
         server.close(() => resolve(resolvedPort));
       });
     });
@@ -28,9 +27,7 @@ async function pickAvailablePort(preferredPort: number): Promise<number> {
 }
 
 const gatewayAdminKey = process.env["E2E_GATEWAY_ADMIN_KEY"] ?? "e2e-admin-key";
-const gatewayPort = await pickAvailablePort(
-  Number(process.env["E2E_GATEWAY_PORT"] ?? 3456),
-);
+const gatewayPort = await pickAvailablePort(Number(process.env["E2E_GATEWAY_PORT"] ?? 3456));
 const gatewayTarget = `http://127.0.0.1:${gatewayPort}`;
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 

@@ -39,11 +39,7 @@ export interface LoggingFixtures {
  */
 export const test = base.extend<LoggingFixtures>({
   testLogger: async (_fixtures, use, testInfo) => {
-    const logger = new TestLogger(
-      testInfo.testId,
-      testInfo.title,
-      testInfo.file,
-    );
+    const logger = new TestLogger(testInfo.testId, testInfo.title, testInfo.file);
     await use(logger);
   },
 
@@ -87,8 +83,7 @@ export { expect } from "@playwright/test";
  * Helper to create a unique test file name prefix.
  */
 export function getTestPrefix(testInfo: TestInfo): string {
-  const file =
-    testInfo.file.split("/").pop()?.replace(".spec.ts", "") ?? "test";
+  const file = testInfo.file.split("/").pop()?.replace(".spec.ts", "") ?? "test";
   const title = testInfo.title.replace(/[^a-zA-Z0-9]/g, "-").slice(0, 30);
   return `${file}--${title}`;
 }

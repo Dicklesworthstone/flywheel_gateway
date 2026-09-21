@@ -25,9 +25,7 @@ if (isPlaywright) {
       await page.goto("/agents");
     });
 
-    test("should display NTM-connected agents in agent list", async ({
-      page,
-    }) => {
+    test("should display NTM-connected agents in agent list", async ({ page }) => {
       const rows = page
         .locator(".table__row")
         .filter({ hasNot: page.locator(".table__row--header") });
@@ -44,9 +42,7 @@ if (isPlaywright) {
       await page.goto("/");
 
       // Check WebSocket connection is established
-      const wsCard = page
-        .locator(".card--compact")
-        .filter({ hasText: "WebSocket" });
+      const wsCard = page.locator(".card--compact").filter({ hasText: "WebSocket" });
       await expect(wsCard).toBeVisible();
 
       // Latency should be displayed (indicates active connection)
@@ -80,9 +76,7 @@ if (isPlaywright) {
     test("should handle NTM working state correctly", async ({ page }) => {
       await page.goto("/agents");
 
-      const executingPill = page
-        .locator(".pill")
-        .filter({ hasText: "executing" });
+      const executingPill = page.locator(".pill").filter({ hasText: "executing" });
 
       // If there are executing agents, they should show warning tone
       if ((await executingPill.count()) > 0) {
@@ -114,15 +108,11 @@ if (isPlaywright) {
   });
 
   test.describe("NTM Integration - Output Streaming", () => {
-    test("should establish WebSocket connection for agent output", async ({
-      page,
-    }) => {
+    test("should establish WebSocket connection for agent output", async ({ page }) => {
       await page.goto("/");
 
       // Verify WebSocket connection is active
-      const wsCard = page
-        .locator(".card--compact")
-        .filter({ hasText: "WebSocket" });
+      const wsCard = page.locator(".card--compact").filter({ hasText: "WebSocket" });
       await expect(wsCard).toBeVisible();
 
       // Should show latency metric
@@ -130,9 +120,7 @@ if (isPlaywright) {
       await expect(latency).toContainText("ms");
     });
 
-    test("should receive agent output updates via WebSocket", async ({
-      page,
-    }) => {
+    test("should receive agent output updates via WebSocket", async ({ page }) => {
       await page.goto("/agents");
 
       // Navigate to an agent detail view if available
@@ -161,9 +149,7 @@ if (isPlaywright) {
   });
 
   test.describe("NTM Integration - Tool Events", () => {
-    test("should display agents that can emit tool events", async ({
-      page,
-    }) => {
+    test("should display agents that can emit tool events", async ({ page }) => {
       await page.goto("/agents");
 
       const rows = page
@@ -178,9 +164,7 @@ if (isPlaywright) {
       await page.goto("/agents");
 
       // The tool_calling state maps to executing in the UI
-      const executingPill = page
-        .locator(".pill")
-        .filter({ hasText: "executing" });
+      const executingPill = page.locator(".pill").filter({ hasText: "executing" });
 
       // If agents are in tool_calling state (shown as executing)
       if ((await executingPill.count()) > 0) {
@@ -193,9 +177,7 @@ if (isPlaywright) {
     test("should show WebSocket connection status", async ({ page }) => {
       await page.goto("/");
 
-      const wsCard = page
-        .locator(".card--compact")
-        .filter({ hasText: "WebSocket" });
+      const wsCard = page.locator(".card--compact").filter({ hasText: "WebSocket" });
       await expect(wsCard).toBeVisible();
 
       // Connection should be established with low latency
@@ -204,9 +186,7 @@ if (isPlaywright) {
       expect(latencyText).toMatch(/\d+\s*ms/);
     });
 
-    test("should receive state.change events from NTM bridge", async ({
-      page,
-    }) => {
+    test("should receive state.change events from NTM bridge", async ({ page }) => {
       await page.goto("/agents");
 
       // The state changes should be reflected in the agent status pills
@@ -230,9 +210,7 @@ if (isPlaywright) {
       await expect(rows.first()).toBeVisible();
     });
 
-    test("should handle multiple rapid state changes (throttling)", async ({
-      page,
-    }) => {
+    test("should handle multiple rapid state changes (throttling)", async ({ page }) => {
       await page.goto("/agents");
 
       // The WS bridge should throttle rapid state changes
@@ -253,9 +231,7 @@ if (isPlaywright) {
     test("should show live agents count from NTM", async ({ page }) => {
       await page.goto("/");
 
-      const liveAgentsCard = page
-        .locator(".card")
-        .filter({ hasText: "Live agents" });
+      const liveAgentsCard = page.locator(".card").filter({ hasText: "Live agents" });
       await expect(liveAgentsCard).toBeVisible();
 
       // Should display a numeric metric
@@ -263,14 +239,10 @@ if (isPlaywright) {
       await expect(metric).toBeVisible();
     });
 
-    test("should update agent counts based on NTM state changes", async ({
-      page,
-    }) => {
+    test("should update agent counts based on NTM state changes", async ({ page }) => {
       await page.goto("/");
 
-      const liveAgentsCard = page
-        .locator(".card")
-        .filter({ hasText: "Live agents" });
+      const liveAgentsCard = page.locator(".card").filter({ hasText: "Live agents" });
 
       // Pill should show executing count
       const pill = liveAgentsCard.locator(".pill");
@@ -280,9 +252,7 @@ if (isPlaywright) {
     test("should show workstream status", async ({ page }) => {
       await page.goto("/");
 
-      const workstreamCard = page
-        .locator(".card")
-        .filter({ hasText: "Workstream" });
+      const workstreamCard = page.locator(".card").filter({ hasText: "Workstream" });
       await expect(workstreamCard).toBeVisible();
 
       // Should show tracked count
@@ -306,9 +276,7 @@ if (isPlaywright) {
       // Wait a bit and check no errors
       await page.waitForTimeout(1000);
       // Filter out known non-critical errors
-      const criticalErrors = errors.filter(
-        (e) => !e.includes("ResizeObserver"),
-      );
+      const criticalErrors = errors.filter((e) => !e.includes("ResizeObserver"));
       expect(criticalErrors).toHaveLength(0);
     });
 
@@ -316,9 +284,7 @@ if (isPlaywright) {
       await page.goto("/");
 
       // Check WebSocket is connected
-      const wsCard = page
-        .locator(".card--compact")
-        .filter({ hasText: "WebSocket" });
+      const wsCard = page.locator(".card--compact").filter({ hasText: "WebSocket" });
       await expect(wsCard).toBeVisible();
 
       // Simulate page reload (would cause WS reconnection)
@@ -328,9 +294,7 @@ if (isPlaywright) {
       await expect(wsCard).toBeVisible();
     });
 
-    test("should handle malformed NTM responses gracefully", async ({
-      page,
-    }) => {
+    test("should handle malformed NTM responses gracefully", async ({ page }) => {
       await page.goto("/agents");
 
       // Page should remain functional
@@ -343,30 +307,22 @@ if (isPlaywright) {
   });
 
   test.describe("NTM Integration - Responsiveness", () => {
-    test("should display NTM agent data on desktop viewport", async ({
-      page,
-    }) => {
+    test("should display NTM agent data on desktop viewport", async ({ page }) => {
       await page.setViewportSize({ width: 1280, height: 800 });
       await page.goto("/agents");
 
       await expect(page.locator(".table")).toBeVisible();
-      await expect(
-        page.locator("h3").filter({ hasText: "Agents" }),
-      ).toBeVisible();
+      await expect(page.locator("h3").filter({ hasText: "Agents" })).toBeVisible();
     });
 
-    test("should display NTM agent data on tablet viewport", async ({
-      page,
-    }) => {
+    test("should display NTM agent data on tablet viewport", async ({ page }) => {
       await page.setViewportSize({ width: 768, height: 1024 });
       await page.goto("/agents");
 
       await expect(page.locator(".table")).toBeVisible();
     });
 
-    test("should display NTM agent data on mobile viewport", async ({
-      page,
-    }) => {
+    test("should display NTM agent data on mobile viewport", async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 812 });
       await page.goto("/agents");
 
@@ -376,9 +332,7 @@ if (isPlaywright) {
   });
 
   test.describe("NTM Integration - Logging Assertions", () => {
-    test("should not emit console errors during normal operation", async ({
-      page,
-    }) => {
+    test("should not emit console errors during normal operation", async ({ page }) => {
       const consoleErrors: string[] = [];
       page.on("console", (msg) => {
         if (msg.type() === "error") {
@@ -391,10 +345,7 @@ if (isPlaywright) {
 
       // Filter known non-critical errors
       const criticalErrors = consoleErrors.filter(
-        (e) =>
-          !e.includes("ResizeObserver") &&
-          !e.includes("net::") &&
-          !e.includes("favicon"),
+        (e) => !e.includes("ResizeObserver") && !e.includes("net::") && !e.includes("favicon"),
       );
 
       expect(criticalErrors).toHaveLength(0);
@@ -407,9 +358,7 @@ if (isPlaywright) {
       await page.goto("/");
 
       // The WebSocket latency card indicates successful message exchange
-      const wsCard = page
-        .locator(".card--compact")
-        .filter({ hasText: "WebSocket" });
+      const wsCard = page.locator(".card--compact").filter({ hasText: "WebSocket" });
       await expect(wsCard).toBeVisible();
 
       // Latency value indicates messages are being exchanged

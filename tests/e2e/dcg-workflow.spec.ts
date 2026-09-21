@@ -22,70 +22,45 @@ if (isPlaywright) {
       await page.goto("/dcg");
     });
 
-    test("should display DCG page header with shield icon", async ({
-      page,
-    }) => {
-      const header = page
-        .locator("h2")
-        .filter({ hasText: "Destructive Command Guard" });
+    test("should display DCG page header with shield icon", async ({ page }) => {
+      const header = page.locator("h2").filter({ hasText: "Destructive Command Guard" });
       await expect(header).toBeVisible();
     });
 
     test("should display quick stats cards", async ({ page }) => {
       // Blocks (24h) stat
-      const blocks24h = page
-        .locator(".card--compact")
-        .filter({ hasText: "Blocks (24h)" });
+      const blocks24h = page.locator(".card--compact").filter({ hasText: "Blocks (24h)" });
       await expect(blocks24h).toBeVisible();
       await expect(blocks24h.locator(".metric")).toBeVisible();
 
       // Total Blocks stat
-      const totalBlocks = page
-        .locator(".card--compact")
-        .filter({ hasText: "Total Blocks" });
+      const totalBlocks = page.locator(".card--compact").filter({ hasText: "Total Blocks" });
       await expect(totalBlocks).toBeVisible();
 
       // False Positive Rate stat
-      const fpRate = page
-        .locator(".card--compact")
-        .filter({ hasText: "False Positive Rate" });
+      const fpRate = page.locator(".card--compact").filter({ hasText: "False Positive Rate" });
       await expect(fpRate).toBeVisible();
 
       // Pending stat
-      const pending = page
-        .locator(".card--compact")
-        .filter({ hasText: "Pending" });
+      const pending = page.locator(".card--compact").filter({ hasText: "Pending" });
       await expect(pending).toBeVisible();
     });
 
     test("should display tab navigation", async ({ page }) => {
       const tabs = page.locator("button").filter({
-        hasText:
-          /Live Feed|Pending|Statistics|Configuration|Allowlist|Test Command/,
+        hasText: /Live Feed|Pending|Statistics|Configuration|Allowlist|Test Command/,
       });
 
       // Should have all 6 tabs
       await expect(tabs.first()).toBeVisible();
 
       // Check for specific tabs
-      await expect(
-        page.locator("button").filter({ hasText: "Live Feed" }),
-      ).toBeVisible();
-      await expect(
-        page.locator("button").filter({ hasText: "Pending" }),
-      ).toBeVisible();
-      await expect(
-        page.locator("button").filter({ hasText: "Statistics" }),
-      ).toBeVisible();
-      await expect(
-        page.locator("button").filter({ hasText: "Configuration" }),
-      ).toBeVisible();
-      await expect(
-        page.locator("button").filter({ hasText: "Allowlist" }),
-      ).toBeVisible();
-      await expect(
-        page.locator("button").filter({ hasText: "Test Command" }),
-      ).toBeVisible();
+      await expect(page.locator("button").filter({ hasText: "Live Feed" })).toBeVisible();
+      await expect(page.locator("button").filter({ hasText: "Pending" })).toBeVisible();
+      await expect(page.locator("button").filter({ hasText: "Statistics" })).toBeVisible();
+      await expect(page.locator("button").filter({ hasText: "Configuration" })).toBeVisible();
+      await expect(page.locator("button").filter({ hasText: "Allowlist" })).toBeVisible();
+      await expect(page.locator("button").filter({ hasText: "Test Command" })).toBeVisible();
     });
   });
 
@@ -102,21 +77,11 @@ if (isPlaywright) {
 
     test("should display severity filter buttons", async ({ page }) => {
       // Filter buttons for severity levels
-      await expect(
-        page.locator("button").filter({ hasText: "All" }),
-      ).toBeVisible();
-      await expect(
-        page.locator("button").filter({ hasText: "critical" }),
-      ).toBeVisible();
-      await expect(
-        page.locator("button").filter({ hasText: "high" }),
-      ).toBeVisible();
-      await expect(
-        page.locator("button").filter({ hasText: "medium" }),
-      ).toBeVisible();
-      await expect(
-        page.locator("button").filter({ hasText: "low" }),
-      ).toBeVisible();
+      await expect(page.locator("button").filter({ hasText: "All" })).toBeVisible();
+      await expect(page.locator("button").filter({ hasText: "critical" })).toBeVisible();
+      await expect(page.locator("button").filter({ hasText: "high" })).toBeVisible();
+      await expect(page.locator("button").filter({ hasText: "medium" })).toBeVisible();
+      await expect(page.locator("button").filter({ hasText: "low" })).toBeVisible();
     });
 
     test("should display blocks table with headers", async ({ page }) => {
@@ -130,9 +95,7 @@ if (isPlaywright) {
       await expect(header).toContainText("Time");
     });
 
-    test("should display blocked commands with severity pills", async ({
-      page,
-    }) => {
+    test("should display blocked commands with severity pills", async ({ page }) => {
       const rows = page
         .locator(".table__row")
         .filter({ hasNot: page.locator(".table__row--header") });
@@ -178,27 +141,19 @@ if (isPlaywright) {
     });
 
     test("should display Pending Exceptions header", async ({ page }) => {
-      const header = page
-        .locator("h3")
-        .filter({ hasText: "Pending Exceptions" });
+      const header = page.locator("h3").filter({ hasText: "Pending Exceptions" });
       await expect(header).toBeVisible();
     });
 
     test("should show pending count status pill", async ({ page }) => {
-      const card = page
-        .locator(".card--wide")
-        .filter({ hasText: "Pending Exceptions" });
+      const card = page.locator(".card--wide").filter({ hasText: "Pending Exceptions" });
       const statusPill = card.locator(".pill").filter({ hasText: /pending/ });
       await expect(statusPill).toBeVisible();
     });
 
-    test("should display pending exception cards with approve/deny buttons", async ({
-      page,
-    }) => {
+    test("should display pending exception cards with approve/deny buttons", async ({ page }) => {
       // Check for pending exception cards
-      const cards = page
-        .locator(".card")
-        .filter({ has: page.locator('button:text("Approve")') });
+      const cards = page.locator(".card").filter({ has: page.locator('button:text("Approve")') });
       const count = await cards.count();
 
       if (count > 0) {
@@ -217,9 +172,7 @@ if (isPlaywright) {
 
     test("should show no pending message when empty", async ({ page }) => {
       // If no pending exceptions, should show empty state
-      const emptyState = page
-        .locator("h4")
-        .filter({ hasText: "No pending exceptions" });
+      const emptyState = page.locator("h4").filter({ hasText: "No pending exceptions" });
       const pendingCards = page
         .locator(".card")
         .filter({ has: page.locator('button:text("Approve")') });
@@ -240,19 +193,13 @@ if (isPlaywright) {
     });
 
     test("should display Blocks by Severity section", async ({ page }) => {
-      const header = page
-        .locator("h3")
-        .filter({ hasText: "Blocks by Severity" });
+      const header = page.locator("h3").filter({ hasText: "Blocks by Severity" });
       await expect(header).toBeVisible();
     });
 
-    test("should display severity distribution with pills", async ({
-      page,
-    }) => {
+    test("should display severity distribution with pills", async ({ page }) => {
       // Should have severity pills for critical, high, medium, low
-      const severityCard = page
-        .locator(".card")
-        .filter({ hasText: "Blocks by Severity" });
+      const severityCard = page.locator(".card").filter({ hasText: "Blocks by Severity" });
 
       // Check for at least one severity pill
       const pills = severityCard.locator(".pill");
@@ -260,9 +207,7 @@ if (isPlaywright) {
     });
 
     test("should display Top Blocking Packs section", async ({ page }) => {
-      const header = page
-        .locator("h3")
-        .filter({ hasText: "Top Blocking Packs" });
+      const header = page.locator("h3").filter({ hasText: "Top Blocking Packs" });
       await expect(header).toBeVisible();
     });
   });
@@ -280,24 +225,16 @@ if (isPlaywright) {
     });
 
     test("should show enabled packs count", async ({ page }) => {
-      const countText = page
-        .locator(".muted")
-        .filter({ hasText: /\d+ enabled/ });
+      const countText = page.locator(".muted").filter({ hasText: /\d+ enabled/ });
       await expect(countText).toBeVisible();
     });
 
-    test("should display pack cards with enable/disable buttons", async ({
-      page,
-    }) => {
+    test("should display pack cards with enable/disable buttons", async ({ page }) => {
       // Pack cards should have toggle buttons
       const packCards = page
         .locator(".card")
         .filter({ has: page.locator('button:text("Disable")') })
-        .or(
-          page
-            .locator(".card")
-            .filter({ has: page.locator('button:text("Enable")') }),
-        );
+        .or(page.locator(".card").filter({ has: page.locator('button:text("Enable")') }));
 
       const count = await packCards.count();
       expect(count).toBeGreaterThanOrEqual(1);
@@ -305,20 +242,14 @@ if (isPlaywright) {
       // Each pack should have name, description, and rule count
       const firstPack = packCards.first();
       await expect(firstPack.locator("h4")).toBeVisible();
-      await expect(
-        firstPack.locator(".pill").filter({ hasText: /rules/ }),
-      ).toBeVisible();
+      await expect(firstPack.locator(".pill").filter({ hasText: /rules/ })).toBeVisible();
     });
 
     test("should display pack severity levels", async ({ page }) => {
       const packCards = page
         .locator(".card")
         .filter({ has: page.locator('button:text("Disable")') })
-        .or(
-          page
-            .locator(".card")
-            .filter({ has: page.locator('button:text("Enable")') }),
-        );
+        .or(page.locator(".card").filter({ has: page.locator('button:text("Enable")') }));
 
       const count = await packCards.count();
       if (count > 0) {
@@ -339,9 +270,7 @@ if (isPlaywright) {
       await page.click('button:text("Allowlist")');
     });
 
-    test("should display Allowlist header with Add Entry button", async ({
-      page,
-    }) => {
+    test("should display Allowlist header with Add Entry button", async ({ page }) => {
       const header = page.locator("h3").filter({ hasText: "Allowlist" });
       await expect(header).toBeVisible();
 
@@ -364,12 +293,8 @@ if (isPlaywright) {
 
     test("should display existing allowlist entries", async ({ page }) => {
       // Check for allowlist entries or empty state
-      const entries = page
-        .locator(".card")
-        .filter({ has: page.locator('button[title="Remove"]') });
-      const emptyState = page
-        .locator("h4")
-        .filter({ hasText: "No allowlist entries" });
+      const entries = page.locator(".card").filter({ has: page.locator('button[title="Remove"]') });
+      const emptyState = page.locator("h4").filter({ hasText: "No allowlist entries" });
 
       const hasEntries = (await entries.count()) > 0;
       const hasEmptyState = await emptyState.isVisible().catch(() => false);
@@ -379,9 +304,7 @@ if (isPlaywright) {
     });
 
     test("should show entry details when entries exist", async ({ page }) => {
-      const entries = page
-        .locator(".card")
-        .filter({ has: page.locator('button[title="Remove"]') });
+      const entries = page.locator(".card").filter({ has: page.locator('button[title="Remove"]') });
       const count = await entries.count();
 
       if (count > 0) {
@@ -476,27 +399,19 @@ if (isPlaywright) {
       await page.goto("/dcg");
 
       // Start on Live Feed
-      await expect(
-        page.locator("h3").filter({ hasText: "Recent Blocks" }),
-      ).toBeVisible();
+      await expect(page.locator("h3").filter({ hasText: "Recent Blocks" })).toBeVisible();
 
       // Switch to Statistics
       await page.click('button:text("Statistics")');
-      await expect(
-        page.locator("h3").filter({ hasText: "Blocks by Severity" }),
-      ).toBeVisible();
+      await expect(page.locator("h3").filter({ hasText: "Blocks by Severity" })).toBeVisible();
 
       // Switch to Configuration
       await page.click('button:text("Configuration")');
-      await expect(
-        page.locator("h3").filter({ hasText: "Rule Packs" }),
-      ).toBeVisible();
+      await expect(page.locator("h3").filter({ hasText: "Rule Packs" })).toBeVisible();
 
       // Switch back to Live Feed
       await page.click('button:text("Live Feed")');
-      await expect(
-        page.locator("h3").filter({ hasText: "Recent Blocks" }),
-      ).toBeVisible();
+      await expect(page.locator("h3").filter({ hasText: "Recent Blocks" })).toBeVisible();
     });
 
     test("should highlight active tab", async ({ page }) => {

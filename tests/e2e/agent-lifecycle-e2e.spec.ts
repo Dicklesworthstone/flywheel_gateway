@@ -40,9 +40,7 @@ async function spawnAgentViaAPI(opts?: {
 async function listAgentsViaAPI(
   query?: string,
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  const url = query
-    ? `${GATEWAY_URL}/agents?${query}`
-    : `${GATEWAY_URL}/agents`;
+  const url = query ? `${GATEWAY_URL}/agents?${query}` : `${GATEWAY_URL}/agents`;
   const res = await fetch(url);
   const body = (await res.json()) as Record<string, unknown>;
   return { status: res.status, body };
@@ -151,14 +149,10 @@ test.describe("Agent Lifecycle E2E - API + WS + UI", () => {
 
     // Verify agents page reflects API data
     await loggedPage.goto("/agents");
-    await expect(
-      loggedPage.locator("h3").filter({ hasText: "Agents" }),
-    ).toBeVisible();
+    await expect(loggedPage.locator("h3").filter({ hasText: "Agents" })).toBeVisible();
   });
 
-  test("get single agent via API returns correct data", async ({
-    loggedPage,
-  }) => {
+  test("get single agent via API returns correct data", async ({ loggedPage }) => {
     const { status, body } = await getAgentViaAPI("e2e-agent-1");
 
     // May be 200 or 404 depending on whether in-memory state exists
@@ -172,9 +166,7 @@ test.describe("Agent Lifecycle E2E - API + WS + UI", () => {
     await expect(loggedPage.locator(".page")).toBeVisible();
   });
 
-  test("spawn agent via API and verify state transition", async ({
-    loggedPage,
-  }) => {
+  test("spawn agent via API and verify state transition", async ({ loggedPage }) => {
     const agentId = `e2e-spawn-${Date.now()}`;
     const { status, body } = await spawnAgentViaAPI({
       agentId,
@@ -189,19 +181,10 @@ test.describe("Agent Lifecycle E2E - API + WS + UI", () => {
       // Check agent state via API
       const agentRes = await getAgentViaAPI(agentId);
       if (agentRes.status === 200) {
-        const agentData = (agentRes.body["data"] ?? agentRes.body) as Record<
-          string,
-          unknown
-        >;
+        const agentData = (agentRes.body["data"] ?? agentRes.body) as Record<string, unknown>;
         // Should be in an early lifecycle state
         const state = String(agentData["state"] ?? agentData["status"] ?? "");
-        expect([
-          "spawning",
-          "initializing",
-          "ready",
-          "executing",
-          "idle",
-        ]).toContain(state);
+        expect(["spawning", "initializing", "ready", "executing", "idle"]).toContain(state);
       }
 
       // Terminate to clean up
@@ -233,10 +216,7 @@ test.describe("Agent Lifecycle E2E - API + WS + UI", () => {
       // Agent should eventually reach terminal state
       const agentRes = await getAgentViaAPI(agentId);
       if (agentRes.status === 200) {
-        const data = (agentRes.body["data"] ?? agentRes.body) as Record<
-          string,
-          unknown
-        >;
+        const data = (agentRes.body["data"] ?? agentRes.body) as Record<string, unknown>;
         const state = String(data["state"] ?? data["status"] ?? "");
         expect(["terminating", "terminated", "failed"]).toContain(state);
       }
@@ -246,15 +226,11 @@ test.describe("Agent Lifecycle E2E - API + WS + UI", () => {
     await expect(loggedPage.locator(".page")).toBeVisible();
   });
 
-  test("dashboard displays agent metrics after API operations", async ({
-    loggedPage,
-  }) => {
+  test("dashboard displays agent metrics after API operations", async ({ loggedPage }) => {
     await loggedPage.goto("/");
 
     // Dashboard should show Live agents card
-    const liveAgentsCard = loggedPage
-      .locator(".card")
-      .filter({ hasText: "Live agents" });
+    const liveAgentsCard = loggedPage.locator(".card").filter({ hasText: "Live agents" });
     await expect(liveAgentsCard).toBeVisible();
 
     // Metric value should be visible
@@ -262,15 +238,11 @@ test.describe("Agent Lifecycle E2E - API + WS + UI", () => {
     await expect(metric).toBeVisible();
   });
 
-  test("WebSocket connection establishes from browser", async ({
-    loggedPage,
-  }) => {
+  test("WebSocket connection establishes from browser", async ({ loggedPage }) => {
     await loggedPage.goto("/");
 
     // The web app auto-connects via WebSocket. Check for WS latency indicator.
-    const wsCard = loggedPage
-      .locator(".card--compact")
-      .filter({ hasText: "WebSocket" });
+    const wsCard = loggedPage.locator(".card--compact").filter({ hasText: "WebSocket" });
 
     // Wait for WS connection (may take a moment)
     await expect(wsCard).toBeVisible({ timeout: 10_000 });
@@ -280,14 +252,10 @@ test.describe("Agent Lifecycle E2E - API + WS + UI", () => {
     await expect(latency).toContainText("ms");
   });
 
-  test("agents page reflects state after spawn+terminate cycle", async ({
-    loggedPage,
-  }) => {
+  test("agents page reflects state after spawn+terminate cycle", async ({ loggedPage }) => {
     // Capture initial agent count
     await loggedPage.goto("/agents");
-    const headerPill = loggedPage
-      .locator(".card__header .pill")
-      .filter({ hasText: "total" });
+    const headerPill = loggedPage.locator(".card__header .pill").filter({ hasText: "total" });
     await expect(headerPill).toBeVisible();
 
     const initialText = await headerPill.textContent();
@@ -314,9 +282,7 @@ test.describe("Agent Lifecycle E2E - API + WS + UI", () => {
     expect(initialCount).toBeGreaterThanOrEqual(0);
   });
 
-  test("detected CLIs endpoint returns tool information", async ({
-    loggedPage,
-  }) => {
+  test("detected CLIs endpoint returns tool information", async ({ loggedPage }) => {
     const res = await fetch(`${GATEWAY_URL}/agents/detected`);
     expect(res.status).toBe(200);
 
@@ -335,9 +301,7 @@ test.describe("Agent Lifecycle E2E - API + WS + UI", () => {
     await expect(loggedPage.locator(".page")).toBeVisible();
   });
 
-  test("detailed health endpoint includes diagnostics", async ({
-    loggedPage,
-  }) => {
+  test("detailed health endpoint includes diagnostics", async ({ loggedPage }) => {
     const res = await fetch(`${GATEWAY_URL}/health/detailed`);
     const body = (await res.json()) as Record<string, unknown>;
     const data = (body["data"] ?? body) as Record<string, unknown>;
@@ -357,9 +321,7 @@ test.describe("Agent Lifecycle E2E - API + WS + UI", () => {
 });
 
 test.describe("Agent Lifecycle E2E - Error Handling", () => {
-  test("spawn with invalid payload returns validation error", async ({
-    loggedPage,
-  }) => {
+  test("spawn with invalid payload returns validation error", async ({ loggedPage }) => {
     const res = await fetch(`${GATEWAY_URL}/agents`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -416,15 +378,10 @@ test.describe("Agent Lifecycle E2E - Logging Diagnostics", () => {
     await loggedPage.waitForLoadState("networkidle");
 
     const finalSummary = testLogger.getSummary();
-    expect(finalSummary.networkRequests).toBeGreaterThan(
-      summary.networkRequests,
-    );
+    expect(finalSummary.networkRequests).toBeGreaterThan(summary.networkRequests);
   });
 
-  test("logging framework captures WebSocket frames", async ({
-    loggedPage,
-    testLogger,
-  }) => {
+  test("logging framework captures WebSocket frames", async ({ loggedPage, testLogger }) => {
     await loggedPage.goto("/");
 
     // Wait for WebSocket connection to establish
@@ -446,10 +403,7 @@ test.describe("Agent Lifecycle E2E - Logging Diagnostics", () => {
     // No assertion failure if WS not captured - it's environment-dependent
   });
 
-  test("page errors are captured by logging framework", async ({
-    loggedPage,
-    testLogger,
-  }) => {
+  test("page errors are captured by logging framework", async ({ loggedPage, testLogger }) => {
     // Navigate to a valid page
     await loggedPage.goto("/agents");
     await loggedPage.waitForLoadState("networkidle");

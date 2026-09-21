@@ -35,9 +35,7 @@ async function gw(
 // =============================================================================
 
 test.describe("Response envelope conformance", () => {
-  test("GET /beads returns list envelope with type field", async ({
-    logEvent,
-  }) => {
+  test("GET /beads returns list envelope with type field", async ({ logEvent }) => {
     logEvent("Testing beads list envelope");
     const { status, body } = await gw("/beads");
 
@@ -48,9 +46,7 @@ test.describe("Response envelope conformance", () => {
     }
   });
 
-  test("GET /beads/list/ready returns ready tasks envelope", async ({
-    logEvent,
-  }) => {
+  test("GET /beads/list/ready returns ready tasks envelope", async ({ logEvent }) => {
     logEvent("Testing ready beads envelope");
     const { status, body } = await gw("/beads/list/ready");
 
@@ -64,9 +60,7 @@ test.describe("Response envelope conformance", () => {
     }
   });
 
-  test("GET /agents returns agent list with type field", async ({
-    logEvent,
-  }) => {
+  test("GET /agents returns agent list with type field", async ({ logEvent }) => {
     logEvent("Testing agents list envelope");
     const { status, body } = await gw("/agents");
 
@@ -76,9 +70,7 @@ test.describe("Response envelope conformance", () => {
     }
   });
 
-  test("GET /system/snapshot returns snapshot envelope", async ({
-    logEvent,
-  }) => {
+  test("GET /system/snapshot returns snapshot envelope", async ({ logEvent }) => {
     logEvent("Testing snapshot envelope");
     const { status, body } = await gw("/system/snapshot");
 
@@ -88,9 +80,7 @@ test.describe("Response envelope conformance", () => {
     }
   });
 
-  test("GET /setup/readiness returns readiness envelope", async ({
-    logEvent,
-  }) => {
+  test("GET /setup/readiness returns readiness envelope", async ({ logEvent }) => {
     logEvent("Testing readiness envelope");
     const { status, body } = await gw("/setup/readiness");
 
@@ -141,9 +131,7 @@ test.describe("HATEOAS link conformance", () => {
     if (status !== 200) return;
 
     const data = body["data"] as Record<string, unknown>;
-    const beads = (data?.["beads"] ?? data) as
-      | Array<Record<string, unknown>>
-      | undefined;
+    const beads = (data?.["beads"] ?? data) as Array<Record<string, unknown>> | undefined;
 
     if (Array.isArray(beads) && beads.length > 0) {
       const bead = beads[0]!;
@@ -197,8 +185,7 @@ test.describe("Request correlation conformance", () => {
     const { headers } = await gw("/health");
 
     // Check for correlation ID in response
-    const correlationId =
-      headers.get("x-correlation-id") ?? headers.get("x-request-id");
+    const correlationId = headers.get("x-correlation-id") ?? headers.get("x-request-id");
 
     if (correlationId) {
       logEvent(`Correlation ID: ${correlationId}`);
@@ -214,8 +201,7 @@ test.describe("Request correlation conformance", () => {
       headers: { "X-Correlation-Id": customId },
     });
 
-    const echoed =
-      headers.get("x-correlation-id") ?? headers.get("x-request-id");
+    const echoed = headers.get("x-correlation-id") ?? headers.get("x-request-id");
 
     if (echoed) {
       logEvent(`Echoed correlation ID: ${echoed}`);
@@ -275,9 +261,7 @@ test.describe("OpenAPI spec availability", () => {
 // =============================================================================
 
 test.describe("Triage endpoint conformance", () => {
-  test("GET /beads/triage returns triage recommendations", async ({
-    logEvent,
-  }) => {
+  test("GET /beads/triage returns triage recommendations", async ({ logEvent }) => {
     logEvent("Testing triage endpoint");
     const { status, body } = await gw("/beads/triage");
 

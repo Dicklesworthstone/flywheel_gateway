@@ -75,14 +75,8 @@ export default class StructuredReporter implements Reporter {
 
     if (this.options.verbose) {
       const statusIcon =
-        result.status === "passed"
-          ? "\u2713"
-          : result.status === "failed"
-            ? "\u2717"
-            : "\u25CB";
-      console.log(
-        `[E2E Reporter] ${statusIcon} ${test.title} (${result.duration}ms)`,
-      );
+        result.status === "passed" ? "\u2713" : result.status === "failed" ? "\u2717" : "\u25CB";
+      console.log(`[E2E Reporter] ${statusIcon} ${test.title} (${result.duration}ms)`);
     }
   }
 
@@ -101,9 +95,7 @@ export default class StructuredReporter implements Reporter {
 
   private buildLogBundle(test: TestCase, result: TestResult): TestLogBundle {
     // Get logging data from test attachments (if fixture attached it)
-    const loggingAttachment = result.attachments.find(
-      (a) => a.name === "__e2e_logging_data__",
-    );
+    const loggingAttachment = result.attachments.find((a) => a.name === "__e2e_logging_data__");
     let loggingData: Partial<TestLogBundle> = {};
 
     if (loggingAttachment?.body) {
@@ -158,8 +150,7 @@ export default class StructuredReporter implements Reporter {
     const browser = project?.name ?? "unknown";
     const viewport = project?.use?.viewport;
     const baseURL =
-      (project?.use?.baseURL as string | undefined) ??
-      this.config?.projects[0]?.use?.baseURL;
+      (project?.use?.baseURL as string | undefined) ?? this.config?.projects[0]?.use?.baseURL;
 
     return {
       testId: test.id,
@@ -172,17 +163,13 @@ export default class StructuredReporter implements Reporter {
       endTime: result.startTime.getTime() + result.duration,
       retryCount: result.retry,
       browser,
-      viewport: viewport
-        ? { width: viewport.width, height: viewport.height }
-        : undefined,
+      viewport: viewport ? { width: viewport.width, height: viewport.height } : undefined,
       baseURL: baseURL as string | undefined,
 
       // Include logging data from fixture
       console: this.options.includeConsole ? (loggingData.console ?? []) : [],
       network: this.options.includeNetwork ? (loggingData.network ?? []) : [],
-      webSocket: this.options.includeWebSocket
-        ? (loggingData.webSocket ?? [])
-        : [],
+      webSocket: this.options.includeWebSocket ? (loggingData.webSocket ?? []) : [],
       pageErrors: loggingData.pageErrors ?? [],
       timing: loggingData.timing ?? {
         testStartTime: result.startTime.getTime(),
@@ -210,8 +197,7 @@ export default class StructuredReporter implements Reporter {
       failed: this.tests.filter((t) => t.status === "failed").length,
       skipped: this.tests.filter((t) => t.status === "skipped").length,
       timedOut: this.tests.filter((t) => t.status === "timedOut").length,
-      flaky: this.tests.filter((t) => t.retryCount > 0 && t.status === "passed")
-        .length,
+      flaky: this.tests.filter((t) => t.retryCount > 0 && t.status === "passed").length,
       projects,
       workers: this.config?.workers ?? 1,
       tests: this.tests,
@@ -228,16 +214,10 @@ export default class StructuredReporter implements Reporter {
 
     // Create deterministic filename from test
     const testFile = basename(bundle.testFile, ".ts");
-    const safeTitlePart = bundle.testTitle
-      .replace(/[^a-zA-Z0-9]/g, "-")
-      .slice(0, 50);
+    const safeTitlePart = bundle.testTitle.replace(/[^a-zA-Z0-9]/g, "-").slice(0, 50);
     const filename = `${testFile}--${safeTitlePart}--${bundle.browser}.json`;
 
-    writeFileSync(
-      join(runDir, filename),
-      JSON.stringify(bundle, null, 2),
-      "utf-8",
-    );
+    writeFileSync(join(runDir, filename), JSON.stringify(bundle, null, 2), "utf-8");
   }
 
   private writeRunSummary(summary: RunSummary): void {
@@ -245,11 +225,7 @@ export default class StructuredReporter implements Reporter {
 
     // Write full summary to run directory
     const runDir = join(outputDir, this.runId);
-    writeFileSync(
-      join(runDir, "summary.json"),
-      JSON.stringify(summary, null, 2),
-      "utf-8",
-    );
+    writeFileSync(join(runDir, "summary.json"), JSON.stringify(summary, null, 2), "utf-8");
 
     // Write compact summary to root (for quick access)
     const compactSummary = {

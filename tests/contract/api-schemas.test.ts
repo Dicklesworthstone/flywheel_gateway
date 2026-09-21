@@ -12,9 +12,7 @@ import { z } from "zod";
 const AgentSchema = z.object({
   id: z.string(),
   name: z.string().optional(),
-  status: z
-    .enum(["idle", "ready", "executing", "paused", "failed", "terminated"])
-    .optional(),
+  status: z.enum(["idle", "ready", "executing", "paused", "failed", "terminated"]).optional(),
   model: z.string().optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
@@ -196,10 +194,9 @@ describe("API Contract Tests", () => {
 
       const body = await response.json();
       // Should have events array or be array
-      expect(
-        Array.isArray(body) ||
-          (typeof body === "object" && body.events !== undefined),
-      ).toBe(true);
+      expect(Array.isArray(body) || (typeof body === "object" && body.events !== undefined)).toBe(
+        true,
+      );
     });
   });
 
@@ -471,10 +468,7 @@ describe("Setup Endpoint Contract Tests", () => {
       for (const tool of body) {
         const result = ToolInfoSchema.safeParse(tool);
         if (!result.success) {
-          console.log(
-            `Tool ${tool.name} validation failed:`,
-            result.error.issues,
-          );
+          console.log(`Tool ${tool.name} validation failed:`, result.error.issues);
         }
         expect(result.success).toBe(true);
       }
@@ -488,12 +482,8 @@ describe("Setup Endpoint Contract Tests", () => {
 
       const body = await response.json();
 
-      const agents = body.filter(
-        (t: { category: string }) => t.category === "agent",
-      );
-      const tools = body.filter(
-        (t: { category: string }) => t.category === "tool",
-      );
+      const agents = body.filter((t: { category: string }) => t.category === "agent");
+      const tools = body.filter((t: { category: string }) => t.category === "tool");
 
       expect(agents.length).toBeGreaterThan(0);
       expect(tools.length).toBeGreaterThan(0);
@@ -905,10 +895,7 @@ describe("Beads Endpoint Contract Tests", () => {
 
       const body = await response.json();
       // Should have generated_at timestamp
-      expect(
-        body.generated_at !== undefined ||
-          body.data?.generated_at !== undefined,
-      ).toBe(true);
+      expect(body.generated_at !== undefined || body.data?.generated_at !== undefined).toBe(true);
     });
   });
 
@@ -959,9 +946,7 @@ describe("Beads Schema Validation Helpers", () => {
       id: "bd-2def",
       title: "Add user dashboard",
       status: "blocked",
-      dependencies: [
-        { id: "bd-1abc", title: "Fix auth", status: "in_progress" },
-      ],
+      dependencies: [{ id: "bd-1abc", title: "Fix auth", status: "in_progress" }],
       dependents: [],
     };
 

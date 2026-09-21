@@ -29,9 +29,7 @@ async function apiPost(
   return { status: res.status, body: data };
 }
 
-async function apiGet(
-  path: string,
-): Promise<{ status: number; body: Record<string, unknown> }> {
+async function apiGet(path: string): Promise<{ status: number; body: Record<string, unknown> }> {
   const res = await fetch(`${GATEWAY_URL}${path}`);
   const data = (await res.json()) as Record<string, unknown>;
   return { status: res.status, body: data };
@@ -104,26 +102,20 @@ test.describe("Beads API E2E", () => {
     await expect(loggedPage.locator(".page")).toBeVisible();
   });
 
-  test("triage endpoint returns prioritized recommendations", async ({
-    loggedPage,
-  }) => {
+  test("triage endpoint returns prioritized recommendations", async ({ loggedPage }) => {
     const { status, body } = await apiGet("/api/beads/triage");
 
     if (status === 200) {
       const data = (body["data"] ?? body) as Record<string, unknown>;
       // Should have triage structure
-      expect(
-        data["triage"] ?? data["recommendations"] ?? data["quick_ref"],
-      ).toBeDefined();
+      expect(data["triage"] ?? data["recommendations"] ?? data["quick_ref"]).toBeDefined();
     }
 
     await loggedPage.goto("/beads");
     await expect(loggedPage.locator(".page")).toBeVisible();
   });
 
-  test("quick-wins endpoint returns actionable items", async ({
-    loggedPage,
-  }) => {
+  test("quick-wins endpoint returns actionable items", async ({ loggedPage }) => {
     const { status } = await apiGet("/api/beads/triage/quick-wins?limit=3");
     expect([200, 404]).toContain(status); // 404 if no quick wins
 
@@ -253,9 +245,7 @@ test.describe("Reservations API E2E", () => {
 test.describe("Notifications API E2E", () => {
   const RECIPIENT_ID = "e2e-account-1";
 
-  test("list notifications returns paginated results", async ({
-    loggedPage,
-  }) => {
+  test("list notifications returns paginated results", async ({ loggedPage }) => {
     const { status, body } = await apiGet(
       `/api/notifications?recipient_id=${RECIPIENT_ID}&limit=5`,
     );
@@ -290,9 +280,7 @@ test.describe("Notifications API E2E", () => {
 
       if (notifId) {
         // Verify it appears in list
-        const listRes = await apiGet(
-          `/api/notifications?recipient_id=${RECIPIENT_ID}&limit=1`,
-        );
+        const listRes = await apiGet(`/api/notifications?recipient_id=${RECIPIENT_ID}&limit=1`);
         expect(listRes.status).toBe(200);
 
         // Mark as read
@@ -320,9 +308,7 @@ test.describe("Notifications API E2E", () => {
   });
 
   test("get notification preferences", async ({ loggedPage }) => {
-    const { status, body } = await apiGet(
-      `/api/notifications/preferences?user_id=${RECIPIENT_ID}`,
-    );
+    const { status, body } = await apiGet(`/api/notifications/preferences?user_id=${RECIPIENT_ID}`);
 
     if (status === 200) {
       const data = (body["data"] ?? body) as Record<string, unknown>;
@@ -334,10 +320,9 @@ test.describe("Notifications API E2E", () => {
   });
 
   test("send test notification", async ({ loggedPage }) => {
-    const { status } = await apiPost(
-      `/api/notifications/test?recipient_id=${RECIPIENT_ID}`,
-      { channel: "in_app" },
-    );
+    const { status } = await apiPost(`/api/notifications/test?recipient_id=${RECIPIENT_ID}`, {
+      channel: "in_app",
+    });
     expect([200, 201, 404]).toContain(status);
 
     await loggedPage.goto("/");
@@ -360,16 +345,11 @@ test.describe("Cross-Feature Integration", () => {
     await expect(loggedPage.locator(".page")).toBeVisible();
 
     // Dashboard should show workstream data
-    const workstreamCard = loggedPage
-      .locator(".card")
-      .filter({ hasText: "Workstream" });
+    const workstreamCard = loggedPage.locator(".card").filter({ hasText: "Workstream" });
     await expect(workstreamCard).toBeVisible();
   });
 
-  test("logging framework captures all API interactions", async ({
-    loggedPage,
-    testLogger,
-  }) => {
+  test("logging framework captures all API interactions", async ({ loggedPage, testLogger }) => {
     // Make API call from browser context
     await loggedPage.goto("/beads");
     await loggedPage.waitForLoadState("networkidle");

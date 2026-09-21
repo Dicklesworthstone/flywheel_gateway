@@ -95,8 +95,7 @@ export class TestLogger {
         entry.statusText = response.statusText();
         if (entry.timing) {
           entry.timing.responseEnd = Date.now();
-          entry.timing.duration =
-            entry.timing.responseEnd - entry.timing.startTime;
+          entry.timing.duration = entry.timing.responseEnd - entry.timing.startTime;
         }
         try {
           entry.responseHeaders = response.headers();
@@ -127,16 +126,13 @@ export class TestLogger {
         });
       });
 
-      this.cdpSession.on(
-        "Network.webSocketClosed",
-        (event: { requestId?: string }) => {
-          this.webSocket.push({
-            timestamp: Date.now(),
-            url: event.requestId || "unknown",
-            type: "close",
-          });
-        },
-      );
+      this.cdpSession.on("Network.webSocketClosed", (event: { requestId?: string }) => {
+        this.webSocket.push({
+          timestamp: Date.now(),
+          url: event.requestId || "unknown",
+          type: "close",
+        });
+      });
 
       this.cdpSession.on("Network.webSocketFrameReceived", (event) => {
         this.webSocket.push({
@@ -185,22 +181,16 @@ export class TestLogger {
         const perf = window.performance;
         const timing = perf.timing;
         const entries = perf.getEntriesByType("paint");
-        const lcpEntries = perf.getEntriesByType(
-          "largest-contentful-paint",
-        ) as PerformanceEntry[];
-        const layoutShift = perf.getEntriesByType(
-          "layout-shift",
-        ) as PerformanceEntry[];
+        const lcpEntries = perf.getEntriesByType("largest-contentful-paint") as PerformanceEntry[];
+        const layoutShift = perf.getEntriesByType("layout-shift") as PerformanceEntry[];
 
         return {
           pageLoadTime: timing.loadEventEnd - timing.navigationStart,
           firstContentfulPaint:
-            entries.find((e) => e.name === "first-contentful-paint")
-              ?.startTime ?? 0,
+            entries.find((e) => e.name === "first-contentful-paint")?.startTime ?? 0,
           largestContentfulPaint:
             lcpEntries.length > 0
-              ? ((lcpEntries[lcpEntries.length - 1] as { startTime?: number })
-                  .startTime ?? 0)
+              ? ((lcpEntries[lcpEntries.length - 1] as { startTime?: number }).startTime ?? 0)
               : 0,
           cumulativeLayoutShift: layoutShift.reduce(
             (sum, e) => sum + ((e as { value?: number }).value ?? 0),
@@ -239,10 +229,7 @@ export class TestLogger {
   /**
    * Get log data for the test.
    */
-  getLogData(): Pick<
-    TestLogBundle,
-    "console" | "network" | "webSocket" | "pageErrors" | "timing"
-  > {
+  getLogData(): Pick<TestLogBundle, "console" | "network" | "webSocket" | "pageErrors" | "timing"> {
     return {
       console: this.console,
       network: this.network,
@@ -266,8 +253,7 @@ export class TestLogger {
       consoleErrors: this.console.filter((c) => c.type === "error").length,
       networkRequests: this.network.length,
       failedRequests: this.network.filter((n) => n.failed).length,
-      webSocketMessages: this.webSocket.filter((w) => w.type === "message")
-        .length,
+      webSocketMessages: this.webSocket.filter((w) => w.type === "message").length,
       pageErrors: this.pageErrors.length,
     };
   }

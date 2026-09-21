@@ -20,9 +20,7 @@ if (isPlaywright) {
       await page.goto("/agents");
     });
 
-    test("should display agents with different lifecycle states", async ({
-      page,
-    }) => {
+    test("should display agents with different lifecycle states", async ({ page }) => {
       const rows = page
         .locator(".table__row")
         .filter({ hasNot: page.locator(".table__row--header") });
@@ -46,9 +44,7 @@ if (isPlaywright) {
     });
 
     test("should show executing state with warning tone", async ({ page }) => {
-      const executingPill = page
-        .locator(".pill")
-        .filter({ hasText: "executing" });
+      const executingPill = page.locator(".pill").filter({ hasText: "executing" });
 
       // Executing state should use warning (yellow) tone
       if ((await executingPill.count()) > 0) {
@@ -106,9 +102,7 @@ if (isPlaywright) {
     test("should show live agents count on dashboard", async ({ page }) => {
       await page.goto("/");
 
-      const liveAgentsCard = page
-        .locator(".card")
-        .filter({ hasText: "Live agents" });
+      const liveAgentsCard = page.locator(".card").filter({ hasText: "Live agents" });
       await expect(liveAgentsCard).toBeVisible();
 
       // Should display a metric value
@@ -119,24 +113,18 @@ if (isPlaywright) {
     test("should show executing agents in status pill", async ({ page }) => {
       await page.goto("/");
 
-      const liveAgentsCard = page
-        .locator(".card")
-        .filter({ hasText: "Live agents" });
+      const liveAgentsCard = page.locator(".card").filter({ hasText: "Live agents" });
 
       // Pill should show executing count
       const pill = liveAgentsCard.locator(".pill");
       await expect(pill).toContainText("executing");
     });
 
-    test("should update agent counts in real-time via WebSocket", async ({
-      page,
-    }) => {
+    test("should update agent counts in real-time via WebSocket", async ({ page }) => {
       await page.goto("/");
 
       // Check WebSocket latency card is visible (indicates connection)
-      const wsCard = page
-        .locator(".card--compact")
-        .filter({ hasText: "WebSocket" });
+      const wsCard = page.locator(".card--compact").filter({ hasText: "WebSocket" });
       await expect(wsCard).toBeVisible();
 
       // Latency should be displayed
@@ -154,23 +142,17 @@ if (isPlaywright) {
 
       // Should be on agents page
       await expect(page).toHaveURL(/\/agents/);
-      await expect(
-        page.locator("h3").filter({ hasText: "Agents" }),
-      ).toBeVisible();
+      await expect(page.locator("h3").filter({ hasText: "Agents" })).toBeVisible();
     });
 
-    test("should preserve state when navigating back to dashboard", async ({
-      page,
-    }) => {
+    test("should preserve state when navigating back to dashboard", async ({ page }) => {
       await page.goto("/agents");
 
       // Navigate to dashboard
       await page.click('a[href="/"]');
 
       // Dashboard should load properly
-      await expect(
-        page.locator(".card").filter({ hasText: "Live agents" }),
-      ).toBeVisible();
+      await expect(page.locator(".card").filter({ hasText: "Live agents" })).toBeVisible();
     });
   });
 
@@ -244,16 +226,12 @@ if (isPlaywright) {
   });
 
   test.describe("Agent Lifecycle - Responsiveness", () => {
-    test("should display agents table on desktop viewport", async ({
-      page,
-    }) => {
+    test("should display agents table on desktop viewport", async ({ page }) => {
       await page.setViewportSize({ width: 1280, height: 800 });
       await page.goto("/agents");
 
       await expect(page.locator(".table")).toBeVisible();
-      await expect(
-        page.locator("h3").filter({ hasText: "Agents" }),
-      ).toBeVisible();
+      await expect(page.locator("h3").filter({ hasText: "Agents" })).toBeVisible();
     });
 
     test("should display agents on tablet viewport", async ({ page }) => {
@@ -261,9 +239,7 @@ if (isPlaywright) {
       await page.goto("/agents");
 
       await expect(page.locator(".table")).toBeVisible();
-      await expect(
-        page.locator("h3").filter({ hasText: "Agents" }),
-      ).toBeVisible();
+      await expect(page.locator("h3").filter({ hasText: "Agents" })).toBeVisible();
     });
 
     test("should display agents on mobile viewport", async ({ page }) => {
@@ -278,15 +254,11 @@ if (isPlaywright) {
       // Desktop
       await page.setViewportSize({ width: 1280, height: 800 });
       await page.goto("/agents");
-      await expect(
-        page.locator("h3").filter({ hasText: "Agents" }),
-      ).toBeVisible();
+      await expect(page.locator("h3").filter({ hasText: "Agents" })).toBeVisible();
 
       // Tablet
       await page.setViewportSize({ width: 768, height: 1024 });
-      await expect(
-        page.locator("h3").filter({ hasText: "Agents" }),
-      ).toBeVisible();
+      await expect(page.locator("h3").filter({ hasText: "Agents" })).toBeVisible();
 
       // Mobile
       await page.setViewportSize({ width: 375, height: 812 });
@@ -299,9 +271,7 @@ if (isPlaywright) {
       await page.goto("/agents");
     });
 
-    test("should display agents table with sortable columns", async ({
-      page,
-    }) => {
+    test("should display agents table with sortable columns", async ({ page }) => {
       const header = page.locator(".table__row--header");
 
       // Check column headers exist
@@ -311,9 +281,7 @@ if (isPlaywright) {
       await expect(header).toContainText("ID");
     });
 
-    test("should differentiate between agent states visually", async ({
-      page,
-    }) => {
+    test("should differentiate between agent states visually", async ({ page }) => {
       const rows = page
         .locator(".table__row")
         .filter({ hasNot: page.locator(".table__row--header") });
@@ -331,9 +299,7 @@ if (isPlaywright) {
   });
 
   test.describe("Agent Lifecycle - Concurrent Agents", () => {
-    test("should show agents with different concurrent states", async ({
-      page,
-    }) => {
+    test("should show agents with different concurrent states", async ({ page }) => {
       await page.goto("/agents");
 
       const rows = page
@@ -371,9 +337,7 @@ if (isPlaywright) {
     test("should show workstream status", async ({ page }) => {
       await page.goto("/");
 
-      const workstreamCard = page
-        .locator(".card")
-        .filter({ hasText: "Workstream" });
+      const workstreamCard = page.locator(".card").filter({ hasText: "Workstream" });
       await expect(workstreamCard).toBeVisible();
 
       // Should show tracked count

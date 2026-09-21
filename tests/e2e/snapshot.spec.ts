@@ -161,21 +161,13 @@ if (isPlaywright) {
       await page.goto("/");
 
       const panel = page.getByTestId("snapshot-summary-panel");
-      const headerCard = panel
-        .locator(".card")
-        .filter({ hasText: "System Status" });
+      const headerCard = panel.locator(".card").filter({ hasText: "System Status" });
       await expect(headerCard).toBeVisible();
       const headerStatus = headerCard.locator(".card__header");
-      await expect(
-        headerStatus.getByText("All Systems Healthy", { exact: true }),
-      ).toBeVisible();
+      await expect(headerStatus.getByText("All Systems Healthy", { exact: true })).toBeVisible();
 
-      await expect(
-        panel.getByRole("heading", { name: "Safety Tools" }),
-      ).toBeVisible();
-      await expect(
-        panel.getByRole("heading", { name: "Work Queue" }),
-      ).toBeVisible();
+      await expect(panel.getByRole("heading", { name: "Safety Tools" })).toBeVisible();
+      await expect(panel.getByRole("heading", { name: "Work Queue" })).toBeVisible();
 
       await test.info().attach("snapshot-dom", {
         body: await page.content(),
@@ -183,9 +175,7 @@ if (isPlaywright) {
       });
     });
 
-    test("should surface degraded state when sources are missing", async ({
-      page,
-    }) => {
+    test("should surface degraded state when sources are missing", async ({ page }) => {
       const consoleErrors: string[] = [];
       page.on("console", (msg) => {
         if (msg.type() === "error") {
@@ -229,28 +219,16 @@ if (isPlaywright) {
       await page.goto("/");
 
       const panel = page.getByTestId("snapshot-summary-panel");
-      const headerCard = panel
-        .locator(".card")
-        .filter({ hasText: "System Status" });
+      const headerCard = panel.locator(".card").filter({ hasText: "System Status" });
       await expect(headerCard).toBeVisible();
       const headerStatus = headerCard.locator(".card__header");
-      await expect(
-        headerStatus.getByText("Degraded", { exact: true }),
-      ).toBeVisible();
+      await expect(headerStatus.getByText("Degraded", { exact: true })).toBeVisible();
 
-      await expect(
-        panel.locator(".card").filter({ hasText: "Issue" }).first(),
-      ).toBeVisible();
-      await expect(
-        panel.getByText("Agent Mail server is not running"),
-      ).toBeVisible();
-      await expect(
-        panel.getByText("UBS (Ultimate Bug Scanner) is not installed"),
-      ).toBeVisible();
+      await expect(panel.locator(".card").filter({ hasText: "Issue" }).first()).toBeVisible();
+      await expect(panel.getByText("Agent Mail server is not running")).toBeVisible();
+      await expect(panel.getByText("UBS (Ultimate Bug Scanner) is not installed")).toBeVisible();
 
-      await expect(
-        panel.locator(".card").filter({ hasText: "No active agents" }),
-      ).toBeVisible();
+      await expect(panel.locator(".card").filter({ hasText: "No active agents" })).toBeVisible();
       await page.waitForTimeout(500);
 
       const criticalErrors = consoleErrors.filter(
@@ -270,9 +248,7 @@ if (isPlaywright) {
       });
     });
 
-    test("should show error state with retry when snapshot API fails", async ({
-      page,
-    }) => {
+    test("should show error state with retry when snapshot API fails", async ({ page }) => {
       let snapshotCallCount = 0;
       const snapshot = buildSnapshot({});
 

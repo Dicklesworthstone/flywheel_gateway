@@ -95,9 +95,7 @@ if (isPlaywright) {
       });
 
       // This assertion should pass
-      await expect(
-        loggedPage.locator("h3").filter({ hasText: "Agents" }),
-      ).toBeVisible();
+      await expect(loggedPage.locator("h3").filter({ hasText: "Agents" })).toBeVisible();
 
       // Add more context
       await loggedPage.evaluate(() => {
@@ -121,9 +119,7 @@ if (isPlaywright) {
 
       // Access the logger directly for custom logging needs
       const summary = testLogger.getSummary();
-      console.log(
-        `[Manual Check] Network requests so far: ${summary.networkRequests}`,
-      );
+      console.log(`[Manual Check] Network requests so far: ${summary.networkRequests}`);
 
       await expect(loggedPage.locator("body")).toBeVisible();
     });
