@@ -183,9 +183,7 @@ export class MockCaamExecutor {
     }
 
     // Non-JSON output (simple text)
-    const lines = profiles.map(
-      (p) => `${p.tool}/${p.name} ${p.active ? "(active)" : ""}`,
-    );
+    const lines = profiles.map((p) => `${p.tool}/${p.name} ${p.active ? "(active)" : ""}`);
     return { stdout: lines.join("\n"), stderr: "", exitCode: 0 };
   }
 
@@ -217,19 +215,13 @@ export class MockCaamExecutor {
   } {
     const hasJson = args.includes("--json");
     const hasAuto = args.includes("--auto");
-    const provider = args.find(
-      (a) => !a.startsWith("-") && a !== "activate" && a !== "--json",
-    );
-    const profile = args.find(
-      (a, _i) => !a.startsWith("-") && a !== "activate" && a !== provider,
-    );
+    const provider = args.find((a) => !a.startsWith("-") && a !== "activate" && a !== "--json");
+    const profile = args.find((a, _i) => !a.startsWith("-") && a !== "activate" && a !== provider);
 
     const output = {
       success: true,
       tool: provider ?? "unknown",
-      profile: hasAuto
-        ? (this.config.profiles?.[0]?.name ?? "default")
-        : (profile ?? "default"),
+      profile: hasAuto ? (this.config.profiles?.[0]?.name ?? "default") : (profile ?? "default"),
       source: hasAuto ? "smart rotation" : "manual",
     };
 
@@ -373,9 +365,7 @@ export class MockCaamExecutor {
 /**
  * Create a mock executor with default healthy state.
  */
-export function createMockCaamExecutor(
-  config?: Partial<MockCaamConfig>,
-): MockCaamExecutor {
+export function createMockCaamExecutor(config?: Partial<MockCaamConfig>): MockCaamExecutor {
   return new MockCaamExecutor({
     profiles: config?.profiles ?? [
       {

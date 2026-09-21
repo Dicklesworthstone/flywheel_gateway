@@ -214,10 +214,7 @@ export class TmuxDriver extends BaseDriver {
     };
   }
 
-  protected async doSend(
-    agentId: string,
-    message: string,
-  ): Promise<SendResult> {
+  protected async doSend(agentId: string, message: string): Promise<SendResult> {
     const session = this.sessions.get(agentId);
     if (!session) {
       throw new Error(`Session not found for agent: ${agentId}`);
@@ -248,9 +245,7 @@ export class TmuxDriver extends BaseDriver {
     ]);
 
     if (!enterResult.success) {
-      throw new Error(
-        `Failed to send Enter key to tmux: ${enterResult.stderr}`,
-      );
+      throw new Error(`Failed to send Enter key to tmux: ${enterResult.stderr}`);
     }
 
     // Note: State is already set to "thinking" by base driver's send() method
@@ -258,10 +253,7 @@ export class TmuxDriver extends BaseDriver {
     return { messageId, queued: false };
   }
 
-  protected async doTerminate(
-    agentId: string,
-    graceful: boolean,
-  ): Promise<void> {
+  protected async doTerminate(agentId: string, graceful: boolean): Promise<void> {
     const session = this.sessions.get(agentId);
     if (!session) return;
 
@@ -299,12 +291,7 @@ export class TmuxDriver extends BaseDriver {
     }
 
     // Send Ctrl+C to interrupt
-    const result = await this.runTmux([
-      "send-keys",
-      "-t",
-      session.sessionName,
-      "C-c",
-    ]);
+    const result = await this.runTmux(["send-keys", "-t", session.sessionName, "C-c"]);
 
     if (!result.success) {
       throw new Error(`Failed to send interrupt to tmux: ${result.stderr}`);
@@ -340,11 +327,7 @@ export class TmuxDriver extends BaseDriver {
     const session = this.sessions.get(agentId);
     if (!session) return false;
 
-    const result = await this.runTmux([
-      "has-session",
-      "-t",
-      session.sessionName,
-    ]);
+    const result = await this.runTmux(["has-session", "-t", session.sessionName]);
 
     return result.success;
   }
@@ -432,10 +415,7 @@ export class TmuxDriver extends BaseDriver {
   /**
    * Capture output from tmux session and emit events for new content.
    */
-  private async captureOutput(
-    agentId: string,
-    session: TmuxAgentSession,
-  ): Promise<void> {
+  private async captureOutput(agentId: string, session: TmuxAgentSession): Promise<void> {
     try {
       const output = await this.capturePaneContents(agentId, 100);
 
@@ -564,10 +544,7 @@ export class TmuxDriver extends BaseDriver {
     }
 
     // Emit context warning if context is running low
-    if (
-      detection.isContextLow &&
-      detection.contextRemainingPercent !== undefined
-    ) {
+    if (detection.isContextLow && detection.contextRemainingPercent !== undefined) {
       const level =
         detection.contextRemainingPercent < 10
           ? "emergency"
@@ -593,9 +570,7 @@ export class TmuxDriver extends BaseDriver {
 /**
  * Factory function to create a Tmux driver.
  */
-export async function createTmuxDriver(
-  options?: TmuxDriverOptions,
-): Promise<TmuxDriver> {
+export async function createTmuxDriver(options?: TmuxDriverOptions): Promise<TmuxDriver> {
   const config = createDriverOptions("tmux", options);
   const driver = new TmuxDriver(config, options);
 

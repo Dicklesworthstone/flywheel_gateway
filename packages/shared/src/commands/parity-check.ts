@@ -44,9 +44,7 @@ export interface ParityCheckReport {
  */
 function schemaHasField(schema: z.ZodType, fieldName: string): boolean {
   // Get the internal definition
-  const def = (schema as { _def?: unknown })._def as
-    | Record<string, unknown>
-    | undefined;
+  const def = (schema as { _def?: unknown })._def as Record<string, unknown> | undefined;
   if (!def) return false;
 
   // Handle wrapped types (effects, optional, nullable) by unwrapping
@@ -154,9 +152,7 @@ export function checkCommandParity(cmd: RegisteredCommand): ParityCheckResult {
 
   // Rule 7: Streaming endpoints should have ws binding for real-time events
   if (cmd.rest.streaming && !cmd.ws) {
-    warnings.push(
-      "Streaming endpoint should have WebSocket binding for real-time events",
-    );
+    warnings.push("Streaming endpoint should have WebSocket binding for real-time events");
   }
 
   // Rule 8: Commands with permissions should not be empty

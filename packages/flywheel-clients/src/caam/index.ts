@@ -5,11 +5,7 @@
  * Always uses --json output to avoid interactive prompts.
  */
 
-import {
-  CliClientError,
-  type CliErrorDetails,
-  type CliErrorKind,
-} from "@flywheel/shared";
+import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
 import { z } from "zod";
 import {
   CliCommandError,
@@ -199,34 +195,22 @@ async function runCaamCommand(
   return result.stdout;
 }
 
-function parseJson<T>(
-  stdout: string,
-  schema: z.ZodSchema<T>,
-  context: string,
-): T {
+function parseJson<T>(stdout: string, schema: z.ZodSchema<T>, context: string): T {
   let parsed: unknown;
   try {
     parsed = JSON.parse(stdout);
   } catch (error) {
-    throw new CaamClientError(
-      "parse_error",
-      `Failed to parse CAAM ${context}`,
-      {
-        cause: error instanceof Error ? error.message : String(error),
-        stdout: stdout.slice(0, 500),
-      },
-    );
+    throw new CaamClientError("parse_error", `Failed to parse CAAM ${context}`, {
+      cause: error instanceof Error ? error.message : String(error),
+      stdout: stdout.slice(0, 500),
+    });
   }
 
   const result = schema.safeParse(parsed);
   if (!result.success) {
-    throw new CaamClientError(
-      "validation_error",
-      `Invalid CAAM ${context} response`,
-      {
-        issues: result.error.issues,
-      },
-    );
+    throw new CaamClientError("validation_error", `Invalid CAAM ${context} response`, {
+      issues: result.error.issues,
+    });
   }
 
   return result.data;
@@ -251,41 +235,25 @@ export function createCaamClient(options: CaamClientOptions): CaamClient {
       if (opts?.provider) {
         args.push(opts.provider);
       }
-      const stdout = await runCaamCommand(
-        options.runner,
-        args,
-        buildRunOptions(options, opts),
-      );
+      const stdout = await runCaamCommand(options.runner, args, buildRunOptions(options, opts));
       return parseJson(stdout, CaamStatusSchema, "status");
     },
 
     activate: async (opts) => {
       const args = ["activate", opts.provider, opts.profile, "--json"];
-      const stdout = await runCaamCommand(
-        options.runner,
-        args,
-        buildRunOptions(options, opts),
-      );
+      const stdout = await runCaamCommand(options.runner, args, buildRunOptions(options, opts));
       return parseJson(stdout, CaamActivateSchema, "activate");
     },
 
     backup: async (opts) => {
       const args = ["backup", opts.provider, opts.name, "--json"];
-      const stdout = await runCaamCommand(
-        options.runner,
-        args,
-        buildRunOptions(options, opts),
-      );
+      const stdout = await runCaamCommand(options.runner, args, buildRunOptions(options, opts));
       return parseJson(stdout, CaamBackupSchema, "backup");
     },
 
     isAvailable: async () => {
       try {
-        await runCaamCommand(
-          options.runner,
-          ["status", "--json"],
-          buildRunOptions(options),
-        );
+        await runCaamCommand(options.runner, ["status", "--json"], buildRunOptions(options));
         return true;
       } catch {
         return false;
@@ -323,15 +291,11 @@ export function createBunCaamCommandRunner(): CaamCommandRunner {
             });
           }
           if (error.kind === "spawn_failed") {
-            throw new CaamClientError(
-              "unavailable",
-              "CAAM command failed to start",
-              {
-                command,
-                args,
-                details: error.details,
-              },
-            );
+            throw new CaamClientError("unavailable", "CAAM command failed to start", {
+              command,
+              args,
+              details: error.details,
+            });
           }
         }
         throw error;

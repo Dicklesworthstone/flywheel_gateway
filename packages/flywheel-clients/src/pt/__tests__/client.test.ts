@@ -16,12 +16,7 @@ function createRunner(stdout: string, exitCode = 0) {
   };
 }
 
-function envelope(
-  data: unknown,
-  ok = true,
-  code = "OK",
-  hint?: string,
-): string {
+function envelope(data: unknown, ok = true, code = "OK", hint?: string): string {
   return JSON.stringify({
     ok,
     code,

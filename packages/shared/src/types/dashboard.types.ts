@@ -30,14 +30,7 @@ export type DashboardPermission = "view" | "edit";
 /**
  * Time range presets for data queries
  */
-export type TimeRangePreset =
-  | "15m"
-  | "1h"
-  | "6h"
-  | "24h"
-  | "7d"
-  | "30d"
-  | "custom";
+export type TimeRangePreset = "15m" | "1h" | "6h" | "24h" | "7d" | "30d" | "custom";
 
 /**
  * Auto-refresh interval options (in seconds)

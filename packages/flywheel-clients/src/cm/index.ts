@@ -6,16 +6,9 @@
  * Always uses --json flags to get machine-parseable output.
  */
 
-import {
-  CliClientError,
-  type CliErrorDetails,
-  type CliErrorKind,
-} from "@flywheel/shared";
+import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
 import { z } from "zod";
-import {
-  CliCommandError,
-  createBunCliRunner as createSharedBunCliRunner,
-} from "../cli-runner";
+import { CliCommandError, createBunCliRunner as createSharedBunCliRunner } from "../cli-runner";
 
 // ============================================================================
 // Command Runner Interface
@@ -250,10 +243,7 @@ export interface CMOutcomeOptions {
 
 export interface CMClient {
   /** Get context (rules and history) for a task */
-  context: (
-    task: string,
-    options?: CMContextOptions,
-  ) => Promise<CMContextResult>;
+  context: (task: string, options?: CMContextOptions) => Promise<CMContextResult>;
 
   /** Get quickstart/self-documentation */
   quickstart: () => Promise<CMQuickstartResult>;
@@ -262,9 +252,7 @@ export interface CMClient {
   stats: () => Promise<CMStatsResult>;
 
   /** List playbook bullets/rules */
-  listPlaybook: (
-    options?: CMPlaybookListOptions,
-  ) => Promise<CMPlaybookListResult>;
+  listPlaybook: (options?: CMPlaybookListOptions) => Promise<CMPlaybookListResult>;
 
   /** Run health diagnostics */
   doctor: (options?: CMDoctorOptions) => Promise<CMDoctorResult>;
@@ -300,11 +288,7 @@ async function runCMCommand(
   return result.stdout;
 }
 
-function parseJson<T>(
-  stdout: string,
-  schema: z.ZodSchema<T>,
-  context: string,
-): T {
+function parseJson<T>(stdout: string, schema: z.ZodSchema<T>, context: string): T {
   let parsed: unknown;
   try {
     parsed = JSON.parse(stdout);
@@ -317,13 +301,9 @@ function parseJson<T>(
 
   const result = schema.safeParse(parsed);
   if (!result.success) {
-    throw new CMClientError(
-      "validation_error",
-      `Invalid CM ${context} response`,
-      {
-        issues: result.error.issues,
-      },
-    );
+    throw new CMClientError("validation_error", `Invalid CM ${context} response`, {
+      issues: result.error.issues,
+    });
   }
 
   return result.data;
@@ -333,9 +313,7 @@ export function createCMClient(options: CMClientOptions): CMClient {
   const baseCwd = options.cwd;
   const defaultTimeout = options.timeout ?? 30000;
 
-  const buildRunOptions = (
-    timeout: number,
-  ): { cwd?: string; timeout: number } => {
+  const buildRunOptions = (timeout: number): { cwd?: string; timeout: number } => {
     const opts: { cwd?: string; timeout: number } = { timeout };
     if (baseCwd !== undefined) opts.cwd = baseCwd;
     return opts;
@@ -364,31 +342,19 @@ export function createCMClient(options: CMClientOptions): CMClient {
         args.push("--log-context");
       }
 
-      const stdout = await runCMCommand(
-        options.runner,
-        args,
-        buildRunOptions(defaultTimeout),
-      );
+      const stdout = await runCMCommand(options.runner, args, buildRunOptions(defaultTimeout));
       return parseJson(stdout, CMContextResultSchema, "context");
     },
 
     quickstart: async () => {
       const args = ["quickstart", "--json"];
-      const stdout = await runCMCommand(
-        options.runner,
-        args,
-        buildRunOptions(10000),
-      );
+      const stdout = await runCMCommand(options.runner, args, buildRunOptions(10000));
       return parseJson(stdout, CMQuickstartResultSchema, "quickstart");
     },
 
     stats: async () => {
       const args = ["stats", "--json"];
-      const stdout = await runCMCommand(
-        options.runner,
-        args,
-        buildRunOptions(15000),
-      );
+      const stdout = await runCMCommand(options.runner, args, buildRunOptions(15000));
       return parseJson(stdout, CMStatsResultSchema, "stats");
     },
 
@@ -411,11 +377,7 @@ export function createCMClient(options: CMClientOptions): CMClient {
         args.push("--limit", String(listOpts.limit));
       }
 
-      const stdout = await runCMCommand(
-        options.runner,
-        args,
-        buildRunOptions(15000),
-      );
+      const stdout = await runCMCommand(options.runner, args, buildRunOptions(15000));
       return parseJson(stdout, CMPlaybookListResultSchema, "playbook list");
     },
 
@@ -441,11 +403,7 @@ export function createCMClient(options: CMClientOptions): CMClient {
         args.push("--session", outcomeOpts.session);
       }
 
-      const stdout = await runCMCommand(
-        options.runner,
-        args,
-        buildRunOptions(10000),
-      );
+      const stdout = await runCMCommand(options.runner, args, buildRunOptions(10000));
       return parseJson(stdout, CMOutcomeResultSchema, "outcome");
     },
 
@@ -490,15 +448,11 @@ export function createBunCMCommandRunner(): CMCommandRunner {
             });
           }
           if (error.kind === "spawn_failed") {
-            throw new CMClientError(
-              "unavailable",
-              "CM command failed to start",
-              {
-                command,
-                args,
-                details: error.details,
-              },
-            );
+            throw new CMClientError("unavailable", "CM command failed to start", {
+              command,
+              args,
+              details: error.details,
+            });
           }
         }
         throw error;

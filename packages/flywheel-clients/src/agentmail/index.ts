@@ -1,9 +1,5 @@
 import type { ValidationFieldError } from "@flywheel/shared/errors";
-import {
-  createGatewayError,
-  createValidationError,
-  toGatewayError,
-} from "@flywheel/shared/errors";
+import { createGatewayError, createValidationError, toGatewayError } from "@flywheel/shared/errors";
 import { z } from "zod";
 
 export type AgentMailPriority = "low" | "normal" | "high" | "urgent";
@@ -364,28 +360,20 @@ export interface AgentMailClient {
     input: RenewReservationsInput,
     options?: AgentMailToolCallOptions,
   ) => Promise<RenewReservationsOutput>;
-  whois: (
-    input: WhoisInput,
-    options?: AgentMailToolCallOptions,
-  ) => Promise<WhoisOutput>;
+  whois: (input: WhoisInput, options?: AgentMailToolCallOptions) => Promise<WhoisOutput>;
 }
 
 export type EnsureProjectInput = z.infer<typeof EnsureProjectInputSchema>;
 export type RegisterAgentInput = z.infer<typeof RegisterAgentInputSchema>;
 export type SendMessageInput = z.infer<typeof SendMessageInputSchema>;
 export type ReplyInput = z.infer<typeof ReplyInputSchema>;
-export type FetchInboxInput = Omit<
-  z.infer<typeof FetchInboxInputSchema>,
-  "since"
-> & { since?: string | Date };
-export type RequestFileReservationInput = z.infer<
-  typeof RequestFileReservationInputSchema
->;
+export type FetchInboxInput = Omit<z.infer<typeof FetchInboxInputSchema>, "since"> & {
+  since?: string | Date;
+};
+export type RequestFileReservationInput = z.infer<typeof RequestFileReservationInputSchema>;
 export type AgentMailMessage = z.infer<typeof MessageSchema>;
 export type ReservationCycleInput = RequestFileReservationInput;
-export type ReservationCycleOutput = z.infer<
-  typeof RequestFileReservationOutputSchema
->;
+export type ReservationCycleOutput = z.infer<typeof RequestFileReservationOutputSchema>;
 export type HealthCheckInput = z.infer<typeof HealthInputSchema>;
 export type HealthCheckOutput = z.infer<typeof HealthOutputSchema>;
 export type StartSessionInput = {
@@ -408,18 +396,10 @@ export type SearchMessagesInput = z.infer<typeof SearchMessagesInputSchema>;
 export type SearchMessagesOutput = z.infer<typeof SearchMessagesOutputSchema>;
 export type SummarizeThreadInput = z.infer<typeof SummarizeThreadInputSchema>;
 export type SummarizeThreadOutput = z.infer<typeof SummarizeThreadOutputSchema>;
-export type ReleaseReservationsInput = z.infer<
-  typeof ReleaseReservationsInputSchema
->;
-export type ReleaseReservationsOutput = z.infer<
-  typeof ReleaseReservationsOutputSchema
->;
-export type RenewReservationsInput = z.infer<
-  typeof RenewReservationsInputSchema
->;
-export type RenewReservationsOutput = z.infer<
-  typeof RenewReservationsOutputSchema
->;
+export type ReleaseReservationsInput = z.infer<typeof ReleaseReservationsInputSchema>;
+export type ReleaseReservationsOutput = z.infer<typeof ReleaseReservationsOutputSchema>;
+export type RenewReservationsInput = z.infer<typeof RenewReservationsInputSchema>;
+export type RenewReservationsOutput = z.infer<typeof RenewReservationsOutputSchema>;
 export type WhoisInput = z.infer<typeof WhoisInputSchema>;
 export type WhoisOutput = z.infer<typeof WhoisOutputSchema>;
 
@@ -433,37 +413,25 @@ function zodIssuesToFields(issues: z.ZodIssue[]): ValidationFieldError[] {
 
 export function mapAgentMailError(error: unknown) {
   if (error instanceof AgentMailClientError) {
-    const details = error.details?.tool
-      ? { tool: error.details.tool }
-      : undefined;
+    const details = error.details?.tool ? { tool: error.details.tool } : undefined;
     if (error.kind === "input_validation") {
-      const fields = error.details?.issues
-        ? zodIssuesToFields(error.details.issues)
-        : [];
+      const fields = error.details?.issues ? zodIssuesToFields(error.details.issues) : [];
       return createValidationError("INVALID_REQUEST", fields, {
         ...(details && { details }),
       });
     }
 
     if (error.kind === "transport") {
-      return createGatewayError(
-        "SYSTEM_UNAVAILABLE",
-        "Agent Mail tool call failed",
-        {
-          ...(details && { details }),
-          cause: error.details?.cause ?? error,
-        },
-      );
+      return createGatewayError("SYSTEM_UNAVAILABLE", "Agent Mail tool call failed", {
+        ...(details && { details }),
+        cause: error.details?.cause ?? error,
+      });
     }
 
-    return createGatewayError(
-      "SYSTEM_INTERNAL_ERROR",
-      "Agent Mail response validation failed",
-      {
-        ...(details && { details }),
-        cause: error,
-      },
-    );
+    return createGatewayError("SYSTEM_INTERNAL_ERROR", "Agent Mail response validation failed", {
+      ...(details && { details }),
+      cause: error,
+    });
   }
 
   return toGatewayError(error, "SYSTEM_INTERNAL_ERROR");
@@ -483,11 +451,10 @@ async function callToolWithSchema<TInput, TOutput>(
 ): Promise<TOutput> {
   const parsedInputResult = inputSchema.safeParse(input);
   if (!parsedInputResult.success) {
-    throw new AgentMailClientError(
-      "input_validation",
-      `Invalid input for ${tool}`,
-      { tool, issues: parsedInputResult.error.issues },
-    );
+    throw new AgentMailClientError("input_validation", `Invalid input for ${tool}`, {
+      tool,
+      issues: parsedInputResult.error.issues,
+    });
   }
 
   let rawResult: unknown;
@@ -502,19 +469,16 @@ async function callToolWithSchema<TInput, TOutput>(
 
   const parsedOutputResult = outputSchema.safeParse(rawResult);
   if (!parsedOutputResult.success) {
-    throw new AgentMailClientError(
-      "response_validation",
-      `Invalid response from ${tool}`,
-      { tool, issues: parsedOutputResult.error.issues },
-    );
+    throw new AgentMailClientError("response_validation", `Invalid response from ${tool}`, {
+      tool,
+      issues: parsedOutputResult.error.issues,
+    });
   }
 
   return parsedOutputResult.data;
 }
 
-export function createAgentMailClient(
-  options: AgentMailClientOptions,
-): AgentMailClient {
+export function createAgentMailClient(options: AgentMailClientOptions): AgentMailClient {
   const prefix = options.toolPrefix ?? "agentmail_";
   const defaultTtl = options.defaultTtlSeconds ?? 3600;
 

@@ -59,9 +59,7 @@ export async function createTestDatabase(
 
   const { postgresUrl } = options;
   if (!postgresUrl) {
-    throw new Error(
-      "createTestDatabase: postgresUrl is required for postgres databases.",
-    );
+    throw new Error("createTestDatabase: postgresUrl is required for postgres databases.");
   }
 
   let PgClient:

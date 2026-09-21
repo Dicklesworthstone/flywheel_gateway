@@ -175,11 +175,7 @@ export class AcpDriver extends BaseDriver {
   constructor(config: BaseDriverConfig, options: AcpDriverOptions = {}) {
     super(config);
     this.agentBinary = options.agentBinary ?? "claude";
-    this.agentArgs = options.agentArgs ?? [
-      "--print",
-      "--output-format",
-      "stream-json",
-    ];
+    this.agentArgs = options.agentArgs ?? ["--print", "--output-format", "stream-json"];
     this.agentEnv = options.agentEnv ?? {};
     this.rpcTimeoutMs = options.rpcTimeoutMs ?? 60000;
     this.verboseProtocol = options.verboseProtocol ?? false;
@@ -206,11 +202,7 @@ export class AcpDriver extends BaseDriver {
 
   protected async doSpawn(config: AgentConfig): Promise<Agent> {
     // Build arguments for the agent process
-    const args = [
-      ...this.agentArgs,
-      "--working-directory",
-      config.workingDirectory,
-    ];
+    const args = [...this.agentArgs, "--working-directory", config.workingDirectory];
 
     if (config.model) {
       args.push("--model", config.model);
@@ -279,10 +271,7 @@ export class AcpDriver extends BaseDriver {
     };
   }
 
-  protected async doSend(
-    agentId: string,
-    message: string,
-  ): Promise<SendResult> {
+  protected async doSend(agentId: string, message: string): Promise<SendResult> {
     const session = this.sessions.get(agentId);
     if (!session) {
       throw new Error(`Session not found for agent: ${agentId}`);
@@ -323,10 +312,7 @@ export class AcpDriver extends BaseDriver {
     return { messageId, queued: false };
   }
 
-  protected async doTerminate(
-    agentId: string,
-    graceful: boolean,
-  ): Promise<void> {
+  protected async doTerminate(agentId: string, graceful: boolean): Promise<void> {
     const session = this.sessions.get(agentId);
     if (!session) return;
 
@@ -381,10 +367,7 @@ export class AcpDriver extends BaseDriver {
   // Checkpointing (optional methods)
   // ============================================================================
 
-  async createCheckpoint(
-    agentId: string,
-    description?: string,
-  ): Promise<CheckpointMetadata> {
+  async createCheckpoint(agentId: string, description?: string): Promise<CheckpointMetadata> {
     const session = this.sessions.get(agentId);
     if (!session) {
       throw new Error(`Session not found for agent: ${agentId}`);
@@ -450,10 +433,7 @@ export class AcpDriver extends BaseDriver {
     }));
   }
 
-  async getCheckpoint(
-    agentId: string,
-    checkpointId: string,
-  ): Promise<Checkpoint> {
+  async getCheckpoint(agentId: string, checkpointId: string): Promise<Checkpoint> {
     const session = this.sessions.get(agentId);
     if (!session) {
       throw new Error(`Session not found for agent: ${agentId}`);
@@ -467,10 +447,7 @@ export class AcpDriver extends BaseDriver {
     return checkpoint;
   }
 
-  async restoreCheckpoint(
-    agentId: string,
-    checkpointId: string,
-  ): Promise<Agent> {
+  async restoreCheckpoint(agentId: string, checkpointId: string): Promise<Agent> {
     const session = this.sessions.get(agentId);
     if (!session) {
       throw new Error(`Session not found for agent: ${agentId}`);
@@ -512,10 +489,7 @@ export class AcpDriver extends BaseDriver {
   /**
    * Read and process output from the agent process.
    */
-  private async readProcessOutput(
-    agentId: string,
-    session: AcpAgentSession,
-  ): Promise<void> {
+  private async readProcessOutput(agentId: string, session: AcpAgentSession): Promise<void> {
     const stdout = session.process.stdout;
     const stderr = session.process.stderr;
 
@@ -619,11 +593,7 @@ export class AcpDriver extends BaseDriver {
    * Process stdout output from the agent.
    * This handles both streaming JSON and plain text output.
    */
-  private processStdout(
-    agentId: string,
-    session: AcpAgentSession,
-    text: string,
-  ): void {
+  private processStdout(agentId: string, session: AcpAgentSession, text: string): void {
     // Append to input buffer for line-based parsing
     session.inputBuffer += text;
 
@@ -655,11 +625,7 @@ export class AcpDriver extends BaseDriver {
   /**
    * Process stderr output from the agent.
    */
-  private processStderr(
-    agentId: string,
-    _session: AcpAgentSession,
-    text: string,
-  ): void {
+  private processStderr(agentId: string, _session: AcpAgentSession, text: string): void {
     // Log stderr as system/error output
     this.addOutput(agentId, {
       timestamp: new Date(),
@@ -730,10 +696,7 @@ export class AcpDriver extends BaseDriver {
     }
   }
 
-  private handleJsonRpcResponse(
-    session: AcpAgentSession,
-    event: Record<string, unknown>,
-  ): boolean {
+  private handleJsonRpcResponse(session: AcpAgentSession, event: Record<string, unknown>): boolean {
     if (event["jsonrpc"] !== "2.0" || !("id" in event)) {
       return false;
     }
@@ -941,9 +904,7 @@ export class AcpDriver extends BaseDriver {
   }
 
   private handleError(agentId: string, event: Record<string, unknown>): void {
-    const error = new Error(
-      (event["message"] as string) ?? "Unknown ACP error",
-    );
+    const error = new Error((event["message"] as string) ?? "Unknown ACP error");
 
     this.emitEvent(agentId, {
       type: "error",
@@ -983,12 +944,7 @@ export class AcpDriver extends BaseDriver {
     }
 
     this.emitEvent(agentId, {
-      type:
-        operation === "read"
-          ? "file_read"
-          : operation === "write"
-            ? "file_write"
-            : "file_edit",
+      type: operation === "read" ? "file_read" : operation === "write" ? "file_write" : "file_edit",
       agentId,
       timestamp: new Date(),
       path,
@@ -1038,9 +994,7 @@ export class AcpDriver extends BaseDriver {
 /**
  * Factory function to create an ACP driver.
  */
-export async function createAcpDriver(
-  options?: AcpDriverOptions,
-): Promise<AcpDriver> {
+export async function createAcpDriver(options?: AcpDriverOptions): Promise<AcpDriver> {
   const config = createDriverOptions("acp", options);
   const driver = new AcpDriver(config, options);
 

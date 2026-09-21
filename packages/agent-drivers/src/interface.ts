@@ -118,11 +118,7 @@ export interface AgentDriver {
    * @returns Array of output lines
    * @throws {AgentNotFoundError} If the agent doesn't exist
    */
-  getOutput(
-    agentId: string,
-    since?: Date,
-    limit?: number,
-  ): Promise<OutputLine[]>;
+  getOutput(agentId: string, since?: Date, limit?: number): Promise<OutputLine[]>;
 
   /**
    * Subscribe to real-time agent events.
@@ -148,10 +144,7 @@ export interface AgentDriver {
    * @returns Checkpoint metadata
    * @throws {NotSupportedError} If driver doesn't support checkpointing
    */
-  createCheckpoint?(
-    agentId: string,
-    description?: string,
-  ): Promise<CheckpointMetadata>;
+  createCheckpoint?(agentId: string, description?: string): Promise<CheckpointMetadata>;
 
   /**
    * List available checkpoints for an agent.
@@ -177,10 +170,7 @@ export interface AgentDriver {
    * @param checkpointId - The checkpoint to restore to
    * @returns The restored agent state
    */
-  restoreCheckpoint?(
-    agentId: string,
-    checkpointId: string,
-  ): Promise<AgentState>;
+  restoreCheckpoint?(agentId: string, checkpointId: string): Promise<AgentState>;
 }
 
 /**

@@ -354,10 +354,7 @@ export function normalizePaginationParams(
   defaults: PaginationDefaults = DEFAULT_PAGINATION,
 ): NormalizedPaginationParams {
   // Apply limit constraints
-  const limit = Math.min(
-    Math.max(1, params.limit ?? defaults.limit),
-    defaults.maxLimit,
-  );
+  const limit = Math.min(Math.max(1, params.limit ?? defaults.limit), defaults.maxLimit);
 
   // Determine direction and cursor
   // endingBefore takes precedence (backward pagination)
@@ -451,8 +448,7 @@ export function parseListQuery<Sort extends string = string>(
 ): ListQuery<Sort> {
   const defaultLimit = options.defaultLimit ?? DEFAULT_PAGINATION.limit;
   const maxLimit = options.maxLimit ?? 200;
-  const defaultDirection: ListSortDirection =
-    options.defaultDirection ?? "desc";
+  const defaultDirection: ListSortDirection = options.defaultDirection ?? "desc";
 
   let limit = defaultLimit;
   if (query.limit) {
@@ -474,9 +470,7 @@ export function parseListQuery<Sort extends string = string>(
 
   const directionRaw = query.direction?.trim().toLowerCase();
   const direction: ListSortDirection =
-    directionRaw === "asc" || directionRaw === "desc"
-      ? directionRaw
-      : defaultDirection;
+    directionRaw === "asc" || directionRaw === "desc" ? directionRaw : defaultDirection;
 
   const sortRaw = query.sort?.trim();
   let sort: Sort | undefined = options.defaultSort;

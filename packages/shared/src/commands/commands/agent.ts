@@ -139,16 +139,7 @@ export const listAgents = defineCommand({
   description: "List all agents with optional filtering",
   input: z.object({
     state: z
-      .array(
-        z.enum([
-          "spawning",
-          "ready",
-          "executing",
-          "paused",
-          "terminating",
-          "terminated",
-        ]),
-      )
+      .array(z.enum(["spawning", "ready", "executing", "paused", "terminating", "terminated"]))
       .optional(),
     driver: z.array(z.string()).optional(),
     createdAfter: z.string().datetime().optional(),
@@ -219,11 +210,7 @@ export const stopAgent = defineCommand({
   },
   aiHints: {
     whenToUse: "Use to stop a running agent when it is no longer needed",
-    examples: [
-      "Stop agent abc123",
-      "Terminate the agent gracefully",
-      "Force stop a stuck agent",
-    ],
+    examples: ["Stop agent abc123", "Terminate the agent gracefully", "Force stop a stuck agent"],
     relatedCommands: ["agent.spawn", "agent.list"],
     pitfalls: [
       "Graceful shutdown waits for current operation to complete",
@@ -261,10 +248,7 @@ export const sendMessage = defineCommand({
       "Provide additional context to the agent",
     ],
     relatedCommands: ["agent.get", "agent.output"],
-    pitfalls: [
-      "Agent must be in ready or executing state",
-      "Use stream=true for real-time output",
-    ],
+    pitfalls: ["Agent must be in ready or executing state", "Use stream=true for real-time output"],
   },
 });
 
@@ -277,17 +261,7 @@ export const getOutput = defineCommand({
     cursor: z.string().optional(),
     limit: z.number().min(1).max(1000).default(100),
     types: z
-      .array(
-        z.enum([
-          "text",
-          "markdown",
-          "thinking",
-          "tool_use",
-          "tool_result",
-          "error",
-          "system",
-        ]),
-      )
+      .array(z.enum(["text", "markdown", "thinking", "tool_use", "tool_result", "error", "system"]))
       .optional(),
     wait: z.number().min(0).max(30000).optional(),
   }),
@@ -326,10 +300,7 @@ export const getOutput = defineCommand({
       "Long-poll for real-time updates",
     ],
     relatedCommands: ["agent.send", "agent.get"],
-    pitfalls: [
-      "Use wait parameter for long-polling",
-      "Cursor may expire after ring buffer wraps",
-    ],
+    pitfalls: ["Use wait parameter for long-polling", "Cursor may expire after ring buffer wraps"],
   },
 });
 
@@ -369,10 +340,7 @@ export const interruptAgent = defineCommand({
       "Resume a paused agent with SIGCONT",
     ],
     relatedCommands: ["agent.stop", "agent.send"],
-    pitfalls: [
-      "SIGINT may not stop all operations",
-      "SIGTSTP pauses but does not terminate",
-    ],
+    pitfalls: ["SIGINT may not stop all operations", "SIGTSTP pauses but does not terminate"],
   },
 });
 

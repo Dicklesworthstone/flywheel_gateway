@@ -89,9 +89,7 @@ describe("createCommandRegistry", () => {
   });
 
   it("rejects duplicate command names", () => {
-    expect(() => createCommandRegistry([spawnCmd, spawnCmd])).toThrow(
-      "Duplicate command name",
-    );
+    expect(() => createCommandRegistry([spawnCmd, spawnCmd])).toThrow("Duplicate command name");
   });
 
   it("detects REST path conflicts", () => {
@@ -108,9 +106,7 @@ describe("createCommandRegistry", () => {
         relatedCommands: [],
       },
     });
-    expect(() => createCommandRegistry([spawnCmd, conflictingCmd])).toThrow(
-      "REST path conflict",
-    );
+    expect(() => createCommandRegistry([spawnCmd, conflictingCmd])).toThrow("REST path conflict");
   });
 });
 
@@ -171,8 +167,6 @@ describe("validateRegistry", () => {
     });
     const registry = createCommandRegistry([cmdWithMissingRelated]);
     const result = validateRegistry(registry);
-    expect(
-      result.issues.some((i) => i.includes("unknown related command")),
-    ).toBe(true);
+    expect(result.issues.some((i) => i.includes("unknown related command"))).toBe(true);
   });
 });

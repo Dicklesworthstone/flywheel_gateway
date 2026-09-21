@@ -131,10 +131,7 @@ export interface WrapListOptions {
  * });
  * ```
  */
-export function wrapList<T>(
-  data: T[],
-  options: WrapListOptions,
-): ApiListResponse<T> {
+export function wrapList<T>(data: T[], options: WrapListOptions): ApiListResponse<T> {
   const response: ApiListResponse<T> = {
     object: "list",
     data,
@@ -241,8 +238,7 @@ export function wrapError(options: WrapErrorOptions): ApiErrorResponse {
 
   // Add recoverable flag (from options or derived from severity)
   // terminal → not recoverable, recoverable/retry → recoverable
-  const recoverable =
-    options.recoverable ?? (severity ? severity !== "terminal" : true);
+  const recoverable = options.recoverable ?? (severity ? severity !== "terminal" : true);
   error.recoverable = recoverable;
 
   // Add severity

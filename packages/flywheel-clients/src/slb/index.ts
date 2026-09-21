@@ -8,16 +8,9 @@
  * CLI: https://github.com/Dicklesworthstone/slb
  */
 
-import {
-  CliClientError,
-  type CliErrorDetails,
-  type CliErrorKind,
-} from "@flywheel/shared";
+import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
 import { z } from "zod";
-import {
-  CliCommandError,
-  createBunCliRunner as createSharedBunCliRunner,
-} from "../cli-runner";
+import { CliCommandError, createBunCliRunner as createSharedBunCliRunner } from "../cli-runner";
 
 // ============================================================================
 // Command Runner Interface
@@ -202,10 +195,7 @@ export interface SlbHistoryOptions extends SlbCommandOptions {
 
 export interface SlbClient {
   /** Check what tier a command would be classified as */
-  check: (
-    command: string,
-    options?: SlbCommandOptions,
-  ) => Promise<SlbCheckResult>;
+  check: (command: string, options?: SlbCommandOptions) => Promise<SlbCheckResult>;
 
   /** Get current configuration */
   config: (options?: SlbCommandOptions) => Promise<SlbConfig>;
@@ -244,11 +234,7 @@ async function runSlbCommand(
   return result.stdout;
 }
 
-function parseJson<T>(
-  stdout: string,
-  schema: z.ZodSchema<T>,
-  context: string,
-): T {
+function parseJson<T>(stdout: string, schema: z.ZodSchema<T>, context: string): T {
   let parsed: unknown;
   try {
     parsed = JSON.parse(stdout);
@@ -261,13 +247,9 @@ function parseJson<T>(
 
   const result = schema.safeParse(parsed);
   if (!result.success) {
-    throw new SlbClientError(
-      "validation_error",
-      `Invalid SLB ${context} response`,
-      {
-        issues: result.error.issues,
-      },
-    );
+    throw new SlbClientError("validation_error", `Invalid SLB ${context} response`, {
+      issues: result.error.issues,
+    });
   }
 
   return result.data;
@@ -285,10 +267,7 @@ function buildRunOptions(
   return result;
 }
 
-async function getVersion(
-  runner: SlbCommandRunner,
-  cwd?: string,
-): Promise<string | null> {
+async function getVersion(runner: SlbCommandRunner, cwd?: string): Promise<string | null> {
   try {
     const opts: { cwd?: string; timeout: number } = { timeout: 5000 };
     if (cwd !== undefined) opts.cwd = cwd;
@@ -337,11 +316,7 @@ export function createSlbClient(options: SlbClientOptions): SlbClient {
       if (opts?.status) args.push("--status", opts.status);
       if (opts?.limit !== undefined) args.push("--limit", String(opts.limit));
 
-      const stdout = await runSlbCommand(
-        options.runner,
-        args,
-        buildRunOptions(options, opts),
-      );
+      const stdout = await runSlbCommand(options.runner, args, buildRunOptions(options, opts));
       return parseJson(stdout, SlbHistoryListSchema, "history");
     },
 
@@ -411,15 +386,11 @@ export function createBunSlbCommandRunner(): SlbCommandRunner {
             });
           }
           if (error.kind === "spawn_failed") {
-            throw new SlbClientError(
-              "unavailable",
-              "SLB command failed to start",
-              {
-                command,
-                args,
-                details: error.details,
-              },
-            );
+            throw new SlbClientError("unavailable", "SLB command failed to start", {
+              command,
+              args,
+              details: error.details,
+            });
           }
         }
         throw error;

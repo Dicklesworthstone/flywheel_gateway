@@ -9,11 +9,7 @@ export interface TestClientRequestOptions {
 }
 
 export interface TestClient {
-  request: (
-    method: string,
-    path: string,
-    options?: TestClientRequestOptions,
-  ) => Promise<Response>;
+  request: (method: string, path: string, options?: TestClientRequestOptions) => Promise<Response>;
   get: (path: string, options?: TestClientRequestOptions) => Promise<Response>;
   post: (path: string, options?: TestClientRequestOptions) => Promise<Response>;
   put: (path: string, options?: TestClientRequestOptions) => Promise<Response>;
@@ -83,9 +79,7 @@ export async function assertApiResponse<T = unknown>(
   for (const [key, value] of Object.entries(body)) {
     const actual = (data as Record<string, unknown>)[key];
     if (actual !== value) {
-      throw new Error(
-        `Expected response body ${key}=${String(value)}, got ${String(actual)}`,
-      );
+      throw new Error(`Expected response body ${key}=${String(value)}, got ${String(actual)}`);
     }
   }
 

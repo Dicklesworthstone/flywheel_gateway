@@ -48,9 +48,7 @@ describe("parity-check", () => {
 
       const result = checkCommandParity(cmd);
       expect(result.passed).toBe(false);
-      expect(result.errors).toContain(
-        "Long-running command must return a jobId field",
-      );
+      expect(result.errors).toContain("Long-running command must return a jobId field");
     });
 
     it("passes for long-running command with jobId", () => {
@@ -89,9 +87,7 @@ describe("parity-check", () => {
 
       const result = checkCommandParity(cmd);
       expect(result.passed).toBe(true); // Warnings don't fail
-      expect(result.warnings).toContain(
-        "Mutating operation should have audit: true",
-      );
+      expect(result.warnings).toContain("Mutating operation should have audit: true");
     });
 
     it("fails when path param is missing from input schema", () => {
@@ -111,9 +107,7 @@ describe("parity-check", () => {
 
       const result = checkCommandParity(cmd);
       expect(result.passed).toBe(false);
-      expect(result.errors).toContain(
-        'Path parameter ":testId" not found in input schema',
-      );
+      expect(result.errors).toContain('Path parameter ":testId" not found in input schema');
     });
 
     it("passes when path param exists in input schema", () => {
@@ -238,9 +232,7 @@ describe("parity-check", () => {
       const report = runParityCheck(registry);
 
       // Registry validation should find the missing related command
-      const registryResult = report.results.find(
-        (r) => r.command === "__registry__",
-      );
+      const registryResult = report.results.find((r) => r.command === "__registry__");
       expect(registryResult).toBeDefined();
       expect(registryResult?.passed).toBe(false);
     });

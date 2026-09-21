@@ -8,16 +8,9 @@
  * CLI: https://github.com/Dicklesworthstone/giil
  */
 
-import {
-  CliClientError,
-  type CliErrorDetails,
-  type CliErrorKind,
-} from "@flywheel/shared";
+import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
 import { z } from "zod";
-import {
-  CliCommandError,
-  createBunCliRunner as createSharedBunCliRunner,
-} from "../cli-runner";
+import { CliCommandError, createBunCliRunner as createSharedBunCliRunner } from "../cli-runner";
 
 // ============================================================================
 // Command Runner Interface
@@ -155,22 +148,13 @@ export interface GiilAlbumOptions extends GiilDownloadOptions {
 
 export interface GiilClient {
   /** Download a single image from a URL */
-  download: (
-    url: string,
-    options?: GiilDownloadOptions,
-  ) => Promise<GiilDownloadResult>;
+  download: (url: string, options?: GiilDownloadOptions) => Promise<GiilDownloadResult>;
 
   /** Download all images from an album */
-  downloadAlbum: (
-    url: string,
-    options?: GiilAlbumOptions,
-  ) => Promise<GiilAlbumResult>;
+  downloadAlbum: (url: string, options?: GiilAlbumOptions) => Promise<GiilAlbumResult>;
 
   /** Get direct URL for an image without downloading */
-  getDirectUrl: (
-    url: string,
-    options?: GiilCommandOptions,
-  ) => Promise<string | null>;
+  getDirectUrl: (url: string, options?: GiilCommandOptions) => Promise<string | null>;
 
   /** Get overall status */
   status: (options?: GiilCommandOptions) => Promise<GiilStatus>;
@@ -199,34 +183,22 @@ async function runGiilCommand(
   return result.stdout;
 }
 
-function parseJson<T>(
-  stdout: string,
-  schema: z.ZodSchema<T>,
-  context: string,
-): T {
+function parseJson<T>(stdout: string, schema: z.ZodSchema<T>, context: string): T {
   let parsed: unknown;
   try {
     parsed = JSON.parse(stdout);
   } catch (error) {
-    throw new GiilClientError(
-      "parse_error",
-      `Failed to parse GIIL ${context}`,
-      {
-        cause: error instanceof Error ? error.message : String(error),
-        stdout: stdout.slice(0, 500),
-      },
-    );
+    throw new GiilClientError("parse_error", `Failed to parse GIIL ${context}`, {
+      cause: error instanceof Error ? error.message : String(error),
+      stdout: stdout.slice(0, 500),
+    });
   }
 
   const result = schema.safeParse(parsed);
   if (!result.success) {
-    throw new GiilClientError(
-      "validation_error",
-      `Invalid GIIL ${context} response`,
-      {
-        issues: result.error.issues,
-      },
-    );
+    throw new GiilClientError("validation_error", `Invalid GIIL ${context} response`, {
+      issues: result.error.issues,
+    });
   }
 
   return result.data;
@@ -244,16 +216,12 @@ function buildRunOptions(
   return result;
 }
 
-function buildDownloadArgs(
-  options: GiilClientOptions,
-  override?: GiilDownloadOptions,
-): string[] {
+function buildDownloadArgs(options: GiilClientOptions, override?: GiilDownloadOptions): string[] {
   const args: string[] = [];
 
   const outputDir = override?.outputDir ?? options.outputDir;
   if (outputDir) args.push("--output", outputDir);
-  if (override?.quality !== undefined)
-    args.push("--quality", String(override.quality));
+  if (override?.quality !== undefined) args.push("--quality", String(override.quality));
   if (override?.preserve) args.push("--preserve");
   if (override?.convert) args.push("--convert", override.convert);
   if (override?.base64) args.push("--base64");
@@ -262,10 +230,7 @@ function buildDownloadArgs(
   return args;
 }
 
-async function getVersion(
-  runner: GiilCommandRunner,
-  cwd?: string,
-): Promise<string | null> {
+async function getVersion(runner: GiilCommandRunner, cwd?: string): Promise<string | null> {
   try {
     const opts: { cwd?: string; timeout: number } = { timeout: 5000 };
     if (cwd !== undefined) opts.cwd = cwd;
@@ -284,21 +249,12 @@ export function createGiilClient(options: GiilClientOptions): GiilClient {
     download: async (url, opts) => {
       const args = [url, "--json", ...buildDownloadArgs(options, opts)];
 
-      const stdout = await runGiilCommand(
-        options.runner,
-        args,
-        buildRunOptions(options, opts),
-      );
+      const stdout = await runGiilCommand(options.runner, args, buildRunOptions(options, opts));
       return parseJson(stdout, GiilDownloadResultSchema, "download");
     },
 
     downloadAlbum: async (url, opts) => {
-      const args = [
-        url,
-        "--json",
-        "--all",
-        ...buildDownloadArgs(options, opts),
-      ];
+      const args = [url, "--json", "--all", ...buildDownloadArgs(options, opts)];
 
       const stdout = await runGiilCommand(
         options.runner,
@@ -312,11 +268,7 @@ export function createGiilClient(options: GiilClientOptions): GiilClient {
       const args = [url, "--print-url", "--quiet"];
 
       try {
-        const stdout = await runGiilCommand(
-          options.runner,
-          args,
-          buildRunOptions(options, opts),
-        );
+        const stdout = await runGiilCommand(options.runner, args, buildRunOptions(options, opts));
         const directUrl = stdout.trim();
         return directUrl.startsWith("http") ? directUrl : null;
       } catch {
@@ -326,10 +278,7 @@ export function createGiilClient(options: GiilClientOptions): GiilClient {
 
     status: async (opts): Promise<GiilStatus> => {
       try {
-        const version = await getVersion(
-          options.runner,
-          opts?.cwd ?? options.cwd,
-        );
+        const version = await getVersion(options.runner, opts?.cwd ?? options.cwd);
 
         const status: GiilStatus = {
           available: true,
@@ -385,15 +334,11 @@ export function createBunGiilCommandRunner(): GiilCommandRunner {
             });
           }
           if (error.kind === "spawn_failed") {
-            throw new GiilClientError(
-              "unavailable",
-              "GIIL command failed to start",
-              {
-                command,
-                args,
-                details: error.details,
-              },
-            );
+            throw new GiilClientError("unavailable", "GIIL command failed to start", {
+              command,
+              args,
+              details: error.details,
+            });
           }
         }
         throw error;

@@ -1,9 +1,5 @@
 import type { z } from "zod";
-import type {
-  CommandDefinition,
-  CommandDefinitionInput,
-  RegisteredCommand,
-} from "./types";
+import type { CommandDefinition, CommandDefinitionInput, RegisteredCommand } from "./types";
 
 /**
  * Extract path parameters from a REST path template.
@@ -52,10 +48,7 @@ function extractCategory(name: string): string {
  * });
  * ```
  */
-export function defineCommand<
-  TInput extends z.ZodType,
-  TOutput extends z.ZodType,
->(
+export function defineCommand<TInput extends z.ZodType, TOutput extends z.ZodType>(
   input: CommandDefinitionInput<TInput, TOutput>,
 ): RegisteredCommand<TInput, TOutput> {
   // Validate command name format (category.action or just category, lowercase only)
@@ -67,29 +60,21 @@ export function defineCommand<
 
   // Validate REST path format
   if (!input.rest.path.startsWith("/")) {
-    throw new Error(
-      `Invalid REST path "${input.rest.path}". Must start with "/".`,
-    );
+    throw new Error(`Invalid REST path "${input.rest.path}". Must start with "/".`);
   }
 
   // Validate that DELETE commands are not marked as safe
   if (input.rest.method === "DELETE" && input.metadata.safe) {
-    throw new Error(
-      `Command "${input.name}" is a DELETE operation and cannot be marked as safe.`,
-    );
+    throw new Error(`Command "${input.name}" is a DELETE operation and cannot be marked as safe.`);
   }
 
   // Validate AI hints
   if (!input.aiHints.whenToUse || input.aiHints.whenToUse.trim().length === 0) {
-    throw new Error(
-      `Command "${input.name}" must have a non-empty whenToUse AI hint.`,
-    );
+    throw new Error(`Command "${input.name}" must have a non-empty whenToUse AI hint.`);
   }
 
   if (!input.aiHints.examples || input.aiHints.examples.length === 0) {
-    throw new Error(
-      `Command "${input.name}" must have at least one example in AI hints.`,
-    );
+    throw new Error(`Command "${input.name}" must have at least one example in AI hints.`);
   }
 
   // Build definition with conditional optional properties
@@ -119,14 +104,10 @@ export function defineCommand<
  * Type helper to infer command input type.
  */
 export type InferCommandInput<T extends RegisteredCommand> =
-  T extends RegisteredCommand<infer TInput, z.ZodType>
-    ? z.infer<TInput>
-    : never;
+  T extends RegisteredCommand<infer TInput, z.ZodType> ? z.infer<TInput> : never;
 
 /**
  * Type helper to infer command output type.
  */
 export type InferCommandOutput<T extends RegisteredCommand> =
-  T extends RegisteredCommand<z.ZodType, infer TOutput>
-    ? z.infer<TOutput>
-    : never;
+  T extends RegisteredCommand<z.ZodType, infer TOutput> ? z.infer<TOutput> : never;

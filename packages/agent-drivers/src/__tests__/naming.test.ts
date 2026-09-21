@@ -93,9 +93,7 @@ describe("extractProjectName", () => {
     });
 
     it("truncates to max 16 characters", () => {
-      const result = extractProjectName(
-        "/home/user/very-long-project-name-that-exceeds-limit",
-      );
+      const result = extractProjectName("/home/user/very-long-project-name-that-exceeds-limit");
       expect(result.length).toBeLessThanOrEqual(16);
     });
   });
@@ -308,9 +306,7 @@ describe("parseNtmSessionName", () => {
     });
 
     it("parses session name with complex project name", () => {
-      const parsed = parseNtmSessionName(
-        "fw-flywheel-gateway-v2-claude-xyz789",
-      );
+      const parsed = parseNtmSessionName("fw-flywheel-gateway-v2-claude-xyz789");
       expect(parsed).toEqual({
         project: "flywheel-gateway-v2",
         agent: "claude",
@@ -375,9 +371,7 @@ describe("createAgentNtmMapping", () => {
       const config = createTestConfig();
       const mapping = createAgentNtmMapping(config);
       // Note: underscores are preserved in tmux-safe names
-      expect(mapping.sessionName).toMatch(
-        /^fw-[a-z0-9_-]+-[a-z0-9]+-[a-z0-9]{6}$/,
-      );
+      expect(mapping.sessionName).toMatch(/^fw-[a-z0-9_-]+-[a-z0-9]+-[a-z0-9]{6}$/);
     });
 
     it("generates pane ID based on session name", () => {
@@ -474,9 +468,7 @@ describe("naming integration", () => {
     // Generate session name
     const sessionName = generateNtmSessionName({ config });
     // Note: underscores preserved, agent label truncated to 12 chars ("integrationtest" → "integrationt")
-    expect(sessionName).toMatch(
-      /^fw-flywheel_gateway-integrationt-[a-z0-9]{6}$/,
-    );
+    expect(sessionName).toMatch(/^fw-flywheel_gateway-integrationt-[a-z0-9]{6}$/);
 
     // Generate pane ID
     const paneId = generateNtmPaneId(sessionName);
@@ -622,12 +614,8 @@ describe("structured logging support", () => {
     // All parts should be populated
     expect(traceContext.agent.id).toBe("agent_ctx_test");
     expect(traceContext.agent.label).toBe("contexttest");
-    expect(traceContext.ntm.session).toMatch(
-      /^fw-test-project-contexttest-[a-z0-9]{6}$/,
-    );
-    expect(traceContext.ntm.pane).toMatch(
-      /^fw-test-project-contexttest-[a-z0-9]{6}:0\.0$/,
-    );
+    expect(traceContext.ntm.session).toMatch(/^fw-test-project-contexttest-[a-z0-9]{6}$/);
+    expect(traceContext.ntm.pane).toMatch(/^fw-test-project-contexttest-[a-z0-9]{6}:0\.0$/);
     expect(traceContext.correlation.project).toBe("test-project");
     expect(traceContext.correlation.suffix.length).toBe(6);
   });

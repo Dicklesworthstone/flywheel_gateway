@@ -5,11 +5,7 @@
  * Always uses robot mode for JSON output.
  */
 
-import {
-  CliClientError,
-  type CliErrorDetails,
-  type CliErrorKind,
-} from "@flywheel/shared";
+import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
 import { z } from "zod";
 import {
   CliCommandError,
@@ -235,17 +231,10 @@ export interface AprClient {
   getHistory: (options?: AprWorkflowOptions) => Promise<AprHistory>;
 
   /** Diff rounds */
-  diffRounds: (
-    roundA: number,
-    roundB?: number,
-    options?: AprDiffOptions,
-  ) => Promise<AprDiff>;
+  diffRounds: (roundA: number, roundB?: number, options?: AprDiffOptions) => Promise<AprDiff>;
 
   /** Get integration prompt */
-  getIntegrationPrompt: (
-    round: number,
-    options?: AprRoundOptions,
-  ) => Promise<AprIntegration>;
+  getIntegrationPrompt: (round: number, options?: AprRoundOptions) => Promise<AprIntegration>;
 
   /** Get stats */
   getStats: (options?: AprWorkflowOptions) => Promise<AprStats>;
@@ -255,11 +244,7 @@ export interface AprClient {
 // Implementation Helpers
 // ============================================================================
 
-function parseJson<T>(
-  stdout: string,
-  schema: z.ZodSchema<T>,
-  context: string,
-): T {
+function parseJson<T>(stdout: string, schema: z.ZodSchema<T>, context: string): T {
   let parsed: unknown;
   try {
     parsed = JSON.parse(stdout);
@@ -272,13 +257,9 @@ function parseJson<T>(
 
   const result = schema.safeParse(parsed);
   if (!result.success) {
-    throw new AprClientError(
-      "validation_error",
-      `Invalid APR ${context} response`,
-      {
-        issues: result.error.issues,
-      },
-    );
+    throw new AprClientError("validation_error", `Invalid APR ${context} response`, {
+      issues: result.error.issues,
+    });
   }
 
   return result.data;
@@ -293,20 +274,12 @@ function ensureOk(envelope: AprEnvelope, context: string): void {
   }
 }
 
-function parseData<T>(
-  envelope: AprEnvelope,
-  schema: z.ZodSchema<T>,
-  context: string,
-): T {
+function parseData<T>(envelope: AprEnvelope, schema: z.ZodSchema<T>, context: string): T {
   const result = schema.safeParse(envelope.data);
   if (!result.success) {
-    throw new AprClientError(
-      "validation_error",
-      `Invalid APR ${context} response`,
-      {
-        issues: result.error.issues,
-      },
-    );
+    throw new AprClientError("validation_error", `Invalid APR ${context} response`, {
+      issues: result.error.issues,
+    });
   }
   return result.data;
 }
@@ -529,15 +502,11 @@ export function createBunAprCommandRunner(): AprCommandRunner {
             });
           }
           if (error.kind === "spawn_failed") {
-            throw new AprClientError(
-              "unavailable",
-              "APR command failed to start",
-              {
-                command,
-                args,
-                details: error.details,
-              },
-            );
+            throw new AprClientError("unavailable", "APR command failed to start", {
+              command,
+              args,
+              details: error.details,
+            });
           }
         }
         throw error;

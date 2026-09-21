@@ -32,8 +32,7 @@ const DRIVER_DEBUG_ENABLED = process.env["FLYWHEEL_DRIVER_DEBUG"] === "1";
 let driverLogger: DriverLogger | undefined;
 
 // Alphanumeric charset for secure ID generation
-const ID_CHARSET =
-  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const ID_CHARSET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 /**
  * Generate a cryptographically secure random ID with the given prefix.
@@ -136,18 +135,12 @@ export abstract class BaseDriver implements AgentDriver {
   /**
    * Driver-specific message sending logic.
    */
-  protected abstract doSend(
-    agentId: string,
-    message: string,
-  ): Promise<SendResult>;
+  protected abstract doSend(agentId: string, message: string): Promise<SendResult>;
 
   /**
    * Driver-specific termination logic.
    */
-  protected abstract doTerminate(
-    agentId: string,
-    graceful: boolean,
-  ): Promise<void>;
+  protected abstract doTerminate(agentId: string, graceful: boolean): Promise<void>;
 
   /**
    * Driver-specific interrupt logic.
@@ -217,12 +210,7 @@ export abstract class BaseDriver implements AgentDriver {
       throw new Error(`Agent not found: ${agentId}`);
     }
     // Return state without internal fields
-    const {
-      outputBuffer,
-      eventSubscribers,
-      stallCheckInterval,
-      ...agentState
-    } = state;
+    const { outputBuffer, eventSubscribers, stallCheckInterval, ...agentState } = state;
     return agentState;
   }
 
@@ -290,9 +278,7 @@ export abstract class BaseDriver implements AgentDriver {
 
   async interrupt(agentId: string): Promise<void> {
     if (!this.capabilities.interrupt) {
-      throw new Error(
-        `Driver ${this.driverType} does not support interruption`,
-      );
+      throw new Error(`Driver ${this.driverType} does not support interruption`);
     }
 
     const state = this.agents.get(agentId);
@@ -313,11 +299,7 @@ export abstract class BaseDriver implements AgentDriver {
     this.updateState(agentId, { activityState: "idle" });
   }
 
-  async getOutput(
-    agentId: string,
-    since?: Date,
-    limit = 100,
-  ): Promise<OutputLine[]> {
+  async getOutput(agentId: string, since?: Date, limit = 100): Promise<OutputLine[]> {
     const state = this.agents.get(agentId);
     if (!state) {
       throw new Error(`Agent not found: ${agentId}`);
@@ -330,10 +312,7 @@ export abstract class BaseDriver implements AgentDriver {
     return output.slice(-limit);
   }
 
-  async *subscribe(
-    agentId: string,
-    signal?: AbortSignal,
-  ): AsyncIterable<AgentEvent> {
+  async *subscribe(agentId: string, signal?: AbortSignal): AsyncIterable<AgentEvent> {
     const state = this.agents.get(agentId);
     if (!state) {
       throw new Error(`Agent not found: ${agentId}`);
@@ -472,29 +451,21 @@ export abstract class BaseDriver implements AgentDriver {
   /**
    * Update token usage for an agent by accumulating (adding) new usage.
    */
-  protected updateTokenUsage(
-    agentId: string,
-    usage: Partial<TokenUsage>,
-  ): void {
+  protected updateTokenUsage(agentId: string, usage: Partial<TokenUsage>): void {
     const state = this.agents.get(agentId);
     if (!state) return;
 
     // Accumulate token usage (add new values to existing)
     const nextUsage: TokenUsage = {
-      promptTokens:
-        (state.tokenUsage.promptTokens ?? 0) + (usage.promptTokens ?? 0),
-      completionTokens:
-        (state.tokenUsage.completionTokens ?? 0) +
-        (usage.completionTokens ?? 0),
+      promptTokens: (state.tokenUsage.promptTokens ?? 0) + (usage.promptTokens ?? 0),
+      completionTokens: (state.tokenUsage.completionTokens ?? 0) + (usage.completionTokens ?? 0),
       totalTokens: 0, // Will be calculated below
     };
     // Calculate total (use provided total if given, otherwise sum prompt + completion)
     if (usage.totalTokens !== undefined) {
-      nextUsage.totalTokens =
-        (state.tokenUsage.totalTokens ?? 0) + usage.totalTokens;
+      nextUsage.totalTokens = (state.tokenUsage.totalTokens ?? 0) + usage.totalTokens;
     } else {
-      nextUsage.totalTokens =
-        nextUsage.promptTokens + nextUsage.completionTokens;
+      nextUsage.totalTokens = nextUsage.promptTokens + nextUsage.completionTokens;
     }
     state.tokenUsage = nextUsage;
 
@@ -512,9 +483,7 @@ export abstract class BaseDriver implements AgentDriver {
     state.tokenUsage = {
       promptTokens: usage.promptTokens ?? 0,
       completionTokens: usage.completionTokens ?? 0,
-      totalTokens:
-        usage.totalTokens ??
-        (usage.promptTokens ?? 0) + (usage.completionTokens ?? 0),
+      totalTokens: usage.totalTokens ?? (usage.promptTokens ?? 0) + (usage.completionTokens ?? 0),
     };
 
     this.updateContextHealth(agentId, state);
@@ -523,10 +492,7 @@ export abstract class BaseDriver implements AgentDriver {
   /**
    * Update context health based on current token usage.
    */
-  private updateContextHealth(
-    agentId: string,
-    state: InternalAgentState,
-  ): void {
+  private updateContextHealth(agentId: string, state: InternalAgentState): void {
     // Calculate context health
     const maxTokens = state.config.maxTokens ?? 100000;
     const usagePercent = (state.tokenUsage.totalTokens / maxTokens) * 100;

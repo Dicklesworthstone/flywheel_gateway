@@ -80,11 +80,7 @@ export function detectOutputFormat(output: string): OutputFormat | "text" {
     try {
       const parsed = JSON.parse(trimmed);
       // Check SARIF before generic JSON
-      if (
-        typeof parsed === "object" &&
-        parsed !== null &&
-        !Array.isArray(parsed)
-      ) {
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
         const obj = parsed as Record<string, unknown>;
         if (
           obj["$schema"]?.toString().includes("sarif") ||
@@ -156,9 +152,7 @@ export function isToonFormat(output: string): boolean {
  * - Tables: `│ col1 │ col2 │ col3 │`
  * - Separators: `├───┼───┤`
  */
-export function parseToon(
-  input: string,
-): ToonParseResult<Record<string, unknown>> {
+export function parseToon(input: string): ToonParseResult<Record<string, unknown>> {
   const trimmed = input.trim();
   if (!trimmed) {
     return {
@@ -357,10 +351,7 @@ function parseCsvSimple(input: string): Array<Record<string, string>> {
 /**
  * Parse and validate TOON output against a Zod schema.
  */
-export function parseToonWithSchema<T>(
-  input: string,
-  schema: z.ZodType<T>,
-): ToonParseResult<T> {
+export function parseToonWithSchema<T>(input: string, schema: z.ZodType<T>): ToonParseResult<T> {
   const result = parseToon(input);
   if (!result.ok || !result.data) return result as ToonParseResult<T>;
 

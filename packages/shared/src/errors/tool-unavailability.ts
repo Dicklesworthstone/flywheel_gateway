@@ -41,10 +41,7 @@ export interface UnavailabilityMeta {
   retryable: boolean;
 }
 
-export const UNAVAILABILITY_META: Record<
-  ToolUnavailabilityReason,
-  UnavailabilityMeta
-> = {
+export const UNAVAILABILITY_META: Record<ToolUnavailabilityReason, UnavailabilityMeta> = {
   not_installed: { httpStatus: 404, label: "Not Installed", retryable: false },
   not_in_path: { httpStatus: 404, label: "Not in PATH", retryable: false },
   permission_denied: {
@@ -183,14 +180,9 @@ const EXIT_CODE_MAP: Record<number, ToolUnavailabilityReason> = {
  *   3. Error message pattern match
  *   4. Fallback to "unknown"
  */
-export function classifyToolUnavailability(
-  input: ClassificationInput,
-): ToolUnavailabilityReason {
+export function classifyToolUnavailability(input: ClassificationInput): ToolUnavailabilityReason {
   const stderr = input.stderr ?? "";
-  const errorMsg =
-    typeof input.error === "string"
-      ? input.error
-      : (input.error?.message ?? "");
+  const errorMsg = typeof input.error === "string" ? input.error : (input.error?.message ?? "");
   const combined = `${stderr} ${errorMsg}`;
 
   // 1. Check stderr + error message patterns
@@ -220,27 +212,21 @@ export function classifyToolUnavailability(
 /**
  * Get the HTTP status code for a tool unavailability reason.
  */
-export function getUnavailabilityHttpStatus(
-  reason: ToolUnavailabilityReason,
-): number {
+export function getUnavailabilityHttpStatus(reason: ToolUnavailabilityReason): number {
   return UNAVAILABILITY_META[reason].httpStatus;
 }
 
 /**
  * Get the UI display label for a tool unavailability reason.
  */
-export function getUnavailabilityLabel(
-  reason: ToolUnavailabilityReason,
-): string {
+export function getUnavailabilityLabel(reason: ToolUnavailabilityReason): string {
   return UNAVAILABILITY_META[reason].label;
 }
 
 /**
  * Whether the unavailability is potentially transient and worth retrying.
  */
-export function isRetryableUnavailability(
-  reason: ToolUnavailabilityReason,
-): boolean {
+export function isRetryableUnavailability(reason: ToolUnavailabilityReason): boolean {
   return UNAVAILABILITY_META[reason].retryable;
 }
 

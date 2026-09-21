@@ -547,9 +547,7 @@ describe("Response Type Safety", () => {
       createdAt: string;
     }
 
-    const checkpoints: Checkpoint[] = [
-      { id: "cp_1", createdAt: "2024-01-15T10:00:00Z" },
-    ];
+    const checkpoints: Checkpoint[] = [{ id: "cp_1", createdAt: "2024-01-15T10:00:00Z" }];
     const response = wrapList<Checkpoint>(checkpoints, { url: "/checkpoints" });
 
     // TypeScript should allow accessing typed fields

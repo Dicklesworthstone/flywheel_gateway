@@ -16,9 +16,7 @@ function createRunner(stdout: string, exitCode = 0) {
   };
 }
 
-function createRunnerWithMap(
-  map: Record<string, { stdout: string; exitCode?: number }>,
-) {
+function createRunnerWithMap(map: Record<string, { stdout: string; exitCode?: number }>) {
   const calls: { command: string; args: string[] }[] = [];
   return {
     calls,
@@ -39,9 +37,7 @@ function createRunnerWithMap(
 describe("BR client", () => {
   describe("ready command", () => {
     test("parses ready output as issue list", async () => {
-      const issues = [
-        { id: "bd-123", title: "Test issue", status: "open", priority: 2 },
-      ];
+      const issues = [{ id: "bd-123", title: "Test issue", status: "open", priority: 2 }];
       const runner = createRunner(JSON.stringify(issues));
       const client = createBrClient({ runner });
 

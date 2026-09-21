@@ -20,11 +20,7 @@ const LOG_LEVELS: TestLogLevel[] = ["trace", "debug", "info", "warn", "error"];
 
 export function createTestLogger(): TestLogger {
   const entries: TestLogEntry[] = [];
-  const log = (
-    level: TestLogLevel,
-    message: string,
-    meta?: Record<string, unknown>,
-  ) => {
+  const log = (level: TestLogLevel, message: string, meta?: Record<string, unknown>) => {
     // Build entry conditionally (for exactOptionalPropertyTypes)
     const entry: TestLogEntry = {
       level,
@@ -76,9 +72,7 @@ export function assertLogContains(
   }
 }
 
-export function getTestLogSummary(
-  logs: TestLogEntry[],
-): Record<TestLogLevel, number> {
+export function getTestLogSummary(logs: TestLogEntry[]): Record<TestLogLevel, number> {
   return LOG_LEVELS.reduce(
     (acc, level) => {
       acc[level] = logs.filter((entry) => entry.level === level).length;

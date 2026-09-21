@@ -58,26 +58,19 @@ export function deriveErrorCategory(code: string): ErrorCategory {
   if (upperCode.startsWith("DRIVER_")) return "driver";
   if (upperCode.startsWith("WS_")) return "websocket";
   if (upperCode.startsWith("AUTH_")) return "auth";
-  if (
-    upperCode.startsWith("RATE_") ||
-    upperCode.includes("QUOTA") ||
-    upperCode.includes("LIMIT")
-  )
+  if (upperCode.startsWith("RATE_") || upperCode.includes("QUOTA") || upperCode.includes("LIMIT"))
     return "rate_limit";
-  if (upperCode.startsWith("ACCOUNT_") || upperCode.includes("BYOA"))
-    return "account";
+  if (upperCode.startsWith("ACCOUNT_") || upperCode.includes("BYOA")) return "account";
   if (upperCode.startsWith("PROVISIONING_")) return "provisioning";
   if (upperCode.startsWith("RESERVATION_")) return "reservation";
-  if (upperCode.startsWith("CHECKPOINT_") || upperCode.includes("RESTORE"))
-    return "checkpoint";
+  if (upperCode.startsWith("CHECKPOINT_") || upperCode.includes("RESTORE")) return "checkpoint";
   if (
     upperCode.includes("RECIPIENT") ||
     upperCode.includes("CONTACT") ||
     upperCode.includes("MESSAGE")
   )
     return "mail";
-  if (upperCode.startsWith("BEAD_") || upperCode.includes("DEPENDENCY"))
-    return "bead";
+  if (upperCode.startsWith("BEAD_") || upperCode.includes("DEPENDENCY")) return "bead";
   if (upperCode.includes("SCAN")) return "scanner";
   if (upperCode.includes("DAEMON")) return "daemon";
   if (
@@ -86,14 +79,9 @@ export function deriveErrorCategory(code: string): ErrorCategory {
     upperCode.includes("VALIDATION")
   )
     return "validation";
-  if (
-    upperCode.includes("APPROVAL") ||
-    upperCode.includes("SAFETY") ||
-    upperCode.includes("DCG")
-  )
+  if (upperCode.includes("APPROVAL") || upperCode.includes("SAFETY") || upperCode.includes("DCG"))
     return "safety";
-  if (upperCode.includes("FLEET") || upperCode.includes("SWEEP"))
-    return "fleet";
+  if (upperCode.includes("FLEET") || upperCode.includes("SWEEP")) return "fleet";
   if (
     upperCode.includes("SYSTEM") ||
     upperCode.includes("INTERNAL") ||
@@ -490,9 +478,7 @@ export function isApiResponse<T>(value: unknown): value is ApiResponse<T> {
  * @param value - The value to check
  * @returns True if value matches ApiListResponse structure
  */
-export function isApiListResponse<T>(
-  value: unknown,
-): value is ApiListResponse<T> {
+export function isApiListResponse<T>(value: unknown): value is ApiListResponse<T> {
   if (typeof value !== "object" || value === null) {
     return false;
   }
@@ -541,10 +527,7 @@ export function isApiErrorResponse(value: unknown): value is ApiErrorResponse {
  * Union type for all API responses.
  * Useful for generic response handling.
  */
-export type ApiResponseUnion<T> =
-  | ApiResponse<T>
-  | ApiListResponse<T>
-  | ApiErrorResponse;
+export type ApiResponseUnion<T> = ApiResponse<T> | ApiListResponse<T> | ApiErrorResponse;
 
 /**
  * Type guard to check if a response is successful (not an error).

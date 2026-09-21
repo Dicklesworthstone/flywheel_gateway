@@ -24,9 +24,7 @@ export interface GeneratedRoute {
  * This produces Hono-compatible route definitions that can be used
  * to create route handlers.
  */
-export function generateRestRoutes(
-  registry: CommandRegistry,
-): GeneratedRoute[] {
+export function generateRestRoutes(registry: CommandRegistry): GeneratedRoute[] {
   const routes: GeneratedRoute[] = [];
 
   for (const cmd of registry.all()) {
@@ -62,8 +60,7 @@ function generateRoute(cmd: RegisteredCommand): GeneratedRoute {
 function generateHandlerCode(cmd: RegisteredCommand): string {
   const { name, rest, pathParams } = cmd;
   const methodLower = rest.method.toLowerCase();
-  const hasBody =
-    rest.method === "POST" || rest.method === "PUT" || rest.method === "PATCH";
+  const hasBody = rest.method === "POST" || rest.method === "PUT" || rest.method === "PATCH";
   const streaming = rest.streaming ?? false;
 
   // Build parameter extraction

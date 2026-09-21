@@ -15,9 +15,7 @@ export interface GeneratedWsEvent {
 /**
  * Generate WebSocket event definitions from the command registry.
  */
-export function generateWsEvents(
-  registry: CommandRegistry,
-): GeneratedWsEvent[] {
+export function generateWsEvents(registry: CommandRegistry): GeneratedWsEvent[] {
   const events: GeneratedWsEvent[] = [];
   const seenEvents = new Set<string>();
 
@@ -60,11 +58,7 @@ export function generateWsTypeDefinitions(registry: CommandRegistry): string {
     return "// No WebSocket events defined\nexport type WsEvent = never;";
   }
 
-  const lines: string[] = [
-    "// Generated WebSocket event types",
-    "",
-    "export type WsEventType =",
-  ];
+  const lines: string[] = ["// Generated WebSocket event types", "", "export type WsEventType ="];
 
   // Add event type literals
   for (let i = 0; i < events.length; i++) {

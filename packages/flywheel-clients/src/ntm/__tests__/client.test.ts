@@ -16,9 +16,7 @@ function createRunner(stdout: string, exitCode = 0) {
   };
 }
 
-function createRunnerWithMap(
-  map: Record<string, { stdout: string; exitCode?: number }>,
-) {
+function createRunnerWithMap(map: Record<string, { stdout: string; exitCode?: number }>) {
   const calls: { command: string; args: string[] }[] = [];
   return {
     calls,

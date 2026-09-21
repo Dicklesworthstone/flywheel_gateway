@@ -130,10 +130,7 @@ export interface WorkDetectionResult {
  * @param agentType - Optional agent type for type-specific patterns
  * @returns Detection result with activity state and confidence
  */
-export function detectWorkState(
-  output: string,
-  agentType?: string,
-): WorkDetectionResult {
+export function detectWorkState(output: string, agentType?: string): WorkDetectionResult {
   const matchedPatterns: string[] = [];
 
   let workScore = 0;
@@ -191,13 +188,11 @@ export function detectWorkState(
 
   // Calculate confidence based on total matches
   const totalMatches = workScore + idleScore + limitScore + contextLowScore;
-  const confidence =
-    totalMatches === 0 ? 0.1 : Math.min(0.95, 0.3 + totalMatches * 0.1);
+  const confidence = totalMatches === 0 ? 0.1 : Math.min(0.95, 0.3 + totalMatches * 0.1);
 
   // Determine states
   const isRateLimited = limitScore > 0;
-  const isContextLow =
-    contextLowScore > 0 || (contextRemainingPercent ?? 100) < 20;
+  const isContextLow = contextLowScore > 0 || (contextRemainingPercent ?? 100) < 20;
   const isWorking = workScore > idleScore && !isRateLimited;
   const isIdle = idleScore > workScore || (workScore === 0 && idleScore > 0);
 

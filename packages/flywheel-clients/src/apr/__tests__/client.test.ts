@@ -16,12 +16,7 @@ function createRunner(stdout: string, exitCode = 0) {
   };
 }
 
-function envelope(
-  data: unknown,
-  ok = true,
-  code = "OK",
-  hint?: string,
-): string {
+function envelope(data: unknown, ok = true, code = "OK", hint?: string): string {
   return JSON.stringify({
     ok,
     code,
@@ -174,9 +169,7 @@ describe("APR client", () => {
     });
 
     test("uses hint when no issues", async () => {
-      const runner = createRunner(
-        envelope({}, false, "VALIDATION_ERROR", "Parse error on line 5"),
-      );
+      const runner = createRunner(envelope({}, false, "VALIDATION_ERROR", "Parse error on line 5"));
       const client = createAprClient({ runner });
 
       const result = await client.validateRound(2);
@@ -410,9 +403,7 @@ describe("APR client", () => {
     });
 
     test("throws command_failed when envelope ok is false", async () => {
-      const runner = createRunner(
-        envelope({}, false, "ERR_CONFIG", "Config not found"),
-      );
+      const runner = createRunner(envelope({}, false, "ERR_CONFIG", "Config not found"));
       const client = createAprClient({ runner });
 
       let thrown: unknown;
@@ -424,9 +415,7 @@ describe("APR client", () => {
 
       expect(thrown).toBeInstanceOf(AprClientError);
       expect((thrown as AprClientError).kind).toBe("command_failed");
-      expect((thrown as AprClientError).details?.["hint"]).toBe(
-        "Config not found",
-      );
+      expect((thrown as AprClientError).details?.["hint"]).toBe("Config not found");
     });
 
     test("error includes diagnostic details", async () => {
@@ -450,11 +439,7 @@ describe("APR client", () => {
     test("passes cwd option", async () => {
       const calls: { cwd?: string }[] = [];
       const runner = {
-        run: async (
-          _command: string,
-          _args: string[],
-          options?: { cwd?: string },
-        ) => {
+        run: async (_command: string, _args: string[], options?: { cwd?: string }) => {
           const call: { cwd?: string } = {};
           if (options?.cwd !== undefined) {
             call.cwd = options.cwd;
@@ -483,11 +468,7 @@ describe("APR client", () => {
     test("passes timeout option", async () => {
       const calls: { timeout?: number }[] = [];
       const runner = {
-        run: async (
-          _command: string,
-          _args: string[],
-          options?: { timeout?: number },
-        ) => {
+        run: async (_command: string, _args: string[], options?: { timeout?: number }) => {
           const call: { timeout?: number } = {};
           if (options?.timeout !== undefined) {
             call.timeout = options.timeout;

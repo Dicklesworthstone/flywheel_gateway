@@ -12,12 +12,7 @@
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import type { CliCommandResult, CliCommandRunner } from "../cli-runner";
-import {
-  CliCommandError,
-  createBunCliRunner,
-  parseJson,
-  parseJsonWithSchema,
-} from "../cli-runner";
+import { CliCommandError, createBunCliRunner, parseJson, parseJsonWithSchema } from "../cli-runner";
 
 // =============================================================================
 // Test Utilities
@@ -34,10 +29,8 @@ function createMockRunner(result: Partial<CliCommandResult>): CliCommandRunner {
         stderr: result.stderr ?? "",
         exitCode: result.exitCode ?? 0,
       };
-      if (result.stdoutTruncated !== undefined)
-        response.stdoutTruncated = result.stdoutTruncated;
-      if (result.stderrTruncated !== undefined)
-        response.stderrTruncated = result.stderrTruncated;
+      if (result.stdoutTruncated !== undefined) response.stdoutTruncated = result.stdoutTruncated;
+      if (result.stderrTruncated !== undefined) response.stderrTruncated = result.stderrTruncated;
       if (result.timedOut !== undefined) response.timedOut = result.timedOut;
       return response;
     },
@@ -313,13 +306,9 @@ describe("createBunCliRunner", () => {
 
   test("merges environment variables", async () => {
     const runner = createBunCliRunner({ env: { DEFAULT_VAR: "default" } });
-    const result = await runner.run(
-      "sh",
-      ["-c", "echo $TEST_VAR:$DEFAULT_VAR"],
-      {
-        env: { TEST_VAR: "value" },
-      },
-    );
+    const result = await runner.run("sh", ["-c", "echo $TEST_VAR:$DEFAULT_VAR"], {
+      env: { TEST_VAR: "value" },
+    });
 
     expect(result.stdout.trim()).toBe("value:default");
   });
@@ -392,10 +381,7 @@ describe("createBunCliRunner output caps", () => {
   test("truncates stdout exceeding maxOutputBytes", async () => {
     const runner = createBunCliRunner({ maxOutputBytes: 100 });
     // Generate ~1000 bytes of output
-    const result = await runner.run("sh", [
-      "-c",
-      'yes "1234567890" | head -100',
-    ]);
+    const result = await runner.run("sh", ["-c", 'yes "1234567890" | head -100']);
 
     expect(result.stdout.length).toBeLessThanOrEqual(100);
     expect(result.stdoutTruncated).toBe(true);
@@ -404,10 +390,7 @@ describe("createBunCliRunner output caps", () => {
   test("truncates stderr exceeding maxOutputBytes", async () => {
     const runner = createBunCliRunner({ maxOutputBytes: 100 });
     // Generate ~1000 bytes of stderr
-    const result = await runner.run("sh", [
-      "-c",
-      'yes "1234567890" | head -100 >&2',
-    ]);
+    const result = await runner.run("sh", ["-c", 'yes "1234567890" | head -100 >&2']);
 
     expect(result.stderr.length).toBeLessThanOrEqual(100);
     expect(result.stderrTruncated).toBe(true);
@@ -567,9 +550,7 @@ describe("error detail logging", () => {
       error = e as CliCommandError;
     }
 
-    expect(error?.details?.["stdout"]).toBe(
-      "{malformed json with context data}",
-    );
+    expect(error?.details?.["stdout"]).toBe("{malformed json with context data}");
     expect(error?.details?.["cause"]).toBeDefined();
   });
 

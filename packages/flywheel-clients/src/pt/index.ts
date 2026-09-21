@@ -7,16 +7,9 @@
  * CLI: https://github.com/Dicklesworthstone/process_triage
  */
 
-import {
-  CliClientError,
-  type CliErrorDetails,
-  type CliErrorKind,
-} from "@flywheel/shared";
+import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
 import { z } from "zod";
-import {
-  CliCommandError,
-  createBunCliRunner as createSharedBunCliRunner,
-} from "../cli-runner";
+import { CliCommandError, createBunCliRunner as createSharedBunCliRunner } from "../cli-runner";
 
 // ============================================================================
 // Command Runner Interface
@@ -226,11 +219,7 @@ async function runPtCommand(
   return result.stdout;
 }
 
-function parseResponse<T>(
-  stdout: string,
-  schema: z.ZodSchema<T>,
-  context: string,
-): T {
+function parseResponse<T>(stdout: string, schema: z.ZodSchema<T>, context: string): T {
   // First parse the envelope
   let envelope: z.infer<typeof PtResponseSchema>;
   try {
@@ -245,26 +234,18 @@ function parseResponse<T>(
 
   // Check if response is OK
   if (!envelope.ok) {
-    throw new PtClientError(
-      "command_failed",
-      `PT ${context} failed: ${envelope.code}`,
-      {
-        code: envelope.code,
-        hint: envelope.hint,
-      },
-    );
+    throw new PtClientError("command_failed", `PT ${context} failed: ${envelope.code}`, {
+      code: envelope.code,
+      hint: envelope.hint,
+    });
   }
 
   // Parse the data with the specific schema
   const result = schema.safeParse(envelope.data);
   if (!result.success) {
-    throw new PtClientError(
-      "validation_error",
-      `Invalid PT ${context} response`,
-      {
-        issues: result.error.issues,
-      },
-    );
+    throw new PtClientError("validation_error", `Invalid PT ${context} response`, {
+      issues: result.error.issues,
+    });
   }
 
   return result.data;
@@ -282,10 +263,7 @@ function buildRunOptions(
   return result;
 }
 
-async function getVersion(
-  runner: PtCommandRunner,
-  cwd?: string,
-): Promise<string | null> {
+async function getVersion(runner: PtCommandRunner, cwd?: string): Promise<string | null> {
   try {
     const opts: { cwd?: string; timeout: number } = { timeout: 5000 };
     if (cwd !== undefined) opts.cwd = cwd;
@@ -302,21 +280,14 @@ async function getVersion(
 export function createPtClient(options: PtClientOptions): PtClient {
   return {
     doctor: async (opts) => {
-      const stdout = await runPtCommand(
-        options.runner,
-        ["doctor"],
-        buildRunOptions(options, opts),
-      );
+      const stdout = await runPtCommand(options.runner, ["doctor"], buildRunOptions(options, opts));
       return parseResponse(stdout, PtDoctorSchema, "doctor");
     },
 
     status: async (opts): Promise<PtStatus> => {
       try {
         const doctor = await createPtClient(options).doctor(opts);
-        const version = await getVersion(
-          options.runner,
-          opts?.cwd ?? options.cwd,
-        );
+        const version = await getVersion(options.runner, opts?.cwd ?? options.cwd);
 
         const status: PtStatus = {
           available: true,
@@ -365,11 +336,7 @@ export function createPtClient(options: PtClientOptions): PtClient {
         args.push("--limit", String(opts.limit));
       }
 
-      const stdout = await runPtCommand(
-        options.runner,
-        args,
-        buildRunOptions(options, opts),
-      );
+      const stdout = await runPtCommand(options.runner, args, buildRunOptions(options, opts));
       return parseResponse(stdout, PtScanResultSchema, "scan");
     },
 
@@ -413,15 +380,11 @@ export function createBunPtCommandRunner(): PtCommandRunner {
             });
           }
           if (error.kind === "spawn_failed") {
-            throw new PtClientError(
-              "unavailable",
-              "PT command failed to start",
-              {
-                command,
-                args,
-                details: error.details,
-              },
-            );
+            throw new PtClientError("unavailable", "PT command failed to start", {
+              command,
+              args,
+              details: error.details,
+            });
           }
         }
         throw error;

@@ -19,18 +19,8 @@ import {
   createAprClient,
 } from "../apr";
 // Import all clients
-import {
-  BrClientError,
-  type BrCommandResult,
-  type BrCommandRunner,
-  createBrClient,
-} from "../br";
-import {
-  BvClientError,
-  type BvCommandResult,
-  type BvCommandRunner,
-  createBvClient,
-} from "../bv";
+import { BrClientError, type BrCommandResult, type BrCommandRunner, createBrClient } from "../br";
+import { BvClientError, type BvCommandResult, type BvCommandRunner, createBvClient } from "../bv";
 import {
   CaamClientError,
   type CaamCommandResult,
@@ -43,24 +33,14 @@ import {
   type JfpCommandResult,
   type JfpCommandRunner,
 } from "../jfp";
-import {
-  createMsClient,
-  MsClientError,
-  type MsCommandResult,
-  type MsCommandRunner,
-} from "../ms";
+import { createMsClient, MsClientError, type MsCommandResult, type MsCommandRunner } from "../ms";
 import {
   createNtmClient,
   NtmClientError,
   type NtmCommandResult,
   type NtmCommandRunner,
 } from "../ntm";
-import {
-  createPtClient,
-  PtClientError,
-  type PtCommandResult,
-  type PtCommandRunner,
-} from "../pt";
+import { createPtClient, PtClientError, type PtCommandResult, type PtCommandRunner } from "../pt";
 
 // ============================================================================
 // Invocation Logger
@@ -77,11 +57,7 @@ interface Invocation {
 class InvocationLogger {
   private invocations: Invocation[] = [];
 
-  log(
-    command: string,
-    args: string[],
-    options?: { cwd?: string; timeout?: number },
-  ): void {
+  log(command: string, args: string[], options?: { cwd?: string; timeout?: number }): void {
     const invocation: Invocation = {
       timestamp: new Date().toISOString(),
       command,
@@ -133,9 +109,7 @@ interface StubMatcher {
   response: StubResponse;
 }
 
-function createStubRunner<
-  T extends { stdout: string; stderr: string; exitCode: number },
->(
+function createStubRunner<T extends { stdout: string; stderr: string; exitCode: number }>(
   matchers: StubMatcher[],
   logger: InvocationLogger,
   defaultResponse?: StubResponse,
@@ -155,9 +129,7 @@ function createStubRunner<
         if (matcher.command !== command) continue;
 
         if (matcher.argsContain) {
-          const allFound = matcher.argsContain.every((arg) =>
-            args.includes(arg),
-          );
+          const allFound = matcher.argsContain.every((arg) => args.includes(arg));
           if (!allFound) continue;
         }
 
@@ -1522,9 +1494,7 @@ describe("ntm Client Contract Tests", () => {
       expect(result.summary.total_agents).toBe(1);
 
       const inv = logger.getLast();
-      expect(inv?.args.some((a) => a.includes("--robot-context=agent-1"))).toBe(
-        true,
-      );
+      expect(inv?.args.some((a) => a.includes("--robot-context=agent-1"))).toBe(true);
     });
   });
 
@@ -1551,9 +1521,7 @@ describe("ntm Client Contract Tests", () => {
       expect(result.agents).toHaveLength(1);
 
       const inv = logger.getLast();
-      expect(inv?.args.some((a) => a.includes("--robot-health=agent-1"))).toBe(
-        true,
-      );
+      expect(inv?.args.some((a) => a.includes("--robot-health=agent-1"))).toBe(true);
     });
   });
 
@@ -1581,9 +1549,7 @@ describe("ntm Client Contract Tests", () => {
       const inv = logger.getLast();
       expect(inv?.args).toContain("--robot-health");
       // Should NOT have session suffix (unlike session health)
-      expect(
-        inv?.args.every((a: string) => !a.includes("--robot-health=")),
-      ).toBe(true);
+      expect(inv?.args.every((a: string) => !a.includes("--robot-health="))).toBe(true);
     });
   });
 
@@ -1608,9 +1574,7 @@ describe("ntm Client Contract Tests", () => {
       expect(result.alerts[0]!.severity).toBe("warning");
 
       const inv = logger.getLast();
-      expect(
-        inv?.args.some((a: string) => a.includes("--robot-alerts=agent-1")),
-      ).toBe(true);
+      expect(inv?.args.some((a: string) => a.includes("--robot-alerts=agent-1"))).toBe(true);
     });
 
     test("passes severity filter", async () => {
@@ -1656,9 +1620,7 @@ describe("ntm Client Contract Tests", () => {
       expect(result.agents[0]!.is_working).toBe(false);
 
       const inv = logger.getLast();
-      expect(
-        inv?.args.some((a: string) => a.includes("--robot-activity=agent-1")),
-      ).toBe(true);
+      expect(inv?.args.some((a: string) => a.includes("--robot-activity=agent-1"))).toBe(true);
     });
   });
 
@@ -1831,8 +1793,7 @@ describe("ms Client Contract Tests", () => {
       expect(result).toHaveLength(2);
       const first = result[0];
       const second = result[1];
-      if (!first || !second)
-        throw new Error("Expected listKnowledgeBases() items[0..1]");
+      if (!first || !second) throw new Error("Expected listKnowledgeBases() items[0..1]");
       expect(first.name).toBe("skills");
       expect(first.entry_count).toBe(150);
       expect(second.name).toBe("prompts");

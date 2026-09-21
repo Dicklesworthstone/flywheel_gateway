@@ -24,11 +24,7 @@ import {
   logDriver,
 } from "../base-driver";
 import type { DriverOptions } from "../interface";
-import {
-  createAgentNtmMapping,
-  generateNtmPaneId,
-  generateNtmSessionName,
-} from "../naming";
+import { createAgentNtmMapping, generateNtmPaneId, generateNtmSessionName } from "../naming";
 import type { Agent, AgentConfig, SendResult } from "../types";
 
 /**
@@ -147,12 +143,9 @@ export class NtmDriver extends BaseDriver {
     let paneId = generateNtmPaneId(sessionName);
 
     try {
-      const spawnStatusOpts =
-        this.cwd !== undefined ? { cwd: this.cwd } : undefined;
+      const spawnStatusOpts = this.cwd !== undefined ? { cwd: this.cwd } : undefined;
       const status = await this.client.status(spawnStatusOpts);
-      const existingSession = status.sessions.find(
-        (s) => s.name === sessionName,
-      );
+      const existingSession = status.sessions.find((s) => s.name === sessionName);
 
       if (existingSession?.agents?.length) {
         // Use existing agent's pane
@@ -230,10 +223,7 @@ export class NtmDriver extends BaseDriver {
     };
   }
 
-  protected async doSend(
-    agentId: string,
-    message: string,
-  ): Promise<SendResult> {
+  protected async doSend(agentId: string, message: string): Promise<SendResult> {
     const session = this.sessions.get(agentId);
     if (!session) {
       throw new Error(`Session not found for agent: ${agentId}`);
@@ -265,10 +255,7 @@ export class NtmDriver extends BaseDriver {
     return { messageId, queued: false };
   }
 
-  protected async doTerminate(
-    agentId: string,
-    graceful: boolean,
-  ): Promise<void> {
+  protected async doTerminate(agentId: string, graceful: boolean): Promise<void> {
     const session = this.sessions.get(agentId);
     if (!session) return;
 
@@ -425,10 +412,7 @@ export class NtmDriver extends BaseDriver {
    * Mark an agent as failed due to persistent poll failures.
    * Cleans up resources and emits terminated event.
    */
-  private async markAgentFailed(
-    agentId: string,
-    reason: string,
-  ): Promise<void> {
+  private async markAgentFailed(agentId: string, reason: string): Promise<void> {
     const session = this.sessions.get(agentId);
     if (!session) return;
 
@@ -520,9 +504,7 @@ export class NtmDriver extends BaseDriver {
    */
   private processStateFromSnapshot(
     agentId: string,
-    snapshot:
-      | NtmSnapshotOutput
-      | { ts: string; since: string; changes: unknown[] },
+    snapshot: NtmSnapshotOutput | { ts: string; since: string; changes: unknown[] },
   ): void {
     const session = this.sessions.get(agentId);
     if (!session) return;
@@ -530,9 +512,7 @@ export class NtmDriver extends BaseDriver {
     // Handle full snapshot
     if ("sessions" in snapshot) {
       const fullSnapshot = snapshot as NtmSnapshotOutput;
-      const sessionData = fullSnapshot.sessions.find(
-        (s) => s.name === session.sessionName,
-      );
+      const sessionData = fullSnapshot.sessions.find((s) => s.name === session.sessionName);
 
       if (sessionData) {
         const agent = sessionData.agents.find((a) => a.pane === session.paneId);
@@ -591,9 +571,7 @@ export class NtmDriver extends BaseDriver {
         Object.keys(contextOpts).length > 0 ? contextOpts : undefined,
       );
 
-      const agentContext = context.agents.find(
-        (a) => a.pane === session.paneId,
-      );
+      const agentContext = context.agents.find((a) => a.pane === session.paneId);
 
       if (agentContext) {
         return {
@@ -644,9 +622,7 @@ export class NtmDriver extends BaseDriver {
         Object.keys(healthOpts).length > 0 ? healthOpts : undefined,
       );
 
-      const agentHealth = health.agents.find(
-        (a) => a.agent_type === session.config.provider,
-      );
+      const agentHealth = health.agents.find((a) => a.agent_type === session.config.provider);
 
       if (agentHealth) {
         return {
@@ -678,9 +654,7 @@ export class NtmDriver extends BaseDriver {
 /**
  * Factory function to create an NTM driver.
  */
-export async function createNtmDriver(
-  options?: NtmDriverOptions,
-): Promise<NtmDriver> {
+export async function createNtmDriver(options?: NtmDriverOptions): Promise<NtmDriver> {
   const config = createDriverOptions("ntm", options);
   const driver = new NtmDriver(config, options);
 

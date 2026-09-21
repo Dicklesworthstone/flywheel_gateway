@@ -8,9 +8,7 @@ export async function expectApiError(
   expectation: ApiErrorExpectation,
 ): Promise<void> {
   if (response.status !== expectation.status) {
-    throw new Error(
-      `Expected status ${expectation.status}, got ${response.status}`,
-    );
+    throw new Error(`Expected status ${expectation.status}, got ${response.status}`);
   }
 
   if (!expectation.code) {
@@ -19,9 +17,7 @@ export async function expectApiError(
 
   const payload = (await response.json()) as { code?: string };
   if (payload.code !== expectation.code) {
-    throw new Error(
-      `Expected error code ${expectation.code}, got ${payload.code ?? "undefined"}`,
-    );
+    throw new Error(`Expected error code ${expectation.code}, got ${payload.code ?? "undefined"}`);
   }
 }
 

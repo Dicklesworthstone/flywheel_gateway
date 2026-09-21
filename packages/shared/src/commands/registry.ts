@@ -15,9 +15,7 @@ import type { CommandRegistry, RegisteredCommand } from "./types";
  * ]);
  * ```
  */
-export function createCommandRegistry(
-  commands: readonly RegisteredCommand[],
-): CommandRegistry {
+export function createCommandRegistry(commands: readonly RegisteredCommand[]): CommandRegistry {
   const byName = new Map<string, RegisteredCommand>();
   const byCategory = new Map<string, RegisteredCommand[]>();
   const pathConflicts = new Map<string, string>();
@@ -94,9 +92,7 @@ export function validateRegistry(registry: CommandRegistry): {
     // Check for related commands that don't exist
     for (const related of cmd.aiHints.relatedCommands) {
       if (!registry.has(related)) {
-        issues.push(
-          `Command "${cmd.name}" references unknown related command "${related}".`,
-        );
+        issues.push(`Command "${cmd.name}" references unknown related command "${related}".`);
       }
     }
   }

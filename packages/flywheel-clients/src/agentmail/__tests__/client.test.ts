@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
-import {
-  AgentMailClientError,
-  createAgentMailClient,
-  mapAgentMailError,
-} from "../index";
+import { AgentMailClientError, createAgentMailClient, mapAgentMailError } from "../index";
 
 type ToolCall = { tool: string; input: unknown };
 
@@ -157,13 +153,9 @@ describe("Agent Mail client", () => {
   });
 
   test("maps response validation errors into SYSTEM_INTERNAL_ERROR", () => {
-    const error = new AgentMailClientError(
-      "response_validation",
-      "bad output",
-      {
-        tool: "agentmail_register_agent",
-      },
-    );
+    const error = new AgentMailClientError("response_validation", "bad output", {
+      tool: "agentmail_register_agent",
+    });
 
     const mapped = mapAgentMailError(error);
     expect(mapped.code).toBe("SYSTEM_INTERNAL_ERROR");

@@ -114,10 +114,7 @@ export class DriverRegistry {
    * @param options - Options for driver creation
    * @returns The driver instance
    */
-  async getDriver(
-    type: AgentDriverType,
-    options?: DriverOptions,
-  ): Promise<AgentDriver> {
+  async getDriver(type: AgentDriverType, options?: DriverOptions): Promise<AgentDriver> {
     const entry = this.entries.get(type);
     if (!entry) {
       throw new Error(`Driver type not registered: ${type}`);
@@ -185,20 +182,12 @@ export class DriverRegistry {
         }
         warnings.push(`Preferred driver ${preferredType} is unhealthy`);
       } else {
-        warnings.push(
-          `Preferred driver ${preferredType} lacks required capabilities`,
-        );
+        warnings.push(`Preferred driver ${preferredType} lacks required capabilities`);
       }
     }
 
     // Selection order: sdk > claude_code_ws > acp > ntm > tmux
-    const selectionOrder: AgentDriverType[] = [
-      "sdk",
-      "claude_code_ws",
-      "acp",
-      "ntm",
-      "tmux",
-    ];
+    const selectionOrder: AgentDriverType[] = ["sdk", "claude_code_ws", "acp", "ntm", "tmux"];
 
     for (const type of selectionOrder) {
       if (!this.entries.has(type)) continue;

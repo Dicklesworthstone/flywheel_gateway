@@ -113,15 +113,11 @@ describe("createGatewayHarness", () => {
       },
     ]);
 
-    expect(
-      harness.sqlite.query("SELECT COUNT(*) as c FROM accounts").get(),
-    ).toEqual({ c: 1 });
+    expect(harness.sqlite.query("SELECT COUNT(*) as c FROM accounts").get()).toEqual({ c: 1 });
 
     harness.cleanup();
 
-    expect(
-      harness.sqlite.query("SELECT COUNT(*) as c FROM accounts").get(),
-    ).toEqual({ c: 0 });
+    expect(harness.sqlite.query("SELECT COUNT(*) as c FROM accounts").get()).toEqual({ c: 0 });
   });
 
   test("exec runs raw SQL statements", async () => {

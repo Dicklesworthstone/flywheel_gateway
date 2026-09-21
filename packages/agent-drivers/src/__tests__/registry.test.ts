@@ -3,11 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it } from "bun:test";
-import type {
-  AgentDriver,
-  AgentDriverType,
-  DriverCapabilities,
-} from "../interface";
+import type { AgentDriver, AgentDriverType, DriverCapabilities } from "../interface";
 import { DriverRegistry } from "../registry";
 import type {
   AgentConfig,
@@ -23,11 +19,9 @@ import type {
  */
 function createMockDriver(type: AgentDriverType, healthy = true): AgentDriver {
   const capabilities: DriverCapabilities = {
-    structuredEvents:
-      type === "sdk" || type === "acp" || type === "claude_code_ws",
+    structuredEvents: type === "sdk" || type === "acp" || type === "claude_code_ws",
     toolCalls: type === "sdk" || type === "acp" || type === "claude_code_ws",
-    fileOperations:
-      type === "sdk" || type === "acp" || type === "claude_code_ws",
+    fileOperations: type === "sdk" || type === "acp" || type === "claude_code_ws",
     terminalAttach: type === "tmux",
     diffRendering: type === "acp",
     checkpoint: type !== "tmux" && type !== "claude_code_ws",
@@ -59,19 +53,12 @@ function createMockDriver(type: AgentDriverType, healthy = true): AgentDriver {
     getState: async (_agentId: string): Promise<AgentState> => {
       throw new Error("Not implemented in mock");
     },
-    terminate: async (
-      _agentId: string,
-      _graceful?: boolean,
-    ): Promise<void> => {},
+    terminate: async (_agentId: string, _graceful?: boolean): Promise<void> => {},
     send: async (_agentId: string, _message: string): Promise<SendResult> => {
       return { messageId: "msg_123", queued: false };
     },
     interrupt: async (_agentId: string): Promise<void> => {},
-    getOutput: async (
-      _agentId: string,
-      _since?: Date,
-      _limit?: number,
-    ): Promise<OutputLine[]> => {
+    getOutput: async (_agentId: string, _since?: Date, _limit?: number): Promise<OutputLine[]> => {
       return [];
     },
     subscribe: async function* (_agentId: string): AsyncIterable<AgentEvent> {
@@ -143,9 +130,7 @@ describe("DriverRegistry", () => {
     });
 
     it("should throw for unregistered driver type", async () => {
-      await expect(registry.getDriver("sdk")).rejects.toThrow(
-        "Driver type not registered",
-      );
+      await expect(registry.getDriver("sdk")).rejects.toThrow("Driver type not registered");
     });
   });
 
@@ -161,8 +146,7 @@ describe("DriverRegistry", () => {
         type: "claude_code_ws",
         factory: async () => createMockDriver("claude_code_ws"),
         description: "Mock Claude Code WS driver",
-        defaultCapabilities:
-          createMockDriver("claude_code_ws").getCapabilities(),
+        defaultCapabilities: createMockDriver("claude_code_ws").getCapabilities(),
       });
       registry.register({
         type: "acp",

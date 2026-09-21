@@ -1,8 +1,4 @@
-import {
-  CliClientError,
-  type CliErrorDetails,
-  type CliErrorKind,
-} from "@flywheel/shared";
+import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
 import { z } from "zod";
 
 export interface BvCommandResult {
@@ -18,11 +14,7 @@ export interface BvCommandOptions {
 }
 
 export interface BvCommandRunner {
-  run: (
-    command: string,
-    args: string[],
-    options?: BvCommandOptions,
-  ) => Promise<BvCommandResult>;
+  run: (command: string, args: string[], options?: BvCommandOptions) => Promise<BvCommandResult>;
 }
 
 export interface BvClientOptions {

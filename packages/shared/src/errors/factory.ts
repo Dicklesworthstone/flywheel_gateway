@@ -50,10 +50,7 @@ export function createGatewayError(
 }
 
 /** Create a GatewayError using the default message for the code. */
-export function fromCode(
-  code: ErrorCode,
-  options?: GatewayErrorOptions,
-): GatewayError {
+export function fromCode(code: ErrorCode, options?: GatewayErrorOptions): GatewayError {
   return new GatewayError(code, DEFAULT_ERROR_MESSAGES[code], options);
 }
 

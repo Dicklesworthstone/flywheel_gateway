@@ -112,48 +112,26 @@ describe("STATE_TRANSITIONS", () => {
 
 describe("isValidTransition", () => {
   it("returns true for valid transitions", () => {
-    expect(
-      isValidTransition(AgentState.SPAWNING, AgentState.INITIALIZING),
-    ).toBe(true);
-    expect(isValidTransition(AgentState.SPAWNING, AgentState.TERMINATING)).toBe(
-      true,
-    );
-    expect(isValidTransition(AgentState.INITIALIZING, AgentState.READY)).toBe(
-      true,
-    );
-    expect(
-      isValidTransition(AgentState.INITIALIZING, AgentState.TERMINATING),
-    ).toBe(true);
-    expect(isValidTransition(AgentState.READY, AgentState.EXECUTING)).toBe(
-      true,
-    );
-    expect(isValidTransition(AgentState.EXECUTING, AgentState.READY)).toBe(
-      true,
-    );
+    expect(isValidTransition(AgentState.SPAWNING, AgentState.INITIALIZING)).toBe(true);
+    expect(isValidTransition(AgentState.SPAWNING, AgentState.TERMINATING)).toBe(true);
+    expect(isValidTransition(AgentState.INITIALIZING, AgentState.READY)).toBe(true);
+    expect(isValidTransition(AgentState.INITIALIZING, AgentState.TERMINATING)).toBe(true);
+    expect(isValidTransition(AgentState.READY, AgentState.EXECUTING)).toBe(true);
+    expect(isValidTransition(AgentState.EXECUTING, AgentState.READY)).toBe(true);
   });
 
   it("returns false for invalid transitions", () => {
-    expect(isValidTransition(AgentState.SPAWNING, AgentState.READY)).toBe(
-      false,
-    );
-    expect(isValidTransition(AgentState.READY, AgentState.SPAWNING)).toBe(
-      false,
-    );
-    expect(isValidTransition(AgentState.TERMINATED, AgentState.READY)).toBe(
-      false,
-    );
+    expect(isValidTransition(AgentState.SPAWNING, AgentState.READY)).toBe(false);
+    expect(isValidTransition(AgentState.READY, AgentState.SPAWNING)).toBe(false);
+    expect(isValidTransition(AgentState.TERMINATED, AgentState.READY)).toBe(false);
     expect(isValidTransition(AgentState.FAILED, AgentState.READY)).toBe(false);
   });
 });
 
 describe("getValidTransitions", () => {
   it("returns valid transitions for each state", () => {
-    expect(getValidTransitions(AgentState.SPAWNING)).toContain(
-      AgentState.INITIALIZING,
-    );
-    expect(getValidTransitions(AgentState.READY)).toContain(
-      AgentState.EXECUTING,
-    );
+    expect(getValidTransitions(AgentState.SPAWNING)).toContain(AgentState.INITIALIZING);
+    expect(getValidTransitions(AgentState.READY)).toContain(AgentState.EXECUTING);
     expect(getValidTransitions(AgentState.TERMINATED)).toHaveLength(0);
   });
 });
@@ -199,20 +177,14 @@ describe("isIdleState", () => {
 
 describe("InvalidStateTransitionError", () => {
   it("contains from and to states", () => {
-    const error = new InvalidStateTransitionError(
-      AgentState.SPAWNING,
-      AgentState.READY,
-    );
+    const error = new InvalidStateTransitionError(AgentState.SPAWNING, AgentState.READY);
     expect(error.from).toBe(AgentState.SPAWNING);
     expect(error.to).toBe(AgentState.READY);
     expect(error.name).toBe("InvalidStateTransitionError");
   });
 
   it("includes helpful error message", () => {
-    const error = new InvalidStateTransitionError(
-      AgentState.SPAWNING,
-      AgentState.READY,
-    );
+    const error = new InvalidStateTransitionError(AgentState.SPAWNING, AgentState.READY);
     expect(error.message).toContain("spawning");
     expect(error.message).toContain("ready");
     expect(error.message).toContain("initializing");
@@ -239,9 +211,7 @@ describe("AgentStateMachine", () => {
 
     it("sets stateEnteredAt to current time", () => {
       const now = Date.now();
-      expect(machine.stateEnteredAt.getTime()).toBeGreaterThanOrEqual(
-        now - 100,
-      );
+      expect(machine.stateEnteredAt.getTime()).toBeGreaterThanOrEqual(now - 100);
       expect(machine.stateEnteredAt.getTime()).toBeLessThanOrEqual(now + 100);
     });
 
@@ -306,9 +276,7 @@ describe("AgentStateMachine", () => {
       const beforeTime = machine.stateEnteredAt;
       machine.transition(AgentState.INITIALIZING, { reason: "system" });
 
-      expect(machine.stateEnteredAt.getTime()).toBeGreaterThanOrEqual(
-        beforeTime.getTime(),
-      );
+      expect(machine.stateEnteredAt.getTime()).toBeGreaterThanOrEqual(beforeTime.getTime());
     });
 
     it("adds transition to history", () => {

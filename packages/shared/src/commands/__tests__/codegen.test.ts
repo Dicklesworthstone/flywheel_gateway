@@ -1,11 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import { generateOpenAPIJSON, generateOpenAPISpec } from "../codegen/openapi";
-import {
-  generateRestRoutes,
-  generateRoutesFile,
-  getRouteMetadata,
-} from "../codegen/rest";
+import { generateRestRoutes, generateRoutesFile, getRouteMetadata } from "../codegen/rest";
 import { defineCommand } from "../define";
 import { createCommandRegistry } from "../registry";
 

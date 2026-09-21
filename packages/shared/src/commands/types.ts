@@ -130,10 +130,7 @@ export type RegisteredCommand<
 export type CommandHandler<
   TInput extends z.ZodType = z.ZodType,
   TOutput extends z.ZodType = z.ZodType,
-> = (
-  input: z.infer<TInput>,
-  context: CommandContext,
-) => Promise<z.infer<TOutput>>;
+> = (input: z.infer<TInput>, context: CommandContext) => Promise<z.infer<TOutput>>;
 
 /**
  * Context passed to command handlers.

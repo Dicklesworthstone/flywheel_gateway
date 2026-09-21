@@ -60,9 +60,7 @@ class TestableNtmDriver extends NtmDriver {
       ...options,
       // Override the runner to prevent actual NTM commands
       runner: {
-        run: mock(() =>
-          Promise.resolve({ stdout: "{}", stderr: "", exitCode: 0 }),
-        ),
+        run: mock(() => Promise.resolve({ stdout: "{}", stderr: "", exitCode: 0 })),
       },
     });
     // Replace the client with our mock
@@ -110,9 +108,7 @@ class TestableNtmDriver extends NtmDriver {
 }
 
 describe("NtmDriver", () => {
-  const createTestConfig = (
-    overrides: Partial<AgentConfig> = {},
-  ): AgentConfig => ({
+  const createTestConfig = (overrides: Partial<AgentConfig> = {}): AgentConfig => ({
     id: `test-agent-${Date.now()}`,
     provider: "claude",
     model: "claude-opus-4",
@@ -378,8 +374,7 @@ describe("NtmDriver", () => {
 
       // lastSuccessfulPoll should be recent (within last second)
       const timeSinceSuccess =
-        Date.now() -
-        (sessions.get(config.id)?.lastSuccessfulPoll.getTime() ?? 0);
+        Date.now() - (sessions.get(config.id)?.lastSuccessfulPoll.getTime() ?? 0);
       expect(timeSinceSuccess).toBeLessThan(1000);
     });
   });

@@ -8,16 +8,9 @@
  * CLI: https://github.com/Dicklesworthstone/jeffreysprompts
  */
 
-import {
-  CliClientError,
-  type CliErrorDetails,
-  type CliErrorKind,
-} from "@flywheel/shared";
+import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
 import { z } from "zod";
-import {
-  CliCommandError,
-  createBunCliRunner as createSharedBunCliRunner,
-} from "../cli-runner";
+import { CliCommandError, createBunCliRunner as createSharedBunCliRunner } from "../cli-runner";
 
 // ============================================================================
 // Command Runner Interface
@@ -192,16 +185,10 @@ export interface JfpClient {
   listCategories: (options?: JfpCommandOptions) => Promise<JfpCategory[]>;
 
   /** Search prompts by query */
-  search: (
-    query: string,
-    options?: JfpSearchOptions,
-  ) => Promise<JfpSearchResult>;
+  search: (query: string, options?: JfpSearchOptions) => Promise<JfpSearchResult>;
 
   /** Suggest prompts for a task */
-  suggest: (
-    task: string,
-    options?: JfpSuggestOptions,
-  ) => Promise<JfpSuggestResult>;
+  suggest: (task: string, options?: JfpSuggestOptions) => Promise<JfpSuggestResult>;
 
   /** Get a random prompt */
   getRandom: (options?: JfpCommandOptions) => Promise<JfpPrompt | null>;
@@ -230,11 +217,7 @@ async function runJfpCommand(
   return result.stdout;
 }
 
-function parseJson<T>(
-  stdout: string,
-  schema: z.ZodSchema<T>,
-  context: string,
-): T {
+function parseJson<T>(stdout: string, schema: z.ZodSchema<T>, context: string): T {
   let parsed: unknown;
   try {
     parsed = JSON.parse(stdout);
@@ -247,13 +230,9 @@ function parseJson<T>(
 
   const result = schema.safeParse(parsed);
   if (!result.success) {
-    throw new JfpClientError(
-      "validation_error",
-      `Invalid JFP ${context} response`,
-      {
-        issues: result.error.issues,
-      },
-    );
+    throw new JfpClientError("validation_error", `Invalid JFP ${context} response`, {
+      issues: result.error.issues,
+    });
   }
 
   return result.data;
@@ -271,10 +250,7 @@ function buildRunOptions(
   return result;
 }
 
-async function getVersion(
-  runner: JfpCommandRunner,
-  cwd?: string,
-): Promise<string | null> {
+async function getVersion(runner: JfpCommandRunner, cwd?: string): Promise<string | null> {
   try {
     const opts: { cwd?: string; timeout: number } = { timeout: 5000 };
     if (cwd !== undefined) opts.cwd = cwd;
@@ -292,9 +268,7 @@ async function getVersion(
  * Extract prompts array from various response shapes.
  * Type assertion needed because passthrough() interferes with TypeScript narrowing.
  */
-function extractPrompts(
-  response: z.infer<typeof JfpSearchResponseSchema>,
-): JfpPrompt[] {
+function extractPrompts(response: z.infer<typeof JfpSearchResponseSchema>): JfpPrompt[] {
   if (Array.isArray(response)) {
     return response;
   }
@@ -312,9 +286,7 @@ function extractPrompts(
  * Extract suggestions from various response shapes.
  * Type assertion needed because passthrough() interferes with TypeScript narrowing.
  */
-function extractSuggestions(
-  response: z.infer<typeof JfpSuggestResponseSchema>,
-): JfpPrompt[] {
+function extractSuggestions(response: z.infer<typeof JfpSuggestResponseSchema>): JfpPrompt[] {
   if (Array.isArray(response)) {
     return response;
   }
@@ -332,10 +304,7 @@ export function createJfpClient(options: JfpClientOptions): JfpClient {
   return {
     status: async (opts): Promise<JfpStatus> => {
       try {
-        const version = await getVersion(
-          options.runner,
-          opts?.cwd ?? options.cwd,
-        );
+        const version = await getVersion(options.runner, opts?.cwd ?? options.cwd);
 
         const status: JfpStatus = {
           available: true,
@@ -351,15 +320,9 @@ export function createJfpClient(options: JfpClientOptions): JfpClient {
 
     list: async (opts) => {
       const args = ["list", "--json"];
-      const stdout = await runJfpCommand(
-        options.runner,
-        args,
-        buildRunOptions(options, opts),
-      );
+      const stdout = await runJfpCommand(options.runner, args, buildRunOptions(options, opts));
       const response = parseJson(stdout, JfpListResponseSchema, "list");
-      const prompts = opts?.limit
-        ? response.prompts.slice(0, opts.limit)
-        : response.prompts;
+      const prompts = opts?.limit ? response.prompts.slice(0, opts.limit) : response.prompts;
       return {
         prompts,
         total: response.prompts.length,
@@ -369,18 +332,11 @@ export function createJfpClient(options: JfpClientOptions): JfpClient {
     get: async (id, opts) => {
       try {
         const args = ["show", id, "--json"];
-        const stdout = await runJfpCommand(
-          options.runner,
-          args,
-          buildRunOptions(options, opts),
-        );
+        const stdout = await runJfpCommand(options.runner, args, buildRunOptions(options, opts));
         return parseJson(stdout, JfpPromptSchema, "show");
       } catch (error) {
         // Check if it's a "not found" error
-        if (
-          error instanceof JfpClientError &&
-          error.kind === "command_failed"
-        ) {
+        if (error instanceof JfpClientError && error.kind === "command_failed") {
           const details = error.details as { stderr?: string } | undefined;
           const stderr = details?.stderr?.toLowerCase() ?? "";
           if (stderr.includes("not found") || stderr.includes("no prompt")) {
@@ -393,11 +349,7 @@ export function createJfpClient(options: JfpClientOptions): JfpClient {
 
     listCategories: async (opts) => {
       const args = ["categories", "--json"];
-      const stdout = await runJfpCommand(
-        options.runner,
-        args,
-        buildRunOptions(options, opts),
-      );
+      const stdout = await runJfpCommand(options.runner, args, buildRunOptions(options, opts));
       return parseJson(stdout, JfpCategoriesResponseSchema, "categories");
     },
 
@@ -408,20 +360,14 @@ export function createJfpClient(options: JfpClientOptions): JfpClient {
         args.push("--limit", String(opts.limit));
       }
 
-      const stdout = await runJfpCommand(
-        options.runner,
-        args,
-        buildRunOptions(options, opts),
-      );
+      const stdout = await runJfpCommand(options.runner, args, buildRunOptions(options, opts));
       const response = parseJson(stdout, JfpSearchResponseSchema, "search");
       let prompts = extractPrompts(response);
 
       // Apply category filter locally if specified (CLI may not support it)
       if (opts?.category) {
         const category = opts.category;
-        prompts = prompts.filter(
-          (p) => p.category.toLowerCase() === category.toLowerCase(),
-        );
+        prompts = prompts.filter((p) => p.category.toLowerCase() === category.toLowerCase());
       }
 
       return {
@@ -457,11 +403,7 @@ export function createJfpClient(options: JfpClientOptions): JfpClient {
     getRandom: async (opts) => {
       try {
         const args = ["random", "--json"];
-        const stdout = await runJfpCommand(
-          options.runner,
-          args,
-          buildRunOptions(options, opts),
-        );
+        const stdout = await runJfpCommand(options.runner, args, buildRunOptions(options, opts));
         return parseJson(stdout, JfpPromptSchema, "random");
       } catch {
         return null;
@@ -508,15 +450,11 @@ export function createBunJfpCommandRunner(): JfpCommandRunner {
             });
           }
           if (error.kind === "spawn_failed") {
-            throw new JfpClientError(
-              "unavailable",
-              "JFP command failed to start",
-              {
-                command,
-                args,
-                details: error.details,
-              },
-            );
+            throw new JfpClientError("unavailable", "JFP command failed to start", {
+              command,
+              args,
+              details: error.details,
+            });
           }
         }
         throw error;

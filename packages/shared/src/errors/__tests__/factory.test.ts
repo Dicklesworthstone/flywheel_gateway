@@ -71,11 +71,7 @@ describe("GatewayError factory", () => {
   });
 
   test("createConflictError includes conflict details", () => {
-    const err = createConflictError(
-      "AGENT_ALREADY_EXISTS",
-      "agent",
-      "agent-999",
-    );
+    const err = createConflictError("AGENT_ALREADY_EXISTS", "agent", "agent-999");
     expect(err.details?.["resourceType"]).toBe("agent");
     expect(err.details?.["conflictingResourceId"]).toBe("agent-999");
   });

@@ -40,9 +40,7 @@ describe("installDeterministicIds", () => {
     restoreDeterministicIds();
     const real = crypto.randomUUID();
     // Real UUIDs are 36 chars with dashes
-    expect(real).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-    );
+    expect(real).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   });
 });
 

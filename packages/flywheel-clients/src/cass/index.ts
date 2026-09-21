@@ -5,11 +5,7 @@
  * Always uses --json/--robot flags to avoid interactive TUI mode.
  */
 
-import {
-  CliClientError,
-  type CliErrorDetails,
-  type CliErrorKind,
-} from "@flywheel/shared";
+import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
 import { z } from "zod";
 import {
   CliCommandError,
@@ -205,19 +201,13 @@ export interface CassClient {
   isAvailable: () => Promise<boolean>;
 
   /** Search across agent sessions */
-  search: (
-    query: string,
-    options?: CassSearchOptions,
-  ) => Promise<CassSearchResult>;
+  search: (query: string, options?: CassSearchOptions) => Promise<CassSearchResult>;
 
   /** View content at a specific line in a session */
   view: (path: string, options: CassViewOptions) => Promise<CassViewResult>;
 
   /** Expand messages around a specific line in a session */
-  expand: (
-    path: string,
-    options: CassExpandOptions,
-  ) => Promise<CassExpandResult>;
+  expand: (path: string, options: CassExpandOptions) => Promise<CassExpandResult>;
 }
 
 // ============================================================================
@@ -240,34 +230,22 @@ async function runCassCommand(
   return result.stdout;
 }
 
-function parseJson<T>(
-  stdout: string,
-  schema: z.ZodSchema<T>,
-  context: string,
-): T {
+function parseJson<T>(stdout: string, schema: z.ZodSchema<T>, context: string): T {
   let parsed: unknown;
   try {
     parsed = JSON.parse(stdout);
   } catch (error) {
-    throw new CassClientError(
-      "parse_error",
-      `Failed to parse CASS ${context}`,
-      {
-        cause: error instanceof Error ? error.message : String(error),
-        stdout: stdout.slice(0, 500),
-      },
-    );
+    throw new CassClientError("parse_error", `Failed to parse CASS ${context}`, {
+      cause: error instanceof Error ? error.message : String(error),
+      stdout: stdout.slice(0, 500),
+    });
   }
 
   const result = schema.safeParse(parsed);
   if (!result.success) {
-    throw new CassClientError(
-      "validation_error",
-      `Invalid CASS ${context} response`,
-      {
-        issues: result.error.issues,
-      },
-    );
+    throw new CassClientError("validation_error", `Invalid CASS ${context} response`, {
+      issues: result.error.issues,
+    });
   }
 
   return result.data;
@@ -283,17 +261,13 @@ function buildSearchArgs(query: string, options?: CassSearchOptions): string[] {
     args.push("--offset", String(options.offset));
   }
   if (options?.agent) {
-    const agents = Array.isArray(options.agent)
-      ? options.agent
-      : [options.agent];
+    const agents = Array.isArray(options.agent) ? options.agent : [options.agent];
     for (const agent of agents) {
       args.push("--agent", agent);
     }
   }
   if (options?.workspace) {
-    const workspaces = Array.isArray(options.workspace)
-      ? options.workspace
-      : [options.workspace];
+    const workspaces = Array.isArray(options.workspace) ? options.workspace : [options.workspace];
     for (const ws of workspaces) {
       args.push("--workspace", ws);
     }
@@ -337,9 +311,7 @@ export function createCassClient(options: CassClientOptions): CassClient {
   const defaultTimeout = options.timeout ?? 30000;
 
   // Build run options, only including cwd if defined
-  const buildRunOptions = (
-    timeout: number,
-  ): { cwd?: string; timeout: number } => {
+  const buildRunOptions = (timeout: number): { cwd?: string; timeout: number } => {
     const opts: { cwd?: string; timeout: number } = { timeout };
     if (baseCwd !== undefined) opts.cwd = baseCwd;
     return opts;
@@ -381,11 +353,7 @@ export function createCassClient(options: CassClientOptions): CassClient {
 
     search: async (query, searchOpts) => {
       const args = buildSearchArgs(query, searchOpts);
-      const stdout = await runCassCommand(
-        options.runner,
-        args,
-        buildRunOptions(defaultTimeout),
-      );
+      const stdout = await runCassCommand(options.runner, args, buildRunOptions(defaultTimeout));
       return parseJson(stdout, CassSearchResultSchema, "search");
     },
 
@@ -395,31 +363,17 @@ export function createCassClient(options: CassClientOptions): CassClient {
         args.push("-C", String(viewOpts.context));
       }
 
-      const stdout = await runCassCommand(
-        options.runner,
-        args,
-        buildRunOptions(defaultTimeout),
-      );
+      const stdout = await runCassCommand(options.runner, args, buildRunOptions(defaultTimeout));
       return parseJson(stdout, CassViewResultSchema, "view");
     },
 
     expand: async (path, expandOpts) => {
-      const args = [
-        "expand",
-        path,
-        "--json",
-        "--line",
-        String(expandOpts.line),
-      ];
+      const args = ["expand", path, "--json", "--line", String(expandOpts.line)];
       if (expandOpts.context !== undefined) {
         args.push("-C", String(expandOpts.context));
       }
 
-      const stdout = await runCassCommand(
-        options.runner,
-        args,
-        buildRunOptions(defaultTimeout),
-      );
+      const stdout = await runCassCommand(options.runner, args, buildRunOptions(defaultTimeout));
       return parseJson(stdout, CassExpandResultSchema, "expand");
     },
   };
@@ -454,15 +408,11 @@ export function createBunCassCommandRunner(): CassCommandRunner {
             });
           }
           if (error.kind === "spawn_failed") {
-            throw new CassClientError(
-              "unavailable",
-              "CASS command failed to start",
-              {
-                command,
-                args,
-                details: error.details,
-              },
-            );
+            throw new CassClientError("unavailable", "CASS command failed to start", {
+              command,
+              args,
+              details: error.details,
+            });
           }
         }
         throw error;

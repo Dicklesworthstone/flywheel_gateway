@@ -54,9 +54,7 @@ export function createIdGenerator(
 // Global monkey-patching for crypto.randomUUID
 // ---------------------------------------------------------------------------
 
-let originalRandomUUID:
-  | (() => `${string}-${string}-${string}-${string}-${string}`)
-  | null = null;
+let originalRandomUUID: (() => `${string}-${string}-${string}-${string}-${string}`) | null = null;
 let installedGenerator: (() => string) | null = null;
 
 /**

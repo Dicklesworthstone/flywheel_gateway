@@ -205,10 +205,7 @@ describe("Long-running agent memory", () => {
 
       // Check every 10 messages
       if ((i + 1) % 10 === 0) {
-        const cp = await driver.createCheckpoint(
-          AGENT_ID,
-          `count-check-${i + 1}`,
-        );
+        const cp = await driver.createCheckpoint(AGENT_ID, `count-check-${i + 1}`);
         const fullCp = await driver.getCheckpoint(AGENT_ID, cp.id);
         const historyLen = (fullCp.conversationHistory as unknown[]).length;
         checkpoints.push({ messageIndex: i + 1, historyLength: historyLen });
@@ -224,9 +221,7 @@ describe("Long-running agent memory", () => {
     }
 
     // After warmup (enough messages to fill history), length should stabilize
-    const postWarmupCheckpoints = checkpoints.filter(
-      (cp) => cp.messageIndex > HISTORY_LIMIT,
-    );
+    const postWarmupCheckpoints = checkpoints.filter((cp) => cp.messageIndex > HISTORY_LIMIT);
     for (const cp of postWarmupCheckpoints) {
       // After warmup, each send adds 2 messages (user + assistant)
       // Then prunes back to limit, so it should be at the limit

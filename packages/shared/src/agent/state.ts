@@ -51,33 +51,16 @@ export const ACTIVE_STATES: ReadonlySet<AgentState> = new Set([
 /**
  * Idle states - states where the agent can accept new work.
  */
-export const IDLE_STATES: ReadonlySet<AgentState> = new Set([
-  AgentState.READY,
-  AgentState.PAUSED,
-]);
+export const IDLE_STATES: ReadonlySet<AgentState> = new Set([AgentState.READY, AgentState.PAUSED]);
 
 /**
  * Valid state transitions.
  * Key is the current state, value is array of states that can be transitioned to.
  */
-export const STATE_TRANSITIONS: Readonly<
-  Record<AgentState, readonly AgentState[]>
-> = {
-  [AgentState.SPAWNING]: [
-    AgentState.INITIALIZING,
-    AgentState.TERMINATING,
-    AgentState.FAILED,
-  ],
-  [AgentState.INITIALIZING]: [
-    AgentState.READY,
-    AgentState.TERMINATING,
-    AgentState.FAILED,
-  ],
-  [AgentState.READY]: [
-    AgentState.EXECUTING,
-    AgentState.PAUSED,
-    AgentState.TERMINATING,
-  ],
+export const STATE_TRANSITIONS: Readonly<Record<AgentState, readonly AgentState[]>> = {
+  [AgentState.SPAWNING]: [AgentState.INITIALIZING, AgentState.TERMINATING, AgentState.FAILED],
+  [AgentState.INITIALIZING]: [AgentState.READY, AgentState.TERMINATING, AgentState.FAILED],
+  [AgentState.READY]: [AgentState.EXECUTING, AgentState.PAUSED, AgentState.TERMINATING],
   [AgentState.EXECUTING]: [
     AgentState.READY,
     AgentState.PAUSED,
@@ -352,17 +335,14 @@ export class AgentStateMachine {
       state: this._state,
       stateEnteredAt: this._stateEnteredAt.toISOString(),
       history: this._history.map((t) => {
-        const entry: ReturnType<
-          AgentStateMachine["toJSON"]
-        >["history"][number] = {
+        const entry: ReturnType<AgentStateMachine["toJSON"]>["history"][number] = {
           from: t.from,
           to: t.to,
           timestamp: t.timestamp.toISOString(),
           reason: t.reason,
         };
         if (t.error !== undefined) entry.error = t.error;
-        if (t.correlationId !== undefined)
-          entry.correlationId = t.correlationId;
+        if (t.correlationId !== undefined) entry.correlationId = t.correlationId;
         return entry;
       }),
     };
@@ -392,8 +372,7 @@ export class AgentStateMachine {
         reason: t.reason,
       };
       if (t.error !== undefined) transition.error = t.error;
-      if (t.correlationId !== undefined)
-        transition.correlationId = t.correlationId;
+      if (t.correlationId !== undefined) transition.correlationId = t.correlationId;
       return transition;
     });
     return machine;
