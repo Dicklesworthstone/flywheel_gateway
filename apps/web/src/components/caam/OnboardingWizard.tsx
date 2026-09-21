@@ -63,12 +63,7 @@ function ChecklistItem({ label, completed, description }: ChecklistItemProps) {
             viewBox="0 0 24 24"
             stroke="currentColor"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={3}
-              d="M5 13l4 4L19 7"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
           </svg>
         )}
       </div>
@@ -79,9 +74,7 @@ function ChecklistItem({ label, completed, description }: ChecklistItemProps) {
           {label}
         </span>
         {description && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            {description}
-          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{description}</p>
         )}
       </div>
     </div>
@@ -192,21 +185,12 @@ interface AuthModeCardProps {
   recommended?: boolean;
 }
 
-function AuthModeCard({
-  mode,
-  provider,
-  selected,
-  onSelect,
-  recommended,
-}: AuthModeCardProps) {
+function AuthModeCard({ mode, provider, selected, onSelect, recommended }: AuthModeCardProps) {
   const descriptions: Record<AuthMode, string> = {
-    oauth_browser:
-      "Sign in via browser. Best for interactive sessions and subscriptions.",
-    device_code:
-      "Enter a code on a separate device. Works well for headless/server environments.",
+    oauth_browser: "Sign in via browser. Best for interactive sessions and subscriptions.",
+    device_code: "Enter a code on a separate device. Works well for headless/server environments.",
     api_key: `Direct API ${"key"}. Simple but requires manual key management.`,
-    vertex_adc:
-      "Use Google Cloud Application Default Credentials. Best for GCP environments.",
+    vertex_adc: "Use Google Cloud Application Default Credentials. Best for GCP environments.",
   };
 
   const available = PROVIDER_INFO[provider].authModes.includes(mode);
@@ -237,9 +221,7 @@ function AuthModeCard({
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {descriptions[mode]}
-          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{descriptions[mode]}</p>
         </div>
         <div
           className={`
@@ -273,12 +255,7 @@ function AuthModeCard({
 // Wizard Steps
 // ============================================================================
 
-type WizardStep =
-  | "select-provider"
-  | "select-auth"
-  | "review"
-  | "authenticate"
-  | "complete";
+type WizardStep = "select-provider" | "select-auth" | "review" | "authenticate" | "complete";
 
 interface WizardState {
   step: WizardStep;
@@ -319,27 +296,20 @@ export function OnboardingWizard({
   // Only use guidance when we have an actual provider selected
   const guidance = state.provider ? guidanceResult : null;
 
-  const setStep = useCallback(
-    (step: WizardStep) => setState((s) => ({ ...s, step })),
-    [],
-  );
+  const setStep = useCallback((step: WizardStep) => setState((s) => ({ ...s, step })), []);
   const setProvider = (provider: ProviderId) =>
     setState((s) => ({
       ...s,
       provider,
       profileName: `${PROVIDER_INFO[provider].displayName} Account`,
     }));
-  const setAuthMode = (authMode: AuthMode) =>
-    setState((s) => ({ ...s, authMode }));
-  const setProfileName = (profileName: string) =>
-    setState((s) => ({ ...s, profileName }));
+  const setAuthMode = (authMode: AuthMode) => setState((s) => ({ ...s, authMode }));
+  const setProfileName = (profileName: string) => setState((s) => ({ ...s, profileName }));
 
   const handleCreateAndAuthenticate = useCallback(async () => {
     if (!state.provider || !state.authMode) return;
 
-    const accountName =
-      state.profileName ||
-      `${PROVIDER_INFO[state.provider].displayName} Account`;
+    const accountName = state.profileName || `${PROVIDER_INFO[state.provider].displayName} Account`;
 
     try {
       await create({
@@ -355,9 +325,7 @@ export function OnboardingWizard({
   }, [state, workspaceId, create, setStep]);
 
   const providerInfo = state.provider ? PROVIDER_INFO[state.provider] : null;
-  const onboarding = state.provider
-    ? PROVIDER_ONBOARDING[state.provider]
-    : null;
+  const onboarding = state.provider ? PROVIDER_ONBOARDING[state.provider] : null;
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg max-w-2xl mx-auto overflow-hidden">
@@ -365,10 +333,8 @@ export function OnboardingWizard({
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 text-white">
         <h2 className="text-xl font-semibold">Add AI Provider Account</h2>
         <p className="text-blue-100 text-sm mt-1">
-          {state.step === "select-provider" &&
-            "Choose a provider to get started"}
-          {state.step === "select-auth" &&
-            `Set up ${providerInfo?.displayName}`}
+          {state.step === "select-provider" && "Choose a provider to get started"}
+          {state.step === "select-auth" && `Set up ${providerInfo?.displayName}`}
           {state.step === "review" && "Review setup details"}
           {state.step === "authenticate" && "Complete authentication"}
           {state.step === "complete" && "Setup complete!"}
@@ -381,8 +347,8 @@ export function OnboardingWizard({
         {state.step === "select-provider" && (
           <div className="space-y-4">
             <p className="text-gray-600 dark:text-gray-400">
-              Select an AI provider to add to your workspace. You can add
-              multiple accounts for failover and load balancing.
+              Select an AI provider to add to your workspace. You can add multiple accounts for
+              failover and load balancing.
             </p>
 
             {/* Provider Cards */}
@@ -424,8 +390,7 @@ export function OnboardingWizard({
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         {p === "claude" && "Anthropic's Claude models"}
                         {p === "codex" && "OpenAI's GPT and Codex models"}
-                        {p === "gemini" &&
-                          "Google's Gemini models via Vertex AI"}
+                        {p === "gemini" && "Google's Gemini models via Vertex AI"}
                       </p>
                     </div>
                     <svg
@@ -453,11 +418,7 @@ export function OnboardingWizard({
         {state.step === "select-auth" && state.provider && onboarding && (
           <div className="space-y-6">
             {/* Prerequisites */}
-            <InfoCard
-              title="Prerequisites"
-              items={onboarding.prerequisites}
-              variant="info"
-            />
+            <InfoCard title="Prerequisites" items={onboarding.prerequisites} variant="info" />
 
             {/* Profile Name */}
             <div>
@@ -483,32 +444,23 @@ export function OnboardingWizard({
                 Authentication Method
               </legend>
               <div className="space-y-2">
-                {(
-                  [
-                    "device_code",
-                    "oauth_browser",
-                    "api_key",
-                    "vertex_adc",
-                  ] as AuthMode[]
-                ).map((mode) => (
-                  <AuthModeCard
-                    key={mode}
-                    mode={mode}
-                    provider={state.provider!}
-                    selected={state.authMode === mode}
-                    onSelect={() => setAuthMode(mode)}
-                    recommended={mode === "device_code"}
-                  />
-                ))}
+                {(["device_code", "oauth_browser", "api_key", "vertex_adc"] as AuthMode[]).map(
+                  (mode) => (
+                    <AuthModeCard
+                      key={mode}
+                      mode={mode}
+                      provider={state.provider!}
+                      selected={state.authMode === mode}
+                      onSelect={() => setAuthMode(mode)}
+                      recommended={mode === "device_code"}
+                    />
+                  ),
+                )}
               </div>
             </fieldset>
 
             {/* Warnings */}
-            <InfoCard
-              title="Important Notes"
-              items={onboarding.warnings}
-              variant="warning"
-            />
+            <InfoCard title="Important Notes" items={onboarding.warnings} variant="warning" />
           </div>
         )}
 
@@ -517,34 +469,24 @@ export function OnboardingWizard({
           <div className="space-y-6">
             {/* Summary */}
             <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-              <h4 className="font-medium text-gray-900 dark:text-white mb-3">
-                Setup Summary
-              </h4>
+              <h4 className="font-medium text-gray-900 dark:text-white mb-3">Setup Summary</h4>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Provider
-                  </span>
+                  <span className="text-gray-500 dark:text-gray-400">Provider</span>
                   <span className="text-gray-900 dark:text-white font-medium">
                     {providerInfo?.displayName}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Profile Name
-                  </span>
+                  <span className="text-gray-500 dark:text-gray-400">Profile Name</span>
                   <span className="text-gray-900 dark:text-white font-medium">
                     {state.profileName}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Auth Method
-                  </span>
+                  <span className="text-gray-500 dark:text-gray-400">Auth Method</span>
                   <span className="text-gray-900 dark:text-white font-medium">
-                    {state.authMode
-                      ? AUTH_MODE_LABELS[state.authMode]
-                      : "Not selected"}
+                    {state.authMode ? AUTH_MODE_LABELS[state.authMode] : "Not selected"}
                   </span>
                 </div>
               </div>
@@ -561,9 +503,7 @@ export function OnboardingWizard({
             {guidance && (
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-gray-900 dark:text-white">
-                    Setup Progress
-                  </h4>
+                  <h4 className="font-medium text-gray-900 dark:text-white">Setup Progress</h4>
                   <span className="text-sm text-gray-500 dark:text-gray-400">
                     {guidance.completionPercentage}%
                   </span>
@@ -617,8 +557,7 @@ export function OnboardingWizard({
               Account Added Successfully!
             </h3>
             <p className="text-gray-500 dark:text-gray-400 mb-6">
-              Your {providerInfo?.displayName} account is now connected and
-              ready to use.
+              Your {providerInfo?.displayName} account is now connected and ready to use.
             </p>
             <button
               type="button"

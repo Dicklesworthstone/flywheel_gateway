@@ -98,18 +98,15 @@ const stateTone: Record<string, "positive" | "warning" | "danger" | "muted"> = {
   error: "danger",
 };
 
-const healthTone: Record<string, "positive" | "warning" | "danger" | "muted"> =
-  {
-    healthy: "positive",
-    degraded: "warning",
-    unhealthy: "danger",
-  };
+const healthTone: Record<string, "positive" | "warning" | "danger" | "muted"> = {
+  healthy: "positive",
+  degraded: "warning",
+  unhealthy: "danger",
+};
 
 function AgentRow({ agent }: { agent: NtmAgent }) {
   const inferredType =
-    typeof agent.config?.["type"] === "string"
-      ? agent.config["type"]
-      : undefined;
+    typeof agent.config?.["type"] === "string" ? agent.config["type"] : undefined;
   const agentTypeLabel = agent.agentType ?? inferredType ?? "unknown";
 
   return (
@@ -124,9 +121,7 @@ function AgentRow({ agent }: { agent: NtmAgent }) {
       </span>
       <span>
         {agent.health && (
-          <StatusPill tone={healthTone[agent.health] ?? "muted"}>
-            {agent.health}
-          </StatusPill>
+          <StatusPill tone={healthTone[agent.health] ?? "muted"}>{agent.health}</StatusPill>
         )}
         {!agent.health && "—"}
       </span>
@@ -153,9 +148,7 @@ function AgentRow({ agent }: { agent: NtmAgent }) {
 // ============================================================================
 
 export function NTMPage() {
-  const [tab, setTab] = useState<"sessions" | "health" | "diagnostics">(
-    "sessions",
-  );
+  const [tab, setTab] = useState<"sessions" | "health" | "diagnostics">("sessions");
 
   const {
     data: snapshot,
@@ -182,9 +175,9 @@ export function NTMPage() {
     ? Boolean(
         (ntmComponent.detection as Record<string, unknown>)?.["clis"] &&
           (
-            (ntmComponent.detection as Record<string, Record<string, unknown>>)[
-              "clis"
-            ]?.["ntm"] as Record<string, unknown>
+            (ntmComponent.detection as Record<string, Record<string, unknown>>)["clis"]?.[
+              "ntm"
+            ] as Record<string, unknown>
           )?.["available"],
       )
     : false;
@@ -216,10 +209,7 @@ export function NTMPage() {
           {otherAgents.length > 0 &&
             ` | ${otherAgents.length} other agent${otherAgents.length !== 1 ? "s" : ""}`}
           {snapshot?.data?.generatedAt && (
-            <>
-              {" "}
-              | Snapshot: {new Date(snapshot.data.generatedAt).toLocaleString()}
-            </>
+            <> | Snapshot: {new Date(snapshot.data.generatedAt).toLocaleString()}</>
           )}
         </p>
       </div>
@@ -229,9 +219,7 @@ export function NTMPage() {
         {tabs.map((t) => (
           <button
             key={t.id}
-            className={
-              tab === t.id ? "tab-button tab-button--active" : "tab-button"
-            }
+            className={tab === t.id ? "tab-button tab-button--active" : "tab-button"}
             type="button"
             onClick={() => setTab(t.id)}
           >
@@ -250,16 +238,13 @@ export function NTMPage() {
             <h3>NTM-Tracked Agents</h3>
           </div>
           {snapshotLoading && <p className="muted">Loading sessions...</p>}
-          {snapshotError && (
-            <p className="error-text">{(snapshotError as Error).message}</p>
-          )}
+          {snapshotError && <p className="error-text">{(snapshotError as Error).message}</p>}
           {!snapshotLoading && ntmAgents.length === 0 && (
             <div>
               <p className="muted">No NTM agents detected.</p>
               {!ntmAvailable && (
                 <p className="muted" style={{ marginTop: 8 }}>
-                  NTM is not available. Install NTM and start a tmux session to
-                  see agents here.
+                  NTM is not available. Install NTM and start a tmux session to see agents here.
                 </p>
               )}
             </div>
@@ -289,9 +274,7 @@ export function NTMPage() {
           <div className="card__header">
             <h3>System Health</h3>
             {health?.status && (
-              <StatusPill tone={healthTone[health.status] ?? "muted"}>
-                {health.status}
-              </StatusPill>
+              <StatusPill tone={healthTone[health.status] ?? "muted"}>{health.status}</StatusPill>
             )}
           </div>
           {health?.components && (
@@ -305,9 +288,7 @@ export function NTMPage() {
                 <div key={name} className="table__row">
                   <span>{name}</span>
                   <span>
-                    <StatusPill tone={healthTone[comp.status] ?? "muted"}>
-                      {comp.status}
-                    </StatusPill>
+                    <StatusPill tone={healthTone[comp.status] ?? "muted"}>{comp.status}</StatusPill>
                   </span>
                   <span className="muted">{comp.message ?? "—"}</span>
                 </div>
@@ -326,8 +307,7 @@ export function NTMPage() {
           {!diagnostics && <p className="muted">No diagnostics available.</p>}
           {diagnostics?.summary && (
             <p className="muted" style={{ marginBottom: 12 }}>
-              {diagnostics.summary.availableTools}/
-              {diagnostics.summary.totalTools} tools available
+              {diagnostics.summary.availableTools}/{diagnostics.summary.totalTools} tools available
               {diagnostics.summary.unavailableTools > 0 && (
                 <> | {diagnostics.summary.unavailableTools} unavailable</>
               )}
@@ -359,9 +339,7 @@ export function NTMPage() {
           )}
           {ntmTool && !ntmTool.available && ntmTool.rootCausePath && (
             <div style={{ marginTop: 12 }}>
-              <p className="muted">
-                Root cause path: {ntmTool.rootCausePath.join(" → ")}
-              </p>
+              <p className="muted">Root cause path: {ntmTool.rootCausePath.join(" → ")}</p>
             </div>
           )}
         </div>

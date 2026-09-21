@@ -38,8 +38,7 @@ export function CostTrendChart({
 
   // Filter data based on selected period
   const filteredData = useMemo(() => {
-    const days =
-      selectedPeriod === "7d" ? 7 : selectedPeriod === "14d" ? 14 : 30;
+    const days = selectedPeriod === "7d" ? 7 : selectedPeriod === "14d" ? 14 : 30;
     return data.slice(-days);
   }, [data, selectedPeriod]);
 
@@ -69,8 +68,7 @@ export function CostTrendChart({
 
     const points = filteredData.map((d, i) => {
       const x = (i / (filteredData.length - 1)) * width;
-      const y =
-        padding + effectiveHeight * (1 - d.costUnits / chartMetrics.maxCost);
+      const y = padding + effectiveHeight * (1 - d.costUnits / chartMetrics.maxCost);
       return `${x},${y}`;
     });
 
@@ -117,9 +115,7 @@ export function CostTrendChart({
         <div className="cost-trend-chart__header">
           <h3>{title}</h3>
         </div>
-        <p className="cost-trend-chart__empty-message">
-          No cost data available
-        </p>
+        <p className="cost-trend-chart__empty-message">No cost data available</p>
       </div>
     );
   }
@@ -134,9 +130,7 @@ export function CostTrendChart({
               key={period}
               type="button"
               className={`cost-trend-chart__period-btn ${
-                selectedPeriod === period
-                  ? "cost-trend-chart__period-btn--active"
-                  : ""
+                selectedPeriod === period ? "cost-trend-chart__period-btn--active" : ""
               }`}
               onClick={() => setSelectedPeriod(period)}
             >
@@ -168,8 +162,7 @@ export function CostTrendChart({
           />
           {/* Data points */}
           {filteredData.map((d, i) => {
-            const denominator =
-              filteredData.length > 1 ? filteredData.length - 1 : 1;
+            const denominator = filteredData.length > 1 ? filteredData.length - 1 : 1;
             const x = (i / denominator) * 100;
             const maxCost = chartMetrics.maxCost || 1;
             const y = 5 + 140 * (1 - d.costUnits / maxCost);
@@ -223,9 +216,10 @@ export function CostTrendChart({
           })}
         </span>
         <span>
-          {new Date(
-            filteredData[filteredData.length - 1]!.date,
-          ).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          {new Date(filteredData[filteredData.length - 1]!.date).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          })}
         </span>
       </div>
     </div>

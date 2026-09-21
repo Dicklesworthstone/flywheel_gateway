@@ -53,12 +53,7 @@ export function HeatmapWidget({ widget: _widget, data }: HeatmapWidgetProps) {
   const heatmapData = data.data as HeatmapData | null;
 
   useEffect(() => {
-    if (
-      !heatmapData?.rows?.length ||
-      !canvasRef.current ||
-      !containerRef.current
-    )
-      return;
+    if (!heatmapData?.rows?.length || !canvasRef.current || !containerRef.current) return;
 
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -139,11 +134,7 @@ export function HeatmapWidget({ widget: _widget, data }: HeatmapWidgetProps) {
       ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
       ctx.font = "12px system-ui";
       ctx.textAlign = "right";
-      ctx.fillText(
-        truncateLabel(row.label, 10),
-        padding.left - 8,
-        y + cellHeight / 2 + 4,
-      );
+      ctx.fillText(truncateLabel(row.label, 10), padding.left - 8, y + cellHeight / 2 + 4);
 
       // Cells
       row.cells.forEach((cell, colIndex) => {
@@ -167,17 +158,10 @@ export function HeatmapWidget({ widget: _widget, data }: HeatmapWidgetProps) {
 
         // Draw value if showValues is enabled and cell is large enough
         if (heatmapData.showValues && cellWidth > 30 && cellHeight > 20) {
-          ctx.fillStyle =
-            ratio > 0.5
-              ? "rgba(255, 255, 255, 0.9)"
-              : "rgba(255, 255, 255, 0.7)";
+          ctx.fillStyle = ratio > 0.5 ? "rgba(255, 255, 255, 0.9)" : "rgba(255, 255, 255, 0.7)";
           ctx.font = "10px system-ui";
           ctx.textAlign = "center";
-          ctx.fillText(
-            formatValue(cell.value),
-            x + cellWidth / 2,
-            y + cellHeight / 2 + 4,
-          );
+          ctx.fillText(formatValue(cell.value), x + cellWidth / 2, y + cellHeight / 2 + 4);
         }
       });
     });
@@ -189,12 +173,7 @@ export function HeatmapWidget({ widget: _widget, data }: HeatmapWidgetProps) {
     const legendY = height - 16;
 
     // Gradient bar
-    const gradient = ctx.createLinearGradient(
-      legendX,
-      legendY,
-      legendX + legendWidth,
-      legendY,
-    );
+    const gradient = ctx.createLinearGradient(legendX, legendY, legendX + legendWidth, legendY);
     gradient.addColorStop(0, colorScale.min);
     gradient.addColorStop(1, colorScale.max);
     ctx.fillStyle = gradient;
@@ -212,9 +191,7 @@ export function HeatmapWidget({ widget: _widget, data }: HeatmapWidgetProps) {
   }, [heatmapData]);
 
   if (!heatmapData?.rows?.length) {
-    return (
-      <div className="chart-widget chart-widget--empty">No data available</div>
-    );
+    return <div className="chart-widget chart-widget--empty">No data available</div>;
   }
 
   return (
@@ -258,7 +235,5 @@ function formatValue(value: number): string {
 }
 
 function truncateLabel(label: string, maxLength: number): string {
-  return label.length > maxLength
-    ? `${label.substring(0, maxLength - 1)}…`
-    : label;
+  return label.length > maxLength ? `${label.substring(0, maxLength - 1)}…` : label;
 }

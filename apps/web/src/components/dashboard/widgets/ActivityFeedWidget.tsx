@@ -40,64 +40,25 @@ interface ActivityFeedWidgetProps {
 
 const SEVERITY_ICONS: Record<string, JSX.Element> = {
   info: (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-    >
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <circle cx="12" cy="12" r="10" opacity="0.2" />
-      <path
-        d="M12 16v-4M12 8h.01"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
+      <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   ),
   warning: (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-    >
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M12 2L2 22h20L12 2z" opacity="0.2" />
-      <path
-        d="M12 9v4M12 17h.01"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
+      <path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   ),
   error: (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-    >
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <circle cx="12" cy="12" r="10" opacity="0.2" />
-      <path
-        d="M15 9l-6 6M9 9l6 6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
+      <path d="M15 9l-6 6M9 9l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   ),
   success: (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-    >
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <circle cx="12" cy="12" r="10" opacity="0.2" />
       <path
         d="M9 12l2 2 4-4"
@@ -110,17 +71,12 @@ const SEVERITY_ICONS: Record<string, JSX.Element> = {
   ),
 };
 
-export function ActivityFeedWidget({
-  widget: _widget,
-  data,
-}: ActivityFeedWidgetProps) {
+export function ActivityFeedWidget({ widget: _widget, data }: ActivityFeedWidgetProps) {
   const feedData = data.data as ActivityFeedData | null;
 
   if (!feedData?.events?.length) {
     return (
-      <div className="activity-feed-widget activity-feed-widget--empty">
-        No recent activity
-      </div>
+      <div className="activity-feed-widget activity-feed-widget--empty">No recent activity</div>
     );
   }
 
@@ -141,9 +97,7 @@ export function ActivityFeedWidget({
 
               <div className="activity-feed-widget__content">
                 <div className="activity-feed-widget__header">
-                  <span className="activity-feed-widget__type">
-                    {event.type}
-                  </span>
+                  <span className="activity-feed-widget__type">{event.type}</span>
                   <span className="activity-feed-widget__time">
                     {formatTimeAgo(event.timestamp)}
                   </span>
@@ -152,9 +106,7 @@ export function ActivityFeedWidget({
                 <div className="activity-feed-widget__title">{event.title}</div>
 
                 {event.description && (
-                  <div className="activity-feed-widget__description">
-                    {event.description}
-                  </div>
+                  <div className="activity-feed-widget__description">{event.description}</div>
                 )}
               </div>
             </li>

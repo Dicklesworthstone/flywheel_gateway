@@ -57,15 +57,7 @@ function RowCheckbox({
 /**
  * Render cell content.
  */
-function CellContent<T>({
-  row,
-  column,
-  index,
-}: {
-  row: T;
-  column: Column<T>;
-  index: number;
-}) {
+function CellContent<T>({ row, column, index }: { row: T; column: Column<T>; index: number }) {
   if (column.cell) {
     return <>{column.cell(row, index)}</>;
   }
@@ -99,10 +91,7 @@ export function DataTableRow<T>({
   const handleClick = (event: React.MouseEvent) => {
     // Don't trigger row click if clicking on checkbox or expand button
     const target = event.target as HTMLElement;
-    if (
-      target.closest(".checkbox") ||
-      target.closest(".data-table__expand-btn")
-    ) {
+    if (target.closest(".checkbox") || target.closest(".data-table__expand-btn")) {
       return;
     }
     onClick?.(row, event);

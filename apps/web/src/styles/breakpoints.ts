@@ -83,14 +83,7 @@ export const breakpointQueries = {
  * Tailwind-style responsive prefixes
  * Use these with CSS classes: `sm:hidden md:block`
  */
-export const responsivePrefixes = [
-  "xs",
-  "sm",
-  "md",
-  "lg",
-  "xl",
-  "xxl",
-] as const;
+export const responsivePrefixes = ["xs", "sm", "md", "lg", "xl", "xxl"] as const;
 
 /**
  * Check if a breakpoint value is considered mobile

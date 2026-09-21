@@ -4,15 +4,7 @@
  * Touch-optimized agent card for mobile devices with swipe actions.
  */
 
-import {
-  Bot,
-  ChevronDown,
-  ChevronUp,
-  Pause,
-  Play,
-  RefreshCw,
-  Trash2,
-} from "lucide-react";
+import { Bot, ChevronDown, ChevronUp, Pause, Play, RefreshCw, Trash2 } from "lucide-react";
 import { memo, type TouchEvent, useCallback, useState } from "react";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useMobileGestures } from "../../hooks/useMobileGestures";
@@ -220,31 +212,23 @@ export const MobileAgentCard = memo(function MobileAgentCard({
             onClick={handleSelect}
           >
             {/* Status indicator */}
-            <div
-              className={`w-3 h-3 rounded-full ${STATUS_COLORS[agent.status]}`}
-            />
+            <div className={`w-3 h-3 rounded-full ${STATUS_COLORS[agent.status]}`} />
 
             {/* Agent icon and name */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <Bot className={`w-5 h-5 ${MODEL_COLORS[agent.model]}`} />
-                <span className="font-medium text-white truncate">
-                  {agent.name}
-                </span>
+                <span className="font-medium text-white truncate">{agent.name}</span>
               </div>
               {agent.currentTask && (
-                <p className="text-sm text-gray-400 truncate mt-0.5">
-                  {agent.currentTask}
-                </p>
+                <p className="text-sm text-gray-400 truncate mt-0.5">{agent.currentTask}</p>
               )}
             </div>
 
             {/* Quick stats */}
             <div className="text-right text-sm">
               <div className="text-gray-400">{formatUptime(agent.uptime)}</div>
-              <div className="text-gray-500 text-xs">
-                {agent.sessionCount ?? 0} sessions
-              </div>
+              <div className="text-gray-500 text-xs">{agent.sessionCount ?? 0} sessions</div>
             </div>
           </button>
 
@@ -265,38 +249,22 @@ export const MobileAgentCard = memo(function MobileAgentCard({
           <div className="px-4 pb-4 border-t border-gray-700">
             <div className="grid grid-cols-2 gap-4 pt-4">
               <div>
-                <div className="text-xs text-gray-500 uppercase tracking-wide">
-                  Status
-                </div>
-                <div className="text-sm text-white capitalize">
-                  {agent.status}
-                </div>
+                <div className="text-xs text-gray-500 uppercase tracking-wide">Status</div>
+                <div className="text-sm text-white capitalize">{agent.status}</div>
               </div>
               <div>
-                <div className="text-xs text-gray-500 uppercase tracking-wide">
-                  Model
-                </div>
-                <div
-                  className={`text-sm capitalize ${MODEL_COLORS[agent.model]}`}
-                >
+                <div className="text-xs text-gray-500 uppercase tracking-wide">Model</div>
+                <div className={`text-sm capitalize ${MODEL_COLORS[agent.model]}`}>
                   {agent.model}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-gray-500 uppercase tracking-wide">
-                  Uptime
-                </div>
-                <div className="text-sm text-white">
-                  {formatUptime(agent.uptime)}
-                </div>
+                <div className="text-xs text-gray-500 uppercase tracking-wide">Uptime</div>
+                <div className="text-sm text-white">{formatUptime(agent.uptime)}</div>
               </div>
               <div>
-                <div className="text-xs text-gray-500 uppercase tracking-wide">
-                  Last Activity
-                </div>
-                <div className="text-sm text-white">
-                  {formatLastActivity(agent.lastActivity)}
-                </div>
+                <div className="text-xs text-gray-500 uppercase tracking-wide">Last Activity</div>
+                <div className="text-sm text-white">{formatLastActivity(agent.lastActivity)}</div>
               </div>
             </div>
 

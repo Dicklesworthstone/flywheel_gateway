@@ -76,9 +76,7 @@ function formatRelativeTime(dateString: string | undefined): string {
   return `${diffDays}d ago`;
 }
 
-function getStatusTone(
-  status: RepoStatus,
-): "positive" | "warning" | "danger" | "muted" {
+function getStatusTone(status: RepoStatus): "positive" | "warning" | "danger" | "muted" {
   switch (status) {
     case "healthy":
       return "positive";
@@ -93,9 +91,7 @@ function getStatusTone(
   }
 }
 
-function getSweepStatusTone(
-  status: string,
-): "positive" | "warning" | "danger" | "muted" {
+function getSweepStatusTone(status: string): "positive" | "warning" | "danger" | "muted" {
   switch (status) {
     case "completed":
       return "positive";
@@ -110,9 +106,7 @@ function getSweepStatusTone(
   }
 }
 
-function getRiskLevelTone(
-  risk: string,
-): "positive" | "warning" | "danger" | "muted" {
+function getRiskLevelTone(risk: string): "positive" | "warning" | "danger" | "muted" {
   switch (risk) {
     case "low":
       return "positive";
@@ -137,16 +131,9 @@ interface QuickStatCardProps {
   variant?: "default" | "warning" | "danger" | "positive";
 }
 
-function QuickStatCard({
-  title,
-  value,
-  icon,
-  variant = "default",
-}: QuickStatCardProps) {
+function QuickStatCard({ title, value, icon, variant = "default" }: QuickStatCardProps) {
   return (
-    <div
-      className={`card card--compact ${variant !== "default" ? `card--${variant}` : ""}`}
-    >
+    <div className={`card card--compact ${variant !== "default" ? `card--${variant}` : ""}`}>
       <div className="card__header">
         <div className="eyebrow">{title}</div>
         <span className="card__icon">{icon}</span>
@@ -209,20 +196,16 @@ function RepoList({ repos, groups, onRemove, isRemoving }: RepoListProps) {
           </select>
         </div>
         <div style={{ display: "flex", gap: "6px" }}>
-          {(["healthy", "dirty", "behind", "ahead"] as RepoStatus[]).map(
-            (status) => (
-              <button
-                type="button"
-                key={status}
-                className={`btn btn--sm ${filterStatus === status ? "btn--primary" : "btn--secondary"}`}
-                onClick={() =>
-                  setFilterStatus(filterStatus === status ? null : status)
-                }
-              >
-                {status}
-              </button>
-            ),
-          )}
+          {(["healthy", "dirty", "behind", "ahead"] as RepoStatus[]).map((status) => (
+            <button
+              type="button"
+              key={status}
+              className={`btn btn--sm ${filterStatus === status ? "btn--primary" : "btn--secondary"}`}
+              onClick={() => setFilterStatus(filterStatus === status ? null : status)}
+            >
+              {status}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -234,9 +217,7 @@ function RepoList({ repos, groups, onRemove, isRemoving }: RepoListProps) {
             <div
               className="table__row"
               style={{ cursor: "pointer", padding: "12px 0" }}
-              onClick={() =>
-                setExpandedRepo(expandedRepo === repo.id ? null : repo.id)
-              }
+              onClick={() => setExpandedRepo(expandedRepo === repo.id ? null : repo.id)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
@@ -246,14 +227,8 @@ function RepoList({ repos, groups, onRemove, isRemoving }: RepoListProps) {
               role="button"
               tabIndex={0}
             >
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "12px" }}
-              >
-                {expandedRepo === repo.id ? (
-                  <ChevronDown size={16} />
-                ) : (
-                  <ChevronRight size={16} />
-                )}
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                {expandedRepo === repo.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                 <GitBranch size={18} />
                 <div>
                   <div style={{ fontWeight: 500 }}>{repo.fullName}</div>
@@ -262,15 +237,9 @@ function RepoList({ repos, groups, onRemove, isRemoving }: RepoListProps) {
                   </div>
                 </div>
               </div>
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "8px" }}
-              >
-                <StatusPill tone={getStatusTone(repo.status)}>
-                  {repo.status}
-                </StatusPill>
-                {repo.ruGroup && (
-                  <StatusPill tone="muted">{repo.ruGroup}</StatusPill>
-                )}
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <StatusPill tone={getStatusTone(repo.status)}>{repo.status}</StatusPill>
+                {repo.ruGroup && <StatusPill tone="muted">{repo.ruGroup}</StatusPill>}
               </div>
               <div className="muted">{repo.currentBranch || "-"}</div>
               <div className="muted">{formatRelativeTime(repo.lastSyncAt)}</div>
@@ -296,9 +265,7 @@ function RepoList({ repos, groups, onRemove, isRemoving }: RepoListProps) {
                   <div>
                     <div className="eyebrow">Last Commit</div>
                     <div className="mono">{repo.lastCommit || "-"}</div>
-                    <div className="muted">
-                      {formatRelativeTime(repo.lastCommitDate)}
-                    </div>
+                    <div className="muted">{formatRelativeTime(repo.lastCommitDate)}</div>
                   </div>
                   <div>
                     <div className="eyebrow">Sync Status</div>
@@ -310,18 +277,12 @@ function RepoList({ repos, groups, onRemove, isRemoving }: RepoListProps) {
                       }}
                     >
                       {repo.aheadBy > 0 && (
-                        <span style={{ color: "var(--warning)" }}>
-                          +{repo.aheadBy} ahead
-                        </span>
+                        <span style={{ color: "var(--warning)" }}>+{repo.aheadBy} ahead</span>
                       )}
                       {repo.behindBy > 0 && (
-                        <span style={{ color: "var(--danger)" }}>
-                          -{repo.behindBy} behind
-                        </span>
+                        <span style={{ color: "var(--danger)" }}>-{repo.behindBy} behind</span>
                       )}
-                      {repo.aheadBy === 0 && repo.behindBy === 0 && (
-                        <span>In sync</span>
-                      )}
+                      {repo.aheadBy === 0 && repo.behindBy === 0 && <span>In sync</span>}
                     </div>
                   </div>
                   <div>
@@ -330,15 +291,9 @@ function RepoList({ repos, groups, onRemove, isRemoving }: RepoListProps) {
                       {repo.hasUncommittedChanges && (
                         <StatusPill tone="warning">Uncommitted</StatusPill>
                       )}
-                      {repo.hasUnpushedCommits && (
-                        <StatusPill tone="warning">Unpushed</StatusPill>
-                      )}
-                      {repo.isArchived && (
-                        <StatusPill tone="muted">Archived</StatusPill>
-                      )}
-                      {repo.isPrivate && (
-                        <StatusPill tone="muted">Private</StatusPill>
-                      )}
+                      {repo.hasUnpushedCommits && <StatusPill tone="warning">Unpushed</StatusPill>}
+                      {repo.isArchived && <StatusPill tone="muted">Archived</StatusPill>}
+                      {repo.isPrivate && <StatusPill tone="muted">Private</StatusPill>}
                     </div>
                   </div>
                 </div>
@@ -417,9 +372,7 @@ function SweepsTab({
 }: SweepsTabProps) {
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
 
-  const activeSession = sessions.find(
-    (s) => s.status === "running" || s.status === "paused",
-  );
+  const activeSession = sessions.find((s) => s.status === "running" || s.status === "paused");
 
   return (
     <div className="card card--wide">
@@ -431,11 +384,7 @@ function SweepsTab({
           onClick={onStartSweep}
           disabled={isStarting || !!activeSession}
         >
-          {isStarting ? (
-            <Loader2 size={14} className="spinner" />
-          ) : (
-            <Play size={14} />
-          )}
+          {isStarting ? <Loader2 size={14} className="spinner" /> : <Play size={14} />}
           Start Sweep
         </button>
       </div>
@@ -505,51 +454,49 @@ function SweepsTab({
             <div>
               <div className="eyebrow">Executed</div>
               <div>
-                {activeSession.reposExecuted} done, {activeSession.reposFailed}{" "}
-                failed
+                {activeSession.reposExecuted} done, {activeSession.reposFailed} failed
               </div>
             </div>
           </div>
 
-          {activeSession.slbApprovalRequired &&
-            !activeSession.slbApprovedBy && (
+          {activeSession.slbApprovalRequired && !activeSession.slbApprovedBy && (
+            <div
+              style={{
+                marginTop: "16px",
+                padding: "12px",
+                background: "var(--surface)",
+                borderRadius: "8px",
+              }}
+            >
               <div
                 style={{
-                  marginTop: "16px",
-                  padding: "12px",
-                  background: "var(--surface)",
-                  borderRadius: "8px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
                 }}
               >
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
+                    gap: "8px",
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
-                  >
-                    <Clock size={16} />
-                    <span>Waiting for approval to proceed</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn--primary btn--sm"
-                    onClick={() => onApproveSweep(activeSession.id)}
-                    disabled={isApproving}
-                  >
-                    <Check size={14} />
-                    Approve Session
-                  </button>
+                  <Clock size={16} />
+                  <span>Waiting for approval to proceed</span>
                 </div>
+                <button
+                  type="button"
+                  className="btn btn--primary btn--sm"
+                  onClick={() => onApproveSweep(activeSession.id)}
+                  disabled={isApproving}
+                >
+                  <Check size={14} />
+                  Approve Session
+                </button>
               </div>
-            )}
+            </div>
+          )}
         </div>
       )}
 
@@ -566,25 +513,17 @@ function SweepsTab({
             <div
               className="table__row"
               style={{ cursor: "pointer" }}
-              onClick={() =>
-                setExpandedSession(
-                  expandedSession === session.id ? null : session.id,
-                )
-              }
+              onClick={() => setExpandedSession(expandedSession === session.id ? null : session.id)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  setExpandedSession(
-                    expandedSession === session.id ? null : session.id,
-                  );
+                  setExpandedSession(expandedSession === session.id ? null : session.id);
                 }
               }}
               role="button"
               tabIndex={0}
             >
-              <span
-                style={{ display: "flex", alignItems: "center", gap: "8px" }}
-              >
+              <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 {expandedSession === session.id ? (
                   <ChevronDown size={14} />
                 ) : (
@@ -593,17 +532,13 @@ function SweepsTab({
                 <span className="mono">{session.id}</span>
               </span>
               <span>
-                <StatusPill tone={getSweepStatusTone(session.status)}>
-                  {session.status}
-                </StatusPill>
+                <StatusPill tone={getSweepStatusTone(session.status)}>{session.status}</StatusPill>
               </span>
               <span>
                 {session.reposExecuted}/{session.repoCount} repos
               </span>
               <span>
-                {session.totalDurationMs
-                  ? `${Math.round(session.totalDurationMs / 60000)}m`
-                  : "-"}
+                {session.totalDurationMs ? `${Math.round(session.totalDurationMs / 60000)}m` : "-"}
               </span>
             </div>
 
@@ -665,8 +600,7 @@ function SweepsTab({
                     <div className="eyebrow">Failed</div>
                     <div
                       style={{
-                        color:
-                          session.reposFailed > 0 ? "var(--danger)" : "inherit",
+                        color: session.reposFailed > 0 ? "var(--danger)" : "inherit",
                       }}
                     >
                       {session.reposFailed}
@@ -686,9 +620,7 @@ function SweepsTab({
                       borderRadius: "4px",
                     }}
                   >
-                    <span className="muted">
-                      Approved by {session.slbApprovedBy}
-                    </span>
+                    <span className="muted">Approved by {session.slbApprovedBy}</span>
                   </div>
                 )}
               </div>
@@ -724,12 +656,9 @@ function PlanApproval({ sessionId }: PlanApprovalProps) {
   const { data: plans, refetch } = useSweepPlans(sessionId);
   const { approve, isLoading: isApproving } = useApprovePlan();
   const { reject, isLoading: isRejecting } = useRejectPlan();
-  const [rejectReasons, setRejectReasons] = useState<Record<string, string>>(
-    {},
-  );
+  const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
 
-  const pendingPlans =
-    plans?.filter((p) => p.approvalStatus === "pending") ?? [];
+  const pendingPlans = plans?.filter((p) => p.approvalStatus === "pending") ?? [];
 
   const handleApprove = async (planId: string) => {
     await approve(planId, "api-user");
@@ -756,10 +685,7 @@ function PlanApproval({ sessionId }: PlanApprovalProps) {
     return (
       <div className="card" style={{ marginTop: "16px" }}>
         <div style={{ padding: "24px", textAlign: "center" }}>
-          <Check
-            size={32}
-            style={{ color: "var(--positive)", marginBottom: "12px" }}
-          />
+          <Check size={32} style={{ color: "var(--positive)", marginBottom: "12px" }} />
           <p>All plans have been reviewed.</p>
         </div>
       </div>
@@ -790,9 +716,7 @@ function PlanApproval({ sessionId }: PlanApprovalProps) {
               <div style={{ fontWeight: 500 }}>{plan.repoFullName}</div>
               <div className="muted">{plan.actionCount} actions planned</div>
             </div>
-            <StatusPill tone={getRiskLevelTone(plan.riskLevel)}>
-              {plan.riskLevel} risk
-            </StatusPill>
+            <StatusPill tone={getRiskLevelTone(plan.riskLevel)}>{plan.riskLevel} risk</StatusPill>
           </div>
 
           <div
@@ -855,12 +779,7 @@ function PlanApproval({ sessionId }: PlanApprovalProps) {
 // ============================================================================
 
 interface AddRepoTabProps {
-  onAdd: (repo: {
-    owner: string;
-    name: string;
-    url: string;
-    group?: string;
-  }) => void;
+  onAdd: (repo: { owner: string; name: string; url: string; group?: string }) => void;
   isAdding: boolean;
   groups: string[];
 }
@@ -983,11 +902,7 @@ function AddRepoTab({ onAdd, isAdding, groups }: AddRepoTabProps) {
           onClick={handleSubmit}
           disabled={isAdding || !owner || !name || !url}
         >
-          {isAdding ? (
-            <Loader2 size={14} className="spinner" />
-          ) : (
-            <Plus size={14} />
-          )}
+          {isAdding ? <Loader2 size={14} className="spinner" /> : <Plus size={14} />}
           Add to Fleet
         </button>
       </div>
@@ -1010,8 +925,7 @@ export function FleetPage() {
 
   // Mutation hooks
   const { start: startSweep, isLoading: isStarting } = useStartSweep();
-  const { approve: approveSweep, isLoading: isApprovingSweep } =
-    useApproveSweep();
+  const { approve: approveSweep, isLoading: isApprovingSweep } = useApproveSweep();
   const { cancel: cancelSweep, isLoading: isCancelling } = useCancelSweep();
   const { add: addRepo, isLoading: isAdding } = useAddRepo();
   const { remove: removeRepo, isLoading: isRemoving } = useRemoveRepo();
@@ -1049,13 +963,10 @@ export function FleetPage() {
 
   // Tab configuration
   const activeSweeps =
-    sessions?.filter((s) => s.status === "running" || s.status === "paused")
-      .length ?? 0;
+    sessions?.filter((s) => s.status === "running" || s.status === "paused").length ?? 0;
   const reposCount = repos?.length;
   const needsAttention =
-    (stats?.dirtyRepos ?? 0) +
-    (stats?.behindRepos ?? 0) +
-    (stats?.divergedRepos ?? 0);
+    (stats?.dirtyRepos ?? 0) + (stats?.behindRepos ?? 0) + (stats?.divergedRepos ?? 0);
   const tabs: Tab[] = [
     {
       id: "repos",
@@ -1081,16 +992,11 @@ export function FleetPage() {
           <GitBranch size={28} />
           Fleet Dashboard
         </h2>
-        {activeSweeps > 0 && (
-          <StatusPill tone="warning">{activeSweeps} sweep active</StatusPill>
-        )}
+        {activeSweeps > 0 && <StatusPill tone="warning">{activeSweeps} sweep active</StatusPill>}
       </div>
 
       {/* Quick Stats */}
-      <section
-        className="grid grid--4"
-        style={{ gridTemplateColumns: "repeat(4, 1fr)" }}
-      >
+      <section className="grid grid--4" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
         <QuickStatCard
           title="Total Repos"
           value={stats?.totalRepos ?? "-"}
@@ -1137,10 +1043,7 @@ export function FleetPage() {
               <span
                 style={{
                   marginLeft: "6px",
-                  background:
-                    activeTab === tab.id
-                      ? "rgba(255,255,255,0.2)"
-                      : "var(--accent)",
+                  background: activeTab === tab.id ? "rgba(255,255,255,0.2)" : "var(--accent)",
                   color: "#fff",
                   padding: "2px 6px",
                   borderRadius: "999px",
@@ -1178,19 +1081,13 @@ export function FleetPage() {
             />
             {(() => {
               const pausedSession = sessions.find((s) => s.status === "paused");
-              return pausedSession ? (
-                <PlanApproval sessionId={pausedSession.id} />
-              ) : null;
+              return pausedSession ? <PlanApproval sessionId={pausedSession.id} /> : null;
             })()}
           </>
         )}
 
         {activeTab === "add" && groups && (
-          <AddRepoTab
-            onAdd={handleAddRepo}
-            isAdding={isAdding}
-            groups={groups}
-          />
+          <AddRepoTab onAdd={handleAddRepo} isAdding={isAdding} groups={groups} />
         )}
       </section>
     </div>

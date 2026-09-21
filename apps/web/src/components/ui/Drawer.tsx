@@ -8,11 +8,7 @@ import { AnimatePresence, motion, type PanInfo } from "framer-motion";
 import { X } from "lucide-react";
 import { type ReactNode, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
-import {
-  drawerLeftVariants,
-  drawerRightVariants,
-  fadeVariants,
-} from "../../lib/animations";
+import { drawerLeftVariants, drawerRightVariants, fadeVariants } from "../../lib/animations";
 
 type DrawerPosition = "left" | "right";
 
@@ -82,10 +78,7 @@ export function Drawer({
   };
 
   // Handle swipe to close
-  const handleDragEnd = (
-    _: MouseEvent | TouchEvent | PointerEvent,
-    info: PanInfo,
-  ) => {
+  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const threshold = 100;
     if (position === "left" && info.offset.x < -threshold) {
       onClose();
@@ -94,8 +87,7 @@ export function Drawer({
     }
   };
 
-  const variants =
-    position === "left" ? drawerLeftVariants : drawerRightVariants;
+  const variants = position === "left" ? drawerLeftVariants : drawerRightVariants;
 
   const drawerContent = (
     <AnimatePresence>

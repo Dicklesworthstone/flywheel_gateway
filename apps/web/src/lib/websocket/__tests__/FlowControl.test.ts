@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import {
-  createFlowControl,
-  FlowControl,
-  FlowControlSignal,
-} from "../FlowControl";
+import { createFlowControl, FlowControl, FlowControlSignal } from "../FlowControl";
 
 describe("FlowControl", () => {
   let flowControl: FlowControl;

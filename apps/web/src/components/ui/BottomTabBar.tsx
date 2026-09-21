@@ -31,10 +31,7 @@ interface BottomTabBarProps {
 /**
  * Bottom Tab Bar for mobile navigation.
  */
-export function BottomTabBar({
-  tabs = DEFAULT_TABS,
-  className = "",
-}: BottomTabBarProps) {
+export function BottomTabBar({ tabs = DEFAULT_TABS, className = "" }: BottomTabBarProps) {
   const location = useLocation();
 
   return (
@@ -42,17 +39,13 @@ export function BottomTabBar({
       <div className="bottom-tab-bar__nav">
         {tabs.map((tab) => {
           const isActive =
-            tab.path === "/"
-              ? location.pathname === "/"
-              : location.pathname.startsWith(tab.path);
+            tab.path === "/" ? location.pathname === "/" : location.pathname.startsWith(tab.path);
 
           return (
             <Link
               key={tab.path}
               to={tab.path}
-              className={`bottom-tab-bar__item ${
-                isActive ? "bottom-tab-bar__item--active" : ""
-              }`}
+              className={`bottom-tab-bar__item ${isActive ? "bottom-tab-bar__item--active" : ""}`}
               aria-current={isActive ? "page" : undefined}
             >
               <span className="bottom-tab-bar__icon">{tab.icon}</span>
@@ -77,12 +70,7 @@ interface FABProps {
 
 export function FAB({ icon, onClick, label, className = "" }: FABProps) {
   return (
-    <button
-      type="button"
-      className={`fab ${className}`}
-      onClick={onClick}
-      aria-label={label}
-    >
+    <button type="button" className={`fab ${className}`} onClick={onClick} aria-label={label}>
       <span className="fab__icon">{icon}</span>
     </button>
   );

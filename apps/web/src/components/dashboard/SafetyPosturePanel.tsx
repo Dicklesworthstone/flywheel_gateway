@@ -25,11 +25,7 @@ import {
   type ToolStatus,
   useSafetyPosture,
 } from "../../hooks/useSafetyPosture";
-import {
-  fadeVariants,
-  listContainerVariants,
-  listItemVariants,
-} from "../../lib/animations";
+import { fadeVariants, listContainerVariants, listItemVariants } from "../../lib/animations";
 import { StatusPill } from "../ui/StatusPill";
 
 // ============================================================================
@@ -43,12 +39,7 @@ interface ToolStatusCardProps {
   installCommand?: string;
 }
 
-function ToolStatusCard({
-  name,
-  description,
-  status,
-  installCommand,
-}: ToolStatusCardProps) {
+function ToolStatusCard({ name, description, status, installCommand }: ToolStatusCardProps) {
   const iconColor =
     status.installed && status.healthy
       ? "var(--color-green-500)"
@@ -103,15 +94,9 @@ function ToolStatusCard({
             >
               {name}
               {status.installed && status.healthy ? (
-                <CheckCircle
-                  size={14}
-                  style={{ color: "var(--color-green-500)" }}
-                />
+                <CheckCircle size={14} style={{ color: "var(--color-green-500)" }} />
               ) : status.installed ? (
-                <AlertCircle
-                  size={14}
-                  style={{ color: "var(--color-amber-500)" }}
-                />
+                <AlertCircle size={14} style={{ color: "var(--color-amber-500)" }} />
               ) : (
                 <XCircle size={14} style={{ color: "var(--color-red-500)" }} />
               )}
@@ -127,12 +112,8 @@ function ToolStatusCard({
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          {status.installed && status.healthy && (
-            <StatusPill tone="positive">Healthy</StatusPill>
-          )}
-          {status.installed && !status.healthy && (
-            <StatusPill tone="warning">Unhealthy</StatusPill>
-          )}
+          {status.installed && status.healthy && <StatusPill tone="positive">Healthy</StatusPill>}
+          {status.installed && !status.healthy && <StatusPill tone="warning">Unhealthy</StatusPill>}
           {!status.installed && <StatusPill tone="danger">Missing</StatusPill>}
         </div>
       </div>
@@ -196,9 +177,7 @@ function ChecksumStatusCard({
               width: "36px",
               height: "36px",
               borderRadius: "8px",
-              backgroundColor: isStale
-                ? "var(--color-amber-500)"
-                : "var(--color-blue-500)",
+              backgroundColor: isStale ? "var(--color-amber-500)" : "var(--color-blue-500)",
               color: "white",
               display: "flex",
               alignItems: "center",
@@ -210,9 +189,7 @@ function ChecksumStatusCard({
           <div>
             <div style={{ fontWeight: 500 }}>ACFS Checksums</div>
             <div className="muted" style={{ fontSize: "12px" }}>
-              {registryAgeMs !== null
-                ? formatAge(registryAgeMs)
-                : "Not available"}
+              {registryAgeMs !== null ? formatAge(registryAgeMs) : "Not available"}
             </div>
           </div>
         </div>
@@ -401,11 +378,7 @@ export function SafetyPosturePanel() {
               disabled={isLoading}
               title="Refresh"
             >
-              {isLoading ? (
-                <Loader2 size={14} className="spin" />
-              ) : (
-                <RefreshCw size={14} />
-              )}
+              {isLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
             </button>
           </div>
         </div>
@@ -421,10 +394,7 @@ export function SafetyPosturePanel() {
               backgroundColor: "var(--color-green-50)",
             }}
           >
-            <CheckCircle
-              size={20}
-              style={{ color: "var(--color-green-500)" }}
-            />
+            <CheckCircle size={20} style={{ color: "var(--color-green-500)" }} />
             <div>
               <div style={{ fontWeight: 500, color: "var(--color-green-700)" }}>
                 All safety tools are installed and healthy
@@ -437,8 +407,8 @@ export function SafetyPosturePanel() {
         ) : (
           <div className="muted">
             {data.summary.issues.length} issue
-            {data.summary.issues.length === 1 ? "" : "s"} detected. Review the
-            recommendations below.
+            {data.summary.issues.length === 1 ? "" : "s"} detected. Review the recommendations
+            below.
           </div>
         )}
       </div>

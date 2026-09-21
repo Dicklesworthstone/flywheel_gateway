@@ -53,10 +53,7 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
   return data.data ?? data;
 }
 
-export function useDashboard(
-  dashboardId?: string,
-  options: UseDashboardOptions = {},
-) {
+export function useDashboard(dashboardId?: string, options: UseDashboardOptions = {}) {
   "use no memo";
 
   const { autoRefresh = true, refreshInterval = 60 } = options;
@@ -71,9 +68,7 @@ export function useDashboard(
   });
 
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const widgetTimersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(
-    new Map(),
-  );
+  const widgetTimersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
 
   // Keep a ref to current dashboard to avoid resetting timers on state changes
   const dashboardRef = useRef<Dashboard | null>(null);
@@ -157,8 +152,7 @@ export function useDashboard(
       setState((s) => ({
         ...s,
         saving: false,
-        error:
-          err instanceof Error ? err.message : "Failed to create dashboard",
+        error: err instanceof Error ? err.message : "Failed to create dashboard",
       }));
       return null;
     }
@@ -221,8 +215,7 @@ export function useDashboard(
           ...s,
           currentDashboard: previousDashboard,
           saving: false,
-          error:
-            err instanceof Error ? err.message : "Failed to update dashboard",
+          error: err instanceof Error ? err.message : "Failed to update dashboard",
         }));
         return null;
       }
@@ -240,8 +233,7 @@ export function useDashboard(
       setState((s) => ({
         ...s,
         dashboards: s.dashboards.filter((d) => d.id !== id),
-        currentDashboard:
-          s.currentDashboard?.id === id ? null : s.currentDashboard,
+        currentDashboard: s.currentDashboard?.id === id ? null : s.currentDashboard,
         saving: false,
       }));
 
@@ -250,8 +242,7 @@ export function useDashboard(
       setState((s) => ({
         ...s,
         saving: false,
-        error:
-          err instanceof Error ? err.message : "Failed to delete dashboard",
+        error: err instanceof Error ? err.message : "Failed to delete dashboard",
       }));
       return false;
     }
@@ -262,12 +253,9 @@ export function useDashboard(
     setState((s) => ({ ...s, saving: true, error: null }));
 
     try {
-      const dashboard = await fetchJSON<Dashboard>(
-        `${API_BASE}/${id}/duplicate`,
-        {
-          method: "POST",
-        },
-      );
+      const dashboard = await fetchJSON<Dashboard>(`${API_BASE}/${id}/duplicate`, {
+        method: "POST",
+      });
 
       setState((s) => ({
         ...s,
@@ -292,8 +280,7 @@ export function useDashboard(
       setState((s) => ({
         ...s,
         saving: false,
-        error:
-          err instanceof Error ? err.message : "Failed to duplicate dashboard",
+        error: err instanceof Error ? err.message : "Failed to duplicate dashboard",
       }));
       return null;
     }
@@ -317,8 +304,7 @@ export function useDashboard(
         );
 
         // Find the newly added widget (it will be the last one)
-        const newWidget =
-          updatedDashboard.widgets[updatedDashboard.widgets.length - 1];
+        const newWidget = updatedDashboard.widgets[updatedDashboard.widgets.length - 1];
 
         setState((s) => ({
           ...s,
@@ -371,9 +357,7 @@ export function useDashboard(
         );
 
         // Find the updated widget
-        const updatedWidget = updatedDashboard.widgets.find(
-          (w) => w.id === widgetId,
-        );
+        const updatedWidget = updatedDashboard.widgets.find((w) => w.id === widgetId);
 
         setState((s) => ({
           ...s,
@@ -410,20 +394,15 @@ export function useDashboard(
         currentDashboard: s.currentDashboard
           ? {
               ...s.currentDashboard,
-              widgets: s.currentDashboard.widgets.filter(
-                (w) => w.id !== widgetId,
-              ),
+              widgets: s.currentDashboard.widgets.filter((w) => w.id !== widgetId),
             }
           : null,
       }));
 
       try {
-        await fetchJSON(
-          `${API_BASE}/${state.currentDashboard.id}/widgets/${widgetId}`,
-          {
-            method: "DELETE",
-          },
-        );
+        await fetchJSON(`${API_BASE}/${state.currentDashboard.id}/widgets/${widgetId}`, {
+          method: "DELETE",
+        });
 
         // Clear widget data
         setState((s) => {
@@ -471,8 +450,7 @@ export function useDashboard(
         widgetId,
         data: null,
         fetchedAt: new Date().toISOString(),
-        error:
-          err instanceof Error ? err.message : "Failed to fetch widget data",
+        error: err instanceof Error ? err.message : "Failed to fetch widget data",
       };
 
       setState((s) => {
@@ -490,35 +468,28 @@ export function useDashboard(
     const dashboard = dashboardRef.current;
     if (!dashboard) return;
 
-    await Promise.all(
-      dashboard.widgets.map((widget) => fetchWidgetData(widget.id)),
-    );
+    await Promise.all(dashboard.widgets.map((widget) => fetchWidgetData(widget.id)));
   }, [fetchWidgetData]);
 
   // Toggle favorite
-  const toggleFavorite = useCallback(
-    async (id: string, isFavorite: boolean) => {
-      try {
-        if (isFavorite) {
-          await fetchJSON(`${API_BASE}/${id}/favorite`, { method: "DELETE" });
-        } else {
-          await fetchJSON(`${API_BASE}/${id}/favorite`, { method: "POST" });
-        }
-
-        setState((s) => ({
-          ...s,
-          dashboards: s.dashboards.map((d) =>
-            d.id === id ? { ...d, isFavorite: !isFavorite } : d,
-          ),
-        }));
-
-        return true;
-      } catch {
-        return false;
+  const toggleFavorite = useCallback(async (id: string, isFavorite: boolean) => {
+    try {
+      if (isFavorite) {
+        await fetchJSON(`${API_BASE}/${id}/favorite`, { method: "DELETE" });
+      } else {
+        await fetchJSON(`${API_BASE}/${id}/favorite`, { method: "POST" });
       }
-    },
-    [],
-  );
+
+      setState((s) => ({
+        ...s,
+        dashboards: s.dashboards.map((d) => (d.id === id ? { ...d, isFavorite: !isFavorite } : d)),
+      }));
+
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
 
   // Update layout positions (bulk widget position update)
   const updateLayout = useCallback(
@@ -538,9 +509,7 @@ export function useDashboard(
               ...s.currentDashboard,
               widgets: s.currentDashboard.widgets.map((widget) => {
                 const layout = layouts.find((l) => l.widgetId === widget.id);
-                return layout
-                  ? { ...widget, position: layout.position }
-                  : widget;
+                return layout ? { ...widget, position: layout.position } : widget;
               }),
             }
           : null,
@@ -550,13 +519,10 @@ export function useDashboard(
       try {
         await Promise.all(
           layouts.map(({ widgetId, position }) =>
-            fetchJSON(
-              `${API_BASE}/${state.currentDashboard?.id}/widgets/${widgetId}`,
-              {
-                method: "PUT",
-                body: JSON.stringify({ position }),
-              },
-            ),
+            fetchJSON(`${API_BASE}/${state.currentDashboard?.id}/widgets/${widgetId}`, {
+              method: "PUT",
+              body: JSON.stringify({ position }),
+            }),
           ),
         );
       } catch {
@@ -582,12 +548,7 @@ export function useDashboard(
         clearInterval(refreshTimerRef.current);
       }
     };
-  }, [
-    autoRefresh,
-    state.currentDashboard?.id,
-    refreshInterval,
-    refreshAllWidgets,
-  ]);
+  }, [autoRefresh, state.currentDashboard?.id, refreshInterval, refreshAllWidgets]);
 
   // Set up individual widget refresh timers
   useEffect(() => {
@@ -628,10 +589,7 @@ export function useDashboard(
   // Fetch initial widget data when dashboard is loaded
   const prevDashboardIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (
-      state.currentDashboard &&
-      state.currentDashboard.id !== prevDashboardIdRef.current
-    ) {
+    if (state.currentDashboard && state.currentDashboard.id !== prevDashboardIdRef.current) {
       prevDashboardIdRef.current = state.currentDashboard.id;
       // Fetch initial widget data
       state.currentDashboard.widgets.forEach((widget) => {

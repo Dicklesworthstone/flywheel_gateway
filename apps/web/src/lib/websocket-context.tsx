@@ -93,12 +93,8 @@ export function WebSocketProvider({
   // Refs for mutable state that shouldn't trigger re-renders
   const wsRef = useRef<WebSocket | null>(null);
   const attemptRef = useRef(0);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const subscriptionsRef = useRef<Map<string, Set<(data: unknown) => void>>>(
-    new Map(),
-  );
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const subscriptionsRef = useRef<Map<string, Set<(data: unknown) => void>>>(new Map());
   const messageQueueRef = useRef<QueuedMessage[]>(__testMessageQueue ?? []);
 
   // Build WebSocket URL
@@ -129,24 +125,16 @@ export function WebSocketProvider({
       setStatus((prev) => {
         const now = Date.now();
         const nextRetryInMs =
-          state === "reconnecting"
-            ? calculateBackoff(attempt, DEFAULT_BACKOFF_CONFIG)
-            : null;
+          state === "reconnecting" ? calculateBackoff(attempt, DEFAULT_BACKOFF_CONFIG) : null;
 
         return {
           state,
           attempt,
           lastConnectedAt: state === "connected" ? now : prev.lastConnectedAt,
           lastDisconnectedAt:
-            state === "disconnected" || state === "reconnecting"
-              ? now
-              : prev.lastDisconnectedAt,
+            state === "disconnected" || state === "reconnecting" ? now : prev.lastDisconnectedAt,
           nextRetryInMs,
-          hint: getStatusHint(
-            state,
-            attempt,
-            DEFAULT_BACKOFF_CONFIG.maxAttempts,
-          ),
+          hint: getStatusHint(state, attempt, DEFAULT_BACKOFF_CONFIG.maxAttempts),
         };
       });
     },
@@ -209,9 +197,7 @@ export function WebSocketProvider({
     updateStatus("connecting");
 
     try {
-      const ws = __testCreateWebSocket
-        ? __testCreateWebSocket(wsUrl)
-        : new WebSocket(wsUrl);
+      const ws = __testCreateWebSocket ? __testCreateWebSocket(wsUrl) : new WebSocket(wsUrl);
 
       ws.onopen = () => {
         // Guard against setState after unmount
@@ -254,11 +240,7 @@ export function WebSocketProvider({
 
           // Hub envelope: { type: "message", message: HubMessage, ackRequired? }
           const hubMessage = data.message;
-          if (
-            data.type === "message" &&
-            hubMessage &&
-            typeof hubMessage.channel === "string"
-          ) {
+          if (data.type === "message" && hubMessage && typeof hubMessage.channel === "string") {
             const channel = hubMessage.channel;
 
             if (subscriptionsRef.current.has(channel)) {
@@ -272,23 +254,15 @@ export function WebSocketProvider({
               });
             }
 
-            if (
-              data.ackRequired === true &&
-              typeof hubMessage.id === "string"
-            ) {
-              ws.send(
-                JSON.stringify({ type: "ack", messageIds: [hubMessage.id] }),
-              );
+            if (data.ackRequired === true && typeof hubMessage.id === "string") {
+              ws.send(JSON.stringify({ type: "ack", messageIds: [hubMessage.id] }));
             }
 
             return;
           }
 
           // Route message to subscribers
-          if (
-            typeof data.channel === "string" &&
-            subscriptionsRef.current.has(data.channel)
-          ) {
+          if (typeof data.channel === "string" && subscriptionsRef.current.has(data.channel)) {
             const handlers = subscriptionsRef.current.get(data.channel);
             handlers?.forEach((handler) => {
               try {
@@ -325,10 +299,7 @@ export function WebSocketProvider({
         // Check if we should retry
         if (shouldRetry(attemptRef.current, DEFAULT_BACKOFF_CONFIG)) {
           updateStatus("reconnecting", attemptRef.current);
-          const delay = calculateBackoff(
-            attemptRef.current,
-            DEFAULT_BACKOFF_CONFIG,
-          );
+          const delay = calculateBackoff(attemptRef.current, DEFAULT_BACKOFF_CONFIG);
 
           reconnectTimeoutRef.current = setTimeout(() => {
             attemptRef.current++;
@@ -349,15 +320,7 @@ export function WebSocketProvider({
     } catch {
       updateStatus("failed", attemptRef.current);
     }
-  }, [
-    isMounted,
-    mockMode,
-    wsUrl,
-    updateStatus,
-    resubscribeAll,
-    flushQueue,
-    __testCreateWebSocket,
-  ]);
+  }, [isMounted, mockMode, wsUrl, updateStatus, resubscribeAll, flushQueue, __testCreateWebSocket]);
 
   // Manual reconnect (from failed state)
   const reconnect = useCallback(() => {
@@ -388,45 +351,40 @@ export function WebSocketProvider({
   );
 
   // Subscribe to channel
-  const subscribe = useCallback(
-    (channel: string, handler: (data: unknown) => void) => {
-      // Add to subscriptions
-      if (!subscriptionsRef.current.has(channel)) {
-        subscriptionsRef.current.set(channel, new Set());
+  const subscribe = useCallback((channel: string, handler: (data: unknown) => void) => {
+    // Add to subscriptions
+    if (!subscriptionsRef.current.has(channel)) {
+      subscriptionsRef.current.set(channel, new Set());
+    }
+    subscriptionsRef.current.get(channel)?.add(handler);
+
+    // Send subscribe message if connected
+    if (wsRef.current?.readyState === WS_READY_STATE_OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({ type: "subscribe", channel }));
+      } catch {
+        // Will be handled on reconnect
       }
-      subscriptionsRef.current.get(channel)?.add(handler);
+    }
 
-      // Send subscribe message if connected
-      if (wsRef.current?.readyState === WS_READY_STATE_OPEN) {
-        try {
-          wsRef.current.send(JSON.stringify({ type: "subscribe", channel }));
-        } catch {
-          // Will be handled on reconnect
-        }
-      }
+    // Return unsubscribe function
+    return () => {
+      const handlers = subscriptionsRef.current.get(channel);
+      handlers?.delete(handler);
 
-      // Return unsubscribe function
-      return () => {
-        const handlers = subscriptionsRef.current.get(channel);
-        handlers?.delete(handler);
-
-        // Unsubscribe from channel if no more handlers
-        if (handlers?.size === 0) {
-          subscriptionsRef.current.delete(channel);
-          if (wsRef.current?.readyState === WS_READY_STATE_OPEN) {
-            try {
-              wsRef.current.send(
-                JSON.stringify({ type: "unsubscribe", channel }),
-              );
-            } catch {
-              // Ignore unsubscribe errors
-            }
+      // Unsubscribe from channel if no more handlers
+      if (handlers?.size === 0) {
+        subscriptionsRef.current.delete(channel);
+        if (wsRef.current?.readyState === WS_READY_STATE_OPEN) {
+          try {
+            wsRef.current.send(JSON.stringify({ type: "unsubscribe", channel }));
+          } catch {
+            // Ignore unsubscribe errors
           }
         }
-      };
-    },
-    [],
-  );
+      }
+    };
+  }, []);
 
   // Unsubscribe from all channels
   const unsubscribeAll = useCallback(() => {
@@ -475,11 +433,7 @@ export function WebSocketProvider({
     unsubscribeAll,
   };
 
-  return (
-    <WebSocketContext.Provider value={value}>
-      {children}
-    </WebSocketContext.Provider>
-  );
+  return <WebSocketContext.Provider value={value}>{children}</WebSocketContext.Provider>;
 }
 
 // ============================================================================

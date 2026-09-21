@@ -48,41 +48,29 @@ const STATUS_CONFIG = {
   },
 };
 
-export function AgentListWidget({
-  widget: _widget,
-  data,
-}: AgentListWidgetProps) {
+export function AgentListWidget({ widget: _widget, data }: AgentListWidgetProps) {
   const listData = data.data as AgentListData | null;
 
   if (!listData?.agents?.length) {
-    return (
-      <div className="agent-list-widget agent-list-widget--empty">
-        No agents found
-      </div>
-    );
+    return <div className="agent-list-widget agent-list-widget--empty">No agents found</div>;
   }
 
   return (
     <div className="agent-list-widget">
       <ul className="agent-list-widget__list">
         {listData.agents.map((agent) => {
-          const statusConfig =
-            STATUS_CONFIG[agent.status] || STATUS_CONFIG.offline;
+          const statusConfig = STATUS_CONFIG[agent.status] || STATUS_CONFIG.offline;
 
           return (
             <li key={agent.id} className="agent-list-widget__item">
               <div className="agent-list-widget__info">
                 <div className="agent-list-widget__header">
-                  <span
-                    className={`agent-list-widget__status ${statusConfig.className}`}
-                  />
+                  <span className={`agent-list-widget__status ${statusConfig.className}`} />
                   <span className="agent-list-widget__name">{agent.name}</span>
                 </div>
 
                 {agent.currentTask && (
-                  <div className="agent-list-widget__task">
-                    {agent.currentTask}
-                  </div>
+                  <div className="agent-list-widget__task">{agent.currentTask}</div>
                 )}
 
                 {agent.lastActivity && (

@@ -174,10 +174,7 @@ export function useBreakpointDown(breakpoint: Breakpoint): boolean {
 /**
  * Hook for checking if between two breakpoints
  */
-export function useBreakpointBetween(
-  lower: Breakpoint,
-  upper: Breakpoint,
-): boolean {
+export function useBreakpointBetween(lower: Breakpoint, upper: Breakpoint): boolean {
   const { width } = useMediaQuery();
   return width >= BREAKPOINTS[lower] && width < BREAKPOINTS[upper];
 }
@@ -185,10 +182,7 @@ export function useBreakpointBetween(
 /**
  * Hook for responsive value selection
  */
-export function useResponsiveValue<T>(
-  values: Partial<Record<Breakpoint, T>>,
-  defaultValue: T,
-): T {
+export function useResponsiveValue<T>(values: Partial<Record<Breakpoint, T>>, defaultValue: T): T {
   const { breakpoint } = useMediaQuery();
 
   return useMemo(() => {

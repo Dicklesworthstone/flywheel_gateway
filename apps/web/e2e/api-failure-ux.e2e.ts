@@ -11,9 +11,7 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("E2E: API Failure UX - Dashboard", () => {
-  test("should show clear error state when API is unavailable", async ({
-    page,
-  }) => {
+  test("should show clear error state when API is unavailable", async ({ page }) => {
     // Block all API requests with 503 Service Unavailable
     await page.route("**/api/**", (route) => {
       console.log(`[E2E] Blocking API request: ${route.request().url()}`);
@@ -209,9 +207,7 @@ test.describe("E2E: API Failure UX - Dashboard", () => {
       await page.waitForTimeout(1000);
 
       // After successful retry, should see System Status (the panel loaded successfully)
-      const snapshotPanel = page.locator(
-        '[data-testid="snapshot-summary-panel"]',
-      );
+      const snapshotPanel = page.locator('[data-testid="snapshot-summary-panel"]');
       const isSuccess = await snapshotPanel.isVisible().catch(() => false);
       console.log(`[E2E] Snapshot panel visible after retry: ${isSuccess}`);
 
@@ -222,13 +218,9 @@ test.describe("E2E: API Failure UX - Dashboard", () => {
       console.log("[E2E] PASS: Retry mechanism works");
     } else {
       // In dev mode without error state, just verify data loaded
-      const snapshotPanel = page.locator(
-        '[data-testid="snapshot-summary-panel"]',
-      );
+      const snapshotPanel = page.locator('[data-testid="snapshot-summary-panel"]');
       const panelVisible = await snapshotPanel.isVisible().catch(() => false);
-      console.log(
-        `[E2E] Snapshot panel visible (dev mode fallback): ${panelVisible}`,
-      );
+      console.log(`[E2E] Snapshot panel visible (dev mode fallback): ${panelVisible}`);
     }
   });
 });
@@ -355,9 +347,7 @@ test.describe("E2E: API Failure UX - Loading States", () => {
     console.log("[E2E] Loading state shown");
 
     // Wait for content to load (after 5s delay)
-    const snapshotPanel = page.locator(
-      '[data-testid="snapshot-summary-panel"]',
-    );
+    const snapshotPanel = page.locator('[data-testid="snapshot-summary-panel"]');
     await expect(snapshotPanel).toBeVisible({ timeout: 10000 });
     console.log("[E2E] Content loaded after slow network");
 
@@ -373,9 +363,7 @@ test.describe("E2E: API Failure UX - Multiple Retries", () => {
 
     await page.route("**/api/system/snapshot**", (route) => {
       failCount++;
-      console.log(
-        `[E2E] API call ${failCount}, failing: ${failCount <= maxFails}`,
-      );
+      console.log(`[E2E] API call ${failCount}, failing: ${failCount <= maxFails}`);
 
       if (failCount <= maxFails) {
         route.fulfill({ status: 500, body: "Server Error" });
@@ -473,12 +461,8 @@ test.describe("E2E: API Failure UX - Multiple Retries", () => {
     }
 
     // After enough retries, should eventually succeed
-    const snapshotPanel = page.locator(
-      '[data-testid="snapshot-summary-panel"]',
-    );
-    const success = await snapshotPanel
-      .isVisible({ timeout: 5000 })
-      .catch(() => false);
+    const snapshotPanel = page.locator('[data-testid="snapshot-summary-panel"]');
+    const success = await snapshotPanel.isVisible({ timeout: 5000 }).catch(() => false);
 
     console.log(`[E2E] Success after ${failCount} API calls: ${success}`);
     console.log(`[E2E] Total API calls: ${failCount}`);
@@ -488,9 +472,7 @@ test.describe("E2E: API Failure UX - Multiple Retries", () => {
 });
 
 test.describe("E2E: Mock Data Banner Visibility", () => {
-  test("mock data banner should indicate fallback data is being used", async ({
-    page,
-  }) => {
+  test("mock data banner should indicate fallback data is being used", async ({ page }) => {
     // Block API completely
     await page.route("**/api/system/snapshot**", (route) => {
       route.abort("connectionfailed");

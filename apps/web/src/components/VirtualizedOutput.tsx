@@ -113,9 +113,7 @@ const OutputRow = memo(function OutputRow({
       {line.metadata?.toolName && (
         <span className="text-purple-400 mr-2">[{line.metadata.toolName}]</span>
       )}
-      <span className="whitespace-pre-wrap break-all flex-1">
-        {line.content}
-      </span>
+      <span className="whitespace-pre-wrap break-all flex-1">{line.content}</span>
     </button>
   );
 });
@@ -133,221 +131,213 @@ function formatTimestamp(ts: number): string {
 /**
  * VirtualizedOutput main component
  */
-export const VirtualizedOutput = forwardRef<
-  VirtualizedOutputHandle,
-  VirtualizedOutputProps
->(function VirtualizedOutput(
-  {
-    lines,
-    height,
-    estimatedRowHeight = DEFAULT_ROW_HEIGHT,
-    overscan = OVERSCAN_COUNT,
-    autoScroll = true,
-    onScrollAwayFromBottom,
-    onLineClick,
-    className = "",
-  },
-  ref,
-) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [rowHeights, setRowHeights] = useState<RowHeights>({});
-  const [isAtBottom, setIsAtBottom] = useState(true);
-  const prevLinesLengthRef = useRef(lines.length);
-
-  // Calculate positions and visible range
-  const getItemTop = useCallback(
-    (index: number): number => {
-      let top = 0;
-      for (let i = 0; i < index; i++) {
-        top += rowHeights[i] || estimatedRowHeight;
-      }
-      return top;
+export const VirtualizedOutput = forwardRef<VirtualizedOutputHandle, VirtualizedOutputProps>(
+  function VirtualizedOutput(
+    {
+      lines,
+      height,
+      estimatedRowHeight = DEFAULT_ROW_HEIGHT,
+      overscan = OVERSCAN_COUNT,
+      autoScroll = true,
+      onScrollAwayFromBottom,
+      onLineClick,
+      className = "",
     },
-    [rowHeights, estimatedRowHeight],
-  );
+    ref,
+  ) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [scrollTop, setScrollTop] = useState(0);
+    const [rowHeights, setRowHeights] = useState<RowHeights>({});
+    const [isAtBottom, setIsAtBottom] = useState(true);
+    const prevLinesLengthRef = useRef(lines.length);
 
-  const getItemHeight = useCallback(
-    (index: number): number => {
-      return rowHeights[index] || estimatedRowHeight;
-    },
-    [rowHeights, estimatedRowHeight],
-  );
-
-  const totalHeight = lines.reduce((sum, _, i) => sum + getItemHeight(i), 0);
-
-  // Find visible range
-  const getVisibleRange = useCallback(() => {
-    let startIndex = 0;
-    let accumulatedHeight = 0;
-
-    // Find start index
-    for (let i = 0; i < lines.length; i++) {
-      const itemHeight = getItemHeight(i);
-      if (accumulatedHeight + itemHeight > scrollTop) {
-        startIndex = i;
-        break;
-      }
-      accumulatedHeight += itemHeight;
-    }
-
-    // Find end index
-    let endIndex = startIndex;
-    let visibleHeight = 0;
-    for (let i = startIndex; i < lines.length; i++) {
-      visibleHeight += getItemHeight(i);
-      endIndex = i;
-      if (visibleHeight >= height) break;
-    }
-
-    // Apply overscan
-    const overscanStart = Math.max(0, startIndex - overscan);
-    const overscanEnd = Math.min(lines.length - 1, endIndex + overscan);
-
-    return { startIndex: overscanStart, endIndex: overscanEnd };
-  }, [scrollTop, height, lines.length, getItemHeight, overscan]);
-
-  const { startIndex, endIndex } = getVisibleRange();
-
-  // Handle scroll
-  const handleScroll = useCallback(
-    (e: React.UIEvent<HTMLDivElement>) => {
-      const target = e.currentTarget;
-      setScrollTop(target.scrollTop);
-
-      const isNowAtBottom =
-        target.scrollHeight - target.scrollTop - target.clientHeight <
-        SCROLL_BOTTOM_THRESHOLD;
-
-      if (!isNowAtBottom && isAtBottom) {
-        onScrollAwayFromBottom?.();
-      }
-      setIsAtBottom(isNowAtBottom);
-    },
-    [isAtBottom, onScrollAwayFromBottom],
-  );
-
-  // Handle row height changes
-  const handleRowHeightChange = useCallback((index: number, height: number) => {
-    setRowHeights((prev) => {
-      if (prev[index] === height) return prev;
-      return { ...prev, [index]: height };
-    });
-  }, []);
-
-  // Auto-scroll to bottom when new lines arrive
-  useEffect(() => {
-    if (autoScroll && isAtBottom && lines.length > prevLinesLengthRef.current) {
-      containerRef.current?.scrollTo({
-        top: totalHeight,
-        behavior: "smooth",
-      });
-    }
-    prevLinesLengthRef.current = lines.length;
-  }, [lines.length, autoScroll, isAtBottom, totalHeight]);
-
-  // Imperative handle for external control
-  useImperativeHandle(ref, () => ({
-    scrollToBottom: () => {
-      containerRef.current?.scrollTo({
-        top: totalHeight,
-        behavior: "smooth",
-      });
-      setIsAtBottom(true);
-    },
-    scrollToTop: () => {
-      containerRef.current?.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    },
-    scrollToLine: (index: number) => {
-      const top = getItemTop(index);
-      containerRef.current?.scrollTo({
-        top,
-        behavior: "smooth",
-      });
-    },
-  }));
-
-  // Render visible items
-  const visibleItems = [];
-  for (let i = startIndex; i <= endIndex && i < lines.length; i++) {
-    const line = lines[i];
-    if (!line) continue;
-    const top = getItemTop(i);
-
-    visibleItems.push(
-      <OutputRow
-        key={line.id}
-        line={line}
-        index={i}
-        style={{
-          position: "absolute",
-          top,
-          left: 0,
-          right: 0,
-          minHeight: estimatedRowHeight,
-        }}
-        onHeightChange={handleRowHeightChange}
-        onClick={() => onLineClick?.(line)}
-      />,
+    // Calculate positions and visible range
+    const getItemTop = useCallback(
+      (index: number): number => {
+        let top = 0;
+        for (let i = 0; i < index; i++) {
+          top += rowHeights[i] || estimatedRowHeight;
+        }
+        return top;
+      },
+      [rowHeights, estimatedRowHeight],
     );
-  }
 
-  return (
-    <div
-      ref={containerRef}
-      className={`overflow-auto bg-gray-900 ${className}`}
-      style={{ height }}
-      onScroll={handleScroll}
-      role="log"
-      aria-live="polite"
-      aria-label="Agent output"
-    >
-      <div
-        style={{
-          position: "relative",
-          height: totalHeight,
-          minHeight: height,
-        }}
-      >
-        {visibleItems}
-      </div>
+    const getItemHeight = useCallback(
+      (index: number): number => {
+        return rowHeights[index] || estimatedRowHeight;
+      },
+      [rowHeights, estimatedRowHeight],
+    );
 
-      {/* Scroll to bottom button */}
-      {!isAtBottom && lines.length > 0 && (
-        <button
-          type="button"
-          className="absolute bottom-4 right-4 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-full shadow-lg transition-colors"
-          onClick={() => {
-            containerRef.current?.scrollTo({
-              top: totalHeight,
-              behavior: "smooth",
-            });
-            setIsAtBottom(true);
+    const totalHeight = lines.reduce((sum, _, i) => sum + getItemHeight(i), 0);
+
+    // Find visible range
+    const getVisibleRange = useCallback(() => {
+      let startIndex = 0;
+      let accumulatedHeight = 0;
+
+      // Find start index
+      for (let i = 0; i < lines.length; i++) {
+        const itemHeight = getItemHeight(i);
+        if (accumulatedHeight + itemHeight > scrollTop) {
+          startIndex = i;
+          break;
+        }
+        accumulatedHeight += itemHeight;
+      }
+
+      // Find end index
+      let endIndex = startIndex;
+      let visibleHeight = 0;
+      for (let i = startIndex; i < lines.length; i++) {
+        visibleHeight += getItemHeight(i);
+        endIndex = i;
+        if (visibleHeight >= height) break;
+      }
+
+      // Apply overscan
+      const overscanStart = Math.max(0, startIndex - overscan);
+      const overscanEnd = Math.min(lines.length - 1, endIndex + overscan);
+
+      return { startIndex: overscanStart, endIndex: overscanEnd };
+    }, [scrollTop, height, lines.length, getItemHeight, overscan]);
+
+    const { startIndex, endIndex } = getVisibleRange();
+
+    // Handle scroll
+    const handleScroll = useCallback(
+      (e: React.UIEvent<HTMLDivElement>) => {
+        const target = e.currentTarget;
+        setScrollTop(target.scrollTop);
+
+        const isNowAtBottom =
+          target.scrollHeight - target.scrollTop - target.clientHeight < SCROLL_BOTTOM_THRESHOLD;
+
+        if (!isNowAtBottom && isAtBottom) {
+          onScrollAwayFromBottom?.();
+        }
+        setIsAtBottom(isNowAtBottom);
+      },
+      [isAtBottom, onScrollAwayFromBottom],
+    );
+
+    // Handle row height changes
+    const handleRowHeightChange = useCallback((index: number, height: number) => {
+      setRowHeights((prev) => {
+        if (prev[index] === height) return prev;
+        return { ...prev, [index]: height };
+      });
+    }, []);
+
+    // Auto-scroll to bottom when new lines arrive
+    useEffect(() => {
+      if (autoScroll && isAtBottom && lines.length > prevLinesLengthRef.current) {
+        containerRef.current?.scrollTo({
+          top: totalHeight,
+          behavior: "smooth",
+        });
+      }
+      prevLinesLengthRef.current = lines.length;
+    }, [lines.length, autoScroll, isAtBottom, totalHeight]);
+
+    // Imperative handle for external control
+    useImperativeHandle(ref, () => ({
+      scrollToBottom: () => {
+        containerRef.current?.scrollTo({
+          top: totalHeight,
+          behavior: "smooth",
+        });
+        setIsAtBottom(true);
+      },
+      scrollToTop: () => {
+        containerRef.current?.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
+      },
+      scrollToLine: (index: number) => {
+        const top = getItemTop(index);
+        containerRef.current?.scrollTo({
+          top,
+          behavior: "smooth",
+        });
+      },
+    }));
+
+    // Render visible items
+    const visibleItems = [];
+    for (let i = startIndex; i <= endIndex && i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+      const top = getItemTop(i);
+
+      visibleItems.push(
+        <OutputRow
+          key={line.id}
+          line={line}
+          index={i}
+          style={{
+            position: "absolute",
+            top,
+            left: 0,
+            right: 0,
+            minHeight: estimatedRowHeight,
           }}
-          aria-label="Scroll to bottom"
+          onHeightChange={handleRowHeightChange}
+          onClick={() => onLineClick?.(line)}
+        />,
+      );
+    }
+
+    return (
+      <div
+        ref={containerRef}
+        className={`overflow-auto bg-gray-900 ${className}`}
+        style={{ height }}
+        onScroll={handleScroll}
+        role="log"
+        aria-live="polite"
+        aria-label="Agent output"
+      >
+        <div
+          style={{
+            position: "relative",
+            height: totalHeight,
+            minHeight: height,
+          }}
         >
-          New output
-        </button>
-      )}
-    </div>
-  );
-});
+          {visibleItems}
+        </div>
+
+        {/* Scroll to bottom button */}
+        {!isAtBottom && lines.length > 0 && (
+          <button
+            type="button"
+            className="absolute bottom-4 right-4 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-full shadow-lg transition-colors"
+            onClick={() => {
+              containerRef.current?.scrollTo({
+                top: totalHeight,
+                behavior: "smooth",
+              });
+              setIsAtBottom(true);
+            }}
+            aria-label="Scroll to bottom"
+          >
+            New output
+          </button>
+        )}
+      </div>
+    );
+  },
+);
 
 /**
  * Empty state component for when there are no lines
  */
-export function VirtualizedOutputEmpty({
-  message = "No output yet",
-}: {
-  message?: string;
-}) {
+export function VirtualizedOutputEmpty({ message = "No output yet" }: { message?: string }) {
   return (
-    <div className="flex items-center justify-center h-full text-gray-500 text-sm">
-      {message}
-    </div>
+    <div className="flex items-center justify-center h-full text-gray-500 text-sm">{message}</div>
   );
 }
 

@@ -5,13 +5,7 @@
  * large lists of any item type.
  */
 
-import {
-  forwardRef,
-  useCallback,
-  useImperativeHandle,
-  useRef,
-  useState,
-} from "react";
+import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react";
 
 export interface VirtualizedListProps<T> {
   /** Array of items to display */
@@ -91,8 +85,7 @@ function VirtualizedListInner<T>(
 
       // Check if scrolled to bottom (scrolling down only)
       if (newScrollTop > prevScrollTop.current && onScrollToBottom) {
-        const distanceFromBottom =
-          target.scrollHeight - newScrollTop - target.clientHeight;
+        const distanceFromBottom = target.scrollHeight - newScrollTop - target.clientHeight;
         if (distanceFromBottom < scrollBottomThreshold) {
           onScrollToBottom();
         }
@@ -120,10 +113,7 @@ function VirtualizedListInner<T>(
   // Loading state
   if (loading) {
     return (
-      <div
-        className={`flex items-center justify-center ${className}`}
-        style={{ height }}
-      >
+      <div className={`flex items-center justify-center ${className}`} style={{ height }}>
         <div className="animate-spin w-8 h-8 border-2 border-gray-600 border-t-blue-500 rounded-full" />
       </div>
     );

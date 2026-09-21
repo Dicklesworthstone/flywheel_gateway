@@ -35,10 +35,7 @@ const mockSnapshot: SystemSnapshot = {
     degradedCount: 1,
     unhealthyCount: 1,
     unknownCount: 0,
-    issues: [
-      "Agent Mail server is not running",
-      "UBS (Ultimate Bug Scanner) is not installed",
-    ],
+    issues: ["Agent Mail server is not running", "UBS (Ultimate Bug Scanner) is not installed"],
   },
   ntm: {
     capturedAt: new Date().toISOString(),
@@ -188,9 +185,7 @@ const mockSnapshot: SystemSnapshot = {
       latencyMs: 5,
     },
     status: "degraded",
-    registryGeneratedAt: new Date(
-      Date.now() - 3 * 24 * 60 * 60 * 1000,
-    ).toISOString(),
+    registryGeneratedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
     registryAgeMs: 3 * 24 * 60 * 60 * 1000,
     toolsWithChecksums: 2,
     checksumsStale: false,
@@ -202,9 +197,7 @@ const mockSnapshot: SystemSnapshot = {
   },
 };
 
-function refreshMockSnapshotTimestamps(
-  snapshot: SystemSnapshot,
-): SystemSnapshot {
+function refreshMockSnapshotTimestamps(snapshot: SystemSnapshot): SystemSnapshot {
   const now = new Date().toISOString();
   return {
     ...snapshot,
@@ -250,9 +243,7 @@ async function fetchAPI<T>(endpoint: string, bypassCache = false): Promise<T> {
   });
 
   if (!response.ok) {
-    const error = await response
-      .json()
-      .catch(() => ({ message: "Request failed" }));
+    const error = await response.json().catch(() => ({ message: "Request failed" }));
     throw new Error(error.message || `HTTP ${response.status}`);
   }
 

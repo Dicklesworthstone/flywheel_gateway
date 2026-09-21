@@ -127,11 +127,7 @@ describe("VelocityScore Fixture", () => {
 
   it("breakdown components are within range", () => {
     const { breakdown } = FIXTURE_SCORE;
-    for (const val of [
-      breakdown.throughput,
-      breakdown.quality,
-      breakdown.velocity,
-    ]) {
+    for (const val of [breakdown.throughput, breakdown.quality, breakdown.velocity]) {
       expect(val).toBeGreaterThanOrEqual(0);
       expect(val).toBeLessThanOrEqual(100);
     }
@@ -195,9 +191,7 @@ describe("VelocityHistory Fixture", () => {
   });
 
   it("aggregate stats are consistent", () => {
-    expect(FIXTURE_HISTORY.peak).toBeGreaterThanOrEqual(
-      FIXTURE_HISTORY.average,
-    );
+    expect(FIXTURE_HISTORY.peak).toBeGreaterThanOrEqual(FIXTURE_HISTORY.average);
     expect(FIXTURE_HISTORY.trough).toBeLessThanOrEqual(FIXTURE_HISTORY.average);
   });
 

@@ -82,13 +82,7 @@ export function CMPage() {
       <div className="page__header">
         <h2>Credential Manager</h2>
         {byoa && (
-          <StatusPill
-            tone={
-              byoa.healthyProviders === byoa.totalProviders
-                ? "positive"
-                : "warning"
-            }
-          >
+          <StatusPill tone={byoa.healthyProviders === byoa.totalProviders ? "positive" : "warning"}>
             {byoa.healthyProviders}/{byoa.totalProviders} healthy
           </StatusPill>
         )}
@@ -120,13 +114,10 @@ export function CMPage() {
               </p>
               {provider.lastRotation && (
                 <p className="muted">
-                  Last rotation:{" "}
-                  {new Date(provider.lastRotation).toLocaleString()}
+                  Last rotation: {new Date(provider.lastRotation).toLocaleString()}
                 </p>
               )}
-              {!provider.configured && (
-                <p className="warning-text">Not configured</p>
-              )}
+              {!provider.configured && <p className="warning-text">Not configured</p>}
             </div>
           ))}
         </div>
@@ -149,10 +140,7 @@ export function CMPage() {
               <span>Cooldown</span>
             </div>
             {poolEntries.map((entry) => (
-              <div
-                key={`${entry.provider}-${entry.profileId}`}
-                className="table__row"
-              >
+              <div key={`${entry.provider}-${entry.profileId}`} className="table__row">
                 <span>{entry.provider}</span>
                 <span className="mono">{entry.profileId}</span>
                 <span>
@@ -166,14 +154,10 @@ export function CMPage() {
                   </StatusPill>
                 </span>
                 <span className="muted">
-                  {entry.lastUsed
-                    ? new Date(entry.lastUsed).toLocaleString()
-                    : "never"}
+                  {entry.lastUsed ? new Date(entry.lastUsed).toLocaleString() : "never"}
                 </span>
                 <span className="muted">
-                  {entry.cooldownUntil
-                    ? new Date(entry.cooldownUntil).toLocaleString()
-                    : "—"}
+                  {entry.cooldownUntil ? new Date(entry.cooldownUntil).toLocaleString() : "—"}
                 </span>
               </div>
             ))}
@@ -184,8 +168,7 @@ export function CMPage() {
       {!isLoading && !byoa && !error && (
         <div className="card">
           <p className="muted">
-            No credential data available. Configure provider accounts in the
-            Accounts page.
+            No credential data available. Configure provider accounts in the Accounts page.
           </p>
         </div>
       )}

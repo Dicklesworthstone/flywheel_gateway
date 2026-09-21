@@ -119,31 +119,18 @@ interface SpinnerProps {
 /**
  * Spinner loading indicator.
  */
-export function Spinner({
-  size = "md",
-  className = "",
-  label = "Loading...",
-}: SpinnerProps) {
-  const sizeClass =
-    size === "sm" ? "spinner--sm" : size === "lg" ? "spinner--lg" : "";
+export function Spinner({ size = "md", className = "", label = "Loading..." }: SpinnerProps) {
+  const sizeClass = size === "sm" ? "spinner--sm" : size === "lg" ? "spinner--lg" : "";
 
   return (
-    <output
-      className={`spinner ${sizeClass} ${className}`}
-      aria-label={label}
-      aria-live="polite"
-    />
+    <output className={`spinner ${sizeClass} ${className}`} aria-label={label} aria-live="polite" />
   );
 }
 
 /**
  * Full-page loading state.
  */
-export function LoadingOverlay({
-  message = "Loading...",
-}: {
-  message?: string;
-}) {
+export function LoadingOverlay({ message = "Loading..." }: { message?: string }) {
   return (
     <div
       style={{

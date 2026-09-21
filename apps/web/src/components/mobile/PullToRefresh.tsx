@@ -44,16 +44,8 @@ export const PullToRefresh = memo(function PullToRefresh({
 
   // Calculate indicator position and rotation
   const indicatorTranslateY = isPulling ? pullProgress * threshold : 0;
-  const indicatorRotation = isPulling
-    ? pullProgress * 180
-    : isRefreshing
-      ? 360
-      : 0;
-  const indicatorOpacity = isPulling
-    ? Math.min(1, pullProgress * 1.5)
-    : isRefreshing
-      ? 1
-      : 0;
+  const indicatorRotation = isPulling ? pullProgress * 180 : isRefreshing ? 360 : 0;
+  const indicatorOpacity = isPulling ? Math.min(1, pullProgress * 1.5) : isRefreshing ? 1 : 0;
 
   return (
     <div className={`relative overflow-hidden ${className}`} {...handlers}>
@@ -84,9 +76,7 @@ export const PullToRefresh = memo(function PullToRefresh({
       <div
         className="transition-transform duration-200"
         style={{
-          transform: isPulling
-            ? `translateY(${pullProgress * 50}px)`
-            : "translateY(0)",
+          transform: isPulling ? `translateY(${pullProgress * 50}px)` : "translateY(0)",
         }}
       >
         {children}
@@ -138,10 +128,7 @@ export function PullIndicator({
 /**
  * Hook for using pull-to-refresh in custom layouts
  */
-export function usePullToRefresh(
-  onRefresh: () => Promise<void>,
-  enabled = true,
-) {
+export function usePullToRefresh(onRefresh: () => Promise<void>, enabled = true) {
   const { handlers, state } = useMobileGestures({
     onPullToRefresh: onRefresh,
     enabled,

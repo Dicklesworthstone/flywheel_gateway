@@ -43,12 +43,7 @@ function getNestedValue<T>(obj: T, path: string): unknown {
 /**
  * Default sort comparison function.
  */
-function defaultSort<T>(
-  a: T,
-  b: T,
-  accessor: string,
-  direction: SortDirection,
-): number {
+function defaultSort<T>(a: T, b: T, accessor: string, direction: SortDirection): number {
   if (!direction) return 0;
 
   const aVal = getNestedValue(a, accessor);
@@ -113,9 +108,7 @@ function matchFilter<T>(row: T, filter: Filter, columns: Column<T>[]): boolean {
 /**
  * Main DataTable state management hook.
  */
-export function useDataTable<T>(
-  options: UseDataTableOptions<T>,
-): UseDataTableReturn<T> {
+export function useDataTable<T>(options: UseDataTableOptions<T>): UseDataTableReturn<T> {
   const {
     data,
     columns,
@@ -136,13 +129,11 @@ export function useDataTable<T>(
   const [sortState, setSortStateInternal] = useState<SortState>(initialSort);
 
   // Pagination state
-  const [internalPagination, setInternalPagination] = useState<PaginationState>(
-    {
-      page: 0,
-      pageSize: initialPageSize,
-      total: data.length,
-    },
-  );
+  const [internalPagination, setInternalPagination] = useState<PaginationState>({
+    page: 0,
+    pageSize: initialPageSize,
+    total: data.length,
+  });
 
   // Use external pagination if provided
   const pagination = externalPagination || internalPagination;
@@ -237,9 +228,7 @@ export function useDataTable<T>(
         columns.some((col) => {
           const value = getNestedValue(row, String(col.accessor));
           return (
-            value !== null &&
-            value !== undefined &&
-            String(value).toLowerCase().includes(query)
+            value !== null && value !== undefined && String(value).toLowerCase().includes(query)
           );
         }),
       );
@@ -247,9 +236,7 @@ export function useDataTable<T>(
 
     // Apply filters
     if (filters.length > 0) {
-      result = result.filter((row) =>
-        filters.every((filter) => matchFilter(row, filter, columns)),
-      );
+      result = result.filter((row) => filters.every((filter) => matchFilter(row, filter, columns)));
     }
 
     // Apply sorting
@@ -260,12 +247,7 @@ export function useDataTable<T>(
           if (column.sortFn) {
             return column.sortFn(a, b, sortState.direction);
           }
-          return defaultSort(
-            a,
-            b,
-            String(column.accessor),
-            sortState.direction,
-          );
+          return defaultSort(a, b, String(column.accessor), sortState.direction);
         });
       }
     }
@@ -279,10 +261,7 @@ export function useDataTable<T>(
       setInternalPagination((prev) => ({
         ...prev,
         total: processedData.length,
-        page: Math.min(
-          prev.page,
-          Math.max(0, Math.ceil(processedData.length / prev.pageSize) - 1),
-        ),
+        page: Math.min(prev.page, Math.max(0, Math.ceil(processedData.length / prev.pageSize) - 1)),
       }));
     }
   }, [processedData.length, externalPagination, pagination.total]);
@@ -334,18 +313,12 @@ export function useDataTable<T>(
         const newState: SelectionState<T> = {
           selected: newSelected,
           lastSelectedIndex: index,
-          isAllPageSelected: displayedData.every((row) =>
-            newSelected.has(getRowId(row)),
-          ),
-          isAllSelected: processedData.every((row) =>
-            newSelected.has(getRowId(row)),
-          ),
+          isAllPageSelected: displayedData.every((row) => newSelected.has(getRowId(row))),
+          isAllSelected: processedData.every((row) => newSelected.has(getRowId(row))),
         };
 
         // Trigger callback
-        const selectedRows = processedData.filter((row) =>
-          newSelected.has(getRowId(row)),
-        );
+        const selectedRows = processedData.filter((row) => newSelected.has(getRowId(row)));
         onSelectionChange?.(selectedRows);
 
         return newState;
@@ -374,15 +347,11 @@ export function useDataTable<T>(
         selected: newSelected,
         lastSelectedIndex: prev.lastSelectedIndex,
         isAllPageSelected: !prev.isAllPageSelected,
-        isAllSelected: processedData.every((row) =>
-          newSelected.has(getRowId(row)),
-        ),
+        isAllSelected: processedData.every((row) => newSelected.has(getRowId(row))),
       };
 
       // Trigger callback
-      const selectedRows = processedData.filter((row) =>
-        newSelected.has(getRowId(row)),
-      );
+      const selectedRows = processedData.filter((row) => newSelected.has(getRowId(row)));
       onSelectionChange?.(selectedRows);
 
       return newState;
@@ -423,10 +392,7 @@ export function useDataTable<T>(
     });
   }, []);
 
-  const isRowExpanded = useCallback(
-    (id: string) => expandedIds.has(id),
-    [expandedIds],
-  );
+  const isRowExpanded = useCallback((id: string) => expandedIds.has(id), [expandedIds]);
 
   // Filter handlers
   const addFilter = useCallback(

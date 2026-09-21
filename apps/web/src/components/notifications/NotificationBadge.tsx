@@ -112,9 +112,7 @@ export function NotificationBadge({
         ${sizeClasses.container}
         ${className}
       `}
-      aria-label={
-        ariaLabel ?? `Notifications${count > 0 ? ` (${count} unread)` : ""}`
-      }
+      aria-label={ariaLabel ?? `Notifications${count > 0 ? ` (${count} unread)` : ""}`}
       aria-live="polite"
     >
       {/* Icon */}
@@ -172,13 +170,7 @@ export function NotificationBadge({
 /**
  * NotificationDot component for a simpler unread indicator.
  */
-export function NotificationDot({
-  show,
-  className = "",
-}: {
-  show: boolean;
-  className?: string;
-}) {
+export function NotificationDot({ show, className = "" }: { show: boolean; className?: string }) {
   return (
     <AnimatePresence>
       {show && (

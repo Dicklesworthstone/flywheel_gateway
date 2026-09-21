@@ -56,11 +56,7 @@ function SortIcon({ direction }: { direction: "asc" | "desc" | null }) {
 
   return (
     <span className="data-table__sort-icon" aria-hidden="true">
-      {direction === "asc" ? (
-        <ChevronUp size={14} />
-      ) : (
-        <ChevronDown size={14} />
-      )}
+      {direction === "asc" ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
     </span>
   );
 }
@@ -119,17 +115,11 @@ export function DataTableHeader<T>({
               tabIndex={isSortable ? 0 : undefined}
               role={isSortable ? "button" : undefined}
               aria-sort={
-                isSorted
-                  ? sortState.direction === "asc"
-                    ? "ascending"
-                    : "descending"
-                  : undefined
+                isSorted ? (sortState.direction === "asc" ? "ascending" : "descending") : undefined
               }
             >
               <span>{column.header}</span>
-              {isSortable && (
-                <SortIcon direction={isSorted ? sortState.direction : null} />
-              )}
+              {isSortable && <SortIcon direction={isSorted ? sortState.direction : null} />}
             </th>
           );
         })}

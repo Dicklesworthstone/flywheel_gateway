@@ -47,12 +47,8 @@ function clampNumber(value: number, min: number, max: number): number {
 function normalizeConfig(config: BackpressureConfig): BackpressureConfig {
   const maxQueueSize = Math.max(1, Math.floor(config.maxQueueSize));
 
-  const highWaterMark = Math.floor(
-    clampNumber(config.highWaterMark, 0, maxQueueSize),
-  );
-  const lowWaterMark = Math.floor(
-    clampNumber(config.lowWaterMark, 0, highWaterMark),
-  );
+  const highWaterMark = Math.floor(clampNumber(config.highWaterMark, 0, maxQueueSize));
+  const lowWaterMark = Math.floor(clampNumber(config.lowWaterMark, 0, highWaterMark));
 
   const processingInterval = Math.max(1, Math.floor(config.processingInterval));
   const batchSize = Math.max(1, Math.floor(config.batchSize));
@@ -138,16 +134,11 @@ export class BackpressureManager<T = unknown> {
         0,
         this.config.maxQueueSize - 1,
       );
-      const dropCount = Math.max(
-        0,
-        this.queue.length - Math.floor(keepCountBeforePush),
-      );
+      const dropCount = Math.max(0, this.queue.length - Math.floor(keepCountBeforePush));
       if (dropCount > 0) {
         this.queue.splice(0, dropCount);
         this.droppedCount += dropCount;
-        console.warn(
-          `[BackpressureManager] Queue overflow, dropped ${dropCount} old messages`,
-        );
+        console.warn(`[BackpressureManager] Queue overflow, dropped ${dropCount} old messages`);
       }
     }
 
@@ -225,17 +216,13 @@ export class BackpressureManager<T = unknown> {
   private pause(): void {
     this.isPaused = true;
     this.onPause?.();
-    console.debug(
-      `[BackpressureManager] Paused at queue length ${this.queue.length}`,
-    );
+    console.debug(`[BackpressureManager] Paused at queue length ${this.queue.length}`);
   }
 
   private resume(): void {
     this.isPaused = false;
     this.onResume?.();
-    console.debug(
-      `[BackpressureManager] Resumed at queue length ${this.queue.length}`,
-    );
+    console.debug(`[BackpressureManager] Resumed at queue length ${this.queue.length}`);
   }
 
   private notifyStateChange(): void {

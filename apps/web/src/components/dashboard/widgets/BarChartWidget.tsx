@@ -32,14 +32,7 @@ interface BarChartWidgetProps {
   data: WidgetData;
 }
 
-const DEFAULT_COLORS = [
-  "#6366f1",
-  "#10b981",
-  "#f59e0b",
-  "#ef4444",
-  "#8b5cf6",
-  "#ec4899",
-];
+const DEFAULT_COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
 export function BarChartWidget({ widget: _widget, data }: BarChartWidgetProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -47,12 +40,7 @@ export function BarChartWidget({ widget: _widget, data }: BarChartWidgetProps) {
   const chartData = data.data as BarChartData | null;
 
   useEffect(() => {
-    if (
-      !chartData?.items?.length ||
-      !canvasRef.current ||
-      !containerRef.current
-    )
-      return;
+    if (!chartData?.items?.length || !canvasRef.current || !containerRef.current) return;
 
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -128,8 +116,7 @@ export function BarChartWidget({ widget: _widget, data }: BarChartWidgetProps) {
 
     // Draw bars
     items.forEach((item, i) => {
-      const color =
-        item.color ?? DEFAULT_COLORS[i % DEFAULT_COLORS.length] ?? "#6366f1";
+      const color = item.color ?? DEFAULT_COLORS[i % DEFAULT_COLORS.length] ?? "#6366f1";
       const valueRatio = item.value / maxValue;
 
       if (isHorizontal) {
@@ -146,21 +133,13 @@ export function BarChartWidget({ widget: _widget, data }: BarChartWidgetProps) {
         ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
         ctx.font = "12px system-ui";
         ctx.textAlign = "right";
-        ctx.fillText(
-          truncateLabel(item.label, 12),
-          padding.left - 8,
-          y + barSize / 2 + 4,
-        );
+        ctx.fillText(truncateLabel(item.label, 12), padding.left - 8, y + barSize / 2 + 4);
 
         // Value
         if (barWidth > 40) {
           ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
           ctx.textAlign = "right";
-          ctx.fillText(
-            formatValue(item.value),
-            padding.left + barWidth - 8,
-            y + barSize / 2 + 4,
-          );
+          ctx.fillText(formatValue(item.value), padding.left + barWidth - 8, y + barSize / 2 + 4);
         }
       } else {
         const x = padding.left + (barSize + barGap) * i;
@@ -169,13 +148,7 @@ export function BarChartWidget({ widget: _widget, data }: BarChartWidgetProps) {
         // Bar
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.roundRect(
-          x,
-          padding.top + chartHeight - barHeight,
-          barSize,
-          barHeight,
-          [4, 4, 0, 0],
-        );
+        ctx.roundRect(x, padding.top + chartHeight - barHeight, barSize, barHeight, [4, 4, 0, 0]);
         ctx.fill();
 
         // Label
@@ -195,9 +168,7 @@ export function BarChartWidget({ widget: _widget, data }: BarChartWidgetProps) {
   }, [chartData]);
 
   if (!chartData?.items?.length) {
-    return (
-      <div className="chart-widget chart-widget--empty">No data available</div>
-    );
+    return <div className="chart-widget chart-widget--empty">No data available</div>;
   }
 
   return (
@@ -220,7 +191,5 @@ function formatValue(value: number): string {
 }
 
 function truncateLabel(label: string, maxLength: number): string {
-  return label.length > maxLength
-    ? `${label.substring(0, maxLength - 1)}...`
-    : label;
+  return label.length > maxLength ? `${label.substring(0, maxLength - 1)}...` : label;
 }

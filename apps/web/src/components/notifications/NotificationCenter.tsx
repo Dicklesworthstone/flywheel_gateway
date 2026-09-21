@@ -24,10 +24,7 @@ import {
 } from "../../hooks/useNotifications";
 import { dropdownVariants } from "../../lib/animations";
 import { NotificationBadge } from "./NotificationBadge";
-import {
-  NotificationList,
-  type NotificationListFilter,
-} from "./NotificationList";
+import { NotificationList, type NotificationListFilter } from "./NotificationList";
 
 export interface NotificationCenterProps {
   /** User ID for fetching notifications */
@@ -91,27 +88,15 @@ export function NotificationCenter({
   );
 
   // Extract data
-  const notifications = useMemo(
-    () => notificationData?.data ?? [],
-    [notificationData],
-  );
-  const unreadCount = useMemo(
-    () => notificationData?.unreadCount ?? 0,
-    [notificationData],
-  );
+  const notifications = useMemo(() => notificationData?.data ?? [], [notificationData]);
+  const unreadCount = useMemo(() => notificationData?.unreadCount ?? 0, [notificationData]);
   const total = useMemo(() => notificationData?.total ?? 0, [notificationData]);
-  const hasMore = useMemo(
-    () => notificationData?.hasMore ?? false,
-    [notificationData],
-  );
+  const hasMore = useMemo(() => notificationData?.hasMore ?? false, [notificationData]);
 
   // Close on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -197,12 +182,9 @@ export function NotificationCenter({
     [handleMarkAsRead],
   );
 
-  const handleFilterChange = useCallback(
-    (newFilter: NotificationListFilter) => {
-      setFilter(newFilter);
-    },
-    [],
-  );
+  const handleFilterChange = useCallback((newFilter: NotificationListFilter) => {
+    setFilter(newFilter);
+  }, []);
 
   const handleLoadMore = useCallback(() => {
     // Pagination is handled by cursor in the hook
@@ -318,11 +300,7 @@ export function NotificationPreferencesPanel({
   userId,
   onClose,
 }: NotificationPreferencesPanelProps) {
-  const {
-    data: preferences,
-    loading,
-    refetch,
-  } = useNotificationPreferences(userId);
+  const { data: preferences, loading, refetch } = useNotificationPreferences(userId);
   const { updatePreferences, loading: updating } = useUpdatePreferences();
 
   const [localPrefs, setLocalPrefs] = useState(preferences);
@@ -382,11 +360,7 @@ export function NotificationPreferencesPanel({
   }, [localPrefs, userId, updatePreferences, refetch]);
 
   if (loading || !localPrefs) {
-    return (
-      <div className="p-6 text-center text-gray-500">
-        Loading preferences...
-      </div>
-    );
+    return <div className="p-6 text-center text-gray-500">Loading preferences...</div>;
   }
 
   return (
@@ -410,9 +384,7 @@ export function NotificationPreferencesPanel({
       {/* Master toggle */}
       <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
         <div>
-          <p className="font-medium text-gray-900 dark:text-white">
-            Enable notifications
-          </p>
+          <p className="font-medium text-gray-900 dark:text-white">Enable notifications</p>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Receive notifications for important events
           </p>
@@ -443,50 +415,42 @@ export function NotificationPreferencesPanel({
           Notification Categories
         </h4>
         <div className="space-y-2">
-          {(Object.keys(localPrefs.categories) as NotificationCategory[]).map(
-            (category) => (
-              <div
-                key={category}
-                className="flex items-center justify-between py-2"
-              >
-                <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">
-                  {category}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleToggleCategory(category)}
-                  disabled={updating || !localPrefs.enabled}
-                  className={`
+          {(Object.keys(localPrefs.categories) as NotificationCategory[]).map((category) => (
+            <div key={category} className="flex items-center justify-between py-2">
+              <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">
+                {category}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleToggleCategory(category)}
+                disabled={updating || !localPrefs.enabled}
+                className={`
                     relative inline-flex h-5 w-9 items-center rounded-full
                     transition-colors duration-200
                     ${!localPrefs.enabled ? "opacity-50 cursor-not-allowed" : ""}
                     ${localPrefs.categories[category].enabled ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-600"}
                   `}
-                >
-                  <span
-                    className={`
+              >
+                <span
+                  className={`
                       inline-block h-3 w-3 transform rounded-full bg-white shadow
                       transition-transform duration-200
                       ${localPrefs.categories[category].enabled ? "translate-x-5" : "translate-x-1"}
                     `}
-                  />
-                </button>
-              </div>
-            ),
-          )}
+                />
+              </button>
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Quiet hours */}
       <div>
-        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-          Quiet Hours
-        </h4>
+        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Quiet Hours</h4>
         <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <div>
             <p className="text-sm text-gray-700 dark:text-gray-300">
-              {localPrefs.quietHours?.start ?? "22:00"} -{" "}
-              {localPrefs.quietHours?.end ?? "08:00"}
+              {localPrefs.quietHours?.start ?? "22:00"} - {localPrefs.quietHours?.end ?? "08:00"}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Only urgent notifications during quiet hours
@@ -516,8 +480,7 @@ export function NotificationPreferencesPanel({
 
       {/* Channel config hint */}
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        Configure email, Slack, and webhook integrations in your account
-        settings.
+        Configure email, Slack, and webhook integrations in your account settings.
       </p>
     </div>
   );

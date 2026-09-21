@@ -150,8 +150,7 @@ export function CostDashboard() {
   const [breakdown, setBreakdown] = useState<CostBreakdown | null>(null);
   const [forecast, setForecast] = useState<Forecast | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [optimizationSummary, setOptimizationSummary] =
-    useState<OptimizationSummary | null>(null);
+  const [optimizationSummary, setOptimizationSummary] = useState<OptimizationSummary | null>(null);
 
   // Loading and error states
   const [loading, setLoading] = useState(true);
@@ -167,24 +166,15 @@ export function CostDashboard() {
       const results = await Promise.allSettled([
         fetchJSON<CostSummary>(`${API_BASE}/summary`),
         fetchJSON<{ items: BudgetStatus[] }>(`${API_BASE}/budget-statuses`),
-        fetchJSON<{ items: TrendDataPoint[] }>(
-          `${API_BASE}/trends/daily?days=30`,
-        ),
+        fetchJSON<{ items: TrendDataPoint[] }>(`${API_BASE}/trends/daily?days=30`),
         fetchJSON<CostBreakdown>(`${API_BASE}/breakdown/model`),
         fetchJSON<Forecast>(`${API_BASE}/forecasts/latest`),
         fetchJSON<{ items: Recommendation[] }>(`${API_BASE}/recommendations`),
         fetchJSON<OptimizationSummary>(`${API_BASE}/recommendations/summary`),
       ]);
 
-      const [
-        summaryRes,
-        budgetsRes,
-        trendRes,
-        breakdownRes,
-        forecastRes,
-        recsRes,
-        optSummaryRes,
-      ] = results;
+      const [summaryRes, budgetsRes, trendRes, breakdownRes, forecastRes, recsRes, optSummaryRes] =
+        results;
 
       if (results.every((result) => result.status === "rejected")) {
         const detail = results
@@ -245,18 +235,12 @@ export function CostDashboard() {
   }, []);
 
   // Handle recommendation status update
-  const handleRecommendationStatusUpdate = async (
-    id: string,
-    status: string,
-  ) => {
-    const updateResponse = await fetch(
-      `${API_BASE}/recommendations/${id}/status`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      },
-    ).catch((err) => {
+  const handleRecommendationStatusUpdate = async (id: string, status: string) => {
+    const updateResponse = await fetch(`${API_BASE}/recommendations/${id}/status`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    }).catch((err) => {
       console.error("[CostDashboard] Failed to update recommendation status", {
         id,
         status,
@@ -285,9 +269,7 @@ export function CostDashboard() {
   if (loading) {
     return (
       <div className="cost-dashboard cost-dashboard--loading">
-        <div className="cost-dashboard__loading-message">
-          Loading cost analytics...
-        </div>
+        <div className="cost-dashboard__loading-message">Loading cost analytics...</div>
       </div>
     );
   }
@@ -316,9 +298,7 @@ export function CostDashboard() {
             <StatusPill tone="muted">All models</StatusPill>
           </div>
           <p className="metric">{summary?.formattedTotalCost ?? "$0.00"}</p>
-          <p className="muted">
-            {(summary?.requestCount ?? 0).toLocaleString()} requests
-          </p>
+          <p className="muted">{(summary?.requestCount ?? 0).toLocaleString()} requests</p>
         </div>
 
         <div className="card card--metric">
@@ -328,11 +308,8 @@ export function CostDashboard() {
           </div>
           <p className="metric">{summary?.formattedAvgCost ?? "$0.00"}</p>
           <p className="muted">
-            {Math.round(
-              ((summary?.successCount ?? 0) / (summary?.requestCount ?? 1)) *
-                100,
-            )}
-            % success rate
+            {Math.round(((summary?.successCount ?? 0) / (summary?.requestCount ?? 1)) * 100)}%
+            success rate
           </p>
         </div>
 
@@ -341,9 +318,7 @@ export function CostDashboard() {
             <h3>Token Usage</h3>
             <StatusPill tone="muted">30d total</StatusPill>
           </div>
-          <p className="metric">
-            {((summary?.totalTokens ?? 0) / 1000000).toFixed(2)}M
-          </p>
+          <p className="metric">{((summary?.totalTokens ?? 0) / 1000000).toFixed(2)}M</p>
           <p className="muted">
             {((summary?.cachedTokens ?? 0) / 1000000).toFixed(2)}M cached (
             {summary?.totalTokens
@@ -356,16 +331,11 @@ export function CostDashboard() {
         <div className="card card--metric">
           <div className="card__header">
             <h3>Potential Savings</h3>
-            <StatusPill tone="positive">
-              {recommendations.length} suggestions
-            </StatusPill>
+            <StatusPill tone="positive">{recommendations.length} suggestions</StatusPill>
           </div>
-          <p className="metric">
-            {optimizationSummary?.formattedPotentialSavings ?? "$0.00"}
-          </p>
+          <p className="metric">{optimizationSummary?.formattedPotentialSavings ?? "$0.00"}</p>
           <p className="muted">
-            {optimizationSummary?.formattedImplementedSavings ?? "$0.00"}{" "}
-            already saved
+            {optimizationSummary?.formattedImplementedSavings ?? "$0.00"} already saved
           </p>
         </div>
       </section>
@@ -435,12 +405,8 @@ export function CostDashboard() {
       <section className="cost-dashboard__recommendations">
         <OptimizationRecommendations
           recommendations={recommendations}
-          formattedPotentialSavings={
-            optimizationSummary?.formattedPotentialSavings ?? "$0.00"
-          }
-          formattedImplementedSavings={
-            optimizationSummary?.formattedImplementedSavings ?? "$0.00"
-          }
+          formattedPotentialSavings={optimizationSummary?.formattedPotentialSavings ?? "$0.00"}
+          formattedImplementedSavings={optimizationSummary?.formattedImplementedSavings ?? "$0.00"}
           onStatusUpdate={handleRecommendationStatusUpdate}
         />
       </section>

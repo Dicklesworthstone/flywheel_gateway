@@ -39,10 +39,7 @@ export const DEFAULT_BACKOFF_CONFIG: BackoffConfig = {
  * @param config - Backoff configuration
  * @returns Delay in milliseconds
  */
-export function calculateBackoff(
-  attempt: number,
-  config: Partial<BackoffConfig> = {},
-): number {
+export function calculateBackoff(attempt: number, config: Partial<BackoffConfig> = {}): number {
   const { baseDelayMs, maxDelayMs, multiplier, jitterFactor } = {
     ...DEFAULT_BACKOFF_CONFIG,
     ...config,
@@ -69,10 +66,7 @@ export function calculateBackoff(
  * @param config - Backoff configuration
  * @returns True if should continue trying, false if max attempts reached
  */
-export function shouldRetry(
-  attempt: number,
-  config: Partial<BackoffConfig> = {},
-): boolean {
+export function shouldRetry(attempt: number, config: Partial<BackoffConfig> = {}): boolean {
   const { maxAttempts } = { ...DEFAULT_BACKOFF_CONFIG, ...config };
   return attempt < maxAttempts;
 }

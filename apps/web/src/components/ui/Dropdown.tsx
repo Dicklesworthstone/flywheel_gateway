@@ -57,17 +57,12 @@ export function Dropdown({
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Filter out divider items for keyboard navigation
-  const navigableItems = items.filter(
-    (item) => !item.divider && !item.disabled,
-  );
+  const navigableItems = items.filter((item) => !item.divider && !item.disabled);
 
   // Close on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
         setFocusedIndex(-1);
       }
@@ -98,11 +93,7 @@ export function Dropdown({
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (!isOpen) {
-        if (
-          event.key === "Enter" ||
-          event.key === " " ||
-          event.key === "ArrowDown"
-        ) {
+        if (event.key === "Enter" || event.key === " " || event.key === "ArrowDown") {
           event.preventDefault();
           setIsOpen(true);
           setFocusedIndex(0);
@@ -118,15 +109,11 @@ export function Dropdown({
           break;
         case "ArrowDown":
           event.preventDefault();
-          setFocusedIndex((prev) =>
-            prev < navigableItems.length - 1 ? prev + 1 : 0,
-          );
+          setFocusedIndex((prev) => (prev < navigableItems.length - 1 ? prev + 1 : 0));
           break;
         case "ArrowUp":
           event.preventDefault();
-          setFocusedIndex((prev) =>
-            prev > 0 ? prev - 1 : navigableItems.length - 1,
-          );
+          setFocusedIndex((prev) => (prev > 0 ? prev - 1 : navigableItems.length - 1));
           break;
         case "Enter":
         case " ":
@@ -177,10 +164,7 @@ export function Dropdown({
   };
 
   return (
-    <div
-      ref={containerRef}
-      className={`dropdown ${isOpen ? "dropdown--open" : ""} ${className}`}
-    >
+    <div ref={containerRef} className={`dropdown ${isOpen ? "dropdown--open" : ""} ${className}`}>
       <button
         type="button"
         className="dropdown__trigger"
@@ -210,9 +194,7 @@ export function Dropdown({
                 return <div key={item.id} className="dropdown__divider" />;
               }
 
-              const navigableIndex = navigableItems.findIndex(
-                (ni) => ni.id === item.id,
-              );
+              const navigableIndex = navigableItems.findIndex((ni) => ni.id === item.id);
               const isFocused = navigableIndex === focusedIndex;
 
               return (

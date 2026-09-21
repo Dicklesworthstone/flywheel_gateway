@@ -25,13 +25,7 @@ export type NotificationCategory =
 
 export type NotificationChannel = "in_app" | "email" | "slack" | "webhook";
 
-export type NotificationStatus =
-  | "pending"
-  | "sent"
-  | "delivered"
-  | "read"
-  | "actioned"
-  | "failed";
+export type NotificationStatus = "pending" | "sent" | "delivered" | "read" | "actioned" | "failed";
 
 export interface NotificationSource {
   type: "agent" | "system" | "bead" | "user" | "scheduler";
@@ -148,9 +142,7 @@ export interface PreferencesUpdateRequest {
   enabled?: boolean;
   defaultChannels?: NotificationChannel[];
   quietHours?: Partial<QuietHours>;
-  categories?: Partial<
-    Record<NotificationCategory, Partial<CategoryPreference>>
-  >;
+  categories?: Partial<Record<NotificationCategory, Partial<CategoryPreference>>>;
   digest?: Partial<DigestConfig>;
   channelConfig?: NotificationPreferences["channelConfig"];
 }
@@ -389,14 +381,10 @@ export function useNotifications(filter: NotificationFilter = {}) {
       let filtered = [...mockNotifications];
 
       if (filter.category?.length) {
-        filtered = filtered.filter((n) =>
-          filter.category?.includes(n.category),
-        );
+        filtered = filtered.filter((n) => filter.category?.includes(n.category));
       }
       if (filter.priority?.length) {
-        filtered = filtered.filter((n) =>
-          filter.priority?.includes(n.priority),
-        );
+        filtered = filtered.filter((n) => filter.priority?.includes(n.priority));
       }
       if (filter.status?.length) {
         filtered = filtered.filter((n) => filter.status?.includes(n.status));
@@ -420,16 +408,13 @@ export function useNotifications(filter: NotificationFilter = {}) {
       // Build query string
       const params = new URLSearchParams();
       if (filter.recipientId) params.set("recipient_id", filter.recipientId);
-      if (filter.category?.length)
-        params.set("category", filter.category.join(","));
-      if (filter.priority?.length)
-        params.set("priority", filter.priority.join(","));
+      if (filter.category?.length) params.set("category", filter.category.join(","));
+      if (filter.priority?.length) params.set("priority", filter.priority.join(","));
       if (filter.status?.length) params.set("status", filter.status.join(","));
       if (filter.since) params.set("since", filter.since);
       if (filter.until) params.set("until", filter.until);
       if (filter.limit) params.set("limit", filter.limit.toString());
-      if (filter.startingAfter)
-        params.set("starting_after", filter.startingAfter);
+      if (filter.startingAfter) params.set("starting_after", filter.startingAfter);
       if (filter.endingBefore) params.set("ending_before", filter.endingBefore);
 
       const result = await fetchApi<NotificationListResponse>(
@@ -660,13 +645,10 @@ export function useExecuteAction() {
             notification: Notification;
             executedAction: NotificationAction;
           };
-        }>(
-          `/notifications/${notificationId}/action?recipient_id=${recipientId}`,
-          {
-            method: "POST",
-            body: JSON.stringify({ actionId }),
-          },
-        );
+        }>(`/notifications/${notificationId}/action?recipient_id=${recipientId}`, {
+          method: "POST",
+          body: JSON.stringify({ actionId }),
+        });
         return result.data;
       } catch (err) {
         const error = err instanceof Error ? err : new Error("Unknown error");
@@ -854,13 +836,10 @@ export function useCreateNotification() {
       }
 
       try {
-        const result = await fetchApi<{ data: Notification }>(
-          "/notifications",
-          {
-            method: "POST",
-            body: JSON.stringify(request),
-          },
-        );
+        const result = await fetchApi<{ data: Notification }>("/notifications", {
+          method: "POST",
+          body: JSON.stringify(request),
+        });
         return result.data;
       } catch (err) {
         const error = err instanceof Error ? err : new Error("Unknown error");
@@ -888,9 +867,7 @@ export function useNotificationSubscription(
   onNotification?: (notification: Notification) => void,
 ) {
   const [connected, setConnected] = useState(false);
-  const [lastNotification, setLastNotification] = useState<Notification | null>(
-    null,
-  );
+  const [lastNotification, setLastNotification] = useState<Notification | null>(null);
   const mockMode = useUiStore((state) => state.mockMode);
 
   useEffect(() => {

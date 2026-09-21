@@ -141,10 +141,7 @@ function VelocityGauge({
 
   return (
     <div className="card" style={{ textAlign: "center", padding: "32px" }}>
-      <div
-        className="card__header"
-        style={{ justifyContent: "center", marginBottom: "24px" }}
-      >
+      <div className="card__header" style={{ justifyContent: "center", marginBottom: "24px" }}>
         <div style={{ display: "flex", gap: "8px" }}>
           {(["24h", "7d", "30d"] as VelocityPeriod[]).map((p) => (
             <button
@@ -245,12 +242,7 @@ interface ComponentScoreCardProps {
   icon: React.ReactNode;
 }
 
-function ComponentScoreCard({
-  label,
-  score,
-  weight,
-  icon,
-}: ComponentScoreCardProps) {
+function ComponentScoreCard({ label, score, weight, icon }: ComponentScoreCardProps) {
   return (
     <div className="card card--compact">
       <div className="card__header">
@@ -308,9 +300,7 @@ function OverviewTab() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      <div
-        style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "24px" }}
-      >
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "24px" }}>
         <VelocityGauge
           score={velocityScore.overall_score}
           trend={velocityScore.trend}
@@ -370,9 +360,7 @@ function OverviewTab() {
           <div className="card__header">
             <h3>Recommendations</h3>
           </div>
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "12px" }}
-          >
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {trendData.recommendations.slice(0, 3).map((rec) => (
               <div
                 key={rec.id}
@@ -435,18 +423,12 @@ function StageCard({ name, icon, metrics, color }: StageCardProps) {
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
         {metrics.map((m) => (
-          <div
-            key={m.label}
-            style={{ display: "flex", justifyContent: "space-between" }}
-          >
+          <div key={m.label} style={{ display: "flex", justifyContent: "space-between" }}>
             <span className="muted">{m.label}</span>
             <span
               style={{
                 fontWeight: 600,
-                color:
-                  m.score !== undefined
-                    ? getScoreColor(m.score * 100)
-                    : undefined,
+                color: m.score !== undefined ? getScoreColor(m.score * 100) : undefined,
               }}
             >
               {m.value}
@@ -489,9 +471,7 @@ function StagesTab() {
         metrics={[
           {
             label: "Avg Duration",
-            value: formatDuration(
-              stageMetrics.plan.avg_planning_duration_seconds,
-            ),
+            value: formatDuration(stageMetrics.plan.avg_planning_duration_seconds),
           },
           {
             label: "Quality Score",
@@ -516,28 +496,20 @@ function StagesTab() {
         metrics={[
           {
             label: "Avg Duration",
-            value: formatDuration(
-              stageMetrics.coordinate.avg_coordination_duration_seconds,
-            ),
+            value: formatDuration(stageMetrics.coordinate.avg_coordination_duration_seconds),
           },
           {
             label: "Assignment Efficiency",
-            value: formatPercent(
-              stageMetrics.coordinate.agent_assignment_efficiency,
-            ),
+            value: formatPercent(stageMetrics.coordinate.agent_assignment_efficiency),
             score: stageMetrics.coordinate.agent_assignment_efficiency,
           },
           {
             label: "Contention Rate",
-            value: formatPercent(
-              stageMetrics.coordinate.resource_contention_rate,
-            ),
+            value: formatPercent(stageMetrics.coordinate.resource_contention_rate),
           },
           {
             label: "Parallel Ratio",
-            value: formatPercent(
-              stageMetrics.coordinate.parallel_execution_ratio,
-            ),
+            value: formatPercent(stageMetrics.coordinate.parallel_execution_ratio),
             score: stageMetrics.coordinate.parallel_execution_ratio,
           },
         ]}
@@ -549,9 +521,7 @@ function StagesTab() {
         metrics={[
           {
             label: "Avg Duration",
-            value: formatDuration(
-              stageMetrics.execute.avg_execution_duration_seconds,
-            ),
+            value: formatDuration(stageMetrics.execute.avg_execution_duration_seconds),
           },
           {
             label: "Tool Success Rate",
@@ -601,27 +571,20 @@ function StagesTab() {
         metrics={[
           {
             label: "Avg Duration",
-            value: formatDuration(
-              stageMetrics.remember.avg_remember_duration_seconds,
-            ),
+            value: formatDuration(stageMetrics.remember.avg_remember_duration_seconds),
           },
           {
             label: "Entries Created",
-            value:
-              stageMetrics.remember.knowledge_entries_created.toLocaleString(),
+            value: stageMetrics.remember.knowledge_entries_created.toLocaleString(),
           },
           {
             label: "Retrieval Hit Rate",
-            value: formatPercent(
-              stageMetrics.remember.knowledge_retrieval_hit_rate,
-            ),
+            value: formatPercent(stageMetrics.remember.knowledge_retrieval_hit_rate),
             score: stageMetrics.remember.knowledge_retrieval_hit_rate,
           },
           {
             label: "Cross-Agent Sharing",
-            value: formatPercent(
-              stageMetrics.remember.cross_agent_sharing_rate,
-            ),
+            value: formatPercent(stageMetrics.remember.cross_agent_sharing_rate),
             score: stageMetrics.remember.cross_agent_sharing_rate,
           },
         ]}
@@ -646,8 +609,7 @@ function LearningTab() {
     );
   }
 
-  const { improvement_rate, knowledge_reuse, error_reduction } =
-    learningMetrics;
+  const { improvement_rate, knowledge_reuse, error_reduction } = learningMetrics;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
@@ -663,10 +625,7 @@ function LearningTab() {
           <div
             className="metric"
             style={{
-              color:
-                improvement_rate.overall > 0
-                  ? "var(--positive)"
-                  : "var(--danger)",
+              color: improvement_rate.overall > 0 ? "var(--positive)" : "var(--danger)",
             }}
           >
             {improvement_rate.overall > 0 ? "+" : ""}
@@ -692,73 +651,62 @@ function LearningTab() {
             className="metric"
             style={{
               color:
-                error_reduction.overall_error_rate_trend < 0
-                  ? "var(--positive)"
-                  : "var(--danger)",
+                error_reduction.overall_error_rate_trend < 0 ? "var(--positive)" : "var(--danger)",
             }}
           >
             {error_reduction.overall_error_rate_trend > 0 ? "+" : ""}
             {(error_reduction.overall_error_rate_trend * 100).toFixed(1)}%
           </div>
           <div className="muted">
-            {error_reduction.overall_error_rate_trend < 0
-              ? "improving"
-              : "declining"}
+            {error_reduction.overall_error_rate_trend < 0 ? "improving" : "declining"}
           </div>
         </div>
       </div>
 
-      <div
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}
-      >
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
         <div className="card">
           <div className="card__header">
             <h3>Improvement by Task Type</h3>
           </div>
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "12px" }}
-          >
-            {Object.entries(improvement_rate.by_task_type).map(
-              ([type, rate]) => (
-                <div key={type}>
-                  <div
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {Object.entries(improvement_rate.by_task_type).map(([type, rate]) => (
+              <div key={type}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: "4px",
+                  }}
+                >
+                  <span>{type}</span>
+                  <span
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: "4px",
+                      color: rate > 0 ? "var(--positive)" : "var(--danger)",
+                      fontWeight: 600,
                     }}
                   >
-                    <span>{type}</span>
-                    <span
-                      style={{
-                        color: rate > 0 ? "var(--positive)" : "var(--danger)",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {rate > 0 ? "+" : ""}
-                      {rate.toFixed(1)}%
-                    </span>
-                  </div>
+                    {rate > 0 ? "+" : ""}
+                    {rate.toFixed(1)}%
+                  </span>
+                </div>
+                <div
+                  style={{
+                    height: "4px",
+                    backgroundColor: "var(--surface-elevated)",
+                    borderRadius: "2px",
+                  }}
+                >
                   <div
                     style={{
-                      height: "4px",
-                      backgroundColor: "var(--surface-elevated)",
+                      height: "100%",
+                      width: `${Math.min(100, Math.abs(rate) * 3)}%`,
+                      backgroundColor: rate > 0 ? "var(--positive)" : "var(--danger)",
                       borderRadius: "2px",
                     }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${Math.min(100, Math.abs(rate) * 3)}%`,
-                        backgroundColor:
-                          rate > 0 ? "var(--positive)" : "var(--danger)",
-                        borderRadius: "2px",
-                      }}
-                    />
-                  </div>
+                  />
                 </div>
-              ),
-            )}
+              </div>
+            ))}
           </div>
         </div>
 
@@ -766,9 +714,7 @@ function LearningTab() {
           <div className="card__header">
             <h3>Improvement by Agent</h3>
           </div>
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "12px" }}
-          >
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {Object.entries(improvement_rate.by_agent).map(([agent, rate]) => (
               <div key={agent}>
                 <div
@@ -800,8 +746,7 @@ function LearningTab() {
                     style={{
                       height: "100%",
                       width: `${Math.min(100, Math.abs(rate) * 3)}%`,
-                      backgroundColor:
-                        rate > 0 ? "var(--positive)" : "var(--danger)",
+                      backgroundColor: rate > 0 ? "var(--positive)" : "var(--danger)",
                       borderRadius: "2px",
                     }}
                   />
@@ -825,9 +770,7 @@ function LearningTab() {
         >
           <div style={{ textAlign: "center" }}>
             <div className="eyebrow">Similar Task Acceleration</div>
-            <div className="metric">
-              {formatPercent(knowledge_reuse.similar_task_acceleration)}
-            </div>
+            <div className="metric">{formatPercent(knowledge_reuse.similar_task_acceleration)}</div>
           </div>
           <div style={{ textAlign: "center" }}>
             <div className="eyebrow">Pattern Recognition</div>
@@ -843,9 +786,7 @@ function LearningTab() {
           </div>
           <div style={{ textAlign: "center" }}>
             <div className="eyebrow">Novel Error Rate</div>
-            <div className="metric">
-              {formatPercent(error_reduction.novel_error_rate)}
-            </div>
+            <div className="metric">{formatPercent(error_reduction.novel_error_rate)}</div>
           </div>
         </div>
       </div>
@@ -942,9 +883,7 @@ function TrendsTab() {
         </div>
       </div>
 
-      <div
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}
-      >
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
         <div className="card">
           <div className="card__header">
             <h3 style={{ color: "var(--positive)" }}>Acceleration Factors</h3>
@@ -1020,9 +959,7 @@ function TrendsTab() {
             >
               {getRecommendationIcon(rec.type)}
               <div style={{ flex: 1 }}>
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
-                >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <span style={{ fontWeight: 600 }}>{rec.title}</span>
                   <span
                     style={{
@@ -1136,16 +1073,12 @@ function HistoryTab() {
         </div>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <span className="muted">
-            {history.points[0]?.timestamp
-              ? formatDate(history.points[0].timestamp)
-              : ""}
+            {history.points[0]?.timestamp ? formatDate(history.points[0].timestamp) : ""}
           </span>
           <span className="muted">
             {(() => {
               const lastPoint = history.points[history.points.length - 1];
-              return lastPoint?.timestamp
-                ? formatDate(lastPoint.timestamp)
-                : "";
+              return lastPoint?.timestamp ? formatDate(lastPoint.timestamp) : "";
             })()}
           </span>
         </div>
@@ -1195,8 +1128,7 @@ export function VelocityPage() {
         <div>
           <h1 className="page__title">Flywheel Velocity</h1>
           <p className="page__subtitle">
-            Monitor ecosystem acceleration and identify optimization
-            opportunities
+            Monitor ecosystem acceleration and identify optimization opportunities
           </p>
         </div>
       </header>

@@ -71,16 +71,15 @@ const tierTone: Record<string, "positive" | "warning" | "danger" | "muted"> = {
   critical: "danger",
 };
 
-const statusTone: Record<string, "positive" | "warning" | "danger" | "muted"> =
-  {
-    pending: "warning",
-    approved: "positive",
-    rejected: "danger",
-    cancelled: "muted",
-    timeout: "muted",
-    executed: "positive",
-    failed: "danger",
-  };
+const statusTone: Record<string, "positive" | "warning" | "danger" | "muted"> = {
+  pending: "warning",
+  approved: "positive",
+  rejected: "danger",
+  cancelled: "muted",
+  timeout: "muted",
+  executed: "positive",
+  failed: "danger",
+};
 
 type TabId = "pending" | "history" | "sessions" | "check";
 
@@ -121,8 +120,7 @@ export function SLBPage() {
   });
 
   const approveMutation = useMutation({
-    mutationFn: (id: string) =>
-      fetchJson(`/slb/requests/${id}/approve`, { method: "POST" }),
+    mutationFn: (id: string) => fetchJson(`/slb/requests/${id}/approve`, { method: "POST" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["slb", "pending"] });
       queryClient.invalidateQueries({ queryKey: ["slb", "history"] });
@@ -130,8 +128,7 @@ export function SLBPage() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: (id: string) =>
-      fetchJson(`/slb/requests/${id}/reject`, { method: "POST" }),
+    mutationFn: (id: string) => fetchJson(`/slb/requests/${id}/reject`, { method: "POST" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["slb", "pending"] });
       queryClient.invalidateQueries({ queryKey: ["slb", "history"] });
@@ -181,9 +178,7 @@ export function SLBPage() {
         {tabs.map((t) => (
           <button
             key={t.id}
-            className={
-              tab === t.id ? "tab-button tab-button--active" : "tab-button"
-            }
+            className={tab === t.id ? "tab-button tab-button--active" : "tab-button"}
             type="button"
             onClick={() => setTab(t.id)}
           >
@@ -201,9 +196,7 @@ export function SLBPage() {
           <div className="card__header">
             <h3>Pending Approval</h3>
           </div>
-          {pendingList.length === 0 && (
-            <p className="muted">No pending requests.</p>
-          )}
+          {pendingList.length === 0 && <p className="muted">No pending requests.</p>}
           {pendingList.length > 0 && (
             <div className="table">
               <div className="table__row table__row--header">
@@ -217,14 +210,10 @@ export function SLBPage() {
                 <div key={r.id} className="table__row">
                   <span className="mono">{r.command}</span>
                   <span>
-                    <StatusPill tone={tierTone[r.tier] ?? "muted"}>
-                      {r.tier}
-                    </StatusPill>
+                    <StatusPill tone={tierTone[r.tier] ?? "muted"}>{r.tier}</StatusPill>
                   </span>
                   <span>{r.requestedBy}</span>
-                  <span className="muted">
-                    {new Date(r.requestedAt).toLocaleString()}
-                  </span>
+                  <span className="muted">{new Date(r.requestedAt).toLocaleString()}</span>
                   <span style={{ display: "flex", gap: 4 }}>
                     <button
                       className="primary-button"
@@ -256,9 +245,7 @@ export function SLBPage() {
           <div className="card__header">
             <h3>Request History</h3>
           </div>
-          {historyList.length === 0 && (
-            <p className="muted">No request history.</p>
-          )}
+          {historyList.length === 0 && <p className="muted">No request history.</p>}
           {historyList.length > 0 && (
             <div className="table">
               <div className="table__row table__row--header">
@@ -273,20 +260,14 @@ export function SLBPage() {
                 <div key={r.id} className="table__row">
                   <span className="mono">{r.command}</span>
                   <span>
-                    <StatusPill tone={tierTone[r.tier] ?? "muted"}>
-                      {r.tier}
-                    </StatusPill>
+                    <StatusPill tone={tierTone[r.tier] ?? "muted"}>{r.tier}</StatusPill>
                   </span>
                   <span>
-                    <StatusPill tone={statusTone[r.status] ?? "muted"}>
-                      {r.status}
-                    </StatusPill>
+                    <StatusPill tone={statusTone[r.status] ?? "muted"}>{r.status}</StatusPill>
                   </span>
                   <span>{r.requestedBy}</span>
                   <span>{r.reviewedBy ?? "—"}</span>
-                  <span className="muted">
-                    {new Date(r.requestedAt).toLocaleString()}
-                  </span>
+                  <span className="muted">{new Date(r.requestedAt).toLocaleString()}</span>
                 </div>
               ))}
             </div>
@@ -300,9 +281,7 @@ export function SLBPage() {
           <div className="card__header">
             <h3>Active Sessions</h3>
           </div>
-          {sessionList.length === 0 && (
-            <p className="muted">No active sessions.</p>
-          )}
+          {sessionList.length === 0 && <p className="muted">No active sessions.</p>}
           {sessionList.length > 0 && (
             <div className="table">
               <div className="table__row table__row--header">
@@ -317,12 +296,8 @@ export function SLBPage() {
                   <span className="mono">{s.id}</span>
                   <span>{s.agent}</span>
                   <span>{s.program}</span>
-                  <span className="muted">
-                    {new Date(s.startedAt).toLocaleString()}
-                  </span>
-                  <span className="muted">
-                    {new Date(s.lastHeartbeat).toLocaleString()}
-                  </span>
+                  <span className="muted">{new Date(s.startedAt).toLocaleString()}</span>
+                  <span className="muted">{new Date(s.lastHeartbeat).toLocaleString()}</span>
                 </div>
               ))}
             </div>
@@ -334,9 +309,7 @@ export function SLBPage() {
       {tab === "check" && (
         <div className="card">
           <h3>Check Command Tier</h3>
-          <p className="muted">
-            Test which risk tier a command matches against SLB patterns.
-          </p>
+          <p className="muted">Test which risk tier a command matches against SLB patterns.</p>
           <div className="form-row">
             <input
               type="text"
@@ -361,28 +334,20 @@ export function SLBPage() {
             <div className="result-box" style={{ marginTop: 12 }}>
               <p>
                 Tier:{" "}
-                <StatusPill
-                  tone={tierTone[checkMutation.data.data.tier] ?? "muted"}
-                >
+                <StatusPill tone={tierTone[checkMutation.data.data.tier] ?? "muted"}>
                   {checkMutation.data.data.tier}
                 </StatusPill>
               </p>
-              <p>
-                Requires approval:{" "}
-                {checkMutation.data.data.requiresApproval ? "Yes" : "No"}
-              </p>
+              <p>Requires approval: {checkMutation.data.data.requiresApproval ? "Yes" : "No"}</p>
               {checkMutation.data.data.pattern && (
                 <p className="muted">
-                  Matched pattern:{" "}
-                  <code>{checkMutation.data.data.pattern}</code>
+                  Matched pattern: <code>{checkMutation.data.data.pattern}</code>
                 </p>
               )}
             </div>
           )}
           {checkMutation.isError && (
-            <p className="error-text">
-              {(checkMutation.error as Error).message}
-            </p>
+            <p className="error-text">{(checkMutation.error as Error).message}</p>
           )}
         </div>
       )}

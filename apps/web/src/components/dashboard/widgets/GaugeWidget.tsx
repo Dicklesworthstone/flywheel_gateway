@@ -165,9 +165,7 @@ export function GaugeWidget({ widget: _widget, data }: GaugeWidgetProps) {
   }, [gaugeData]);
 
   if (gaugeData === null || gaugeData === undefined) {
-    return (
-      <div className="gauge-widget gauge-widget--empty">No data available</div>
-    );
+    return <div className="gauge-widget gauge-widget--empty">No data available</div>;
   }
 
   const { value, label, unit } = gaugeData;

@@ -68,11 +68,7 @@ function StepIndicator({ currentStep, steps }: StepIndicatorProps) {
             <div
               className={`
                 w-8 h-0.5 mx-1
-                ${
-                  index < currentStep
-                    ? "bg-green-500"
-                    : "bg-gray-200 dark:bg-gray-700"
-                }
+                ${index < currentStep ? "bg-green-500" : "bg-gray-200 dark:bg-gray-700"}
               `}
             />
           )}
@@ -183,10 +179,7 @@ interface StatusBadgeProps {
 }
 
 function StatusBadge({ status }: StatusBadgeProps) {
-  const config: Record<
-    DeviceCodeStatus,
-    { label: string; color: string; animate?: boolean }
-  > = {
+  const config: Record<DeviceCodeStatus, { label: string; color: string; animate?: boolean }> = {
     idle: { label: "Ready", color: "bg-gray-100 text-gray-600" },
     starting: {
       label: "Starting...",
@@ -222,9 +215,7 @@ function StatusBadge({ status }: StatusBadgeProps) {
         ${color}
       `}
     >
-      {animate && (
-        <span className="w-2 h-2 bg-current rounded-full animate-pulse" />
-      )}
+      {animate && <span className="w-2 h-2 bg-current rounded-full animate-pulse" />}
       {label}
     </span>
   );
@@ -247,16 +238,8 @@ export function DeviceCodeFlow({
   onSuccess,
   onCancel,
 }: DeviceCodeFlowProps) {
-  const {
-    status,
-    challenge,
-    error,
-    remainingSeconds,
-    start,
-    complete,
-    cancel,
-    retry,
-  } = useDeviceCodeFlow();
+  const { status, challenge, error, remainingSeconds, start, complete, cancel, retry } =
+    useDeviceCodeFlow();
 
   const providerInfo = PROVIDER_INFO[provider];
   const steps = ["Start", "Authorize", "Verify"];
@@ -312,9 +295,7 @@ export function DeviceCodeFlow({
             <h3 className="font-semibold text-gray-900 dark:text-white">
               Connect {providerInfo.displayName}
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Device Code Authentication
-            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Device Code Authentication</p>
           </div>
         </div>
         <StatusBadge status={status} />
@@ -329,9 +310,7 @@ export function DeviceCodeFlow({
         {status === "starting" && (
           <div className="flex flex-col items-center py-8">
             <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-gray-600 dark:text-gray-400">
-              Initializing authentication...
-            </p>
+            <p className="text-gray-600 dark:text-gray-400">Initializing authentication...</p>
           </div>
         )}
 
@@ -340,9 +319,7 @@ export function DeviceCodeFlow({
           <>
             {/* Instructions */}
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-              <h4 className="font-medium text-blue-900 dark:text-blue-200 mb-2">
-                Instructions
-              </h4>
+              <h4 className="font-medium text-blue-900 dark:text-blue-200 mb-2">Instructions</h4>
               <ol className="text-sm text-blue-800 dark:text-blue-300 space-y-2">
                 <li className="flex gap-2">
                   <span className="font-semibold">1.</span>
@@ -385,10 +362,7 @@ export function DeviceCodeFlow({
                   <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                     Verification URL
                   </span>
-                  <CopyButton
-                    text={challenge.verificationUrl}
-                    label="Copy URL"
-                  />
+                  <CopyButton text={challenge.verificationUrl} label="Copy URL" />
                 </div>
                 <button
                   type="button"
@@ -402,10 +376,7 @@ export function DeviceCodeFlow({
 
             {/* Timer */}
             <div className="flex items-center justify-between pt-2">
-              <CountdownTimer
-                seconds={remainingSeconds}
-                total={challenge.expiresInSeconds}
-              />
+              <CountdownTimer seconds={remainingSeconds} total={challenge.expiresInSeconds} />
               <button
                 type="button"
                 onClick={handleOpenUrl}
@@ -421,9 +392,7 @@ export function DeviceCodeFlow({
         {status === "verifying" && (
           <div className="flex flex-col items-center py-8">
             <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-gray-600 dark:text-gray-400">
-              Verifying your authorization...
-            </p>
+            <p className="text-gray-600 dark:text-gray-400">Verifying your authorization...</p>
           </div>
         )}
 
@@ -516,9 +485,7 @@ export function DeviceCodeFlow({
                 />
               </svg>
             </div>
-            <h4 className="font-medium text-orange-900 dark:text-orange-200">
-              Code Expired
-            </h4>
+            <h4 className="font-medium text-orange-900 dark:text-orange-200">Code Expired</h4>
             <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
               The authentication code has expired. Please try again.
             </p>
@@ -554,9 +521,7 @@ export function DeviceCodeFlow({
           </>
         )}
 
-        {(status === "error" ||
-          status === "expired" ||
-          status === "cancelled") && (
+        {(status === "error" || status === "expired" || status === "cancelled") && (
           <>
             <button
               type="button"

@@ -16,12 +16,7 @@ type RecommendationCategory =
   | "scheduling"
   | "rate_limiting";
 
-type RecommendationStatus =
-  | "pending"
-  | "in_progress"
-  | "implemented"
-  | "rejected"
-  | "failed";
+type RecommendationStatus = "pending" | "in_progress" | "implemented" | "rejected" | "failed";
 
 type RiskLevel = "low" | "medium" | "high";
 
@@ -137,8 +132,7 @@ export function OptimizationRecommendations({
         <div className="optimization-recs__empty-message">
           <p>No optimization opportunities detected.</p>
           <p className="muted">
-            Recommendations are generated based on usage patterns. Check back
-            after more activity.
+            Recommendations are generated based on usage patterns. Check back after more activity.
           </p>
         </div>
       </div>
@@ -173,29 +167,19 @@ export function OptimizationRecommendations({
             <button
               type="button"
               className="optimization-rec__header"
-              onClick={() =>
-                setExpandedId(expandedId === rec.id ? null : rec.id)
-              }
+              onClick={() => setExpandedId(expandedId === rec.id ? null : rec.id)}
             >
-              <div className="optimization-rec__icon">
-                {categoryIcons[rec.category]}
-              </div>
+              <div className="optimization-rec__icon">{categoryIcons[rec.category]}</div>
               <div className="optimization-rec__main">
                 <div className="optimization-rec__title-row">
                   <span className="optimization-rec__title">{rec.title}</span>
-                  <span
-                    className={`optimization-rec__status ${getStatusClass(rec.status)}`}
-                  >
+                  <span className={`optimization-rec__status ${getStatusClass(rec.status)}`}>
                     {statusLabels[rec.status]}
                   </span>
                 </div>
                 <div className="optimization-rec__meta-row">
-                  <span className="optimization-rec__category">
-                    {categoryLabels[rec.category]}
-                  </span>
-                  <span
-                    className={`optimization-rec__risk ${getRiskClass(rec.risk)}`}
-                  >
+                  <span className="optimization-rec__category">{categoryLabels[rec.category]}</span>
+                  <span className={`optimization-rec__risk ${getRiskClass(rec.risk)}`}>
                     {rec.risk} risk
                   </span>
                   <span className="optimization-rec__confidence">
@@ -204,9 +188,7 @@ export function OptimizationRecommendations({
                 </div>
               </div>
               <div className="optimization-rec__savings">
-                <span className="optimization-rec__savings-amount">
-                  {rec.formattedSavings}
-                </span>
+                <span className="optimization-rec__savings-amount">{rec.formattedSavings}</span>
                 <span className="optimization-rec__savings-percent">
                   -{rec.savingsPercent.toFixed(1)}%
                 </span>
@@ -218,9 +200,7 @@ export function OptimizationRecommendations({
 
             {expandedId === rec.id && (
               <div className="optimization-rec__details">
-                <p className="optimization-rec__description">
-                  {rec.description}
-                </p>
+                <p className="optimization-rec__description">{rec.description}</p>
                 {rec.implementation && (
                   <div className="optimization-rec__implementation">
                     <strong>Implementation:</strong>
@@ -257,9 +237,7 @@ export function OptimizationRecommendations({
           className="optimization-recs__show-more"
           onClick={() => setShowAll(!showAll)}
         >
-          {showAll
-            ? "Show less"
-            : `Show ${sortedRecs.length - maxInitial} more recommendations`}
+          {showAll ? "Show less" : `Show ${sortedRecs.length - maxInitial} more recommendations`}
         </button>
       )}
     </div>

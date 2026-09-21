@@ -56,9 +56,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
 
   return (
-    <aside
-      className={`sidebar sidebar--collapsible ${collapsed ? "sidebar--collapsed" : ""}`}
-    >
+    <aside className={`sidebar sidebar--collapsible ${collapsed ? "sidebar--collapsed" : ""}`}>
       <div className="sidebar__brand">
         <div className="brand-mark">
           <Sparkles size={20} />
@@ -82,9 +80,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
             >
               <Icon size={18} />
               <span>{item.label}</span>
-              {item.badge !== undefined && (
-                <span className="nav-badge">{item.badge}</span>
-              )}
+              {item.badge !== undefined && <span className="nav-badge">{item.badge}</span>}
             </Link>
           );
 
@@ -144,9 +140,7 @@ export function MobileNavContent({ onNavigate }: MobileNavContentProps) {
           >
             <Icon size={18} />
             <span>{item.label}</span>
-            {item.badge !== undefined && (
-              <span className="nav-badge">{item.badge}</span>
-            )}
+            {item.badge !== undefined && <span className="nav-badge">{item.badge}</span>}
           </Link>
         );
       })}

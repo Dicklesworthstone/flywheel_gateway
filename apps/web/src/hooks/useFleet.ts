@@ -14,31 +14,10 @@ import { useAllowMockFallback } from "./useMockFallback";
 // Types
 // ============================================================================
 
-export type RepoStatus =
-  | "healthy"
-  | "dirty"
-  | "behind"
-  | "ahead"
-  | "diverged"
-  | "unknown";
-export type SweepStatus =
-  | "pending"
-  | "running"
-  | "paused"
-  | "completed"
-  | "failed"
-  | "cancelled";
-export type PlanApprovalStatus =
-  | "pending"
-  | "approved"
-  | "rejected"
-  | "auto_approved";
-export type PlanExecutionStatus =
-  | "pending"
-  | "running"
-  | "completed"
-  | "failed"
-  | "skipped";
+export type RepoStatus = "healthy" | "dirty" | "behind" | "ahead" | "diverged" | "unknown";
+export type SweepStatus = "pending" | "running" | "paused" | "completed" | "failed" | "cancelled";
+export type PlanApprovalStatus = "pending" | "approved" | "rejected" | "auto_approved";
+export type PlanExecutionStatus = "pending" | "running" | "completed" | "failed" | "skipped";
 
 export interface FleetStats {
   totalRepos: number;
@@ -376,10 +355,7 @@ const mockSweepPlans: SweepPlan[] = [
 
 const API_BASE = "/api/ru";
 
-async function fetchAPI<T>(
-  endpoint: string,
-  options?: RequestInit,
-): Promise<T> {
+async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
       "Content-Type": "application/json",
@@ -389,9 +365,7 @@ async function fetchAPI<T>(
   });
 
   if (!response.ok) {
-    const error = await response
-      .json()
-      .catch(() => ({ message: "Request failed" }));
+    const error = await response.json().catch(() => ({ message: "Request failed" }));
     throw new Error(error.message || `HTTP ${response.status}`);
   }
 
@@ -412,11 +386,7 @@ interface UseQueryResult<T> {
   refetch: () => void;
 }
 
-function useQuery<T>(
-  endpoint: string,
-  mockData: T,
-  deps: unknown[] = [],
-): UseQueryResult<T> {
+function useQuery<T>(endpoint: string, mockData: T, deps: unknown[] = []): UseQueryResult<T> {
   "use no memo";
 
   const mockMode = useUiStore((state) => state.mockMode);
@@ -514,12 +484,7 @@ export function useFleetRepos(options?: {
 export function useFleetGroups(): UseQueryResult<string[]> {
   "use no memo";
 
-  return useQuery("/fleet/groups", [
-    "core",
-    "services",
-    "packages",
-    "archived",
-  ]);
+  return useQuery("/fleet/groups", ["core", "services", "packages", "archived"]);
 }
 
 /**
@@ -547,18 +512,13 @@ export function useSweepSessions(options?: {
   if (options?.status) params.set("status", options.status);
   if (options?.limit) params.set("limit", String(options.limit));
   const query = params.toString() ? `?${params.toString()}` : "";
-  return useQuery(`/sweeps${query}`, mockSweepSessions, [
-    options?.status,
-    options?.limit,
-  ]);
+  return useQuery(`/sweeps${query}`, mockSweepSessions, [options?.status, options?.limit]);
 }
 
 /**
  * Hook to fetch a single sweep session.
  */
-export function useSweepSession(
-  sessionId: string,
-): UseQueryResult<SweepSession | null> {
+export function useSweepSession(sessionId: string): UseQueryResult<SweepSession | null> {
   "use no memo";
 
   const session = mockSweepSessions.find((s) => s.id === sessionId) ?? null;
@@ -577,8 +537,7 @@ export function useSweepPlans(
   "use no memo";
 
   const params = new URLSearchParams();
-  if (options?.approvalStatus)
-    params.set("approvalStatus", options.approvalStatus);
+  if (options?.approvalStatus) params.set("approvalStatus", options.approvalStatus);
   const query = params.toString() ? `?${params.toString()}` : "";
   const plans = mockSweepPlans.filter((p) => p.sessionId === sessionId);
   return useQuery(`/sweeps/${sessionId}/plans${query}`, plans, [
@@ -781,11 +740,7 @@ export function useRejectPlan() {
   const mockMode = useUiStore((state) => state.mockMode);
 
   const reject = useCallback(
-    async (
-      planId: string,
-      rejectedBy: string,
-      reason: string,
-    ): Promise<void> => {
+    async (planId: string, rejectedBy: string, reason: string): Promise<void> => {
       setIsLoading(true);
       setError(null);
 

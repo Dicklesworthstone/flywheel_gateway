@@ -28,10 +28,7 @@ const REFRESH_OPTIONS: { value: RefreshInterval; label: string }[] = [
   { value: 900, label: "15 minutes" },
 ];
 
-const DATA_SOURCE_PRESETS: Record<
-  string,
-  { endpoint: string; label: string }[]
-> = {
+const DATA_SOURCE_PRESETS: Record<string, { endpoint: string; label: string }[]> = {
   "metric-card": [
     { endpoint: "/api/analytics/summary", label: "Analytics Summary" },
     { endpoint: "/api/cost-analytics/summary", label: "Cost Summary" },
@@ -58,9 +55,7 @@ const DATA_SOURCE_PRESETS: Record<
     { endpoint: "/api/audit/events", label: "Audit Events" },
     { endpoint: "/api/notifications", label: "Notifications" },
   ],
-  gauge: [
-    { endpoint: "/api/cost-analytics/budget-statuses", label: "Budget Status" },
-  ],
+  gauge: [{ endpoint: "/api/cost-analytics/budget-statuses", label: "Budget Status" }],
   "cost-breakdown": [
     { endpoint: "/api/cost-analytics/breakdown/model", label: "By Model" },
     { endpoint: "/api/cost-analytics/breakdown/agent", label: "By Agent" },
@@ -70,25 +65,15 @@ const DATA_SOURCE_PRESETS: Record<
   iframe: [],
 };
 
-export function WidgetConfigPanel({
-  widget,
-  onSave,
-  onCancel,
-}: WidgetConfigPanelProps) {
+export function WidgetConfigPanel({ widget, onSave, onCancel }: WidgetConfigPanelProps) {
   const [title, setTitle] = useState(widget.title);
   const [description, setDescription] = useState(widget.description || "");
   const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(
     widget.refreshInterval || 0,
   );
-  const [dataSource, setDataSource] = useState<DataSourceConfig>(
-    widget.config.dataSource,
-  );
-  const [display, setDisplay] = useState<DisplayConfig>(
-    widget.config.display || {},
-  );
-  const [thresholds, setThresholds] = useState<ThresholdConfig>(
-    widget.config.thresholds || {},
-  );
+  const [dataSource, setDataSource] = useState<DataSourceConfig>(widget.config.dataSource);
+  const [display, setDisplay] = useState<DisplayConfig>(widget.config.display || {});
+  const [thresholds, setThresholds] = useState<ThresholdConfig>(widget.config.thresholds || {});
   const [textContent, setTextContent] = useState<string>(
     (widget.config.customOptions?.["content"] as string) || "",
   );
@@ -202,9 +187,7 @@ export function WidgetConfigPanel({
             <select
               id="widget-refresh"
               value={refreshInterval}
-              onChange={(e) =>
-                setRefreshInterval(Number(e.target.value) as RefreshInterval)
-              }
+              onChange={(e) => setRefreshInterval(Number(e.target.value) as RefreshInterval)}
             >
               {REFRESH_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -244,9 +227,7 @@ export function WidgetConfigPanel({
               id="data-endpoint"
               type="text"
               value={dataSource.endpoint || ""}
-              onChange={(e) =>
-                setDataSource({ ...dataSource, endpoint: e.target.value })
-              }
+              onChange={(e) => setDataSource({ ...dataSource, endpoint: e.target.value })}
               placeholder="/api/..."
             />
           </div>
@@ -261,9 +242,7 @@ export function WidgetConfigPanel({
               id="display-legend"
               type="checkbox"
               checked={display.showLegend !== false}
-              onChange={(e) =>
-                setDisplay({ ...display, showLegend: e.target.checked })
-              }
+              onChange={(e) => setDisplay({ ...display, showLegend: e.target.checked })}
             />
             <label htmlFor="display-legend">Show Legend</label>
           </div>
@@ -273,9 +252,7 @@ export function WidgetConfigPanel({
               id="display-labels"
               type="checkbox"
               checked={display.showLabels !== false}
-              onChange={(e) =>
-                setDisplay({ ...display, showLabels: e.target.checked })
-              }
+              onChange={(e) => setDisplay({ ...display, showLabels: e.target.checked })}
             />
             <label htmlFor="display-labels">Show Labels</label>
           </div>
@@ -285,9 +262,7 @@ export function WidgetConfigPanel({
               id="display-animation"
               type="checkbox"
               checked={display.animationEnabled !== false}
-              onChange={(e) =>
-                setDisplay({ ...display, animationEnabled: e.target.checked })
-              }
+              onChange={(e) => setDisplay({ ...display, animationEnabled: e.target.checked })}
             />
             <label htmlFor="display-animation">Enable Animations</label>
           </div>

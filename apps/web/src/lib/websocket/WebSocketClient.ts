@@ -132,10 +132,7 @@ export class WebSocketClient {
    * Manually trigger reconnection (useful after max retries reached).
    */
   reconnect(): void {
-    if (
-      this.status.state === "failed" ||
-      this.status.state === "disconnected"
-    ) {
+    if (this.status.state === "failed" || this.status.state === "disconnected") {
       this.status.attempt = 0;
       this.connect();
     }
@@ -178,9 +175,7 @@ export class WebSocketClient {
     };
 
     this.ws.onclose = (event) => {
-      this.log(
-        `Closed: code=${event.code} reason=${event.reason} clean=${event.wasClean}`,
-      );
+      this.log(`Closed: code=${event.code} reason=${event.reason} clean=${event.wasClean}`);
       this.updateStatus({ lastDisconnectedAt: Date.now() });
       this.emit({
         type: "close",
@@ -298,8 +293,6 @@ export class WebSocketClient {
 /**
  * Create a WebSocket client instance.
  */
-export function createWebSocketClient(
-  config: WebSocketClientConfig,
-): WebSocketClient {
+export function createWebSocketClient(config: WebSocketClientConfig): WebSocketClient {
   return new WebSocketClient(config);
 }

@@ -51,12 +51,7 @@ export function PieChartWidget({ widget, data }: PieChartWidgetProps) {
   const chartData = data.data as PieChartData | null;
 
   useEffect(() => {
-    if (
-      !chartData?.items?.length ||
-      !canvasRef.current ||
-      !containerRef.current
-    )
-      return;
+    if (!chartData?.items?.length || !canvasRef.current || !containerRef.current) return;
 
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -99,13 +94,7 @@ export function PieChartWidget({ widget, data }: PieChartWidgetProps) {
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.moveTo(centerX, centerY);
-      ctx.arc(
-        centerX,
-        centerY,
-        radius,
-        currentAngle,
-        currentAngle + sliceAngle,
-      );
+      ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
       ctx.closePath();
       ctx.fill();
 
@@ -123,13 +112,8 @@ export function PieChartWidget({ widget, data }: PieChartWidgetProps) {
 
         ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
         ctx.font = "11px system-ui";
-        ctx.textAlign =
-          midAngle > -Math.PI / 2 && midAngle < Math.PI / 2 ? "left" : "right";
-        ctx.fillText(
-          `${item.label} (${((item.value / total) * 100).toFixed(1)}%)`,
-          labelX,
-          labelY,
-        );
+        ctx.textAlign = midAngle > -Math.PI / 2 && midAngle < Math.PI / 2 ? "left" : "right";
+        ctx.fillText(`${item.label} (${((item.value / total) * 100).toFixed(1)}%)`, labelX, labelY);
       }
 
       currentAngle += sliceAngle;
@@ -157,9 +141,7 @@ export function PieChartWidget({ widget, data }: PieChartWidgetProps) {
   }, [chartData]);
 
   if (!chartData?.items?.length) {
-    return (
-      <div className="chart-widget chart-widget--empty">No data available</div>
-    );
+    return <div className="chart-widget chart-widget--empty">No data available</div>;
   }
 
   const showLegend = widget.config.display?.showLegend !== false;
@@ -178,8 +160,7 @@ export function PieChartWidget({ widget, data }: PieChartWidgetProps) {
               <span
                 className="chart-widget__legend-color"
                 style={{
-                  backgroundColor:
-                    item.color || DEFAULT_COLORS[i % DEFAULT_COLORS.length],
+                  backgroundColor: item.color || DEFAULT_COLORS[i % DEFAULT_COLORS.length],
                 }}
               />
               <span className="chart-widget__legend-label">{item.label}</span>

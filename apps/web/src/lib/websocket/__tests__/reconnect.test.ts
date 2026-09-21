@@ -16,9 +16,7 @@ describe("reconnect utilities", () => {
         delays.push(calculateBackoff(0, { jitterFactor: 0 }));
       }
       // With no jitter, should always be base delay
-      expect(
-        delays.every((d) => d === DEFAULT_BACKOFF_CONFIG.baseDelayMs),
-      ).toBe(true);
+      expect(delays.every((d) => d === DEFAULT_BACKOFF_CONFIG.baseDelayMs)).toBe(true);
     });
 
     it("should increase delay exponentially", () => {
@@ -115,21 +113,13 @@ describe("reconnect utilities", () => {
     });
 
     it("should return correct hint for reconnecting state with attempt info", () => {
-      expect(getStatusHint("reconnecting", 0, 10)).toBe(
-        "Reconnecting (attempt 1/10)...",
-      );
-      expect(getStatusHint("reconnecting", 4, 10)).toBe(
-        "Reconnecting (attempt 5/10)...",
-      );
-      expect(getStatusHint("reconnecting", 9, 10)).toBe(
-        "Reconnecting (attempt 10/10)...",
-      );
+      expect(getStatusHint("reconnecting", 0, 10)).toBe("Reconnecting (attempt 1/10)...");
+      expect(getStatusHint("reconnecting", 4, 10)).toBe("Reconnecting (attempt 5/10)...");
+      expect(getStatusHint("reconnecting", 9, 10)).toBe("Reconnecting (attempt 10/10)...");
     });
 
     it("should return correct hint for failed state", () => {
-      expect(getStatusHint("failed", 10, 10)).toBe(
-        "Connection failed. Click to retry.",
-      );
+      expect(getStatusHint("failed", 10, 10)).toBe("Connection failed. Click to retry.");
     });
   });
 

@@ -5,11 +5,7 @@
  * for skeleton loading states during route transitions.
  */
 
-import {
-  createRootRoute,
-  createRoute,
-  createRouter,
-} from "@tanstack/react-router";
+import { createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 
 import { Shell } from "./components/layout/Shell";
@@ -41,12 +37,8 @@ import {
 const DashboardPage = lazy(() =>
   import("./pages/Dashboard").then((m) => ({ default: m.DashboardPage })),
 );
-const AgentsPage = lazy(() =>
-  import("./pages/Agents").then((m) => ({ default: m.AgentsPage })),
-);
-const BeadsPage = lazy(() =>
-  import("./pages/Beads").then((m) => ({ default: m.BeadsPage })),
-);
+const AgentsPage = lazy(() => import("./pages/Agents").then((m) => ({ default: m.AgentsPage })));
+const BeadsPage = lazy(() => import("./pages/Beads").then((m) => ({ default: m.BeadsPage })));
 const AccountsPage = lazy(() =>
   import("./pages/Accounts").then((m) => ({ default: m.AccountsPage })),
 );
@@ -56,12 +48,8 @@ const SettingsPage = lazy(() =>
 const DashboardsPage = lazy(() =>
   import("./pages/Dashboards").then((m) => ({ default: m.DashboardsPage })),
 );
-const DCGPage = lazy(() =>
-  import("./pages/DCG").then((m) => ({ default: m.DCGPage })),
-);
-const FleetPage = lazy(() =>
-  import("./pages/Fleet").then((m) => ({ default: m.FleetPage })),
-);
+const DCGPage = lazy(() => import("./pages/DCG").then((m) => ({ default: m.DCGPage })));
+const FleetPage = lazy(() => import("./pages/Fleet").then((m) => ({ default: m.FleetPage })));
 const PipelinesPage = lazy(() =>
   import("./pages/Pipelines").then((m) => ({ default: m.PipelinesPage })),
 );
@@ -78,24 +66,14 @@ const CostAnalyticsPage = lazy(() =>
     default: m.CostAnalyticsPage,
   })),
 );
-const SetupPage = lazy(() =>
-  import("./pages/Setup").then((m) => ({ default: m.SetupPage })),
-);
+const SetupPage = lazy(() => import("./pages/Setup").then((m) => ({ default: m.SetupPage })));
 const UtilitiesPage = lazy(() =>
   import("./pages/Utilities").then((m) => ({ default: m.UtilitiesPage })),
 );
-const NTMPage = lazy(() =>
-  import("./pages/NTM").then((m) => ({ default: m.NTMPage })),
-);
-const CASSPage = lazy(() =>
-  import("./pages/CASS").then((m) => ({ default: m.CASSPage })),
-);
-const SLBPage = lazy(() =>
-  import("./pages/SLB").then((m) => ({ default: m.SLBPage })),
-);
-const CMPage = lazy(() =>
-  import("./pages/CM").then((m) => ({ default: m.CMPage })),
-);
+const NTMPage = lazy(() => import("./pages/NTM").then((m) => ({ default: m.NTMPage })));
+const CASSPage = lazy(() => import("./pages/CASS").then((m) => ({ default: m.CASSPage })));
+const SLBPage = lazy(() => import("./pages/SLB").then((m) => ({ default: m.SLBPage })));
+const CMPage = lazy(() => import("./pages/CM").then((m) => ({ default: m.CMPage })));
 
 // NotFoundPage stays static (small, always needed)
 import { NotFoundPage } from "./pages/NotFound";
@@ -293,8 +271,7 @@ declare module "@tanstack/react-router" {
 if (import.meta.env["DEV"]) {
   // Log route loading timing in development
   const _originalLazy = lazy;
-  (globalThis as unknown as { __lazyImportCount?: number }).__lazyImportCount =
-    0;
+  (globalThis as unknown as { __lazyImportCount?: number }).__lazyImportCount = 0;
 
   console.debug("[Router] Lazy loading enabled with Suspense boundaries");
 }

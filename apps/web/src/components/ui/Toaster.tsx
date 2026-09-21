@@ -39,22 +39,14 @@ const toastStore = {
 };
 
 export const toast = {
-  info: (
-    message: string,
-    options?: { correlationId?: string; duration?: number },
-  ) => toastStore.add({ type: "info", message, ...options }),
-  success: (
-    message: string,
-    options?: { correlationId?: string; duration?: number },
-  ) => toastStore.add({ type: "success", message, ...options }),
-  warning: (
-    message: string,
-    options?: { correlationId?: string; duration?: number },
-  ) => toastStore.add({ type: "warning", message, ...options }),
-  error: (
-    message: string,
-    options?: { correlationId?: string; duration?: number },
-  ) => toastStore.add({ type: "error", message, ...options }),
+  info: (message: string, options?: { correlationId?: string; duration?: number }) =>
+    toastStore.add({ type: "info", message, ...options }),
+  success: (message: string, options?: { correlationId?: string; duration?: number }) =>
+    toastStore.add({ type: "success", message, ...options }),
+  warning: (message: string, options?: { correlationId?: string; duration?: number }) =>
+    toastStore.add({ type: "warning", message, ...options }),
+  error: (message: string, options?: { correlationId?: string; duration?: number }) =>
+    toastStore.add({ type: "error", message, ...options }),
   dismiss: (id: string) => toastStore.remove(id),
 };
 
@@ -72,13 +64,7 @@ const tones: Record<ToastType, string> = {
   error: "toast--error",
 };
 
-function ToastItem({
-  toast: t,
-  onDismiss,
-}: {
-  toast: Toast;
-  onDismiss: () => void;
-}) {
+function ToastItem({ toast: t, onDismiss }: { toast: Toast; onDismiss: () => void }) {
   const Icon = icons[t.type];
 
   useEffect(() => {
@@ -100,9 +86,7 @@ function ToastItem({
       <Icon size={18} className="toast__icon" />
       <div className="toast__content">
         <p className="toast__message">{t.message}</p>
-        {t.correlationId ? (
-          <p className="toast__reference">Ref: {t.correlationId}</p>
-        ) : null}
+        {t.correlationId ? <p className="toast__reference">Ref: {t.correlationId}</p> : null}
       </div>
       <button type="button" className="toast__close" onClick={onDismiss}>
         <X size={14} />
@@ -123,19 +107,10 @@ export function Toaster() {
   }, []);
 
   return (
-    <section
-      className="toaster"
-      aria-label="Notifications"
-      aria-live="polite"
-      id={regionId}
-    >
+    <section className="toaster" aria-label="Notifications" aria-live="polite" id={regionId}>
       <AnimatePresence mode="popLayout">
         {toasts.map((t) => (
-          <ToastItem
-            key={t.id}
-            toast={t}
-            onDismiss={() => toastStore.remove(t.id)}
-          />
+          <ToastItem key={t.id} toast={t} onDismiss={() => toastStore.remove(t.id)} />
         ))}
       </AnimatePresence>
     </section>

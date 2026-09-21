@@ -42,13 +42,7 @@ export interface SegmentStyle {
   strikethrough?: boolean;
 }
 
-export type LogLevel =
-  | "debug"
-  | "info"
-  | "warn"
-  | "error"
-  | "fatal"
-  | "unknown";
+export type LogLevel = "debug" | "info" | "warn" | "error" | "fatal" | "unknown";
 
 export type WorkerMessage =
   | { type: "parse"; logs: RawLogLine[]; requestId: number }
@@ -76,8 +70,7 @@ const ANSI_REGEX = /\u001b\[([0-9;]*)m/g;
 const URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`[\]]+/g;
 
 // File path regex (Unix and Windows)
-const FILE_PATH_REGEX =
-  /(?:\/[\w.-]+)+(?::\d+)?|[A-Z]:\\(?:[\w.-]+\\)*[\w.-]+/g;
+const FILE_PATH_REGEX = /(?:\/[\w.-]+)+(?::\d+)?|[A-Z]:\\(?:[\w.-]+\\)*[\w.-]+/g;
 
 // Stack trace patterns
 const STACK_TRACE_PATTERNS = [
@@ -260,10 +253,7 @@ function filterLogs(filter: LogFilter, logs: ParsedLogLine[]): ParsedLogLine[] {
     if (filter.types && !filter.types.includes(log.type)) {
       return false;
     }
-    if (
-      filter.search &&
-      !log.searchableText.includes(filter.search.toLowerCase())
-    ) {
+    if (filter.search && !log.searchableText.includes(filter.search.toLowerCase())) {
       return false;
     }
     if (filter.startTime && log.timestamp < filter.startTime) {

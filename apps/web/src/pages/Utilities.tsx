@@ -88,8 +88,7 @@ function UtilityCard({ util }: { util: UtilityInfo }) {
   const queryClient = useQueryClient();
 
   const installMutation = useMutation({
-    mutationFn: () =>
-      fetchJson(`/utilities/${util.name}/install`, { method: "POST" }),
+    mutationFn: () => fetchJson(`/utilities/${util.name}/install`, { method: "POST" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["utilities"] });
     },
@@ -138,8 +137,8 @@ function GiilPanel() {
     <div className="card card--wide">
       <h3>Image Download (giil)</h3>
       <p className="muted">
-        Download full-resolution images from iCloud, Dropbox, Google Photos, or
-        Google Drive share links.
+        Download full-resolution images from iCloud, Dropbox, Google Photos, or Google Drive share
+        links.
       </p>
       <div className="form-row">
         <input
@@ -152,9 +151,7 @@ function GiilPanel() {
         <select
           className="select-input"
           value={format}
-          onChange={(e) =>
-            setFormat(e.target.value as "file" | "json" | "base64")
-          }
+          onChange={(e) => setFormat(e.target.value as "file" | "json" | "base64")}
         >
           <option value="json">JSON (metadata + path)</option>
           <option value="file">File (download only)</option>
@@ -182,9 +179,7 @@ function GiilPanel() {
           )}
         </div>
       )}
-      {mutation.isError && (
-        <p className="error-text">{(mutation.error as Error).message}</p>
-      )}
+      {mutation.isError && <p className="error-text">{(mutation.error as Error).message}</p>}
     </div>
   );
 }
@@ -203,17 +198,14 @@ function CsctfPanel() {
   });
 
   const toggleFormat = useCallback((fmt: string) => {
-    setFormats((prev) =>
-      prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt],
-    );
+    setFormats((prev) => (prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt]));
   }, []);
 
   return (
     <div className="card card--wide">
       <h3>Chat Transcript Export (csctf)</h3>
       <p className="muted">
-        Convert AI chat share links (ChatGPT, Gemini, Grok, Claude) to clean
-        Markdown and HTML.
+        Convert AI chat share links (ChatGPT, Gemini, Grok, Claude) to clean Markdown and HTML.
       </p>
       <div className="form-row">
         <input
@@ -253,9 +245,7 @@ function CsctfPanel() {
           {mutation.data.data.title && <p>Title: {mutation.data.data.title}</p>}
           {mutation.data.data.messageCount !== null &&
             mutation.data.data.messageCount !== undefined && (
-              <p className="muted">
-                {mutation.data.data.messageCount} messages exported
-              </p>
+              <p className="muted">{mutation.data.data.messageCount} messages exported</p>
             )}
           {mutation.data.data.markdownPath && (
             <p>
@@ -269,9 +259,7 @@ function CsctfPanel() {
           )}
         </div>
       )}
-      {mutation.isError && (
-        <p className="error-text">{(mutation.error as Error).message}</p>
-      )}
+      {mutation.isError && <p className="error-text">{(mutation.error as Error).message}</p>}
     </div>
   );
 }
@@ -356,25 +344,21 @@ function XfPanel() {
           </div>
         </div>
       )}
-      {mutation.isError && (
-        <p className="error-text">{(mutation.error as Error).message}</p>
-      )}
+      {mutation.isError && <p className="error-text">{(mutation.error as Error).message}</p>}
     </div>
   );
 }
 
 function PtPanel() {
   const mutation = useMutation({
-    mutationFn: () =>
-      fetchJson<{ data: PtScanResult }>("/pt/scan", { method: "POST" }),
+    mutationFn: () => fetchJson<{ data: PtScanResult }>("/pt/scan", { method: "POST" }),
   });
 
   return (
     <div className="card card--wide">
       <h3>Process Triage (pt)</h3>
       <p className="muted">
-        Scan for stuck, zombie, or resource-hungry processes. Identify orphaned
-        agent sessions.
+        Scan for stuck, zombie, or resource-hungry processes. Identify orphaned agent sessions.
       </p>
       <div className="form-row">
         <button
@@ -388,9 +372,7 @@ function PtPanel() {
       </div>
       {mutation.isSuccess && (
         <div className="result-box">
-          <p className="muted">
-            {mutation.data.data.total} suspicious processes found
-          </p>
+          <p className="muted">{mutation.data.data.total} suspicious processes found</p>
           {mutation.data.data.processes.length > 0 && (
             <table className="mini-table">
               <thead>
@@ -419,9 +401,7 @@ function PtPanel() {
           )}
         </div>
       )}
-      {mutation.isError && (
-        <p className="error-text">{(mutation.error as Error).message}</p>
-      )}
+      {mutation.isError && <p className="error-text">{(mutation.error as Error).message}</p>}
     </div>
   );
 }

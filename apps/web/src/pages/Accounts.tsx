@@ -33,12 +33,7 @@ interface QuickStatCardProps {
   variant?: "default" | "success" | "warning" | "danger";
 }
 
-function QuickStatCard({
-  title,
-  value,
-  icon,
-  variant = "default",
-}: QuickStatCardProps) {
+function QuickStatCard({ title, value, icon, variant = "default" }: QuickStatCardProps) {
   const variantClass =
     variant !== "default"
       ? variant === "success"
@@ -127,11 +122,7 @@ function ProviderStatusCard({
           marginTop: "16px",
         }}
       >
-        <button
-          type="button"
-          className="btn btn--primary btn--sm"
-          onClick={onAddProfile}
-        >
+        <button type="button" className="btn btn--primary btn--sm" onClick={onAddProfile}>
           <Plus size={14} />
           Add Account
         </button>
@@ -165,9 +156,7 @@ function ProviderStatusCard({
 
 export function AccountsPage() {
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingProvider, setOnboardingProvider] = useState<
-    ProviderId | undefined
-  >();
+  const [onboardingProvider, setOnboardingProvider] = useState<ProviderId | undefined>();
 
   // Data hooks
   const { data: byoaStatus, refetch: refetchStatus } = useByoaStatus();
@@ -209,13 +198,10 @@ export function AccountsPage() {
 
   // Count stats
   const totalProfiles = profiles?.length ?? 0;
-  const verifiedProfiles =
-    profiles?.filter((p) => p.status === "verified").length ?? 0;
-  const cooldownProfiles =
-    profiles?.filter((p) => p.status === "cooldown").length ?? 0;
+  const verifiedProfiles = profiles?.filter((p) => p.status === "verified").length ?? 0;
+  const cooldownProfiles = profiles?.filter((p) => p.status === "cooldown").length ?? 0;
   const errorProfiles =
-    profiles?.filter((p) => p.status === "error" || p.status === "expired")
-      .length ?? 0;
+    profiles?.filter((p) => p.status === "error" || p.status === "expired").length ?? 0;
 
   return (
     <div className="page">
@@ -225,11 +211,7 @@ export function AccountsPage() {
           <Key size={28} />
           Account Management
         </h2>
-        <button
-          type="button"
-          className="btn btn--primary"
-          onClick={() => handleAddProfile()}
-        >
+        <button type="button" className="btn btn--primary" onClick={() => handleAddProfile()}>
           <Plus size={16} />
           Add Account
         </button>
@@ -237,20 +219,13 @@ export function AccountsPage() {
 
       {/* Description */}
       <p className="muted" style={{ marginBottom: "24px" }}>
-        Manage your AI provider accounts for BYOA (Bring Your Own Account). Add
-        multiple accounts for failover and load balancing across providers.
+        Manage your AI provider accounts for BYOA (Bring Your Own Account). Add multiple accounts
+        for failover and load balancing across providers.
       </p>
 
       {/* Quick Stats */}
-      <section
-        className="grid"
-        style={{ gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}
-      >
-        <QuickStatCard
-          title="Total Profiles"
-          value={totalProfiles}
-          icon={<Users size={18} />}
-        />
+      <section className="grid" style={{ gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
+        <QuickStatCard title="Total Profiles" value={totalProfiles} icon={<Users size={18} />} />
         <QuickStatCard
           title="Verified"
           value={verifiedProfiles}
@@ -309,10 +284,9 @@ export function AccountsPage() {
               <h4 style={{ margin: 0 }}>BYOA Ready</h4>
               <p className="muted" style={{ margin: "4px 0 0" }}>
                 {byoaStatus.verifiedProviders.length} provider
-                {byoaStatus.verifiedProviders.length !== 1 ? "s" : ""}{" "}
-                configured ({byoaStatus.verifiedProviders.join(", ")}).
-                {byoaStatus.recommendedAction &&
-                  ` ${byoaStatus.recommendedAction}`}
+                {byoaStatus.verifiedProviders.length !== 1 ? "s" : ""} configured (
+                {byoaStatus.verifiedProviders.join(", ")}).
+                {byoaStatus.recommendedAction && ` ${byoaStatus.recommendedAction}`}
               </p>
             </div>
           </div>
@@ -322,15 +296,10 @@ export function AccountsPage() {
       {/* Provider Status Cards */}
       <section style={{ marginTop: "24px" }}>
         <h3 style={{ marginBottom: "16px" }}>Providers</h3>
-        <div
-          className="grid"
-          style={{ gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}
-        >
+        <div className="grid" style={{ gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
           {(["claude", "codex", "gemini"] as ProviderId[]).map((provider) => {
             const providerProfiles = profilesByProvider?.[provider] ?? [];
-            const verifiedCount = providerProfiles.filter(
-              (p) => p.status === "verified",
-            ).length;
+            const verifiedCount = providerProfiles.filter((p) => p.status === "verified").length;
 
             return (
               <ProviderStatusCard
@@ -358,11 +327,7 @@ export function AccountsPage() {
       </section>
 
       {/* Onboarding Modal */}
-      <Modal
-        open={showOnboarding}
-        onClose={() => setShowOnboarding(false)}
-        title=""
-      >
+      <Modal open={showOnboarding} onClose={() => setShowOnboarding(false)} title="">
         <OnboardingWizard
           {...(onboardingProvider !== null &&
             onboardingProvider !== undefined && {

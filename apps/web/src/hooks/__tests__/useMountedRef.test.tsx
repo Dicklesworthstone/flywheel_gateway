@@ -30,11 +30,7 @@ try {
 /**
  * Simple component that exposes the mount ref value via callback.
  */
-function MountRefTracker({
-  onRefChange,
-}: {
-  onRefChange: (mounted: boolean) => void;
-}) {
+function MountRefTracker({ onRefChange }: { onRefChange: (mounted: boolean) => void }) {
   const isMounted = useMountedRef();
 
   useEffect(() => {
@@ -261,9 +257,7 @@ describe("useMountedRef", () => {
       };
 
       try {
-        const { unmount } = render(
-          <StateWarningTester triggerWarning={true} />,
-        );
+        const { unmount } = render(<StateWarningTester triggerWarning={true} />);
 
         // Unmount before the setTimeout completes
         unmount();

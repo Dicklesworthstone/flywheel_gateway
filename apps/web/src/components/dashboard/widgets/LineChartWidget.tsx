@@ -39,14 +39,7 @@ interface LineChartWidgetProps {
   data: WidgetData;
 }
 
-const DEFAULT_COLORS = [
-  "#6366f1",
-  "#10b981",
-  "#f59e0b",
-  "#ef4444",
-  "#8b5cf6",
-  "#ec4899",
-];
+const DEFAULT_COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
 export function LineChartWidget({ widget, data }: LineChartWidgetProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -54,12 +47,7 @@ export function LineChartWidget({ widget, data }: LineChartWidgetProps) {
   const chartData = data.data as ChartData | null;
 
   useEffect(() => {
-    if (
-      !chartData?.series?.length ||
-      !canvasRef.current ||
-      !containerRef.current
-    )
-      return;
+    if (!chartData?.series?.length || !canvasRef.current || !containerRef.current) return;
 
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -116,9 +104,7 @@ export function LineChartWidget({ widget, data }: LineChartWidgetProps) {
     // Draw each series
     chartData.series.forEach((series, seriesIndex) => {
       const color =
-        series.color ??
-        DEFAULT_COLORS[seriesIndex % DEFAULT_COLORS.length] ??
-        "#6366f1";
+        series.color ?? DEFAULT_COLORS[seriesIndex % DEFAULT_COLORS.length] ?? "#6366f1";
       const points = series.data;
 
       if (points.length === 0) return;
@@ -129,8 +115,7 @@ export function LineChartWidget({ widget, data }: LineChartWidgetProps) {
 
       points.forEach((point, i) => {
         const x = padding.left + (chartWidth / (points.length - 1 || 1)) * i;
-        const y =
-          padding.top + chartHeight - ((point.y - minY) / yRange) * chartHeight;
+        const y = padding.top + chartHeight - ((point.y - minY) / yRange) * chartHeight;
 
         if (i === 0) {
           ctx.moveTo(x, y);
@@ -146,8 +131,7 @@ export function LineChartWidget({ widget, data }: LineChartWidgetProps) {
       ctx.beginPath();
       points.forEach((point, i) => {
         const x = padding.left + (chartWidth / (points.length - 1 || 1)) * i;
-        const y =
-          padding.top + chartHeight - ((point.y - minY) / yRange) * chartHeight;
+        const y = padding.top + chartHeight - ((point.y - minY) / yRange) * chartHeight;
 
         if (i === 0) {
           ctx.moveTo(x, padding.top + chartHeight);
@@ -163,8 +147,7 @@ export function LineChartWidget({ widget, data }: LineChartWidgetProps) {
       // Draw data points
       points.forEach((point, i) => {
         const x = padding.left + (chartWidth / (points.length - 1 || 1)) * i;
-        const y =
-          padding.top + chartHeight - ((point.y - minY) / yRange) * chartHeight;
+        const y = padding.top + chartHeight - ((point.y - minY) / yRange) * chartHeight;
 
         ctx.fillStyle = color;
         ctx.beginPath();
@@ -186,8 +169,7 @@ export function LineChartWidget({ widget, data }: LineChartWidgetProps) {
       for (let i = 0; i < firstSeries.data.length; i += step) {
         const point = firstSeries.data[i];
         if (!point) continue;
-        const x =
-          padding.left + (chartWidth / (firstSeries.data.length - 1 || 1)) * i;
+        const x = padding.left + (chartWidth / (firstSeries.data.length - 1 || 1)) * i;
         const label = formatXLabel(point.x);
         ctx.fillText(label, x, height - padding.bottom + 20);
       }
@@ -207,9 +189,7 @@ export function LineChartWidget({ widget, data }: LineChartWidgetProps) {
   }, [chartData]);
 
   if (!chartData?.series?.length) {
-    return (
-      <div className="chart-widget chart-widget--empty">No data available</div>
-    );
+    return <div className="chart-widget chart-widget--empty">No data available</div>;
   }
 
   const showLegend = widget.config.display?.showLegend !== false;
@@ -227,8 +207,7 @@ export function LineChartWidget({ widget, data }: LineChartWidgetProps) {
               <span
                 className="chart-widget__legend-color"
                 style={{
-                  backgroundColor:
-                    series.color || DEFAULT_COLORS[i % DEFAULT_COLORS.length],
+                  backgroundColor: series.color || DEFAULT_COLORS[i % DEFAULT_COLORS.length],
                 }}
               />
               <span className="chart-widget__legend-label">{series.name}</span>

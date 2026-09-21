@@ -123,13 +123,11 @@ export function DataTable<T>({
         initialPageSize,
       };
       if (initialSort !== undefined) opts.initialSort = initialSort;
-      if (externalPagination !== undefined)
-        opts.externalPagination = externalPagination;
+      if (externalPagination !== undefined) opts.externalPagination = externalPagination;
       if (onSortChange !== undefined) opts.onSortChange = onSortChange;
       if (onPageChange !== undefined) opts.onPageChange = onPageChange;
       if (onSearchChange !== undefined) opts.onSearchChange = onSearchChange;
-      if (onSelectionChange !== undefined)
-        opts.onSelectionChange = onSelectionChange;
+      if (onSelectionChange !== undefined) opts.onSelectionChange = onSelectionChange;
       return opts;
     })(),
   );
@@ -144,10 +142,7 @@ export function DataTable<T>({
   // Selection state
   const selectedCount = selection.selected.size;
   const isAllSelected = selection.isAllPageSelected;
-  const isPartiallySelected = isIndeterminate(
-    selectedCount,
-    displayedData.length,
-  );
+  const isPartiallySelected = isIndeterminate(selectedCount, displayedData.length);
 
   return (
     <section
@@ -172,9 +167,7 @@ export function DataTable<T>({
                 }
               : removeFilter
           }
-          onClearFilters={
-            onFilterChange ? () => onFilterChange([]) : clearFilters
-          }
+          onClearFilters={onFilterChange ? () => onFilterChange([]) : clearFilters}
         />
       )}
 

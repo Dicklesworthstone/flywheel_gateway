@@ -128,9 +128,7 @@ class PerformanceMonitor {
         for (const entry of list.getEntries()) {
           // FID is the first interaction
           if (this.metrics.fid === null) {
-            this.metrics.fid =
-              (entry as PerformanceEventTiming).processingStart -
-              entry.startTime;
+            this.metrics.fid = (entry as PerformanceEventTiming).processingStart - entry.startTime;
             this.notifyCallbacks();
           }
         }
@@ -274,10 +272,7 @@ class PerformanceMonitor {
     }
 
     this.frameRateActive = false;
-    if (
-      this.frameRateRequestId !== null &&
-      typeof cancelAnimationFrame === "function"
-    ) {
+    if (this.frameRateRequestId !== null && typeof cancelAnimationFrame === "function") {
       cancelAnimationFrame(this.frameRateRequestId);
       this.frameRateRequestId = null;
     }
@@ -345,9 +340,7 @@ class PerformanceMonitor {
   /**
    * Check if metrics pass thresholds
    */
-  checkThresholds(
-    thresholds: Partial<Record<keyof PerformanceMetrics, number>>,
-  ): {
+  checkThresholds(thresholds: Partial<Record<keyof PerformanceMetrics, number>>): {
     passed: boolean;
     failures: string[];
   } {
@@ -369,14 +362,8 @@ class PerformanceMonitor {
   /**
    * Get Web Vitals rating (good/needs-improvement/poor)
    */
-  getWebVitalsRating(): Record<
-    string,
-    "good" | "needs-improvement" | "poor" | "unknown"
-  > {
-    const ratings: Record<
-      string,
-      "good" | "needs-improvement" | "poor" | "unknown"
-    > = {};
+  getWebVitalsRating(): Record<string, "good" | "needs-improvement" | "poor" | "unknown"> {
+    const ratings: Record<string, "good" | "needs-improvement" | "poor" | "unknown"> = {};
 
     // LCP thresholds: good < 2.5s, poor > 4s
     if (this.metrics.lcp !== null) {
@@ -461,11 +448,7 @@ export function mark(name: string): void {
 /**
  * Measure between two marks
  */
-export function measure(
-  name: string,
-  startMark: string,
-  endMark?: string,
-): number {
+export function measure(name: string, startMark: string, endMark?: string): number {
   const end = endMark || name;
   performance.measure(name, startMark, end);
   const entries = performance.getEntriesByName(name, "measure");

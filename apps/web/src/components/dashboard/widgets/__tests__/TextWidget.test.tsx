@@ -42,9 +42,7 @@ describe("TextWidget", () => {
   });
 
   it("blocks data: href links", () => {
-    const { container } = renderWithContent(
-      "[click](data:text/html,<h1>owned</h1>)",
-    );
+    const { container } = renderWithContent("[click](data:text/html,<h1>owned</h1>)");
     const scoped = within(container);
 
     expect(scoped.getByText("click")).toBeInTheDocument();
@@ -52,9 +50,7 @@ describe("TextWidget", () => {
   });
 
   it("allows https: links", () => {
-    const { container } = renderWithContent(
-      "[safe](https://example.com/path?x=1&y=2)",
-    );
+    const { container } = renderWithContent("[safe](https://example.com/path?x=1&y=2)");
     const scoped = within(container);
 
     const link = scoped.getByRole("link", { name: "safe" });

@@ -42,9 +42,7 @@ export function TableWidget({ widget: _widget, data }: TableWidgetProps) {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   if (!tableData?.columns?.length) {
-    return (
-      <div className="table-widget table-widget--empty">No data available</div>
-    );
+    return <div className="table-widget table-widget--empty">No data available</div>;
   }
 
   const { columns, rows, sortable = true } = tableData;
@@ -95,9 +93,7 @@ export function TableWidget({ widget: _widget, data }: TableWidgetProps) {
               >
                 <span>{col.label}</span>
                 {sortable && sortKey === col.key && (
-                  <span className="table-widget__sort-icon">
-                    {sortDir === "asc" ? "↑" : "↓"}
-                  </span>
+                  <span className="table-widget__sort-icon">{sortDir === "asc" ? "↑" : "↓"}</span>
                 )}
               </th>
             ))}
@@ -113,11 +109,7 @@ export function TableWidget({ widget: _widget, data }: TableWidgetProps) {
           ) : (
             sortedRows.map((row, i) => (
               <tr
-                key={
-                  row["id"] !== null && row["id"] !== undefined
-                    ? String(row["id"])
-                    : `row-${i}`
-                }
+                key={row["id"] !== null && row["id"] !== undefined ? String(row["id"]) : `row-${i}`}
                 className="table-widget__tr"
               >
                 {columns.map((col) => (
@@ -137,10 +129,7 @@ export function TableWidget({ widget: _widget, data }: TableWidgetProps) {
   );
 }
 
-function formatValue(
-  value: unknown,
-  format?: "number" | "currency" | "percent" | "date",
-): string {
+function formatValue(value: unknown, format?: "number" | "currency" | "percent" | "date"): string {
   if (value === null || value === undefined) return "-";
 
   switch (format) {
@@ -153,9 +142,7 @@ function formatValue(
         : String(value);
 
     case "percent":
-      return typeof value === "number"
-        ? `${(value * 100).toFixed(1)}%`
-        : String(value);
+      return typeof value === "number" ? `${(value * 100).toFixed(1)}%` : String(value);
 
     case "date":
       if (typeof value === "string" || typeof value === "number") {

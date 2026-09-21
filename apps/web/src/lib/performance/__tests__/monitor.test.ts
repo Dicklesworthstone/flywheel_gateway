@@ -136,19 +136,15 @@ describe("PerformanceMonitor", () => {
       const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
       const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
 
-      const setIntervalMock = mock(
-        () => 0 as unknown as ReturnType<typeof setInterval>,
-      );
+      const setIntervalMock = mock(() => 0 as unknown as ReturnType<typeof setInterval>);
       const clearIntervalMock = mock(() => {});
       const requestAnimationFrameMock = mock(() => 1);
       const cancelAnimationFrameMock = mock(() => {});
 
       globalThis.setInterval = setIntervalMock as unknown as typeof setInterval;
       globalThis.clearInterval = clearIntervalMock as typeof clearInterval;
-      globalThis.requestAnimationFrame =
-        requestAnimationFrameMock as typeof requestAnimationFrame;
-      globalThis.cancelAnimationFrame =
-        cancelAnimationFrameMock as typeof cancelAnimationFrame;
+      globalThis.requestAnimationFrame = requestAnimationFrameMock as typeof requestAnimationFrame;
+      globalThis.cancelAnimationFrame = cancelAnimationFrameMock as typeof cancelAnimationFrame;
 
       try {
         monitor.startFrameRateMonitoring(1000);

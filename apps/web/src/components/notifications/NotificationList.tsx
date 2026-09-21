@@ -82,9 +82,7 @@ const PRIORITY_OPTIONS: { value: NotificationPriority; label: string }[] = [
 /**
  * Group notifications by date (Today, Yesterday, This Week, Older).
  */
-function groupNotificationsByDate(
-  notifications: Notification[],
-): Map<string, Notification[]> {
+function groupNotificationsByDate(notifications: Notification[]): Map<string, Notification[]> {
   const groups = new Map<string, Notification[]>();
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -138,9 +136,7 @@ export function NotificationList({
   emptyMessage = "No notifications",
   compact = false,
 }: NotificationListProps) {
-  const [filter, setFilter] = useState<NotificationListFilter>(
-    initialFilter ?? {},
-  );
+  const [filter, setFilter] = useState<NotificationListFilter>(initialFilter ?? {});
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
   // Apply local filter
@@ -148,19 +144,13 @@ export function NotificationList({
     let filtered = [...notifications];
 
     if (filter.categories?.length) {
-      filtered = filtered.filter((n) =>
-        filter.categories?.includes(n.category),
-      );
+      filtered = filtered.filter((n) => filter.categories?.includes(n.category));
     }
     if (filter.priorities?.length) {
-      filtered = filtered.filter((n) =>
-        filter.priorities?.includes(n.priority),
-      );
+      filtered = filtered.filter((n) => filter.priorities?.includes(n.priority));
     }
     if (filter.unreadOnly) {
-      filtered = filtered.filter(
-        (n) => n.status !== "read" && n.status !== "actioned",
-      );
+      filtered = filtered.filter((n) => n.status !== "read" && n.status !== "actioned");
     }
 
     return filtered;
@@ -212,8 +202,7 @@ export function NotificationList({
   const handleScroll = useCallback(
     (e: React.UIEvent<HTMLDivElement>) => {
       const target = e.currentTarget;
-      const isNearBottom =
-        target.scrollHeight - target.scrollTop - target.clientHeight < 100;
+      const isNearBottom = target.scrollHeight - target.scrollTop - target.clientHeight < 100;
       if (isNearBottom && hasMore && !loadingMore && onLoadMore) {
         onLoadMore();
       }
@@ -234,18 +223,14 @@ export function NotificationList({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-            Notifications
-          </h3>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Notifications</h3>
           {unreadCount > 0 && (
             <span className="px-2 py-0.5 text-xs font-medium text-white bg-blue-600 rounded-full">
               {unreadCount}
             </span>
           )}
           {total !== undefined && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              ({total} total)
-            </span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">({total} total)</span>
           )}
         </div>
 
@@ -259,9 +244,7 @@ export function NotificationList({
               className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
               title="Refresh"
             >
-              <RefreshCcw
-                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-              />
+              <RefreshCcw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             </button>
           )}
 
@@ -362,15 +345,10 @@ export function NotificationList({
                   type="checkbox"
                   id="unreadOnly"
                   checked={filter.unreadOnly ?? false}
-                  onChange={(e) =>
-                    handleFilterChange({ unreadOnly: e.target.checked })
-                  }
+                  onChange={(e) => handleFilterChange({ unreadOnly: e.target.checked })}
                   className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
-                <label
-                  htmlFor="unreadOnly"
-                  className="text-sm text-gray-700 dark:text-gray-300"
-                >
+                <label htmlFor="unreadOnly" className="text-sm text-gray-700 dark:text-gray-300">
                   Unread only
                 </label>
               </div>
@@ -391,11 +369,7 @@ export function NotificationList({
       </AnimatePresence>
 
       {/* Notification list */}
-      <div
-        className="flex-1 overflow-y-auto"
-        style={{ maxHeight }}
-        onScroll={handleScroll}
-      >
+      <div className="flex-1 overflow-y-auto" style={{ maxHeight }} onScroll={handleScroll}>
         {loading && notifications.length === 0 ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
@@ -403,9 +377,7 @@ export function NotificationList({
         ) : filteredNotifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Bell className="w-12 h-12 text-gray-300 dark:text-gray-600" />
-            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-              {emptyMessage}
-            </p>
+            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">{emptyMessage}</p>
             {activeFilterCount > 0 && (
               <button
                 type="button"
@@ -419,29 +391,27 @@ export function NotificationList({
         ) : (
           <div className="p-4 space-y-6">
             <AnimatePresence mode="popLayout">
-              {Array.from(groupedNotifications.entries()).map(
-                ([group, items]) => (
-                  <div key={group}>
-                    {groupByDate && (
-                      <h4 className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        {group}
-                      </h4>
-                    )}
-                    <div className="space-y-2">
-                      {items.map((notification) => (
-                        <NotificationItem
-                          key={notification.id}
-                          notification={notification}
-                          {...(onMarkAsRead && { onMarkAsRead })}
-                          {...(onAction && { onAction })}
-                          {...(onDismiss && { onDismiss })}
-                          compact={compact}
-                        />
-                      ))}
-                    </div>
+              {Array.from(groupedNotifications.entries()).map(([group, items]) => (
+                <div key={group}>
+                  {groupByDate && (
+                    <h4 className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      {group}
+                    </h4>
+                  )}
+                  <div className="space-y-2">
+                    {items.map((notification) => (
+                      <NotificationItem
+                        key={notification.id}
+                        notification={notification}
+                        {...(onMarkAsRead && { onMarkAsRead })}
+                        {...(onAction && { onAction })}
+                        {...(onDismiss && { onDismiss })}
+                        compact={compact}
+                      />
+                    ))}
                   </div>
-                ),
-              )}
+                </div>
+              ))}
             </AnimatePresence>
 
             {/* Load more indicator */}

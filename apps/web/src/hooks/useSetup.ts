@@ -232,9 +232,7 @@ export function useReadiness() {
       const data = await fetchReadiness(bypassCache);
       setStatus(data);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch readiness",
-      );
+      setError(err instanceof Error ? err.message : "Failed to fetch readiness");
     } finally {
       setLoading(false);
     }
@@ -294,27 +292,23 @@ export function useInstallTool() {
   const [result, setResult] = useState<InstallResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const install = useCallback(
-    async (tool: string, mode: InstallMode = "easy", verify = true) => {
-      setInstalling(true);
-      setError(null);
-      setResult(null);
+  const install = useCallback(async (tool: string, mode: InstallMode = "easy", verify = true) => {
+    setInstalling(true);
+    setError(null);
+    setResult(null);
 
-      try {
-        const data = await installToolApi(tool, mode, verify);
-        setResult(data);
-        return data;
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Installation failed";
-        setError(message);
-        throw err;
-      } finally {
-        setInstalling(false);
-      }
-    },
-    [],
-  );
+    try {
+      const data = await installToolApi(tool, mode, verify);
+      setResult(data);
+      return data;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Installation failed";
+      setError(message);
+      throw err;
+    } finally {
+      setInstalling(false);
+    }
+  }, []);
 
   const reset = useCallback(() => {
     setResult(null);
@@ -412,8 +406,7 @@ export function useVerifyTool() {
       setResult(data);
       return data;
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Verification failed";
+      const message = err instanceof Error ? err.message : "Verification failed";
       setError(message);
       throw err;
     } finally {
@@ -535,10 +528,7 @@ export type ToolPriority = "required" | "recommended" | "optional";
 /**
  * Get the priority of a tool based on the tool categories.
  */
-export function getToolPriority(
-  toolName: string,
-  categories?: ToolCategories,
-): ToolPriority {
+export function getToolPriority(toolName: string, categories?: ToolCategories): ToolPriority {
   if (!categories) return "optional";
   if (categories.required.includes(toolName)) return "required";
   if (categories.recommended.includes(toolName)) return "recommended";
@@ -623,9 +613,7 @@ export interface ToolRegistryResponse {
 // Tool Registry Hook
 // ============================================================================
 
-async function fetchToolRegistry(
-  bypassCache = false,
-): Promise<ToolRegistryResponse> {
+async function fetchToolRegistry(bypassCache = false): Promise<ToolRegistryResponse> {
   const url = bypassCache
     ? `${API_BASE}/setup/registry?bypass_cache=true`
     : `${API_BASE}/setup/registry`;
@@ -662,9 +650,7 @@ export function useToolRegistry() {
       const data = await fetchToolRegistry(bypassCache);
       setRegistry(data);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch tool registry",
-      );
+      setError(err instanceof Error ? err.message : "Failed to fetch tool registry");
     } finally {
       setLoading(false);
     }
@@ -728,8 +714,7 @@ export function getToolDisplayInfoFromRegistry(tool: ToolRegistryDefinition): {
 
   const displayName = tool.displayName ?? tool.name.toUpperCase();
   const icon = tool.displayName?.charAt(0) ?? tool.name.charAt(0).toUpperCase();
-  const color =
-    priorityColors[tool.name] ?? categoryColors[tool.category] ?? "#6B7280";
+  const color = priorityColors[tool.name] ?? categoryColors[tool.category] ?? "#6B7280";
 
   return { displayName, icon, color };
 }

@@ -48,11 +48,7 @@ interface StatusIndicatorProps {
   cooldownUntil?: string;
 }
 
-function StatusIndicator({
-  status,
-  healthStatus,
-  cooldownUntil,
-}: StatusIndicatorProps) {
+function StatusIndicator({ status, healthStatus, cooldownUntil }: StatusIndicatorProps) {
   const config: Record<
     AccountProfile["status"],
     { label: string; dotColor: string; bgColor: string }
@@ -65,8 +61,7 @@ function StatusIndicator({
     linked: {
       label: "Linked",
       dotColor: "bg-blue-400",
-      bgColor:
-        "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+      bgColor: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
     },
     verified: {
       label: healthStatus === "warning" ? "Verified (Warning)" : "Verified",
@@ -86,14 +81,12 @@ function StatusIndicator({
     expired: {
       label: "Expired",
       dotColor: "bg-orange-400",
-      bgColor:
-        "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+      bgColor: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
     },
     cooldown: {
       label: "Cooldown",
       dotColor: "bg-yellow-400 animate-pulse",
-      bgColor:
-        "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
+      bgColor: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
     },
     error: {
       label: "Error",
@@ -130,8 +123,7 @@ interface HealthBarProps {
 }
 
 function HealthBar({ score }: HealthBarProps) {
-  const color =
-    score >= 80 ? "bg-green-500" : score >= 50 ? "bg-yellow-500" : "bg-red-500";
+  const color = score >= 80 ? "bg-green-500" : score >= 50 ? "bg-yellow-500" : "bg-red-500";
 
   return (
     <div className="flex items-center gap-2">
@@ -141,9 +133,7 @@ function HealthBar({ score }: HealthBarProps) {
           style={{ width: `${score}%` }}
         />
       </div>
-      <span className="text-xs text-gray-500 dark:text-gray-400 w-8">
-        {score}%
-      </span>
+      <span className="text-xs text-gray-500 dark:text-gray-400 w-8">{score}%</span>
     </div>
   );
 }
@@ -156,13 +146,7 @@ interface ProfileCardProps {
   onReauth: () => void;
 }
 
-function ProfileCard({
-  profile,
-  isActive,
-  onActivate,
-  onDelete,
-  onReauth,
-}: ProfileCardProps) {
+function ProfileCard({ profile, isActive, onActivate, onDelete, onReauth }: ProfileCardProps) {
   const [showMenu, setShowMenu] = useState(false);
 
   const lastUsed = profile.lastUsedAt
@@ -197,9 +181,7 @@ function ProfileCard({
         <div className="flex items-center gap-3">
           <ProviderBadge provider={profile.provider} />
           <div>
-            <h4 className="font-medium text-gray-900 dark:text-white">
-              {profile.name}
-            </h4>
+            <h4 className="font-medium text-gray-900 dark:text-white">{profile.name}</h4>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {AUTH_MODE_LABELS[profile.authMode]}
             </p>
@@ -213,12 +195,7 @@ function ProfileCard({
             onClick={() => setShowMenu(!showMenu)}
             className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded"
           >
-            <svg
-              aria-hidden="true"
-              className="w-5 h-5"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
+            <svg aria-hidden="true" className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
             </svg>
           </button>
@@ -260,9 +237,7 @@ function ProfileCard({
                     }}
                     className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
-                    {profile.status === "unlinked"
-                      ? "Link Account"
-                      : "Re-authenticate"}
+                    {profile.status === "unlinked" ? "Link Account" : "Re-authenticate"}
                   </button>
                 )}
                 <button
@@ -292,9 +267,7 @@ function ProfileCard({
             cooldownUntil: profile.cooldownUntil,
           })}
         />
-        {profile.healthScore !== undefined && (
-          <HealthBar score={profile.healthScore} />
-        )}
+        {profile.healthScore !== undefined && <HealthBar score={profile.healthScore} />}
       </div>
 
       {/* Status message */}
@@ -353,19 +326,14 @@ export function ProfileList({
   const { remove, isLoading: deleting } = useDeleteProfile();
   const { rotate, isLoading: rotating } = useRotatePool();
 
-  const [deleteConfirm, setDeleteConfirm] = useState<AccountProfile | null>(
-    null,
-  );
+  const [deleteConfirm, setDeleteConfirm] = useState<AccountProfile | null>(null);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
 
   // Find active profile for each provider
   const getActiveProfileForProvider = useCallback(
     (p: ProviderId) => {
       const providerProfiles = profiles?.filter((prof) => prof.provider === p);
-      return (
-        providerProfiles?.find((prof) => prof.lastUsedAt) ??
-        providerProfiles?.[0]
-      );
+      return providerProfiles?.find((prof) => prof.lastUsedAt) ?? providerProfiles?.[0];
     },
     [profiles],
   );
@@ -424,10 +392,7 @@ export function ProfileList({
     return (
       <div className="space-y-4">
         {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="bg-gray-100 dark:bg-gray-800 rounded-lg h-32 animate-pulse"
-          />
+          <div key={i} className="bg-gray-100 dark:bg-gray-800 rounded-lg h-32 animate-pulse" />
         ))}
       </div>
     );
@@ -450,9 +415,7 @@ export function ProfileList({
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <ProviderBadge provider={p} size="sm" />
-                <h3 className="font-medium text-gray-900 dark:text-white">
-                  {info.displayName}
-                </h3>
+                <h3 className="font-medium text-gray-900 dark:text-white">{info.displayName}</h3>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
                   ({providerProfiles.length} profile
                   {providerProfiles.length !== 1 ? "s" : ""})
@@ -527,22 +490,14 @@ export function ProfileList({
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <Modal
-          open={!!deleteConfirm}
-          onClose={() => setDeleteConfirm(null)}
-          title="Delete Profile"
-        >
+        <Modal open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} title="Delete Profile">
           <div className="space-y-4">
             <p className="text-gray-600 dark:text-gray-400">
               Are you sure you want to delete the profile{" "}
-              <strong className="text-gray-900 dark:text-white">
-                {deleteConfirm.name}
-              </strong>
-              ?
+              <strong className="text-gray-900 dark:text-white">{deleteConfirm.name}</strong>?
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              This will remove the profile from the Gateway. Any stored
-              credentials will be deleted.
+              This will remove the profile from the Gateway. Any stored credentials will be deleted.
             </p>
             <div className="flex gap-3 justify-end pt-2">
               <button
