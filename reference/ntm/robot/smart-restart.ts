@@ -60,15 +60,14 @@ export interface SmartRestartOptions {
 /**
  * Default options for smart restart.
  */
-export const defaultSmartRestartOptions: Required<
-  Omit<SmartRestartOptions, "agentId" | "prompt">
-> = {
-  force: false,
-  dryRun: false,
-  linesCaptured: 100,
-  verbose: false,
-  postWaitTime: 6000,
-};
+export const defaultSmartRestartOptions: Required<Omit<SmartRestartOptions, "agentId" | "prompt">> =
+  {
+    force: false,
+    dryRun: false,
+    linesCaptured: 100,
+    verbose: false,
+    postWaitTime: 6000,
+  };
 
 /**
  * Pre-restart state assessment.
@@ -282,9 +281,7 @@ export function determineRestartAction(
 /**
  * Calculate summary from individual actions.
  */
-export function calculateRestartSummary(
-  actions: Record<string, RestartAction>,
-): RestartSummary {
+export function calculateRestartSummary(actions: Record<string, RestartAction>): RestartSummary {
   const agentsByAction: Record<RestartActionType, string[]> = {
     RESTARTED: [],
     SKIPPED: [],
@@ -321,10 +318,7 @@ export function calculateRestartSummary(
  * Agent-specific exit key sequences.
  * These are the safest ways to exit each agent type.
  */
-export const EXIT_SEQUENCES: Record<
-  string,
-  { keys: string[]; description: string }
-> = {
+export const EXIT_SEQUENCES: Record<string, { keys: string[]; description: string }> = {
   "claude-code": {
     keys: ["Escape", "Escape", "/exit", "Enter"],
     description: "Double-escape to cancel, /exit command",

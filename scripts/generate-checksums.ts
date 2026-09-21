@@ -54,9 +54,7 @@ function generateHash(content: Buffer, algorithm: "sha256" | "sha512"): string {
 /**
  * Generate checksums for a single file.
  */
-async function generateFileChecksums(
-  filepath: string,
-): Promise<ChecksumEntry | null> {
+async function generateFileChecksums(filepath: string): Promise<ChecksumEntry | null> {
   try {
     const content = await readFile(filepath);
     const fileStats = await stat(filepath);
@@ -142,9 +140,7 @@ async function generateChecksums(directory: string): Promise<ChecksumEntry[]> {
   }
 
   // Write combined checksums.txt (SHA256 only, standard format)
-  const checksumsTxt = entries
-    .map((e) => formatChecksumLine(e.sha256, e.filename))
-    .join("");
+  const checksumsTxt = entries.map((e) => formatChecksumLine(e.sha256, e.filename)).join("");
   await writeFile(join(directory, "checksums.txt"), checksumsTxt);
   console.log(`\nWrote: checksums.txt`);
 
@@ -155,10 +151,7 @@ async function generateChecksums(directory: string): Promise<ChecksumEntry[]> {
     generator: "flywheel-gateway/generate-checksums",
     files: entries,
   };
-  await writeFile(
-    join(directory, "checksums.json"),
-    `${JSON.stringify(manifest, null, 2)}\n`,
-  );
+  await writeFile(join(directory, "checksums.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(`Wrote: checksums.json`);
 
   return entries;
@@ -184,9 +177,7 @@ async function main() {
 
   if (!directory) {
     console.error("Usage: bun scripts/generate-checksums.ts <directory>");
-    console.error(
-      "Example: bun scripts/generate-checksums.ts release-artifacts",
-    );
+    console.error("Example: bun scripts/generate-checksums.ts release-artifacts");
     process.exit(2);
   }
 
@@ -200,9 +191,7 @@ async function main() {
 
     console.log(`\n${"─".repeat(50)}`);
     console.log(`Generated checksums for ${entries.length} artifact(s)`);
-    console.log(
-      `Total size: ${formatBytes(entries.reduce((sum, e) => sum + e.size, 0))}`,
-    );
+    console.log(`Total size: ${formatBytes(entries.reduce((sum, e) => sum + e.size, 0))}`);
     console.log(`${"─".repeat(50)}`);
   } catch (error) {
     console.error("Error generating checksums:", error);

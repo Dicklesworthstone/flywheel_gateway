@@ -13,9 +13,7 @@ const ROOT = path.resolve(import.meta.dir, "../..");
 const MATRIX_PATH = path.join(ROOT, "docs/coverage-matrix.md");
 
 describe("Coverage matrix output", () => {
-  const content = existsSync(MATRIX_PATH)
-    ? readFileSync(MATRIX_PATH, "utf-8")
-    : "";
+  const content = existsSync(MATRIX_PATH) ? readFileSync(MATRIX_PATH, "utf-8") : "";
 
   it("file exists", () => {
     expect(existsSync(MATRIX_PATH)).toBe(true);
@@ -68,9 +66,7 @@ describe("Coverage matrix output", () => {
 });
 
 describe("Coverage matrix structure", () => {
-  const content = existsSync(MATRIX_PATH)
-    ? readFileSync(MATRIX_PATH, "utf-8")
-    : "";
+  const content = existsSync(MATRIX_PATH) ? readFileSync(MATRIX_PATH, "utf-8") : "";
 
   it("all table rows have 10 columns (tool + 9 planes)", () => {
     const tableRows = content
@@ -94,9 +90,7 @@ describe("Coverage matrix structure", () => {
   });
 
   it("phases are in ascending order", () => {
-    const phaseMatches = [...content.matchAll(/Phase (\d+)/g)].map((m) =>
-      parseInt(m[1]!, 10),
-    );
+    const phaseMatches = [...content.matchAll(/Phase (\d+)/g)].map((m) => parseInt(m[1]!, 10));
     for (let i = 1; i < phaseMatches.length; i++) {
       expect(phaseMatches[i]!).toBeGreaterThanOrEqual(phaseMatches[i - 1]!);
     }

@@ -43,8 +43,7 @@ const CLIENTS_DIR = path.join(ROOT, "packages/flywheel-clients/src");
 const SERVICES_DIR = path.join(ROOT, "apps/gateway/src/services");
 const ROUTES_DIR = path.join(ROOT, "apps/gateway/src/routes");
 const WEB_DIR = path.join(ROOT, "apps/web/src");
-const MANIFEST_PATH =
-  process.env["ACFS_MANIFEST_PATH"] ?? path.join(ROOT, "acfs.manifest.yaml");
+const MANIFEST_PATH = process.env["ACFS_MANIFEST_PATH"] ?? path.join(ROOT, "acfs.manifest.yaml");
 const OUTPUT_PATH = path.join(ROOT, "docs/coverage-matrix.md");
 
 /** Load manifest tools, falling back to fixture if manifest missing */
@@ -63,10 +62,7 @@ async function loadRegistryTools(): Promise<
   let manifestPath = MANIFEST_PATH;
   if (!existsSync(manifestPath)) {
     // Try golden fixture
-    manifestPath = path.join(
-      ROOT,
-      "apps/gateway/src/__tests__/fixtures/valid-manifest.yaml",
-    );
+    manifestPath = path.join(ROOT, "apps/gateway/src/__tests__/fixtures/valid-manifest.yaml");
   }
   if (!existsSync(manifestPath)) {
     return [];
@@ -136,10 +132,7 @@ function hasService(toolName: string): boolean {
     if (existsSync(svcPath)) {
       try {
         const content = require("node:fs").readFileSync(svcPath, "utf-8");
-        if (
-          content.includes(`"${toolName}"`) ||
-          content.includes(`'${toolName}'`)
-        ) {
+        if (content.includes(`"${toolName}"`) || content.includes(`'${toolName}'`)) {
           return true;
         }
       } catch {
@@ -157,10 +150,7 @@ function hasRoute(toolName: string): boolean {
   for (const file of routeFiles) {
     if (!file.endsWith(".ts")) continue;
     try {
-      const content = require("node:fs").readFileSync(
-        path.join(ROUTES_DIR, file),
-        "utf-8",
-      );
+      const content = require("node:fs").readFileSync(path.join(ROUTES_DIR, file), "utf-8");
       if (
         content.includes(`/${toolName}`) ||
         content.includes(`"${toolName}"`) ||
@@ -188,11 +178,7 @@ function hasUI(toolName: string): boolean {
         recursive: true,
       }) as string[];
       for (const file of files) {
-        if (
-          !file.toString().endsWith(".tsx") &&
-          !file.toString().endsWith(".ts")
-        )
-          continue;
+        if (!file.toString().endsWith(".tsx") && !file.toString().endsWith(".ts")) continue;
         const content = require("node:fs").readFileSync(
           path.join(dirPath, file.toString()),
           "utf-8",
@@ -219,9 +205,7 @@ function hasSnapshot(toolName: string): boolean {
   if (!existsSync(snapshotPath)) return false;
   try {
     const content = require("node:fs").readFileSync(snapshotPath, "utf-8");
-    return (
-      content.includes(`"${toolName}"`) || content.includes(`'${toolName}'`)
-    );
+    return content.includes(`"${toolName}"`) || content.includes(`'${toolName}'`);
   } catch {
     return false;
   }
@@ -280,10 +264,7 @@ async function buildCoverageMatrix(): Promise<ToolCoverage[]> {
       .readdirSync(CLIENTS_DIR)
       .filter(
         (d: string) =>
-          !d.startsWith("_") &&
-          !d.startsWith(".") &&
-          !d.endsWith(".ts") &&
-          d !== "toon",
+          !d.startsWith("_") && !d.startsWith(".") && !d.endsWith(".ts") && d !== "toon",
       ) as string[];
 
     for (const dir of clientDirs) {
@@ -367,9 +348,7 @@ function renderMarkdown(matrix: ToolCoverage[]): string {
     999: "Additional Clients (No Phase)",
   };
 
-  for (const [phase, tools] of Array.from(phases.entries()).sort(
-    ([a], [b]) => a - b,
-  )) {
+  for (const [phase, tools] of Array.from(phases.entries()).sort(([a], [b]) => a - b)) {
     const label = phaseLabels[phase] ?? `Phase ${phase}`;
     lines.push(`### ${label}`, "");
     lines.push(

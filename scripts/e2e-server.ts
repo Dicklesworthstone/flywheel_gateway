@@ -20,22 +20,13 @@
  */
 
 import { Database } from "bun:sqlite";
-import {
-  cpSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-} from "node:fs";
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const PORT = Number(process.env["E2E_GATEWAY_PORT"] ?? 3456);
 const ADMIN_KEY = process.env["E2E_GATEWAY_ADMIN_KEY"] ?? "e2e-admin-key";
-const MIGRATIONS_DIR = join(
-  import.meta.dir,
-  "../apps/gateway/src/db/migrations",
-);
+const MIGRATIONS_DIR = join(import.meta.dir, "../apps/gateway/src/db/migrations");
 
 // ---------------------------------------------------------------------------
 // 1. Create temp DB and run migrations
@@ -84,9 +75,7 @@ for (const file of migrationFiles) {
     sqliteDb.exec(stmt);
   }
   sqliteDb
-    .query(
-      `INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES (?, ?)`,
-    )
+    .query(`INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES (?, ?)`)
     .run(file, Date.now());
 }
 
@@ -143,10 +132,7 @@ function cleanup() {
   // Safety: only delete under the OS temp dir.
   try {
     const tmp = tmpdir();
-    if (
-      workspaceRoot.startsWith(tmp) &&
-      workspaceRoot.includes("flywheel-e2e-")
-    ) {
+    if (workspaceRoot.startsWith(tmp) && workspaceRoot.includes("flywheel-e2e-")) {
       rmSync(workspaceRoot, { recursive: true, force: true });
     }
   } catch {

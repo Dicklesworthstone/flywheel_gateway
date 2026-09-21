@@ -11,12 +11,7 @@
  * with structured, actionable output.
  */
 
-import type {
-  ConfidenceLevel,
-  RecommendationAction,
-  RobotResponse,
-  WorkIndicators,
-} from "./types";
+import type { ConfidenceLevel, RecommendationAction, RobotResponse, WorkIndicators } from "./types";
 
 // =============================================================================
 // Is-Working Types
@@ -39,9 +34,7 @@ export interface IsWorkingOptions {
 /**
  * Default options for is-working check.
  */
-export const defaultIsWorkingOptions: Required<
-  Omit<IsWorkingOptions, "agentId">
-> = {
+export const defaultIsWorkingOptions: Required<Omit<IsWorkingOptions, "agentId">> = {
   linesCaptured: 100,
   verbose: false,
 };
@@ -286,8 +279,7 @@ export function detectWorkState(
 
   // Calculate confidence based on pattern matches
   const totalMatches = workScore + idleScore + limitScore + contextLowScore;
-  const confidence =
-    totalMatches === 0 ? 0.1 : Math.min(0.95, 0.3 + totalMatches * 0.1);
+  const confidence = totalMatches === 0 ? 0.1 : Math.min(0.95, 0.3 + totalMatches * 0.1);
 
   // Determine states
   const is_rate_limited = limitScore > 0;

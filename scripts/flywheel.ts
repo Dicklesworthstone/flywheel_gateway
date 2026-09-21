@@ -93,10 +93,7 @@ function formatBytes(bytes: number): string {
   return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
 }
 
-function colorize(
-  text: string,
-  color: "green" | "yellow" | "red" | "cyan" | "gray",
-): string {
+function colorize(text: string, color: "green" | "yellow" | "red" | "cyan" | "gray"): string {
   const colors: Record<string, string> = {
     green: "\x1b[32m",
     yellow: "\x1b[33m",
@@ -442,10 +439,7 @@ async function getStatus(): Promise<StatusReport> {
   };
 
   // Database status
-  const dbPaths = [
-    join(cwd, "flywheel.db"),
-    join(cwd, "apps/gateway/flywheel.db"),
-  ];
+  const dbPaths = [join(cwd, "flywheel.db"), join(cwd, "apps/gateway/flywheel.db")];
   let database: StatusReport["database"] = { available: false };
   for (const dbPath of dbPaths) {
     if (existsSync(dbPath)) {
@@ -477,9 +471,7 @@ function formatStatusReport(report: StatusReport): string {
 
   lines.push(colorize("  Services", "cyan"));
   for (const service of report.services) {
-    const icon = service.running
-      ? colorize("●", "green")
-      : colorize("○", "red");
+    const icon = service.running ? colorize("●", "green") : colorize("○", "red");
     const status = service.running ? "running" : "stopped";
     lines.push(`  ${icon} ${service.name}: ${status}`);
     if (service.url) {
@@ -492,21 +484,15 @@ function formatStatusReport(report: StatusReport): string {
 
   lines.push("");
   lines.push(colorize("  WebSocket", "cyan"));
-  const wsIcon = report.websocket.available
-    ? colorize("●", "green")
-    : colorize("○", "red");
-  lines.push(
-    `  ${wsIcon} ${report.websocket.available ? "Available" : "Unavailable"}`,
-  );
+  const wsIcon = report.websocket.available ? colorize("●", "green") : colorize("○", "red");
+  lines.push(`  ${wsIcon} ${report.websocket.available ? "Available" : "Unavailable"}`);
   if (report.websocket.url) {
     lines.push(colorize(`      ${report.websocket.url}`, "gray"));
   }
 
   lines.push("");
   lines.push(colorize("  Database", "cyan"));
-  const dbIcon = report.database.available
-    ? colorize("●", "green")
-    : colorize("○", "yellow");
+  const dbIcon = report.database.available ? colorize("●", "green") : colorize("○", "yellow");
   if (report.database.available) {
     lines.push(`  ${dbIcon} SQLite (${report.database.size})`);
     lines.push(colorize(`      ${report.database.path}`, "gray"));
@@ -611,18 +597,14 @@ async function runUpdate(options: { check: boolean }): Promise<UpdateResult> {
       const latestVersion = data.tag_name;
 
       if (currentVersion === latestVersion) {
-        console.log(
-          colorize(`  ✓ Already up to date (${currentVersion})`, "green"),
-        );
+        console.log(colorize(`  ✓ Already up to date (${currentVersion})`, "green"));
         return { success: true, version: currentVersion };
       }
 
       console.log(`  Current version: ${currentVersion}`);
       console.log(`  Latest version:  ${latestVersion}`);
       console.log("");
-      console.log(
-        `  Run ${colorize("flywheel update", "cyan")} to install the latest version.`,
-      );
+      console.log(`  Run ${colorize("flywheel update", "cyan")} to install the latest version.`);
       return { success: true, version: latestVersion };
     } catch (error) {
       return {
@@ -787,8 +769,7 @@ async function main() {
     }
 
     case "open": {
-      const target =
-        args.find((a) => !a.startsWith("-") && a !== "open") ?? "dashboard";
+      const target = args.find((a) => !a.startsWith("-") && a !== "open") ?? "dashboard";
       await openTarget(target);
       break;
     }

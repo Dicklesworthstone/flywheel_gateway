@@ -5,9 +5,7 @@ type DatabaseUrlParseResult =
   | { ok: true; dbFile: string }
   | { ok: false; reason: "unsupported_scheme" | "invalid"; value: string };
 
-function parseSqliteDbFileFromDatabaseUrl(
-  value: string,
-): DatabaseUrlParseResult {
+function parseSqliteDbFileFromDatabaseUrl(value: string): DatabaseUrlParseResult {
   const raw = value.trim();
   if (raw.length === 0) {
     return { ok: false, reason: "invalid", value };
@@ -16,12 +14,7 @@ function parseSqliteDbFileFromDatabaseUrl(
   const schemeMatch = raw.match(/^([a-z][a-z0-9+.-]*):\/\//i);
   if (schemeMatch) {
     const scheme = schemeMatch[1]?.toLowerCase();
-    if (
-      scheme &&
-      scheme !== "file" &&
-      scheme !== "sqlite" &&
-      scheme !== "sqlite3"
-    ) {
+    if (scheme && scheme !== "file" && scheme !== "sqlite" && scheme !== "sqlite3") {
       return { ok: false, reason: "unsupported_scheme", value: raw };
     }
   }
@@ -51,8 +44,7 @@ function resolveDbFile(defaultDbFile: string): string {
   const explicit = process.env["DB_FILE_NAME"]?.trim();
   if (explicit) return explicit;
 
-  const legacyPath =
-    process.env["DATABASE_PATH"]?.trim() ?? process.env["DB_PATH"]?.trim();
+  const legacyPath = process.env["DATABASE_PATH"]?.trim() ?? process.env["DB_PATH"]?.trim();
 
   const databaseUrl = process.env["DATABASE_URL"]?.trim();
   if (databaseUrl) {
@@ -68,9 +60,7 @@ function resolveDbFile(defaultDbFile: string): string {
   return defaultDbFile;
 }
 
-const defaultDbFile = fileURLToPath(
-  new URL("./data/gateway.db", import.meta.url),
-);
+const defaultDbFile = fileURLToPath(new URL("./data/gateway.db", import.meta.url));
 const dbFile = resolveDbFile(defaultDbFile);
 
 export default defineConfig({
