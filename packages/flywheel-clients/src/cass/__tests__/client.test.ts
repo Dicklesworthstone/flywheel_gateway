@@ -3,14 +3,21 @@
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import { CassClientError, type CassCommandRunner, createCassClient } from "../index";
+import {
+  CassClientError,
+  type CassCommandRunner,
+  createCassClient,
+} from "../index";
 
 // ============================================================================
 // Mock Command Runner
 // ============================================================================
 
 class MockCassRunner implements CassCommandRunner {
-  private responses: Map<string, { stdout: string; stderr: string; exitCode: number }> = new Map();
+  private responses: Map<
+    string,
+    { stdout: string; stderr: string; exitCode: number }
+  > = new Map();
   private callHistory: { command: string; args: string[] }[] = [];
 
   setResponse(

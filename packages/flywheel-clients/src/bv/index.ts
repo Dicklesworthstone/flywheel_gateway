@@ -1,4 +1,8 @@
-import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
+import {
+  CliClientError,
+  type CliErrorDetails,
+  type CliErrorKind,
+} from "@flywheel/shared";
 import { z } from "zod";
 
 export interface BvCommandResult {
@@ -14,7 +18,11 @@ export interface BvCommandOptions {
 }
 
 export interface BvCommandRunner {
-  run: (command: string, args: string[], options?: BvCommandOptions) => Promise<BvCommandResult>;
+  run: (
+    command: string,
+    args: string[],
+    options?: BvCommandOptions,
+  ) => Promise<BvCommandResult>;
 }
 
 export interface BvClientOptions {
@@ -36,10 +44,14 @@ const RecommendationSchema = z
     id: z.string(),
     title: z.string(),
     type: z.string().optional(),
-    score: z.number(),
+    score: z.number().default(0),
     reasons: z.array(z.string()).optional(),
     status: z.string().optional(),
     description: z.string().optional(),
+    labels: z.array(z.string()).nullable().optional(),
+    unblocks_count: z.number().optional(),
+    unblocks_ids: z.array(z.string()).optional(),
+    actionable: z.boolean().optional(),
   })
   .passthrough();
 
@@ -74,21 +86,27 @@ const BvPlanResultSchema = z
   .passthrough();
 
 // Graph types for visualization
-const BvGraphNodeSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  status: z.string(),
-  priority: z.number().optional(),
-  pagerank: z.number().optional(),
-  type: z.string().optional(),
-  labels: z.array(z.string()).optional(),
-});
+const BvGraphNodeSchema = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    status: z.string(),
+    priority: z.number().optional(),
+    pagerank: z.number().optional(),
+    type: z.string().optional(),
+    labels: z.array(z.string()).nullable().optional(),
+  })
+  .passthrough();
 
-const BvGraphEdgeSchema = z.object({
-  source: z.string(),
-  target: z.string(),
-  type: z.string().optional(),
-});
+const BvGraphEdgeSchema = z
+  .object({
+    source: z.string().optional(),
+    target: z.string().optional(),
+    from: z.string().optional(),
+    to: z.string().optional(),
+    type: z.string().optional(),
+  })
+  .passthrough();
 
 const BvGraphResultSchema = z
   .object({

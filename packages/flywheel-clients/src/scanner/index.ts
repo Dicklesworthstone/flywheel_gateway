@@ -8,9 +8,16 @@
  * Gateway workflow: run `ubs <changed-files>` before commits/PRs.
  */
 
-import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
+import {
+  CliClientError,
+  type CliErrorDetails,
+  type CliErrorKind,
+} from "@flywheel/shared";
 import { z } from "zod";
-import { CliCommandError, createBunCliRunner as createSharedBunCliRunner } from "../cli-runner";
+import {
+  CliCommandError,
+  createBunCliRunner as createSharedBunCliRunner,
+} from "../cli-runner";
 
 // ============================================================================
 // Command Runner Interface
@@ -52,7 +59,13 @@ export class UBSClientError extends CliClientError {
 // Severity and Category Types
 // ============================================================================
 
-export const SeverityLevelSchema = z.enum(["critical", "high", "medium", "low", "info"]);
+export const SeverityLevelSchema = z.enum([
+  "critical",
+  "high",
+  "medium",
+  "low",
+  "info",
+]);
 
 export const FindingCategorySchema = z.enum([
   "security",
@@ -227,10 +240,16 @@ export interface UBSClient {
   scanDir: (dir: string, options?: UBSScanOptions) => Promise<UBSScanResult>;
 
   /** Transform a finding into a bead creation request */
-  findingToBead: (finding: UBSFinding, options?: BeadFromFindingOptions) => BeadCreate;
+  findingToBead: (
+    finding: UBSFinding,
+    options?: BeadFromFindingOptions,
+  ) => BeadCreate;
 
   /** Transform multiple findings into bead creation requests */
-  findingsToBeads: (findings: UBSFinding[], options?: BeadFromFindingOptions) => BeadCreate[];
+  findingsToBeads: (
+    findings: UBSFinding[],
+    options?: BeadFromFindingOptions,
+  ) => BeadCreate[];
 
   /** Get severity priority mapping */
   severityToPriority: (severity: SeverityLevel) => number;
@@ -251,7 +270,11 @@ async function runUBSCommand(
   return result;
 }
 
-function parseJson<T>(stdout: string, schema: z.ZodSchema<T>, context: string): T {
+function parseJson<T>(
+  stdout: string,
+  schema: z.ZodSchema<T>,
+  context: string,
+): T {
   let parsed: unknown;
   try {
     parsed = JSON.parse(stdout);
@@ -264,9 +287,13 @@ function parseJson<T>(stdout: string, schema: z.ZodSchema<T>, context: string): 
 
   const result = schema.safeParse(parsed);
   if (!result.success) {
-    throw new UBSClientError("validation_error", `Invalid UBS ${context} response`, {
-      issues: result.error.issues,
-    });
+    throw new UBSClientError(
+      "validation_error",
+      `Invalid UBS ${context} response`,
+      {
+        issues: result.error.issues,
+      },
+    );
   }
 
   return result.data;
@@ -428,7 +455,9 @@ export function createUBSClient(options: UBSClientOptions): UBSClient {
   const baseCwd = options.cwd;
   const defaultTimeout = options.timeout ?? 60000;
 
-  const buildRunOptions = (timeout?: number): { cwd?: string; timeout: number } => {
+  const buildRunOptions = (
+    timeout?: number,
+  ): { cwd?: string; timeout: number } => {
     const opts: { cwd?: string; timeout: number } = {
       timeout: timeout ?? defaultTimeout,
     };
@@ -453,9 +482,13 @@ export function createUBSClient(options: UBSClientOptions): UBSClient {
     }
   };
 
-  const findingToBead = (finding: UBSFinding, beadOpts?: BeadFromFindingOptions): BeadCreate => {
+  const findingToBead = (
+    finding: UBSFinding,
+    beadOpts?: BeadFromFindingOptions,
+  ): BeadCreate => {
     const title =
-      beadOpts?.title ?? `Fix ${finding.severity} ${finding.category}: ${finding.title}`;
+      beadOpts?.title ??
+      `Fix ${finding.severity} ${finding.category}: ${finding.title}`;
 
     const body =
       beadOpts?.bodyTemplate ??
@@ -497,10 +530,12 @@ ${finding.codeSnippet ? `## Code Context\n\`\`\`\n${finding.codeSnippet}\n\`\`\`
       priority,
       type,
       metadata: {
-        ...(finding.id !== null && finding.id !== undefined && { findingId: finding.id }),
+        ...(finding.id !== null &&
+          finding.id !== undefined && { findingId: finding.id }),
         rule: finding.rule,
         file: finding.file,
-        ...(finding.line !== null && finding.line !== undefined && { line: finding.line }),
+        ...(finding.line !== null &&
+          finding.line !== undefined && { line: finding.line }),
       },
     };
   };
@@ -591,9 +626,13 @@ ${finding.codeSnippet ? `## Code Context\n\`\`\`\n${finding.codeSnippet}\n\`\`\`
         );
 
         if (gitResult.exitCode !== 0) {
-          throw new UBSClientError("command_failed", "Failed to get staged files", {
-            stderr: gitResult.stderr,
-          });
+          throw new UBSClientError(
+            "command_failed",
+            "Failed to get staged files",
+            {
+              stderr: gitResult.stderr,
+            },
+          );
         }
 
         const files = gitResult.stdout
@@ -635,9 +674,13 @@ ${finding.codeSnippet ? `## Code Context\n\`\`\`\n${finding.codeSnippet}\n\`\`\`
         }
       } catch (error) {
         if (error instanceof UBSClientError) throw error;
-        throw new UBSClientError("command_failed", "Failed to scan staged files", {
-          cause: error instanceof Error ? error.message : String(error),
-        });
+        throw new UBSClientError(
+          "command_failed",
+          "Failed to scan staged files",
+          {
+            cause: error instanceof Error ? error.message : String(error),
+          },
+        );
       }
     },
 
@@ -701,11 +744,15 @@ export function createBunUBSCommandRunner(): UBSCommandRunner {
             });
           }
           if (error.kind === "spawn_failed") {
-            throw new UBSClientError("unavailable", "UBS command failed to start", {
-              command,
-              args,
-              details: error.details,
-            });
+            throw new UBSClientError(
+              "unavailable",
+              "UBS command failed to start",
+              {
+                command,
+                args,
+                details: error.details,
+              },
+            );
           }
         }
         throw error;

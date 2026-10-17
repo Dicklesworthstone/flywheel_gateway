@@ -24,7 +24,11 @@ import {
   logDriver,
 } from "../base-driver";
 import type { DriverOptions } from "../interface";
-import { createAgentNtmMapping, generateNtmPaneId, generateNtmSessionName } from "../naming";
+import {
+  createAgentNtmMapping,
+  generateNtmPaneId,
+  generateNtmSessionName,
+} from "../naming";
 import type { Agent, AgentConfig, SendResult } from "../types";
 
 /**
@@ -70,6 +74,8 @@ interface NtmAgentSession {
  */
 export class NtmDriver extends BaseDriver {
   private client: NtmClient;
+  private runner: NtmCommandRunner;
+  private commandTimeoutMs: number;
   private cwd: string | undefined;
   private pollIntervalMs: number;
   private tailLines: number;
@@ -80,6 +86,8 @@ export class NtmDriver extends BaseDriver {
   constructor(config: BaseDriverConfig, options: NtmDriverOptions = {}) {
     super(config);
     const runner = options.runner ?? createBunNtmCommandRunner();
+    this.runner = runner;
+    this.commandTimeoutMs = options.commandTimeoutMs ?? 30000;
     // Build client options, only including cwd if defined
     const clientOpts: {
       runner: NtmCommandRunner;
@@ -87,7 +95,7 @@ export class NtmDriver extends BaseDriver {
       timeout?: number;
     } = {
       runner,
-      timeout: options.commandTimeoutMs ?? 30000,
+      timeout: this.commandTimeoutMs,
     };
     if (options.cwd !== undefined) {
       clientOpts.cwd = options.cwd;
@@ -98,6 +106,20 @@ export class NtmDriver extends BaseDriver {
     this.tailLines = options.tailLines ?? 50;
     this.maxConsecutivePollErrors = options.maxConsecutivePollErrors ?? 5;
     this.maxPollStaleMs = options.maxPollStaleMs ?? 60000; // 1 minute
+  }
+
+  private async runNtmCommand(args: string[]): Promise<{
+    exitCode: number;
+    stdout: string;
+    stderr: string;
+  }> {
+    const runOpts: { cwd?: string; timeout?: number } = {
+      timeout: this.commandTimeoutMs,
+    };
+    if (this.cwd !== undefined) {
+      runOpts.cwd = this.cwd;
+    }
+    return this.runner.run("ntm", args, runOpts);
   }
 
   // ============================================================================
@@ -135,17 +157,16 @@ export class NtmDriver extends BaseDriver {
     const sessionName = generateNtmSessionName({ config });
     const mapping = createAgentNtmMapping(config);
 
-    // For NTM driver, we expect the session to already exist or be created
-    // via NTM spawn commands. The driver maps to existing NTM sessions.
-    // In a full implementation, this would call ntm spawn to create the session.
-
     // Generate default pane ID using naming utility
     let paneId = generateNtmPaneId(sessionName);
 
     try {
-      const spawnStatusOpts = this.cwd !== undefined ? { cwd: this.cwd } : undefined;
+      const spawnStatusOpts =
+        this.cwd !== undefined ? { cwd: this.cwd } : undefined;
       const status = await this.client.status(spawnStatusOpts);
-      const existingSession = status.sessions.find((s) => s.name === sessionName);
+      const existingSession = status.sessions.find(
+        (s) => s.name === sessionName,
+      );
 
       if (existingSession?.agents?.length) {
         // Use existing agent's pane
@@ -159,8 +180,6 @@ export class NtmDriver extends BaseDriver {
           paneId,
         });
       } else {
-        // Session doesn't exist - in production, we would spawn it
-        // For now, log that we're creating a virtual session
         logDriver("info", this.driverType, "action=spawn new_session", {
           agentId: config.id,
           sessionName,
@@ -223,7 +242,10 @@ export class NtmDriver extends BaseDriver {
     };
   }
 
-  protected async doSend(agentId: string, message: string): Promise<SendResult> {
+  protected async doSend(
+    agentId: string,
+    message: string,
+  ): Promise<SendResult> {
     const session = this.sessions.get(agentId);
     if (!session) {
       throw new Error(`Session not found for agent: ${agentId}`);
@@ -231,8 +253,32 @@ export class NtmDriver extends BaseDriver {
 
     const messageId = generateSecureId("msg");
 
-    // In a full implementation, this would send keys to the tmux pane
-    // via ntm send-keys or similar command. For now, we log the action.
+    // Send keys to the NTM-managed pane
+    const sendResult = await this.runNtmCommand([
+      "send-keys",
+      "-t",
+      session.paneId,
+      "-l",
+      message,
+    ]);
+    if (sendResult.exitCode !== 0) {
+      throw new Error(
+        `Failed to send keys to NTM pane ${session.paneId}: ${sendResult.stderr || `exit code ${sendResult.exitCode}`}`,
+      );
+    }
+
+    const enterResult = await this.runNtmCommand([
+      "send-keys",
+      "-t",
+      session.paneId,
+      "Enter",
+    ]);
+    if (enterResult.exitCode !== 0) {
+      throw new Error(
+        `Failed to send Enter key to NTM pane ${session.paneId}: ${enterResult.stderr || `exit code ${enterResult.exitCode}`}`,
+      );
+    }
+
     logDriver("info", this.driverType, "action=send", {
       agentId,
       sessionName: session.sessionName,
@@ -255,7 +301,10 @@ export class NtmDriver extends BaseDriver {
     return { messageId, queued: false };
   }
 
-  protected async doTerminate(agentId: string, graceful: boolean): Promise<void> {
+  protected async doTerminate(
+    agentId: string,
+    graceful: boolean,
+  ): Promise<void> {
     const session = this.sessions.get(agentId);
     if (!session) return;
 
@@ -271,8 +320,27 @@ export class NtmDriver extends BaseDriver {
       graceful,
     });
 
-    // In a full implementation, this would kill the tmux session
-    // via ntm kill-session or similar command
+    if (graceful) {
+      try {
+        await this.runNtmCommand(["send-keys", "-t", session.paneId, "C-c"]);
+      } catch (err) {
+        logDriver("warn", this.driverType, "graceful_interrupt_failed", {
+          agentId,
+          paneId: session.paneId,
+          error: String(err),
+        });
+      }
+    }
+
+    try {
+      await this.runNtmCommand(["kill-session", "-t", session.sessionName]);
+    } catch (err) {
+      logDriver("warn", this.driverType, "kill_session_failed", {
+        agentId,
+        sessionName: session.sessionName,
+        error: String(err),
+      });
+    }
 
     // Clean up session
     this.sessions.delete(agentId);
@@ -284,8 +352,18 @@ export class NtmDriver extends BaseDriver {
       throw new Error(`Session not found for agent: ${agentId}`);
     }
 
-    // In a full implementation, this would send Ctrl+C to the pane
-    // via ntm send-keys -t <pane> C-c
+    const result = await this.runNtmCommand([
+      "send-keys",
+      "-t",
+      session.paneId,
+      "C-c",
+    ]);
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `Failed to send interrupt to NTM pane ${session.paneId}: ${result.stderr || `exit code ${result.exitCode}`}`,
+      );
+    }
+
     logDriver("info", this.driverType, "action=interrupt", {
       agentId,
       sessionName: session.sessionName,
@@ -412,7 +490,10 @@ export class NtmDriver extends BaseDriver {
    * Mark an agent as failed due to persistent poll failures.
    * Cleans up resources and emits terminated event.
    */
-  private async markAgentFailed(agentId: string, reason: string): Promise<void> {
+  private async markAgentFailed(
+    agentId: string,
+    reason: string,
+  ): Promise<void> {
     const session = this.sessions.get(agentId);
     if (!session) return;
 
@@ -504,7 +585,9 @@ export class NtmDriver extends BaseDriver {
    */
   private processStateFromSnapshot(
     agentId: string,
-    snapshot: NtmSnapshotOutput | { ts: string; since: string; changes: unknown[] },
+    snapshot:
+      | NtmSnapshotOutput
+      | { ts: string; since: string; changes: unknown[] },
   ): void {
     const session = this.sessions.get(agentId);
     if (!session) return;
@@ -512,7 +595,9 @@ export class NtmDriver extends BaseDriver {
     // Handle full snapshot
     if ("sessions" in snapshot) {
       const fullSnapshot = snapshot as NtmSnapshotOutput;
-      const sessionData = fullSnapshot.sessions.find((s) => s.name === session.sessionName);
+      const sessionData = fullSnapshot.sessions.find(
+        (s) => s.name === session.sessionName,
+      );
 
       if (sessionData) {
         const agent = sessionData.agents.find((a) => a.pane === session.paneId);
@@ -571,7 +656,9 @@ export class NtmDriver extends BaseDriver {
         Object.keys(contextOpts).length > 0 ? contextOpts : undefined,
       );
 
-      const agentContext = context.agents.find((a) => a.pane === session.paneId);
+      const agentContext = context.agents.find(
+        (a) => a.pane === session.paneId,
+      );
 
       if (agentContext) {
         return {
@@ -622,7 +709,9 @@ export class NtmDriver extends BaseDriver {
         Object.keys(healthOpts).length > 0 ? healthOpts : undefined,
       );
 
-      const agentHealth = health.agents.find((a) => a.agent_type === session.config.provider);
+      const agentHealth = health.agents.find(
+        (a) => a.agent_type === session.config.provider,
+      );
 
       if (agentHealth) {
         return {
@@ -654,7 +743,9 @@ export class NtmDriver extends BaseDriver {
 /**
  * Factory function to create an NTM driver.
  */
-export async function createNtmDriver(options?: NtmDriverOptions): Promise<NtmDriver> {
+export async function createNtmDriver(
+  options?: NtmDriverOptions,
+): Promise<NtmDriver> {
   const config = createDriverOptions("ntm", options);
   const driver = new NtmDriver(config, options);
 

@@ -60,7 +60,9 @@ class TestableNtmDriver extends NtmDriver {
       ...options,
       // Override the runner to prevent actual NTM commands
       runner: {
-        run: mock(() => Promise.resolve({ stdout: "{}", stderr: "", exitCode: 0 })),
+        run: mock(() =>
+          Promise.resolve({ stdout: "{}", stderr: "", exitCode: 0 }),
+        ),
       },
     });
     // Replace the client with our mock
@@ -108,7 +110,9 @@ class TestableNtmDriver extends NtmDriver {
 }
 
 describe("NtmDriver", () => {
-  const createTestConfig = (overrides: Partial<AgentConfig> = {}): AgentConfig => ({
+  const createTestConfig = (
+    overrides: Partial<AgentConfig> = {},
+  ): AgentConfig => ({
     id: `test-agent-${Date.now()}`,
     provider: "claude",
     model: "claude-opus-4",
@@ -374,7 +378,8 @@ describe("NtmDriver", () => {
 
       // lastSuccessfulPoll should be recent (within last second)
       const timeSinceSuccess =
-        Date.now() - (sessions.get(config.id)?.lastSuccessfulPoll.getTime() ?? 0);
+        Date.now() -
+        (sessions.get(config.id)?.lastSuccessfulPoll.getTime() ?? 0);
       expect(timeSinceSuccess).toBeLessThan(1000);
     });
   });
@@ -403,6 +408,69 @@ describe("NtmDriver", () => {
 
       // Session should be removed (poll interval cleared before deletion)
       expect(sessions.has(config.id)).toBe(false);
+    });
+  });
+
+  describe("mutations - send, interrupt, terminate", () => {
+    it("invokes ntm send-keys with literal text and Enter on send()", async () => {
+      const calls: Array<{ command: string; args: string[] }> = [];
+      const mockClient = createMockNtmClient();
+      const driver = new NtmDriver(createDriverOptions("ntm"), {
+        runner: {
+          run: mock(async (command: string, args: string[]) => {
+            calls.push({ command, args });
+            return { stdout: "{}", stderr: "", exitCode: 0 };
+          }),
+        },
+      });
+      // @ts-expect-error - inject mock client for status/tail
+      driver.client = mockClient;
+
+      const config = createTestConfig({ id: "agent-ntm-send-1" });
+      await driver.spawn(config);
+      calls.length = 0;
+
+      const result = await driver.send(config.id, "echo hello world");
+      expect(result.queued).toBe(false);
+      expect(calls.length).toBeGreaterThanOrEqual(2);
+      expect(calls[0]?.command).toBe("ntm");
+      expect(calls[0]?.args[0]).toBe("send-keys");
+      expect(calls[0]?.args).toContain("-l");
+      expect(calls[0]?.args).toContain("echo hello world");
+      expect(calls[1]?.args).toContain("Enter");
+
+      await driver.terminate(config.id, false);
+    });
+
+    it("invokes ntm send-keys C-c on interrupt() and kill-session on terminate()", async () => {
+      const calls: Array<{ command: string; args: string[] }> = [];
+      const mockClient = createMockNtmClient();
+      const driver = new NtmDriver(createDriverOptions("ntm"), {
+        runner: {
+          run: mock(async (command: string, args: string[]) => {
+            calls.push({ command, args });
+            return { stdout: "{}", stderr: "", exitCode: 0 };
+          }),
+        },
+      });
+      // @ts-expect-error - inject mock client for status/tail
+      driver.client = mockClient;
+
+      const config = createTestConfig({ id: "agent-ntm-term-1" });
+      await driver.spawn(config);
+      calls.length = 0;
+
+      await driver.interrupt(config.id);
+      expect(
+        calls.some((c) => c.args[0] === "send-keys" && c.args.includes("C-c")),
+      ).toBe(true);
+
+      calls.length = 0;
+      await driver.terminate(config.id, true);
+      expect(
+        calls.some((c) => c.args[0] === "send-keys" && c.args.includes("C-c")),
+      ).toBe(true);
+      expect(calls.some((c) => c.args[0] === "kill-session")).toBe(true);
     });
   });
 });

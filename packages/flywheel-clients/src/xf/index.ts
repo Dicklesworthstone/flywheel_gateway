@@ -8,9 +8,16 @@
  * CLI: https://github.com/Dicklesworthstone/x_find
  */
 
-import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
+import {
+  CliClientError,
+  type CliErrorDetails,
+  type CliErrorKind,
+} from "@flywheel/shared";
 import { z } from "zod";
-import { CliCommandError, createBunCliRunner as createSharedBunCliRunner } from "../cli-runner";
+import {
+  CliCommandError,
+  createBunCliRunner as createSharedBunCliRunner,
+} from "../cli-runner";
 
 // ============================================================================
 // Command Runner Interface
@@ -188,7 +195,10 @@ export interface XfClient {
   stats: (options?: XfCommandOptions) => Promise<XfStats>;
 
   /** Search the archive */
-  search: (query: string, options?: XfSearchOptions) => Promise<XfSearchResult[]>;
+  search: (
+    query: string,
+    options?: XfSearchOptions,
+  ) => Promise<XfSearchResult[]>;
 
   /** Get overall status */
   status: (options?: XfCommandOptions) => Promise<XfStatus>;
@@ -201,7 +211,10 @@ export interface XfClient {
 // Implementation
 // ============================================================================
 
-function buildDbArgs(options: XfClientOptions, override?: XfCommandOptions): string[] {
+function buildDbArgs(
+  options: XfClientOptions,
+  override?: XfCommandOptions,
+): string[] {
   const args: string[] = [];
   const db = override?.db ?? options.db;
   const index = override?.index ?? options.index;
@@ -226,7 +239,11 @@ async function runXfCommand(
   return result.stdout;
 }
 
-function parseJson<T>(stdout: string, schema: z.ZodSchema<T>, context: string): T {
+function parseJson<T>(
+  stdout: string,
+  schema: z.ZodSchema<T>,
+  context: string,
+): T {
   let parsed: unknown;
   try {
     parsed = JSON.parse(stdout);
@@ -239,9 +256,13 @@ function parseJson<T>(stdout: string, schema: z.ZodSchema<T>, context: string): 
 
   const result = schema.safeParse(parsed);
   if (!result.success) {
-    throw new XfClientError("validation_error", `Invalid XF ${context} response`, {
-      issues: result.error.issues,
-    });
+    throw new XfClientError(
+      "validation_error",
+      `Invalid XF ${context} response`,
+      {
+        issues: result.error.issues,
+      },
+    );
   }
 
   return result.data;
@@ -259,7 +280,10 @@ function buildRunOptions(
   return result;
 }
 
-async function getVersion(runner: XfCommandRunner, cwd?: string): Promise<string | null> {
+async function getVersion(
+  runner: XfCommandRunner,
+  cwd?: string,
+): Promise<string | null> {
   try {
     const opts: { cwd?: string; timeout: number } = { timeout: 5000 };
     if (cwd !== undefined) opts.cwd = cwd;
@@ -277,12 +301,22 @@ export function createXfClient(options: XfClientOptions): XfClient {
   return {
     stats: async (opts) => {
       const args = ["stats", "--format", "json", ...buildDbArgs(options, opts)];
-      const stdout = await runXfCommand(options.runner, args, buildRunOptions(options, opts));
+      const stdout = await runXfCommand(
+        options.runner,
+        args,
+        buildRunOptions(options, opts),
+      );
       return parseJson(stdout, XfStatsSchema, "stats");
     },
 
     search: async (query, opts) => {
-      const args = ["search", query, "--format", "json", ...buildDbArgs(options, opts)];
+      const args = [
+        "search",
+        query,
+        "--format",
+        "json",
+        ...buildDbArgs(options, opts),
+      ];
 
       if (opts?.types && opts.types.length > 0) {
         for (const type of opts.types) {
@@ -294,7 +328,11 @@ export function createXfClient(options: XfClientOptions): XfClient {
         args.push("-n", String(opts.limit));
       }
 
-      const stdout = await runXfCommand(options.runner, args, buildRunOptions(options, opts));
+      const stdout = await runXfCommand(
+        options.runner,
+        args,
+        buildRunOptions(options, opts),
+      );
       return parseJson(stdout, XfSearchResultListSchema, "search");
     },
 
@@ -369,11 +407,15 @@ export function createBunXfCommandRunner(): XfCommandRunner {
             });
           }
           if (error.kind === "spawn_failed") {
-            throw new XfClientError("unavailable", "XF command failed to start", {
-              command,
-              args,
-              details: error.details,
-            });
+            throw new XfClientError(
+              "unavailable",
+              "XF command failed to start",
+              {
+                command,
+                args,
+                details: error.details,
+              },
+            );
           }
         }
         throw error;

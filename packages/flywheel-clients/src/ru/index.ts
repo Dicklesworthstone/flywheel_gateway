@@ -8,7 +8,11 @@
  * cancellation, and database operations are managed by the gateway services.
  */
 
-import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
+import {
+  CliClientError,
+  type CliErrorDetails,
+  type CliErrorKind,
+} from "@flywheel/shared";
 import { z } from "zod";
 import {
   CliCommandError,
@@ -186,10 +190,16 @@ export interface RuClient {
   sync: (repo: string, options?: RuSyncOptions) => Promise<RuSyncResult>;
 
   /** Run sweep phase 1 (analysis) */
-  sweepPhase1: (repo: string, options?: RuSweepOptions) => Promise<RuSweepPhaseResult>;
+  sweepPhase1: (
+    repo: string,
+    options?: RuSweepOptions,
+  ) => Promise<RuSweepPhaseResult>;
 
   /** Run sweep phase 2 (planning) */
-  sweepPhase2: (repo: string, options?: RuSweepOptions) => Promise<RuSweepPhaseResult>;
+  sweepPhase2: (
+    repo: string,
+    options?: RuSweepOptions,
+  ) => Promise<RuSweepPhaseResult>;
 
   /** Run sweep phase 3 (execution) */
   sweepPhase3: (
@@ -208,9 +218,14 @@ function extractJsonPayload(stdout: string): string {
   if (!trimmed) return trimmed;
 
   const firstBrace = Math.min(
-    ...["{", "["].map((token) => trimmed.indexOf(token)).filter((index) => index >= 0),
+    ...["{", "["]
+      .map((token) => trimmed.indexOf(token))
+      .filter((index) => index >= 0),
   );
-  const lastBrace = Math.max(trimmed.lastIndexOf("}"), trimmed.lastIndexOf("]"));
+  const lastBrace = Math.max(
+    trimmed.lastIndexOf("}"),
+    trimmed.lastIndexOf("]"),
+  );
 
   if (firstBrace >= 0 && lastBrace > firstBrace) {
     return trimmed.slice(firstBrace, lastBrace + 1);
@@ -219,7 +234,11 @@ function extractJsonPayload(stdout: string): string {
   return trimmed;
 }
 
-function parseJson<T>(stdout: string, schema: z.ZodSchema<T>, context: string): T {
+function parseJson<T>(
+  stdout: string,
+  schema: z.ZodSchema<T>,
+  context: string,
+): T {
   const payload = extractJsonPayload(stdout);
 
   // Handle empty output
@@ -360,7 +379,11 @@ export function createRuClient(options: RuClientOptions): RuClient {
       if (opts?.owner) args.push("--owner", opts.owner);
       if (opts?.clonedOnly) args.push("--cloned");
 
-      const result = await runRuCommand(options.runner, args, buildRunOptions(options, opts));
+      const result = await runRuCommand(
+        options.runner,
+        args,
+        buildRunOptions(options, opts),
+      );
 
       if (result.exitCode !== 0) {
         throw new RuClientError("command_failed", "ru list failed", {
@@ -377,7 +400,11 @@ export function createRuClient(options: RuClientOptions): RuClient {
       if (opts?.force) args.push("--force");
       if (opts?.dryRun) args.push("--dry-run");
 
-      const result = await runRuCommand(options.runner, args, buildRunOptions(options, opts));
+      const result = await runRuCommand(
+        options.runner,
+        args,
+        buildRunOptions(options, opts),
+      );
 
       // Non-zero exit may still have valid JSON with error info
       try {
@@ -402,7 +429,15 @@ export function createRuClient(options: RuClientOptions): RuClient {
 
     sweepPhase1: async (repo, opts) => {
       const cliTimeout = opts?.timeout ?? 300000;
-      const args = ["agent-sweep", "--phase", "1", "--json", "--timeout", String(cliTimeout), repo];
+      const args = [
+        "agent-sweep",
+        "--phase",
+        "1",
+        "--json",
+        "--timeout",
+        String(cliTimeout),
+        repo,
+      ];
       if (opts?.dryRun) args.push("--dry-run");
 
       // Runner timeout has 5s buffer to let CLI timeout gracefully first
@@ -413,7 +448,11 @@ export function createRuClient(options: RuClientOptions): RuClient {
       );
 
       try {
-        const parsed = parseJson(result.stdout, RuSweepPhaseResultSchema, "sweep phase1");
+        const parsed = parseJson(
+          result.stdout,
+          RuSweepPhaseResultSchema,
+          "sweep phase1",
+        );
         if (result.exitCode !== 0 && !parsed.error) {
           parsed.error = result.stderr || `Exit code: ${result.exitCode}`;
         }
@@ -426,15 +465,27 @@ export function createRuClient(options: RuClientOptions): RuClient {
             repo,
           });
         }
-        throw new RuClientError("parse_error", "ru sweep phase1 output invalid", {
-          stdout: result.stdout.slice(0, 500),
-        });
+        throw new RuClientError(
+          "parse_error",
+          "ru sweep phase1 output invalid",
+          {
+            stdout: result.stdout.slice(0, 500),
+          },
+        );
       }
     },
 
     sweepPhase2: async (repo, opts) => {
       const cliTimeout = opts?.timeout ?? 600000;
-      const args = ["agent-sweep", "--phase", "2", "--json", "--timeout", String(cliTimeout), repo];
+      const args = [
+        "agent-sweep",
+        "--phase",
+        "2",
+        "--json",
+        "--timeout",
+        String(cliTimeout),
+        repo,
+      ];
       if (opts?.dryRun) args.push("--dry-run");
 
       // Runner timeout has 5s buffer to let CLI timeout gracefully first
@@ -445,7 +496,11 @@ export function createRuClient(options: RuClientOptions): RuClient {
       );
 
       try {
-        const parsed = parseJson(result.stdout, RuSweepPhaseResultSchema, "sweep phase2");
+        const parsed = parseJson(
+          result.stdout,
+          RuSweepPhaseResultSchema,
+          "sweep phase2",
+        );
         if (result.exitCode !== 0 && !parsed.error) {
           parsed.error = result.stderr || `Exit code: ${result.exitCode}`;
         }
@@ -458,9 +513,13 @@ export function createRuClient(options: RuClientOptions): RuClient {
             repo,
           });
         }
-        throw new RuClientError("parse_error", "ru sweep phase2 output invalid", {
-          stdout: result.stdout.slice(0, 500),
-        });
+        throw new RuClientError(
+          "parse_error",
+          "ru sweep phase2 output invalid",
+          {
+            stdout: result.stdout.slice(0, 500),
+          },
+        );
       }
     },
 
@@ -488,7 +547,11 @@ export function createRuClient(options: RuClientOptions): RuClient {
       );
 
       try {
-        const parsed = parseJson(result.stdout, RuSweepPhaseResultSchema, "sweep phase3");
+        const parsed = parseJson(
+          result.stdout,
+          RuSweepPhaseResultSchema,
+          "sweep phase3",
+        );
         if (result.exitCode !== 0 && !parsed.error) {
           parsed.error = result.stderr || `Exit code: ${result.exitCode}`;
         }
@@ -501,9 +564,13 @@ export function createRuClient(options: RuClientOptions): RuClient {
             repo,
           });
         }
-        throw new RuClientError("parse_error", "ru sweep phase3 output invalid", {
-          stdout: result.stdout.slice(0, 500),
-        });
+        throw new RuClientError(
+          "parse_error",
+          "ru sweep phase3 output invalid",
+          {
+            stdout: result.stdout.slice(0, 500),
+          },
+        );
       }
     },
   };
@@ -538,11 +605,15 @@ export function createBunRuCommandRunner(): RuCommandRunner {
             });
           }
           if (error.kind === "spawn_failed") {
-            throw new RuClientError("unavailable", "ru command failed to start", {
-              command,
-              args,
-              details: error.details,
-            });
+            throw new RuClientError(
+              "unavailable",
+              "ru command failed to start",
+              {
+                command,
+                args,
+                details: error.details,
+              },
+            );
           }
         }
         throw error;

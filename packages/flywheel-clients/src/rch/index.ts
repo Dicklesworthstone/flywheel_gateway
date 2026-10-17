@@ -8,9 +8,16 @@
  * CLI: https://github.com/Dicklesworthstone/remote_compilation_helper
  */
 
-import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
+import {
+  CliClientError,
+  type CliErrorDetails,
+  type CliErrorKind,
+} from "@flywheel/shared";
 import { z } from "zod";
-import { CliCommandError, createBunCliRunner as createSharedBunCliRunner } from "../cli-runner";
+import {
+  CliCommandError,
+  createBunCliRunner as createSharedBunCliRunner,
+} from "../cli-runner";
 
 // ============================================================================
 // Command Runner Interface
@@ -214,7 +221,11 @@ async function runRchCommand(
   return result.stdout;
 }
 
-function parseResponse<T>(stdout: string, schema: z.ZodSchema<T>, context: string): T {
+function parseResponse<T>(
+  stdout: string,
+  schema: z.ZodSchema<T>,
+  context: string,
+): T {
   // First parse the envelope
   let envelope: z.infer<typeof RchResponseSchema>;
   try {
@@ -242,9 +253,13 @@ function parseResponse<T>(stdout: string, schema: z.ZodSchema<T>, context: strin
   // Parse the data with the specific schema
   const result = schema.safeParse(envelope.data);
   if (!result.success) {
-    throw new RchClientError("validation_error", `Invalid RCH ${context} response`, {
-      issues: result.error.issues,
-    });
+    throw new RchClientError(
+      "validation_error",
+      `Invalid RCH ${context} response`,
+      {
+        issues: result.error.issues,
+      },
+    );
   }
 
   return result.data;
@@ -262,7 +277,10 @@ function buildRunOptions(
   return result;
 }
 
-async function getVersion(runner: RchCommandRunner, cwd?: string): Promise<string | null> {
+async function getVersion(
+  runner: RchCommandRunner,
+  cwd?: string,
+): Promise<string | null> {
   try {
     const opts: { cwd?: string; timeout: number } = { timeout: 5000 };
     if (cwd !== undefined) opts.cwd = cwd;
@@ -311,9 +329,13 @@ export function createRchClient(options: RchClientOptions): RchClient {
         }
 
         const passedChecks =
-          doctor.summary?.passed ?? doctor.checks?.filter((c) => c.status === "pass").length ?? 0;
+          doctor.summary?.passed ??
+          doctor.checks?.filter((c) => c.status === "pass").length ??
+          0;
         const failedChecks =
-          doctor.summary?.failed ?? doctor.checks?.filter((c) => c.status === "fail").length ?? 0;
+          doctor.summary?.failed ??
+          doctor.checks?.filter((c) => c.status === "fail").length ??
+          0;
 
         const health: RchHealthStatus = {
           available: true,
@@ -399,11 +421,15 @@ export function createBunRchCommandRunner(): RchCommandRunner {
             });
           }
           if (error.kind === "spawn_failed") {
-            throw new RchClientError("unavailable", "RCH command failed to start", {
-              command,
-              args,
-              details: error.details,
-            });
+            throw new RchClientError(
+              "unavailable",
+              "RCH command failed to start",
+              {
+                command,
+                args,
+                details: error.details,
+              },
+            );
           }
         }
         throw error;

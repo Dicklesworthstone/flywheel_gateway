@@ -12,7 +12,9 @@ export function isGatewayError(value: unknown): value is GatewayError {
 /**
  * Serialize a GatewayError into a plain JSON payload.
  */
-export function serializeGatewayError(error: GatewayError): GatewayErrorPayload {
+export function serializeGatewayError(
+  error: GatewayError,
+): GatewayErrorPayload {
   const payload: GatewayErrorPayload = {
     code: error.code,
     message: error.message,
@@ -31,7 +33,9 @@ export function serializeGatewayError(error: GatewayError): GatewayErrorPayload 
 /**
  * Deserialize a payload into a GatewayError instance.
  */
-export function deserializeGatewayError(payload: GatewayErrorPayload): GatewayError {
+export function deserializeGatewayError(
+  payload: GatewayErrorPayload,
+): GatewayError {
   const options: {
     httpStatus: number;
     aiHint: typeof payload.aiHint;

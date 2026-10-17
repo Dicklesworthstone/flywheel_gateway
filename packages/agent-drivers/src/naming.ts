@@ -164,7 +164,9 @@ export function generateNtmSessionName(options: NtmSessionNameOptions): string {
   const project = projectName ?? extractProjectName(config.workingDirectory);
 
   // Use agent name if provided, otherwise use provider
-  const agentLabel = config.name ? sanitizeForTmux(config.name, 12) : config.provider;
+  const agentLabel = config.name
+    ? sanitizeForTmux(config.name, 12)
+    : config.provider;
 
   // Generate deterministic suffix from agent ID
   const suffix = generateAgentSuffix(config.id);

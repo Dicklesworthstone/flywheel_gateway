@@ -48,7 +48,9 @@ export class TestWsClient {
   }
 }
 
-export async function createTestWsClient(options: TestWsClientOptions): Promise<TestWsClient> {
+export async function createTestWsClient(
+  options: TestWsClientOptions,
+): Promise<TestWsClient> {
   const client = new TestWsClient(options);
   await client.waitForOpen();
   return client;
@@ -70,7 +72,11 @@ export async function waitForWsEvent<T>(
       }
       if (Date.now() - start > timeoutMs) {
         clearInterval(interval);
-        reject(new Error(`Timed out waiting for WebSocket event after ${timeoutMs}ms`));
+        reject(
+          new Error(
+            `Timed out waiting for WebSocket event after ${timeoutMs}ms`,
+          ),
+        );
       }
     }, 25);
   });

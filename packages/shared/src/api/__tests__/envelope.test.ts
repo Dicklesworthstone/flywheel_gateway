@@ -95,7 +95,9 @@ describe("isApiResponse", () => {
   it("should return false for missing required fields", () => {
     expect(isApiResponse({ object: "agent" })).toBe(false);
     expect(isApiResponse({ object: "agent", data: {} })).toBe(false);
-    expect(isApiResponse({ object: "agent", data: {}, requestId: "req_123" })).toBe(false);
+    expect(
+      isApiResponse({ object: "agent", data: {}, requestId: "req_123" }),
+    ).toBe(false);
   });
 });
 
@@ -161,7 +163,9 @@ describe("isApiListResponse", () => {
   it("should return false for missing required fields", () => {
     expect(isApiListResponse({ object: "list" })).toBe(false);
     expect(isApiListResponse({ object: "list", data: [] })).toBe(false);
-    expect(isApiListResponse({ object: "list", data: [], hasMore: false })).toBe(false);
+    expect(
+      isApiListResponse({ object: "list", data: [], hasMore: false }),
+    ).toBe(false);
   });
 
   it("should return false when data is not an array", () => {

@@ -120,7 +120,8 @@ export function generateOpenAPISpec(
  */
 function generateOperation(cmd: RegisteredCommand): Operation {
   const { name, description, rest, pathParams, metadata, aiHints } = cmd;
-  const hasBody = rest.method === "POST" || rest.method === "PUT" || rest.method === "PATCH";
+  const hasBody =
+    rest.method === "POST" || rest.method === "PUT" || rest.method === "PATCH";
 
   // Build parameters
   const parameters: Parameter[] = pathParams.map((param) => ({

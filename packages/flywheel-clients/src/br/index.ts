@@ -5,7 +5,11 @@
  * Always uses --json output and supports auto-import/flush controls.
  */
 
-import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
+import {
+  CliClientError,
+  type CliErrorDetails,
+  type CliErrorKind,
+} from "@flywheel/shared";
 import { z } from "zod";
 import {
   CliCommandError,
@@ -106,6 +110,12 @@ const BrIssueSchema = z
   .passthrough();
 
 const BrIssueListSchema = z.array(BrIssueSchema);
+
+const BrIssueEnvelopeSchema = z
+  .object({
+    issues: z.array(BrIssueSchema),
+  })
+  .passthrough();
 
 const BrSyncStatusSchema = z
   .object({
@@ -244,14 +254,23 @@ export interface BrSyncOptions extends BrCommandOptions {
 export interface BrClient {
   ready: (options?: BrReadyOptions) => Promise<BrIssue[]>;
   list: (options?: BrListOptions) => Promise<BrIssue[]>;
-  show: (ids: string | string[], options?: BrCommandOptions) => Promise<BrIssue[]>;
-  create: (input: BrCreateInput, options?: BrCommandOptions) => Promise<BrIssue>;
+  show: (
+    ids: string | string[],
+    options?: BrCommandOptions,
+  ) => Promise<BrIssue[]>;
+  create: (
+    input: BrCreateInput,
+    options?: BrCommandOptions,
+  ) => Promise<BrIssue>;
   update: (
     ids: string | string[],
     input: BrUpdateInput,
     options?: BrCommandOptions,
   ) => Promise<BrIssue[]>;
-  close: (ids: string | string[], options?: BrCloseOptions) => Promise<BrIssue[]>;
+  close: (
+    ids: string | string[],
+    options?: BrCloseOptions,
+  ) => Promise<BrIssue[]>;
   syncStatus: (options?: BrCommandOptions) => Promise<BrSyncStatus>;
   sync: (options?: BrSyncOptions) => Promise<BrSyncResult>;
 }
@@ -265,9 +284,14 @@ function extractJsonPayload(stdout: string): string {
   if (!trimmed) return trimmed;
 
   const firstBrace = Math.min(
-    ...["{", "["].map((token) => trimmed.indexOf(token)).filter((index) => index >= 0),
+    ...["{", "["]
+      .map((token) => trimmed.indexOf(token))
+      .filter((index) => index >= 0),
   );
-  const lastBrace = Math.max(trimmed.lastIndexOf("}"), trimmed.lastIndexOf("]"));
+  const lastBrace = Math.max(
+    trimmed.lastIndexOf("}"),
+    trimmed.lastIndexOf("]"),
+  );
 
   if (firstBrace >= 0 && lastBrace > firstBrace) {
     return trimmed.slice(firstBrace, lastBrace + 1);
@@ -276,7 +300,11 @@ function extractJsonPayload(stdout: string): string {
   return trimmed;
 }
 
-function parseJson<T>(stdout: string, schema: z.ZodSchema<T>, context: string): T {
+function parseJson<T>(
+  stdout: string,
+  schema: z.ZodSchema<T>,
+  context: string,
+): T {
   const payload = extractJsonPayload(stdout);
   let parsed: unknown;
   try {
@@ -315,6 +343,11 @@ function parseIssueList(stdout: string, context: string): BrIssue[] {
     return listResult.data;
   }
 
+  const envelopeResult = BrIssueEnvelopeSchema.safeParse(parsed);
+  if (envelopeResult.success) {
+    return envelopeResult.data.issues;
+  }
+
   const singleResult = BrIssueSchema.safeParse(parsed);
   if (singleResult.success) {
     return [singleResult.data];
@@ -325,14 +358,21 @@ function parseIssueList(stdout: string, context: string): BrIssue[] {
   });
 }
 
-function pushRepeated(args: string[], flag: string, values?: Array<string | number>) {
+function pushRepeated(
+  args: string[],
+  flag: string,
+  values?: Array<string | number>,
+) {
   if (!values || values.length === 0) return;
   for (const value of values) {
     args.push(flag, String(value));
   }
 }
 
-function buildGlobalArgs(defaults: BrClientOptions, overrides?: BrCommandOptions): string[] {
+function buildGlobalArgs(
+  defaults: BrClientOptions,
+  overrides?: BrCommandOptions,
+): string[] {
   const merged: BrCommandOptions = {
     ...overrides,
   };
@@ -357,7 +397,8 @@ function buildGlobalArgs(defaults: BrClientOptions, overrides?: BrCommandOptions
   if (merged.autoImport === false) args.push("--no-auto-import");
   if (merged.autoFlush === false) args.push("--no-auto-flush");
   if (merged.allowStale) args.push("--allow-stale");
-  if (merged.lockTimeoutMs !== undefined) args.push("--lock-timeout", String(merged.lockTimeoutMs));
+  if (merged.lockTimeoutMs !== undefined)
+    args.push("--lock-timeout", String(merged.lockTimeoutMs));
   if (merged.noDb) args.push("--no-db");
   return args;
 }
@@ -378,11 +419,21 @@ async function runBrCommand(
   args: string[],
   runOptions: { cwd?: string; timeout?: number },
 ): Promise<string> {
-  const result = await runner.run("br", args, runOptions);
+  let result = await runner.run("br", args, runOptions);
+  if (
+    result.exitCode === 6 &&
+    !args.includes("--no-db") &&
+    args[0] !== "sync" &&
+    (result.stdout.includes("SYNC_CONFLICT") ||
+      result.stderr.includes("SYNC_CONFLICT"))
+  ) {
+    result = await runner.run("br", ["--no-db", ...args], runOptions);
+  }
   if (result.exitCode !== 0) {
     throw new BrClientError("command_failed", "br command failed", {
       exitCode: result.exitCode,
       stderr: result.stderr,
+      stdout: result.stdout,
       args,
     });
   }
@@ -408,7 +459,11 @@ export function createBrClient(options: BrClientOptions): BrClient {
       if (opts?.includeDeferred) args.push("--include-deferred");
       args.push(...buildGlobalArgs(options, opts));
 
-      const stdout = await runBrCommand(options.runner, args, buildRunOptions(options, opts));
+      const stdout = await runBrCommand(
+        options.runner,
+        args,
+        buildRunOptions(options, opts),
+      );
       return parseIssueList(stdout, "ready");
     },
 
@@ -422,11 +477,15 @@ export function createBrClient(options: BrClientOptions): BrClient {
       if (opts?.labels) pushRepeated(args, "--label", opts.labels);
       if (opts?.labelsAny) pushRepeated(args, "--label-any", opts.labelsAny);
       if (opts?.priorities) pushRepeated(args, "--priority", opts.priorities);
-      if (opts?.priorityMin !== undefined) args.push("--priority-min", String(opts.priorityMin));
-      if (opts?.priorityMax !== undefined) args.push("--priority-max", String(opts.priorityMax));
-      if (opts?.titleContains) args.push("--title-contains", opts.titleContains);
+      if (opts?.priorityMin !== undefined)
+        args.push("--priority-min", String(opts.priorityMin));
+      if (opts?.priorityMax !== undefined)
+        args.push("--priority-max", String(opts.priorityMax));
+      if (opts?.titleContains)
+        args.push("--title-contains", opts.titleContains);
       if (opts?.descContains) args.push("--desc-contains", opts.descContains);
-      if (opts?.notesContains) args.push("--notes-contains", opts.notesContains);
+      if (opts?.notesContains)
+        args.push("--notes-contains", opts.notesContains);
       if (opts?.all) args.push("--all");
       if (opts?.limit !== undefined) args.push("--limit", String(opts.limit));
       if (opts?.sort) args.push("--sort", opts.sort);
@@ -435,14 +494,27 @@ export function createBrClient(options: BrClientOptions): BrClient {
       if (opts?.overdue) args.push("--overdue");
       args.push(...buildGlobalArgs(options, opts));
 
-      const stdout = await runBrCommand(options.runner, args, buildRunOptions(options, opts));
+      const stdout = await runBrCommand(
+        options.runner,
+        args,
+        buildRunOptions(options, opts),
+      );
       return parseIssueList(stdout, "list");
     },
 
     show: async (ids, opts) => {
       const idList = Array.isArray(ids) ? ids : [ids];
-      const args = ["show", ...idList, "--json", ...buildGlobalArgs(options, opts)];
-      const stdout = await runBrCommand(options.runner, args, buildRunOptions(options, opts));
+      const args = [
+        "show",
+        ...idList,
+        "--json",
+        ...buildGlobalArgs(options, opts),
+      ];
+      const stdout = await runBrCommand(
+        options.runner,
+        args,
+        buildRunOptions(options, opts),
+      );
       return parseIssueList(stdout, "show");
     },
 
@@ -450,11 +522,13 @@ export function createBrClient(options: BrClientOptions): BrClient {
       const args = ["create"];
       if (input.title) args.push(input.title);
       if (input.type) args.push("--type", input.type);
-      if (input.priority !== undefined) args.push("--priority", String(input.priority));
+      if (input.priority !== undefined)
+        args.push("--priority", String(input.priority));
       if (input.description) args.push("--description", input.description);
       if (input.assignee) args.push("--assignee", input.assignee);
       if (input.owner) args.push("--owner", input.owner);
-      if (input.labels && input.labels.length > 0) args.push("--labels", input.labels.join(","));
+      if (input.labels && input.labels.length > 0)
+        args.push("--labels", input.labels.join(","));
       if (input.parent) args.push("--parent", input.parent);
       if (input.deps) {
         const deps = Array.isArray(input.deps) ? input.deps : [input.deps];
@@ -469,7 +543,11 @@ export function createBrClient(options: BrClientOptions): BrClient {
       if (input.dryRun) args.push("--dry-run");
       args.push("--json", ...buildGlobalArgs(options, opts));
 
-      const stdout = await runBrCommand(options.runner, args, buildRunOptions(options, opts));
+      const stdout = await runBrCommand(
+        options.runner,
+        args,
+        buildRunOptions(options, opts),
+      );
       return parseJson(stdout, BrIssueSchema, "create");
     },
 
@@ -479,10 +557,12 @@ export function createBrClient(options: BrClientOptions): BrClient {
       if (input.title) args.push("--title", input.title);
       if (input.description) args.push("--description", input.description);
       if (input.design) args.push("--design", input.design);
-      if (input.acceptanceCriteria) args.push("--acceptance-criteria", input.acceptanceCriteria);
+      if (input.acceptanceCriteria)
+        args.push("--acceptance-criteria", input.acceptanceCriteria);
       if (input.notes) args.push("--notes", input.notes);
       if (input.status) args.push("--status", input.status);
-      if (input.priority !== undefined) args.push("--priority", String(input.priority));
+      if (input.priority !== undefined)
+        args.push("--priority", String(input.priority));
       if (input.type) args.push("--type", input.type);
       if (input.assignee !== undefined) args.push("--assignee", input.assignee);
       if (input.owner !== undefined) args.push("--owner", input.owner);
@@ -502,7 +582,11 @@ export function createBrClient(options: BrClientOptions): BrClient {
       if (input.session) args.push("--session", input.session);
       args.push("--json", ...buildGlobalArgs(options, opts));
 
-      const stdout = await runBrCommand(options.runner, args, buildRunOptions(options, opts));
+      const stdout = await runBrCommand(
+        options.runner,
+        args,
+        buildRunOptions(options, opts),
+      );
       return parseIssueList(stdout, "update");
     },
 
@@ -515,13 +599,26 @@ export function createBrClient(options: BrClientOptions): BrClient {
       if (opts?.session) args.push("--session", opts.session);
       args.push("--json", ...buildGlobalArgs(options, opts));
 
-      const stdout = await runBrCommand(options.runner, args, buildRunOptions(options, opts));
+      const stdout = await runBrCommand(
+        options.runner,
+        args,
+        buildRunOptions(options, opts),
+      );
       return parseIssueList(stdout, "close");
     },
 
     syncStatus: async (opts) => {
-      const args = ["sync", "--status", "--json", ...buildGlobalArgs(options, opts)];
-      const stdout = await runBrCommand(options.runner, args, buildRunOptions(options, opts));
+      const args = [
+        "sync",
+        "--status",
+        "--json",
+        ...buildGlobalArgs(options, opts),
+      ];
+      const stdout = await runBrCommand(
+        options.runner,
+        args,
+        buildRunOptions(options, opts),
+      );
       return parseJson(stdout, BrSyncStatusSchema, "sync status");
     },
 
@@ -539,7 +636,11 @@ export function createBrClient(options: BrClientOptions): BrClient {
       if (opts?.orphans) args.push("--orphans", opts.orphans);
       args.push("--json", ...buildGlobalArgs(options, opts));
 
-      const stdout = await runBrCommand(options.runner, args, buildRunOptions(options, opts));
+      const stdout = await runBrCommand(
+        options.runner,
+        args,
+        buildRunOptions(options, opts),
+      );
       return parseJson(stdout, BrSyncResultSchema, "sync");
     },
   };
@@ -574,11 +675,15 @@ export function createBunBrCommandRunner(): BrCommandRunner {
             });
           }
           if (error.kind === "spawn_failed") {
-            throw new BrClientError("unavailable", "br command failed to start", {
-              command,
-              args,
-              details: error.details,
-            });
+            throw new BrClientError(
+              "unavailable",
+              "br command failed to start",
+              {
+                command,
+                args,
+                details: error.details,
+              },
+            );
           }
         }
         throw error;

@@ -6,6 +6,7 @@ export * from "./caam";
 export * from "./cass";
 export * from "./cli-runner";
 export * from "./cm";
+export * from "./gateway-sdk";
 export * from "./giil";
 export * from "./jfp";
 export * from "./ms";

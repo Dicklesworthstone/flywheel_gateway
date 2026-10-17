@@ -5,9 +5,16 @@
  * Always sets --robot-format=json to guarantee machine-readable output.
  */
 
-import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
+import {
+  CliClientError,
+  type CliErrorDetails,
+  type CliErrorKind,
+} from "@flywheel/shared";
 import { z } from "zod";
-import { CliCommandError, createBunCliRunner as createSharedBunCliRunner } from "../cli-runner";
+import {
+  CliCommandError,
+  createBunCliRunner as createSharedBunCliRunner,
+} from "../cli-runner";
 
 // ============================================================================
 // Command Runner Interface
@@ -586,16 +593,36 @@ export interface NtmActivityOptions {
 
 export interface NtmClient {
   status: (options?: { cwd?: string }) => Promise<NtmStatusOutput>;
-  context: (session: string, options?: NtmContextOptions) => Promise<NtmContextOutput>;
-  files: (session: string, options?: NtmFilesOptions) => Promise<NtmFilesOutput>;
-  metrics: (session: string, options?: NtmMetricsOptions) => Promise<NtmMetricsOutput>;
+  context: (
+    session: string,
+    options?: NtmContextOptions,
+  ) => Promise<NtmContextOutput>;
+  files: (
+    session: string,
+    options?: NtmFilesOptions,
+  ) => Promise<NtmFilesOutput>;
+  metrics: (
+    session: string,
+    options?: NtmMetricsOptions,
+  ) => Promise<NtmMetricsOutput>;
   snapshot: (options?: NtmSnapshotOptions) => Promise<NtmSnapshotResult>;
   tail: (session: string, options?: NtmTailOptions) => Promise<NtmTailOutput>;
-  health: (session: string, options?: NtmHealthOptions) => Promise<NtmSessionHealthOutput>;
+  health: (
+    session: string,
+    options?: NtmHealthOptions,
+  ) => Promise<NtmSessionHealthOutput>;
   isWorking: (options?: NtmIsWorkingOptions) => Promise<NtmIsWorkingOutput>;
-  projectHealth: (options?: { cwd?: string }) => Promise<NtmProjectHealthOutput>;
-  alerts: (session: string, options?: NtmAlertsOptions) => Promise<NtmAlertsOutput>;
-  activity: (session: string, options?: NtmActivityOptions) => Promise<NtmActivityOutput>;
+  projectHealth: (options?: {
+    cwd?: string;
+  }) => Promise<NtmProjectHealthOutput>;
+  alerts: (
+    session: string,
+    options?: NtmAlertsOptions,
+  ) => Promise<NtmAlertsOutput>;
+  activity: (
+    session: string,
+    options?: NtmActivityOptions,
+  ) => Promise<NtmActivityOutput>;
   /** Returns true if ntm is available on PATH */
   isAvailable: () => Promise<boolean>;
 }
@@ -613,7 +640,8 @@ async function runNtmCommand(
 ): Promise<string> {
   const result = await runner.run("ntm", args, options);
   if (result.exitCode !== 0) {
-    const kind: CliErrorKind = result.exitCode === 2 ? "unavailable" : "command_failed";
+    const kind: CliErrorKind =
+      result.exitCode === 2 ? "unavailable" : "command_failed";
     throw new NtmClientError(kind, "NTM command failed", {
       exitCode: result.exitCode,
       stderr: result.stderr,
@@ -623,7 +651,11 @@ async function runNtmCommand(
   return result.stdout;
 }
 
-function parseJson<T>(stdout: string, schema: z.ZodSchema<T>, context: string): T {
+function parseJson<T>(
+  stdout: string,
+  schema: z.ZodSchema<T>,
+  context: string,
+): T {
   let parsed: unknown;
   try {
     parsed = JSON.parse(stdout);
@@ -636,9 +668,13 @@ function parseJson<T>(stdout: string, schema: z.ZodSchema<T>, context: string): 
 
   const result = schema.safeParse(parsed);
   if (!result.success) {
-    throw new NtmClientError("validation_error", `Invalid NTM ${context} response`, {
-      issues: result.error.issues,
-    });
+    throw new NtmClientError(
+      "validation_error",
+      `Invalid NTM ${context} response`,
+      {
+        issues: result.error.issues,
+      },
+    );
   }
 
   return result.data;
@@ -724,10 +760,14 @@ export function createNtmClient(options: NtmClientOptions): NtmClient {
       try {
         parsed = JSON.parse(stdout) as unknown;
       } catch (error) {
-        throw new NtmClientError("parse_error", "Failed to parse NTM snapshot", {
-          cause: error instanceof Error ? error.message : String(error),
-          stdout: stdout.slice(0, 500),
-        });
+        throw new NtmClientError(
+          "parse_error",
+          "Failed to parse NTM snapshot",
+          {
+            cause: error instanceof Error ? error.message : String(error),
+            stdout: stdout.slice(0, 500),
+          },
+        );
       }
 
       const delta = SnapshotDeltaOutputSchema.safeParse(parsed);
@@ -735,9 +775,13 @@ export function createNtmClient(options: NtmClientOptions): NtmClient {
 
       const snapshot = SnapshotOutputSchema.safeParse(parsed);
       if (!snapshot.success) {
-        throw new NtmClientError("validation_error", "Invalid NTM snapshot response", {
-          issues: snapshot.error.issues,
-        });
+        throw new NtmClientError(
+          "validation_error",
+          "Invalid NTM snapshot response",
+          {
+            issues: snapshot.error.issues,
+          },
+        );
       }
       return snapshot.data;
     },
@@ -868,11 +912,15 @@ export function createBunNtmCommandRunner(): NtmCommandRunner {
             });
           }
           if (error.kind === "spawn_failed") {
-            throw new NtmClientError("unavailable", "NTM command failed to start", {
-              command,
-              args,
-              details: error.details,
-            });
+            throw new NtmClientError(
+              "unavailable",
+              "NTM command failed to start",
+              {
+                command,
+                args,
+                details: error.details,
+              },
+            );
           }
         }
         throw error;

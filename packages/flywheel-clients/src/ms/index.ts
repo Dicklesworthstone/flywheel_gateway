@@ -8,9 +8,16 @@
  * CLI: https://github.com/Dicklesworthstone/meta_skill
  */
 
-import { CliClientError, type CliErrorDetails, type CliErrorKind } from "@flywheel/shared";
+import {
+  CliClientError,
+  type CliErrorDetails,
+  type CliErrorKind,
+} from "@flywheel/shared";
 import { z } from "zod";
-import { CliCommandError, createBunCliRunner as createSharedBunCliRunner } from "../cli-runner";
+import {
+  CliCommandError,
+  createBunCliRunner as createSharedBunCliRunner,
+} from "../cli-runner";
 
 // ============================================================================
 // Command Runner Interface
@@ -189,10 +196,15 @@ export interface MsClient {
   status: (options?: MsCommandOptions) => Promise<MsStatus>;
 
   /** List all knowledge bases */
-  listKnowledgeBases: (options?: MsCommandOptions) => Promise<MsKnowledgeBase[]>;
+  listKnowledgeBases: (
+    options?: MsCommandOptions,
+  ) => Promise<MsKnowledgeBase[]>;
 
   /** Semantic search across knowledge bases */
-  search: (query: string, options?: MsSearchOptions) => Promise<MsSearchResponse>;
+  search: (
+    query: string,
+    options?: MsSearchOptions,
+  ) => Promise<MsSearchResponse>;
 
   /** Fast availability check */
   isAvailable: () => Promise<boolean>;
@@ -218,7 +230,11 @@ async function runMsCommand(
   return result.stdout;
 }
 
-function parseResponse<T>(stdout: string, schema: z.ZodSchema<T>, context: string): T {
+function parseResponse<T>(
+  stdout: string,
+  schema: z.ZodSchema<T>,
+  context: string,
+): T {
   // First parse the envelope
   let envelope: z.infer<typeof MsResponseSchema>;
   try {
@@ -233,18 +249,26 @@ function parseResponse<T>(stdout: string, schema: z.ZodSchema<T>, context: strin
 
   // Check if response is OK
   if (!envelope.ok) {
-    throw new MsClientError("command_failed", `MS ${context} failed: ${envelope.code}`, {
-      code: envelope.code,
-      hint: envelope.hint,
-    });
+    throw new MsClientError(
+      "command_failed",
+      `MS ${context} failed: ${envelope.code}`,
+      {
+        code: envelope.code,
+        hint: envelope.hint,
+      },
+    );
   }
 
   // Parse the data with the specific schema
   const result = schema.safeParse(envelope.data);
   if (!result.success) {
-    throw new MsClientError("validation_error", `Invalid MS ${context} response`, {
-      issues: result.error.issues,
-    });
+    throw new MsClientError(
+      "validation_error",
+      `Invalid MS ${context} response`,
+      {
+        issues: result.error.issues,
+      },
+    );
   }
 
   return result.data;
@@ -262,7 +286,10 @@ function buildRunOptions(
   return result;
 }
 
-async function getVersion(runner: MsCommandRunner, cwd?: string): Promise<string | null> {
+async function getVersion(
+  runner: MsCommandRunner,
+  cwd?: string,
+): Promise<string | null> {
   try {
     const opts: { cwd?: string; timeout: number } = { timeout: 5000 };
     if (cwd !== undefined) opts.cwd = cwd;
@@ -279,14 +306,21 @@ async function getVersion(runner: MsCommandRunner, cwd?: string): Promise<string
 export function createMsClient(options: MsClientOptions): MsClient {
   return {
     doctor: async (opts) => {
-      const stdout = await runMsCommand(options.runner, ["doctor"], buildRunOptions(options, opts));
+      const stdout = await runMsCommand(
+        options.runner,
+        ["doctor"],
+        buildRunOptions(options, opts),
+      );
       return parseResponse(stdout, MsDoctorSchema, "doctor");
     },
 
     status: async (opts): Promise<MsStatus> => {
       try {
         const doctor = await createMsClient(options).doctor(opts);
-        const version = await getVersion(options.runner, opts?.cwd ?? options.cwd);
+        const version = await getVersion(
+          options.runner,
+          opts?.cwd ?? options.cwd,
+        );
 
         // Try to get knowledge base list
         let knowledgeBaseNames: string[] = [];
@@ -323,7 +357,11 @@ export function createMsClient(options: MsClientOptions): MsClient {
     },
 
     listKnowledgeBases: async (opts) => {
-      const stdout = await runMsCommand(options.runner, ["list"], buildRunOptions(options, opts));
+      const stdout = await runMsCommand(
+        options.runner,
+        ["list"],
+        buildRunOptions(options, opts),
+      );
       const response = parseResponse(stdout, MsListResponseSchema, "list");
       return response.knowledge_bases ?? [];
     },
@@ -347,7 +385,11 @@ export function createMsClient(options: MsClientOptions): MsClient {
         args.push("--no-semantic");
       }
 
-      const stdout = await runMsCommand(options.runner, args, buildRunOptions(options, opts));
+      const stdout = await runMsCommand(
+        options.runner,
+        args,
+        buildRunOptions(options, opts),
+      );
       return parseResponse(stdout, MsSearchResponseSchema, "search");
     },
 
@@ -391,11 +433,15 @@ export function createBunMsCommandRunner(): MsCommandRunner {
             });
           }
           if (error.kind === "spawn_failed") {
-            throw new MsClientError("unavailable", "MS command failed to start", {
-              command,
-              args,
-              details: error.details,
-            });
+            throw new MsClientError(
+              "unavailable",
+              "MS command failed to start",
+              {
+                command,
+                args,
+                details: error.details,
+              },
+            );
           }
         }
         throw error;

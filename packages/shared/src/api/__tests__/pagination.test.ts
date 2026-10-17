@@ -104,28 +104,38 @@ describe("pagination", () => {
 
     it("should return undefined for cursor without required fields", () => {
       // Missing id
-      const noId = Buffer.from(JSON.stringify({ createdAt: Date.now() })).toString("base64url");
+      const noId = Buffer.from(
+        JSON.stringify({ createdAt: Date.now() }),
+      ).toString("base64url");
       expect(decodeCursor(noId)).toBeUndefined();
 
       // Missing createdAt
-      const noCreatedAt = Buffer.from(JSON.stringify({ id: "test" })).toString("base64url");
+      const noCreatedAt = Buffer.from(JSON.stringify({ id: "test" })).toString(
+        "base64url",
+      );
       expect(decodeCursor(noCreatedAt)).toBeUndefined();
 
       // Empty id
-      const emptyId = Buffer.from(JSON.stringify({ id: "", createdAt: Date.now() })).toString(
-        "base64url",
-      );
+      const emptyId = Buffer.from(
+        JSON.stringify({ id: "", createdAt: Date.now() }),
+      ).toString("base64url");
       expect(decodeCursor(emptyId)).toBeUndefined();
     });
 
     it("should return undefined for non-object payload", () => {
-      const stringPayload = Buffer.from(JSON.stringify("just a string")).toString("base64url");
+      const stringPayload = Buffer.from(
+        JSON.stringify("just a string"),
+      ).toString("base64url");
       expect(decodeCursor(stringPayload)).toBeUndefined();
 
-      const arrayPayload = Buffer.from(JSON.stringify([1, 2, 3])).toString("base64url");
+      const arrayPayload = Buffer.from(JSON.stringify([1, 2, 3])).toString(
+        "base64url",
+      );
       expect(decodeCursor(arrayPayload)).toBeUndefined();
 
-      const nullPayload = Buffer.from(JSON.stringify(null)).toString("base64url");
+      const nullPayload = Buffer.from(JSON.stringify(null)).toString(
+        "base64url",
+      );
       expect(decodeCursor(nullPayload)).toBeUndefined();
     });
 
@@ -237,7 +247,10 @@ describe("pagination", () => {
     });
 
     it("should accept custom defaults", () => {
-      const result = normalizePaginationParams({ limit: 200 }, { limit: 10, maxLimit: 50 });
+      const result = normalizePaginationParams(
+        { limit: 200 },
+        { limit: 10, maxLimit: 50 },
+      );
 
       expect(result.limit).toBe(50); // capped at custom maxLimit
     });
@@ -307,7 +320,10 @@ describe("pagination", () => {
     });
 
     it("should fall back to default limit for invalid limit values", () => {
-      const result = parseListQuery({ limit: "not-a-number" }, { maxLimit: 200 });
+      const result = parseListQuery(
+        { limit: "not-a-number" },
+        { maxLimit: 200 },
+      );
       expect(result.limit).toBe(DEFAULT_PAGINATION.limit);
     });
 
@@ -364,7 +380,10 @@ describe("pagination", () => {
 
     it("should indicate hasMore when items exceed limit", () => {
       // Simulating fetch of limit+1 items
-      const items = [...testItems, { id: "item_4", name: "Fourth", createdAt: 4000 }];
+      const items = [
+        ...testItems,
+        { id: "item_4", name: "Fourth", createdAt: 4000 },
+      ];
       const meta = buildPaginationMeta(items, 3, (item) => item.id);
 
       expect(meta.hasMore).toBe(true);
@@ -377,7 +396,10 @@ describe("pagination", () => {
     });
 
     it("should generate nextCursor when hasMore", () => {
-      const items = [...testItems, { id: "item_4", name: "Fourth", createdAt: 4000 }];
+      const items = [
+        ...testItems,
+        { id: "item_4", name: "Fourth", createdAt: 4000 },
+      ];
       const meta = buildPaginationMeta(items, 3, (item) => item.id);
 
       expect(meta.nextCursor).toBeDefined();
@@ -402,7 +424,10 @@ describe("pagination", () => {
     });
 
     it("should include sortValue in cursor when getSortValueFn provided", () => {
-      const items = [...testItems, { id: "item_4", name: "Fourth", createdAt: 4000 }];
+      const items = [
+        ...testItems,
+        { id: "item_4", name: "Fourth", createdAt: 4000 },
+      ];
       const meta = buildPaginationMeta(
         items,
         3,

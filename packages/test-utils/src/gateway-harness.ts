@@ -33,7 +33,10 @@ import { join } from "node:path";
 import { type BunSQLiteDatabase, drizzle } from "drizzle-orm/bun-sqlite";
 
 /** Path to the gateway migration SQL files (resolved at import time). */
-const MIGRATIONS_DIR = join(import.meta.dir, "../../../apps/gateway/src/db/migrations");
+const MIGRATIONS_DIR = join(
+  import.meta.dir,
+  "../../../apps/gateway/src/db/migrations",
+);
 
 /** Path to the gateway schema module. */
 const SCHEMA_PATH = "../../../apps/gateway/src/db/schema";
@@ -126,7 +129,9 @@ function runMigrations(sqliteDb: Database): void {
 
     // Record the migration so it won't be replayed
     sqliteDb
-      .query(`INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES (?, ?)`)
+      .query(
+        `INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES (?, ?)`,
+      )
       .run(file, Date.now());
   }
 }
@@ -158,7 +163,10 @@ export async function createGatewayHarness(
   const { startServer = false, port = 0, env = {} } = options;
 
   // 1. Create temp DB file
-  const dbPath = join(tmpdir(), `flywheel-test-${process.pid}-${Date.now()}.db`);
+  const dbPath = join(
+    tmpdir(),
+    `flywheel-test-${process.pid}-${Date.now()}.db`,
+  );
   const sqliteDb = new Database(dbPath);
 
   // Apply standard PRAGMAs
@@ -188,7 +196,9 @@ export async function createGatewayHarness(
         return v;
       });
       sqliteDb
-        .query(`INSERT INTO "${row.table}" (${colNames}) VALUES (${placeholders})`)
+        .query(
+          `INSERT INTO "${row.table}" (${colNames}) VALUES (${placeholders})`,
+        )
         .run(...(vals as Parameters<ReturnType<Database["query"]>["run"]>));
     }
   }
@@ -210,7 +220,9 @@ export async function createGatewayHarness(
   // 5. Optionally start server
   let baseUrl: string | undefined;
   let server: ReturnType<typeof Bun.serve> | undefined;
-  let fetchFn: ((path: string, init?: RequestInit) => Promise<Response>) | undefined;
+  let fetchFn:
+    | ((path: string, init?: RequestInit) => Promise<Response>)
+    | undefined;
   let restoreEnv: (() => void) | undefined;
 
   if (startServer) {
@@ -244,7 +256,8 @@ export async function createGatewayHarness(
     });
 
     baseUrl = `http://localhost:${server.port}`;
-    fetchFn = (path: string, init?: RequestInit) => fetch(`${baseUrl}${path}`, init);
+    fetchFn = (path: string, init?: RequestInit) =>
+      fetch(`${baseUrl}${path}`, init);
   }
 
   function close(): void {

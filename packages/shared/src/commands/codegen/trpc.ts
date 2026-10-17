@@ -26,7 +26,9 @@ function getProcedureType(cmd: RegisteredCommand): "query" | "mutation" {
 /**
  * Generate tRPC procedures from the command registry.
  */
-export function generateTrpcProcedures(registry: CommandRegistry): GeneratedProcedure[] {
+export function generateTrpcProcedures(
+  registry: CommandRegistry,
+): GeneratedProcedure[] {
   const procedures: GeneratedProcedure[] = [];
 
   for (const cmd of registry.all()) {

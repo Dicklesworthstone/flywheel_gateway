@@ -20,7 +20,9 @@ export function freezeTime(isoTime?: string): void {
 
 export function advanceTime(ms: number): void {
   if (frozenTime === null) {
-    throw new Error("advanceTime called without freezeTime; call freezeTime first.");
+    throw new Error(
+      "advanceTime called without freezeTime; call freezeTime first.",
+    );
   }
   frozenTime += ms;
 }

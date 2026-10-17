@@ -398,7 +398,11 @@ export interface ToolHealthSnapshot {
 /**
  * Overall system health status.
  */
-export type SystemHealthStatus = "healthy" | "degraded" | "unhealthy" | "unknown";
+export type SystemHealthStatus =
+  | "healthy"
+  | "degraded"
+  | "unhealthy"
+  | "unknown";
 
 /**
  * System snapshot metadata.

@@ -13,7 +13,11 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { detectWorkState, isAgentIdle, isAgentWorking } from "../work-detection";
+import {
+  detectWorkState,
+  isAgentIdle,
+  isAgentWorking,
+} from "../work-detection";
 
 // =============================================================================
 // Tool Calling Detection
@@ -21,7 +25,9 @@ import { detectWorkState, isAgentIdle, isAgentWorking } from "../work-detection"
 
 describe("detectWorkState - tool calling", () => {
   test("detects tool usage patterns", () => {
-    const result = detectWorkState("Using tool: Read\nReading file src/index.ts");
+    const result = detectWorkState(
+      "Using tool: Read\nReading file src/index.ts",
+    );
     expect(result.isWorking).toBe(true);
     expect(result.activityState).toBe("working");
     expect(result.matchedPatterns).toContain("work:tool_calling");
@@ -173,7 +179,9 @@ describe("detectWorkState - agent type filtering", () => {
   });
 
   test("includes all patterns when no agent type specified", () => {
-    const result = detectWorkState("Claude is thinking\nCODEX> processing\nGemini is working");
+    const result = detectWorkState(
+      "Claude is thinking\nCODEX> processing\nGemini is working",
+    );
     expect(result.matchedPatterns).toContain("work:claude");
     expect(result.matchedPatterns).toContain("work:codex");
     expect(result.matchedPatterns).toContain("work:gemini");
@@ -215,7 +223,9 @@ describe("detectWorkState - confidence", () => {
 
 describe("detectWorkState - state mapping", () => {
   test("high work score → working", () => {
-    const result = detectWorkState("Using tool: Read\nSearching files\nExecuting npm test");
+    const result = detectWorkState(
+      "Using tool: Read\nSearching files\nExecuting npm test",
+    );
     expect(result.activityState).toBe("working");
   });
 
@@ -225,7 +235,9 @@ describe("detectWorkState - state mapping", () => {
   });
 
   test("rate limited overrides work → stalled", () => {
-    const result = detectWorkState("Using tool: Read\nrate limit exceeded\nSearching");
+    const result = detectWorkState(
+      "Using tool: Read\nrate limit exceeded\nSearching",
+    );
     expect(result.activityState).toBe("stalled");
     expect(result.isWorking).toBe(false);
   });
@@ -242,7 +254,9 @@ describe("detectWorkState - state mapping", () => {
 
 describe("isAgentWorking", () => {
   test("returns true for active work output", () => {
-    expect(isAgentWorking("Using tool: Read\nSearching files\nExecuting test")).toBe(true);
+    expect(
+      isAgentWorking("Using tool: Read\nSearching files\nExecuting test"),
+    ).toBe(true);
   });
 
   test("returns false for idle output", () => {
@@ -261,11 +275,15 @@ describe("isAgentWorking", () => {
 describe("isAgentIdle", () => {
   test("returns true for idle prompt", () => {
     // Need 3+ idle matches for confidence > 0.5 (0.3 + 3*0.1 = 0.6)
-    expect(isAgentIdle("What would you like me to do?\n$ \nready for input")).toBe(true);
+    expect(
+      isAgentIdle("What would you like me to do?\n$ \nready for input"),
+    ).toBe(true);
   });
 
   test("returns false for working output", () => {
-    expect(isAgentIdle("Using tool: Read\nSearching files\nExecuting")).toBe(false);
+    expect(isAgentIdle("Using tool: Read\nSearching files\nExecuting")).toBe(
+      false,
+    );
   });
 
   test("returns false for empty output", () => {
@@ -293,7 +311,9 @@ describe("detectWorkState - edge cases", () => {
   });
 
   test("mixed signals: work + idle patterns", () => {
-    const result = detectWorkState("Using tool: Read\nWhat would you like me to do?");
+    const result = detectWorkState(
+      "Using tool: Read\nWhat would you like me to do?",
+    );
     // Both patterns match, work score should determine outcome
     expect(result.matchedPatterns.length).toBeGreaterThan(1);
   });

@@ -437,7 +437,11 @@ describe("JFP client", () => {
     });
 
     test("validates difficulty enum values", async () => {
-      const difficulties: Array<JfpPrompt["difficulty"]> = ["beginner", "intermediate", "advanced"];
+      const difficulties: Array<JfpPrompt["difficulty"]> = [
+        "beginner",
+        "intermediate",
+        "advanced",
+      ];
       for (const difficulty of difficulties) {
         const prompt = createPrompt({
           difficulty,

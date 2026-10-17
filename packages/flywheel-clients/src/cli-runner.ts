@@ -7,7 +7,11 @@ export class CliCommandError extends Error {
   readonly kind: CliCommandErrorKind;
   readonly details?: CliErrorDetails;
 
-  constructor(kind: CliCommandErrorKind, message: string, details?: CliErrorDetails) {
+  constructor(
+    kind: CliCommandErrorKind,
+    message: string,
+    details?: CliErrorDetails,
+  ) {
     super(message);
     this.name = "CliCommandError";
     this.kind = kind;
@@ -34,7 +38,11 @@ export interface CliCommandOptions {
 }
 
 export interface CliCommandRunner {
-  run: (command: string, args: string[], options?: CliCommandOptions) => Promise<CliCommandResult>;
+  run: (
+    command: string,
+    args: string[],
+    options?: CliCommandOptions,
+  ) => Promise<CliCommandResult>;
 }
 
 export interface CliRunnerDefaults {
@@ -100,12 +108,17 @@ async function readStreamSafe(
   return { text: content, truncated };
 }
 
-export function createBunCliRunner(defaults: CliRunnerDefaults = {}): CliCommandRunner {
+export function createBunCliRunner(
+  defaults: CliRunnerDefaults = {},
+): CliCommandRunner {
   return {
     run: async (command, args, options) => {
-      const timeoutMs = options?.timeoutMs ?? defaults.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+      const timeoutMs =
+        options?.timeoutMs ?? defaults.timeoutMs ?? DEFAULT_TIMEOUT_MS;
       const maxOutputBytes =
-        options?.maxOutputBytes ?? defaults.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
+        options?.maxOutputBytes ??
+        defaults.maxOutputBytes ??
+        DEFAULT_MAX_OUTPUT_BYTES;
 
       let proc: Bun.Subprocess<"pipe", "pipe", "pipe">;
       try {
@@ -156,7 +169,9 @@ export function createBunCliRunner(defaults: CliRunnerDefaults = {}): CliCommand
         : Promise.resolve({ text: "", truncated: false });
 
       try {
-        await Promise.race([proc.exited, timeoutPromise].filter(Boolean) as Promise<unknown>[]);
+        await Promise.race(
+          [proc.exited, timeoutPromise].filter(Boolean) as Promise<unknown>[],
+        );
       } finally {
         if (timeoutId !== undefined) {
           clearTimeout(timeoutId);
@@ -179,7 +194,11 @@ export function createBunCliRunner(defaults: CliRunnerDefaults = {}): CliCommand
   };
 }
 
-export function parseJson<T>(stdout: string, context: string, maxSnippet = 500): T {
+export function parseJson<T>(
+  stdout: string,
+  context: string,
+  maxSnippet = 500,
+): T {
   try {
     return JSON.parse(stdout) as T;
   } catch (error) {
@@ -190,13 +209,21 @@ export function parseJson<T>(stdout: string, context: string, maxSnippet = 500):
   }
 }
 
-export function parseJsonWithSchema<T>(stdout: string, schema: z.ZodSchema<T>, context: string): T {
+export function parseJsonWithSchema<T>(
+  stdout: string,
+  schema: z.ZodSchema<T>,
+  context: string,
+): T {
   const parsed = parseJson<unknown>(stdout, context);
   const result = schema.safeParse(parsed);
   if (!result.success) {
-    throw new CliCommandError("validation_error", `Invalid ${context} response`, {
-      issues: result.error.issues,
-    });
+    throw new CliCommandError(
+      "validation_error",
+      `Invalid ${context} response`,
+      {
+        issues: result.error.issues,
+      },
+    );
   }
   return result.data;
 }

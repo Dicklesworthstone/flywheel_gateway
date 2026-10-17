@@ -48,7 +48,9 @@ function createRunner(
   };
 }
 
-function createRunnerWithMap(map: Record<string, { stdout: string; exitCode?: number }>): {
+function createRunnerWithMap(
+  map: Record<string, { stdout: string; exitCode?: number }>,
+): {
   calls: { command: string; args: string[] }[];
   run: RuCommandRunner["run"];
 } {
@@ -427,7 +429,10 @@ describe("RU client", () => {
       const runner = createRunner(JSON.stringify(phase3Result));
       const client = createRuClient({ runner });
 
-      const result = await client.sweepPhase3("owner/repo", "/path/to/plan.json");
+      const result = await client.sweepPhase3(
+        "owner/repo",
+        "/path/to/plan.json",
+      );
 
       expect(result.success).toBe(true);
       const args = runner.calls[0]?.args ?? [];

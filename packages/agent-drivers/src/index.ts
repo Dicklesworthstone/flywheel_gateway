@@ -42,8 +42,6 @@ export {
   type BaseDriverConfig,
   createDriverOptions,
 } from "./base-driver";
-// Claude Code WS driver
-export * from "./claude-code-ws";
 // Interface and driver contract
 export * from "./interface";
 // Naming utilities for deterministic session names

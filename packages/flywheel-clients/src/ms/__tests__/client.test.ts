@@ -16,7 +16,12 @@ function createRunner(stdout: string, exitCode = 0) {
   };
 }
 
-function envelope(data: unknown, ok = true, code = "OK", hint?: string): string {
+function envelope(
+  data: unknown,
+  ok = true,
+  code = "OK",
+  hint?: string,
+): string {
   return JSON.stringify({
     ok,
     code,
@@ -296,7 +301,9 @@ describe("MS client", () => {
     });
 
     test("throws command_failed when envelope ok is false", async () => {
-      const runner = createRunner(envelope({}, false, "ERR_NOT_FOUND", "Knowledge base not found"));
+      const runner = createRunner(
+        envelope({}, false, "ERR_NOT_FOUND", "Knowledge base not found"),
+      );
       const client = createMsClient({ runner });
 
       let thrown: unknown;
