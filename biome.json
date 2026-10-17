@@ -73,7 +73,12 @@
   },
   "overrides": [
     {
-      "includes": ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx", "**/test-utils/**"],
+      "includes": [
+        "**/__tests__/**",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/test-utils/**"
+      ],
       "linter": {
         "rules": {
           "suspicious": {
