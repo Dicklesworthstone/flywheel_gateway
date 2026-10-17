@@ -15,26 +15,59 @@ type Bead = {
   assignee?: string;
 };
 
-const statusTone: Record<string, "positive" | "warning" | "danger" | "muted"> = {
-  open: "muted",
-  in_progress: "warning",
-  blocked: "danger",
-  closed: "positive",
-};
+const statusTone: Record<string, "positive" | "warning" | "danger" | "muted"> =
+  {
+    open: "muted",
+    in_progress: "warning",
+    blocked: "danger",
+    closed: "positive",
+  };
 
 const statusOptions = ["open", "in_progress", "blocked", "closed"] as const;
 // Common types for quick selection, but custom types are also supported
 const defaultTypeOptions = ["task", "bug", "feature", "chore", "epic"] as const;
 
-const tableGridTemplate = "minmax(120px, 1.1fr) 140px minmax(240px, 2fr) 120px 140px 200px";
+const tableGridTemplate =
+  "minmax(120px, 1.1fr) 140px minmax(240px, 2fr) 120px 140px 200px";
+
+type BvTriageSummary = {
+  quickWins: Array<{ id: string; title: string; score?: number }>;
+  blockers: Array<{ id: string; title: string; unblocks_count?: number }>;
+};
 
 async function fetchBeads(): Promise<Bead[]> {
-  const res = await fetch(`${API_BASE}/beads`);
+  const res = await fetch(`${API_BASE}/beads?all=true`);
   if (!res.ok) {
     throw new Error(`Failed to fetch beads: ${res.statusText}`);
   }
   const json = await res.json();
   return json.data?.beads ?? [];
+}
+
+async function fetchBvTriage(): Promise<BvTriageSummary | null> {
+  try {
+    const res = await fetch(`${API_BASE}/beads/triage?limit=5`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    const t = json.data?.triage;
+    if (!t) return null;
+    return {
+      quickWins: Array.isArray(t.quick_wins) ? t.quick_wins.slice(0, 3) : [],
+      blockers: Array.isArray(t.blockers_to_clear)
+        ? t.blockers_to_clear.slice(0, 3)
+        : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function syncBeadsJsonl(): Promise<void> {
+  const res = await fetch(`${API_BASE}/beads/sync`, { method: "POST" });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.error?.message || "Failed to sync beads");
+  }
 }
 
 async function createBead(payload: Record<string, unknown>): Promise<Bead> {
@@ -50,7 +83,10 @@ async function createBead(payload: Record<string, unknown>): Promise<Bead> {
   return json.data;
 }
 
-async function updateBead(id: string, payload: Record<string, unknown>): Promise<Bead> {
+async function updateBead(
+  id: string,
+  payload: Record<string, unknown>,
+): Promise<Bead> {
   const res = await fetch(`${API_BASE}/beads/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -92,6 +128,9 @@ export function BeadsPage() {
 
   const mockMode = useUiStore((state) => state.mockMode);
   const [beads, setBeads] = useState<Bead[]>([]);
+  const [triage, setTriage] = useState<BvTriageSummary | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -106,7 +145,8 @@ export function BeadsPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Bead | null>(null);
   const [editTitle, setEditTitle] = useState("");
-  const [editStatus, setEditStatus] = useState<(typeof statusOptions)[number]>("open");
+  const [editStatus, setEditStatus] =
+    useState<(typeof statusOptions)[number]>("open");
   const [editPriority, setEditPriority] = useState("");
   const [editType, setEditType] = useState("task");
   const [editLoading, setEditLoading] = useState(false);
@@ -123,7 +163,10 @@ export function BeadsPage() {
       .map((b) => b.issue_type)
       .filter(
         (t): t is string =>
-          !!t && !defaultTypeOptions.includes(t as (typeof defaultTypeOptions)[number]),
+          !!t &&
+          !defaultTypeOptions.includes(
+            t as (typeof defaultTypeOptions)[number],
+          ),
       );
     const uniqueCustomTypes = [...new Set(customTypes)];
     return [...defaultTypeOptions, ...uniqueCustomTypes.sort()];
@@ -133,19 +176,42 @@ export function BeadsPage() {
     setError(null);
     if (mockMode) {
       setBeads(mockBeads);
+      setTriage(null);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const data = await fetchBeads();
+      const [data, triageData] = await Promise.all([
+        fetchBeads(),
+        fetchBvTriage(),
+      ]);
       setBeads(data);
+      setTriage(triageData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch beads");
     } finally {
       setLoading(false);
     }
   }, [mockMode]);
+
+  const handleSyncJsonl = useCallback(async () => {
+    if (mockMode) return;
+    setSyncing(true);
+    setSyncMessage(null);
+    setActionError(null);
+    try {
+      await syncBeadsJsonl();
+      setSyncMessage("Synced JSONL via br sync --flush-only");
+      await loadBeads();
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Failed to sync beads",
+      );
+    } finally {
+      setSyncing(false);
+    }
+  }, [loadBeads, mockMode]);
 
   useEffect(() => {
     loadBeads();
@@ -164,7 +230,9 @@ export function BeadsPage() {
     setCreateLoading(true);
     try {
       const parsedPriority = Number.parseInt(createPriority, 10);
-      const priorityValue = Number.isNaN(parsedPriority) ? undefined : parsedPriority;
+      const priorityValue = Number.isNaN(parsedPriority)
+        ? undefined
+        : parsedPriority;
       if (mockMode) {
         const newBead: Bead = {
           id: `mock-${Date.now()}`,
@@ -179,7 +247,8 @@ export function BeadsPage() {
           title: createTitle.trim(),
           type: createType,
         };
-        if (createDescription.trim()) payload["description"] = createDescription.trim();
+        if (createDescription.trim())
+          payload["description"] = createDescription.trim();
         if (priorityValue !== undefined) payload["priority"] = priorityValue;
         const created = await createBead(payload);
         applyBeadUpdate(created);
@@ -190,11 +259,20 @@ export function BeadsPage() {
       setCreatePriority("2");
       setCreateType("task");
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to create bead");
+      setActionError(
+        err instanceof Error ? err.message : "Failed to create bead",
+      );
     } finally {
       setCreateLoading(false);
     }
-  }, [applyBeadUpdate, createDescription, createPriority, createTitle, createType, mockMode]);
+  }, [
+    applyBeadUpdate,
+    createDescription,
+    createPriority,
+    createTitle,
+    createType,
+    mockMode,
+  ]);
 
   const openEdit = useCallback((bead: Bead) => {
     setEditTarget(bead);
@@ -211,7 +289,9 @@ export function BeadsPage() {
     setEditLoading(true);
     try {
       const parsedPriority = Number.parseInt(editPriority, 10);
-      const priorityValue = Number.isNaN(parsedPriority) ? undefined : parsedPriority;
+      const priorityValue = Number.isNaN(parsedPriority)
+        ? undefined
+        : parsedPriority;
       if (mockMode) {
         const updated: Bead = {
           id: editTarget.id,
@@ -224,7 +304,8 @@ export function BeadsPage() {
         applyBeadUpdate(updated);
       } else {
         const payload: Record<string, unknown> = {};
-        if (editTitle.trim() !== editTarget.title) payload["title"] = editTitle.trim();
+        if (editTitle.trim() !== editTarget.title)
+          payload["title"] = editTitle.trim();
         if (editStatus !== editTarget.status) payload["status"] = editStatus;
         if (priorityValue !== undefined) payload["priority"] = priorityValue;
         if (editType !== editTarget.issue_type) payload["type"] = editType;
@@ -238,11 +319,21 @@ export function BeadsPage() {
       setEditOpen(false);
       setEditTarget(null);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to update bead");
+      setActionError(
+        err instanceof Error ? err.message : "Failed to update bead",
+      );
     } finally {
       setEditLoading(false);
     }
-  }, [applyBeadUpdate, editPriority, editStatus, editTarget, editTitle, editType, mockMode]);
+  }, [
+    applyBeadUpdate,
+    editPriority,
+    editStatus,
+    editTarget,
+    editTitle,
+    editType,
+    mockMode,
+  ]);
 
   const handleClaim = useCallback(
     async (bead: Bead) => {
@@ -255,7 +346,9 @@ export function BeadsPage() {
         const updated = await claimBead(bead.id);
         applyBeadUpdate(updated);
       } catch (err) {
-        setActionError(err instanceof Error ? err.message : "Failed to claim bead");
+        setActionError(
+          err instanceof Error ? err.message : "Failed to claim bead",
+        );
       }
     },
     [applyBeadUpdate, mockMode],
@@ -269,13 +362,18 @@ export function BeadsPage() {
       if (mockMode) {
         applyBeadUpdate({ ...closeTarget, status: "closed" });
       } else {
-        const updated = await closeBead(closeTarget.id, closeReason.trim() || undefined);
+        const updated = await closeBead(
+          closeTarget.id,
+          closeReason.trim() || undefined,
+        );
         applyBeadUpdate(updated);
       }
       setCloseTarget(null);
       setCloseReason("");
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to close bead");
+      setActionError(
+        err instanceof Error ? err.message : "Failed to close bead",
+      );
     } finally {
       setCloseLoading(false);
     }
@@ -288,10 +386,21 @@ export function BeadsPage() {
           <div>
             <h3>Beads</h3>
             <p className="card__subtitle">
-              {mockMode ? "Mock data mode" : "Live br data"} · {totalCount} tracked
+              {mockMode ? "Mock data mode" : "Live br data"} · {totalCount}{" "}
+              tracked
             </p>
           </div>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            {!mockMode && (
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={handleSyncJsonl}
+                disabled={syncing || loading}
+              >
+                {syncing ? "Syncing..." : "Sync JSONL"}
+              </button>
+            )}
             <button
               type="button"
               className="btn btn--secondary"
@@ -300,15 +409,53 @@ export function BeadsPage() {
             >
               {loading ? "Refreshing..." : "Refresh"}
             </button>
-            <button type="button" className="btn btn--primary" onClick={() => setCreateOpen(true)}>
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => setCreateOpen(true)}
+            >
               New Bead
             </button>
           </div>
         </div>
 
-        {error && <p style={{ color: "var(--color-danger)", marginTop: 8 }}>{error}</p>}
+        {syncMessage && (
+          <p style={{ color: "var(--color-positive)", marginTop: 8 }}>
+            {syncMessage}
+          </p>
+        )}
+
+        {triage &&
+          (triage.quickWins.length > 0 || triage.blockers.length > 0) && (
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                flexWrap: "wrap",
+                marginTop: "8px",
+                marginBottom: "12px",
+              }}
+            >
+              {triage.quickWins.map((qw) => (
+                <StatusPill key={`qw-${qw.id}`} tone="positive">
+                  Quick Win: {qw.id}
+                </StatusPill>
+              ))}
+              {triage.blockers.map((bl) => (
+                <StatusPill key={`bl-${bl.id}`} tone="warning">
+                  Blocker: {bl.id}
+                </StatusPill>
+              ))}
+            </div>
+          )}
+
+        {error && (
+          <p style={{ color: "var(--color-danger)", marginTop: 8 }}>{error}</p>
+        )}
         {actionError && (
-          <p style={{ color: "var(--color-warning)", marginTop: 8 }}>{actionError}</p>
+          <p style={{ color: "var(--color-warning)", marginTop: 8 }}>
+            {actionError}
+          </p>
         )}
 
         <div className="table">
@@ -337,7 +484,11 @@ export function BeadsPage() {
               <span>{bead.priority ?? "—"}</span>
               <span>{bead.issue_type ?? "—"}</span>
               <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <button type="button" className="btn btn--secondary" onClick={() => openEdit(bead)}>
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  onClick={() => openEdit(bead)}
+                >
                   Edit
                 </button>
                 {bead.status !== "in_progress" && bead.status !== "closed" && (
@@ -438,7 +589,11 @@ export function BeadsPage() {
         title="Edit Bead"
         footer={
           <>
-            <button type="button" className="btn btn--secondary" onClick={() => setEditOpen(false)}>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              onClick={() => setEditOpen(false)}
+            >
               Cancel
             </button>
             <button
@@ -466,7 +621,9 @@ export function BeadsPage() {
             id="bead-edit-status"
             value={editStatus}
             onChange={(event) =>
-              setEditStatus(event.target.value as (typeof statusOptions)[number])
+              setEditStatus(
+                event.target.value as (typeof statusOptions)[number],
+              )
             }
           >
             {statusOptions.map((option) => (

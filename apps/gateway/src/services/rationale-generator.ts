@@ -161,7 +161,10 @@ function generateDetails(input: RationaleInput): string[] {
   }
 
   // Historical context
-  if (input.historicalSuccessRate !== undefined && input.historicalSampleSize !== undefined) {
+  if (
+    input.historicalSuccessRate !== undefined &&
+    input.historicalSampleSize !== undefined
+  ) {
     details.push(getHistoricalDetail(input));
   }
 
@@ -390,7 +393,9 @@ function generateRiskSummary(risks: RiskAssessment[]): string {
     return "Risk: Low - no significant risks identified";
   }
 
-  const highRisks = risks.filter((r) => r.severity === "high" || r.severity === "critical");
+  const highRisks = risks.filter(
+    (r) => r.severity === "high" || r.severity === "critical",
+  );
   const mediumRisks = risks.filter((r) => r.severity === "medium");
 
   const firstHigh = highRisks[0];

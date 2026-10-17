@@ -81,7 +81,10 @@ describe("FileSecretsProvider", () => {
   it("loads tool secrets from secrets.yaml", async () => {
     const dir = makeTempDir("sec-provider-");
     const apiKey = `test-${randomUUID()}`;
-    writeFileSync(join(dir, "secrets.yaml"), `tools:\n  dcg:\n    apiKey: ${apiKey}\n`);
+    writeFileSync(
+      join(dir, "secrets.yaml"),
+      `tools:\n  dcg:\n    apiKey: ${apiKey}\n`,
+    );
 
     const provider = new FileSecretsProvider({
       privateDir: dir,
@@ -129,7 +132,10 @@ describe("CompositeSecretsProvider", () => {
 
     const dir = makeTempDir("sec-provider-composite-");
     const apiKey = `test-${randomUUID()}`;
-    writeFileSync(join(dir, "secrets.yaml"), `tools:\n  dcg:\n    apiKey: ${apiKey}\n`);
+    writeFileSync(
+      join(dir, "secrets.yaml"),
+      `tools:\n  dcg:\n    apiKey: ${apiKey}\n`,
+    );
     const fileProvider = new FileSecretsProvider({
       privateDir: dir,
       refreshIntervalMs: 0,

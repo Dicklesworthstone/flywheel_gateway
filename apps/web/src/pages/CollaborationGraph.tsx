@@ -146,7 +146,8 @@ function calculateNodePositions(
     const conflicts = data.conflicts;
     const conflictRadius = Math.min(width, height) * 0.15;
     conflicts.forEach((conflict, i) => {
-      const angle = (2 * Math.PI * i) / Math.max(conflicts.length, 1) - Math.PI / 2;
+      const angle =
+        (2 * Math.PI * i) / Math.max(conflicts.length, 1) - Math.PI / 2;
       nodes.push({
         id: conflict.id,
         type: "conflict",
@@ -208,7 +209,9 @@ function GraphVisualization({
     if (viewMode === "files" || viewMode === "full") {
       for (const res of data.reservations) {
         const holder = nodes.find(
-          (n) => n.type === "agent" && (n.data as AgentNode).agentId === res.holderId,
+          (n) =>
+            n.type === "agent" &&
+            (n.data as AgentNode).agentId === res.holderId,
         );
         const resNode = nodeMap.get(res.id);
         if (holder && resNode) {
@@ -224,7 +227,8 @@ function GraphVisualization({
         // Waiting edges
         for (const waiter of res.waiters) {
           const waiterNode = nodes.find(
-            (n) => n.type === "agent" && (n.data as AgentNode).agentId === waiter,
+            (n) =>
+              n.type === "agent" && (n.data as AgentNode).agentId === waiter,
           );
           if (waiterNode && resNode) {
             result.push({
@@ -245,10 +249,14 @@ function GraphVisualization({
         if (msg.toAgentId === "all") continue;
 
         const fromNode = nodes.find(
-          (n) => n.type === "agent" && (n.data as AgentNode).agentId === msg.fromAgentId,
+          (n) =>
+            n.type === "agent" &&
+            (n.data as AgentNode).agentId === msg.fromAgentId,
         );
         const toNode = nodes.find(
-          (n) => n.type === "agent" && (n.data as AgentNode).agentId === msg.toAgentId,
+          (n) =>
+            n.type === "agent" &&
+            (n.data as AgentNode).agentId === msg.toAgentId,
         );
         if (fromNode && toNode) {
           result.push({
@@ -300,7 +308,11 @@ function GraphVisualization({
             y2={edge.target.y}
             stroke={getEdgeColor(edge.type)}
             strokeWidth={2}
-            strokeDasharray={edge.type === "waiting" || edge.type === "message" ? "5,5" : undefined}
+            strokeDasharray={
+              edge.type === "waiting" || edge.type === "message"
+                ? "5,5"
+                : undefined
+            }
             opacity={0.6}
             className={edge.animated ? "collab-graph__edge--animated" : ""}
           />
@@ -311,7 +323,8 @@ function GraphVisualization({
       <g className="collab-graph__nodes">
         {nodes.map((node) => {
           const isSelected = node.id === selectedNodeId;
-          const nodeSize = node.type === "agent" ? 24 : node.type === "reservation" ? 18 : 20;
+          const nodeSize =
+            node.type === "agent" ? 24 : node.type === "reservation" ? 18 : 20;
 
           let fillColor = "var(--surface-elevated)";
           let strokeColor = "var(--border)";
@@ -323,8 +336,14 @@ function GraphVisualization({
             icon = <Bot size={14} />;
           } else if (node.type === "reservation") {
             const res = node.data as ReservationNode;
-            strokeColor = res.mode === "exclusive" ? "var(--warning)" : "var(--positive)";
-            icon = res.resourceType === "directory" ? <Folder size={12} /> : <File size={12} />;
+            strokeColor =
+              res.mode === "exclusive" ? "var(--warning)" : "var(--positive)";
+            icon =
+              res.resourceType === "directory" ? (
+                <Folder size={12} />
+              ) : (
+                <File size={12} />
+              );
           } else if (node.type === "conflict") {
             const conflict = node.data as ConflictNode;
             strokeColor = getConflictSeverityColor(conflict.severity);
@@ -467,19 +486,35 @@ function GraphLegend() {
           <span>Active Agent</span>
         </div>
         <div className="collab-legend__item">
-          <Circle size={12} fill="var(--surface-elevated)" stroke="var(--warning)" />
+          <Circle
+            size={12}
+            fill="var(--surface-elevated)"
+            stroke="var(--warning)"
+          />
           <span>Waiting Agent</span>
         </div>
         <div className="collab-legend__item">
-          <Circle size={12} fill="var(--surface-elevated)" stroke="var(--danger)" />
+          <Circle
+            size={12}
+            fill="var(--surface-elevated)"
+            stroke="var(--danger)"
+          />
           <span>Blocked Agent</span>
         </div>
         <div className="collab-legend__item">
-          <Circle size={10} fill="var(--surface-elevated)" stroke="var(--positive)" />
+          <Circle
+            size={10}
+            fill="var(--surface-elevated)"
+            stroke="var(--positive)"
+          />
           <span>Shared Reservation</span>
         </div>
         <div className="collab-legend__item">
-          <Circle size={10} fill="var(--surface-elevated)" stroke="var(--warning)" />
+          <Circle
+            size={10}
+            fill="var(--surface-elevated)"
+            stroke="var(--warning)"
+          />
           <span>Exclusive Reservation</span>
         </div>
         <div className="collab-legend__item">
@@ -491,7 +526,14 @@ function GraphLegend() {
         <div className="eyebrow">Edges</div>
         <div className="collab-legend__item">
           <svg width={24} height={12} aria-hidden="true">
-            <line x1={0} y1={6} x2={24} y2={6} stroke="var(--positive)" strokeWidth={2} />
+            <line
+              x1={0}
+              y1={6}
+              x2={24}
+              y2={6}
+              stroke="var(--positive)"
+              strokeWidth={2}
+            />
           </svg>
           <span>Owns Resource</span>
         </div>
@@ -551,17 +593,29 @@ function NodeDetailPanel({ node, data, onClose }: NodeDetailPanelProps) {
               ? "Reservation Details"
               : "Conflict Details"}
         </h3>
-        <button type="button" className="btn btn--icon btn--ghost" onClick={onClose}>
+        <button
+          type="button"
+          className="btn btn--icon btn--ghost"
+          onClick={onClose}
+        >
           <X size={16} />
         </button>
       </div>
       <div className="collab-detail__content">
-        {node.type === "agent" && <AgentDetailContent agent={node.data as AgentNode} data={data} />}
+        {node.type === "agent" && (
+          <AgentDetailContent agent={node.data as AgentNode} data={data} />
+        )}
         {node.type === "reservation" && (
-          <ReservationDetailContent reservation={node.data as ReservationNode} data={data} />
+          <ReservationDetailContent
+            reservation={node.data as ReservationNode}
+            data={data}
+          />
         )}
         {node.type === "conflict" && (
-          <ConflictDetailContent conflict={node.data as ConflictNode} data={data} />
+          <ConflictDetailContent
+            conflict={node.data as ConflictNode}
+            data={data}
+          />
         )}
       </div>
     </div>
@@ -638,13 +692,19 @@ function ReservationDetailContent({
       <div className="collab-detail__field">
         <div className="eyebrow">Type</div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          {reservation.resourceType === "directory" ? <Folder size={14} /> : <File size={14} />}
+          {reservation.resourceType === "directory" ? (
+            <Folder size={14} />
+          ) : (
+            <File size={14} />
+          )}
           <span>{reservation.resourceType}</span>
         </div>
       </div>
       <div className="collab-detail__field">
         <div className="eyebrow">Mode</div>
-        <StatusPill tone={reservation.mode === "exclusive" ? "warning" : "positive"}>
+        <StatusPill
+          tone={reservation.mode === "exclusive" ? "warning" : "positive"}
+        >
           {reservation.mode}
         </StatusPill>
       </div>
@@ -695,7 +755,9 @@ function ConflictDetailContent({
       </div>
       <div className="collab-detail__field">
         <div className="eyebrow">Severity</div>
-        <StatusPill tone={conflict.severity === "critical" ? "danger" : "warning"}>
+        <StatusPill
+          tone={conflict.severity === "critical" ? "danger" : "warning"}
+        >
           {conflict.severity}
         </StatusPill>
       </div>
@@ -746,9 +808,32 @@ export function CollaborationGraphPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("full");
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const [gitSyncStats, setGitSyncStats] = useState<{
+    queued: number;
+    activeBranches: number;
+    highRiskPairs: number;
+  } | null>(null);
 
   // Fetch graph data
   const { data, isLoading, error, refetch } = useCollabGraphData();
+
+  useEffect(() => {
+    fetch("/api/conflicts/git/sync-stats")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const d = json?.data;
+        if (d) {
+          setGitSyncStats({
+            queued: d.syncStats?.queued ?? 0,
+            activeBranches: d.gitStats?.activeBranches ?? 0,
+            highRiskPairs: d.predictionStats?.highRiskPairs ?? 0,
+          });
+        }
+      })
+      .catch(() => {
+        // Ignore if offline or mock mode
+      });
+  }, []);
 
   // Selection state
   const { selectedNodeId, selectNode, clearSelection } = useGraphSelection();
@@ -833,6 +918,19 @@ export function CollaborationGraphPage() {
           <p className="muted">Real-time visualization of agent coordination</p>
         </div>
         <div className="page__actions">
+          {gitSyncStats && (
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <StatusPill tone="info">
+                Branches: {gitSyncStats.activeBranches}
+              </StatusPill>
+              <StatusPill
+                tone={gitSyncStats.highRiskPairs > 0 ? "warning" : "positive"}
+              >
+                Git Queue: {gitSyncStats.queued} · High-Risk:{" "}
+                {gitSyncStats.highRiskPairs}
+              </StatusPill>
+            </div>
+          )}
           <div className="collab-connection">
             {subscription.connected ? (
               <Tooltip content="Connected - Real-time updates active">
@@ -893,7 +991,9 @@ export function CollaborationGraphPage() {
             </span>
           )}
           {data?.lastUpdated && (
-            <span className="muted">Updated {formatRelativeTime(data.lastUpdated)}</span>
+            <span className="muted">
+              Updated {formatRelativeTime(data.lastUpdated)}
+            </span>
           )}
         </div>
       </div>
@@ -909,7 +1009,11 @@ export function CollaborationGraphPage() {
             <div className="collab-graph__error">
               <AlertTriangle size={48} />
               <p>Failed to load graph data</p>
-              <button type="button" className="btn btn--secondary" onClick={refetch}>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={refetch}
+              >
                 Try Again
               </button>
             </div>
@@ -929,7 +1033,11 @@ export function CollaborationGraphPage() {
         <div className="collab-sidepanel">
           <GraphLegend />
           {selectedNode && (
-            <NodeDetailPanel node={selectedNode} data={data} onClose={clearSelection} />
+            <NodeDetailPanel
+              node={selectedNode}
+              data={data}
+              onClose={clearSelection}
+            />
           )}
         </div>
       </div>

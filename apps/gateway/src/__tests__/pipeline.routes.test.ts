@@ -9,6 +9,7 @@ import { Hono } from "hono";
 import type { CreatePipelineInput } from "../models/pipeline";
 import { pipelines } from "../routes/pipelines";
 import {
+  _evictPipelineCacheForTesting,
   cancelRun,
   clearAll,
   createPipeline,
@@ -385,7 +386,10 @@ describe("Pipeline Service", () => {
       const finished = await waitForRunToFinish(run.id);
       expect(finished?.status).toBe("completed");
       expect(finished?.context["values"]).toEqual([1, 2, 3]);
-      expect(finished?.context["filtered"]).toEqual([{ value: 2 }, { value: 3 }]);
+      expect(finished?.context["filtered"]).toEqual([
+        { value: 2 },
+        { value: 3 },
+      ]);
       expect(finished?.context["sum"]).toBe(6);
     });
 
@@ -406,7 +410,9 @@ describe("Pipeline Service", () => {
             config: {
               type: "transform",
               config: {
-                operations: [{ op: "set", path: "__proto__.polluted", value: "yes" }],
+                operations: [
+                  { op: "set", path: "__proto__.polluted", value: "yes" },
+                ],
                 outputVariable: "out",
               },
             },
@@ -795,11 +801,14 @@ describe("Pipeline Routes", () => {
     test("starts a pipeline run", async () => {
       const pipeline = createPipeline(createTestPipelineInput());
 
-      const res = await app.request(`/pipelines/${pipeline.id}/run?user_id=user_123`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ params: { env: "test" } }),
-      });
+      const res = await app.request(
+        `/pipelines/${pipeline.id}/run?user_id=user_123`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ params: { env: "test" } }),
+        },
+      );
 
       expect(res.status).toBe(201);
       const body = await res.json();
@@ -849,9 +858,12 @@ describe("Pipeline Routes", () => {
       const pipeline = createPipeline(createTestPipelineInput());
       const run = await runPipeline(pipeline.id);
 
-      const res = await app.request(`/pipelines/${pipeline.id}/pause?run_id=${run.id}`, {
-        method: "POST",
-      });
+      const res = await app.request(
+        `/pipelines/${pipeline.id}/pause?run_id=${run.id}`,
+        {
+          method: "POST",
+        },
+      );
 
       expect(res.status).toBe(200);
       const body = await res.json();
@@ -876,9 +888,12 @@ describe("Pipeline Routes", () => {
       const pipeline = createPipeline(createTestPipelineInput());
       const run = await runPipeline(pipeline.id);
 
-      const res = await app.request(`/pipelines/${pipeline.id}/cancel?run_id=${run.id}`, {
-        method: "POST",
-      });
+      const res = await app.request(
+        `/pipelines/${pipeline.id}/cancel?run_id=${run.id}`,
+        {
+          method: "POST",
+        },
+      );
 
       expect(res.status).toBe(200);
       const body = await res.json();
@@ -906,7 +921,9 @@ describe("Pipeline Routes", () => {
 
       cancelRun(run1.id);
 
-      const res = await app.request(`/pipelines/${pipeline.id}/runs?status=cancelled`);
+      const res = await app.request(
+        `/pipelines/${pipeline.id}/runs?status=cancelled`,
+      );
 
       expect(res.status).toBe(200);
       const body = await res.json();
@@ -938,7 +955,9 @@ describe("Pipeline Routes", () => {
     test("returns 404 for unknown run", async () => {
       const pipeline = createPipeline(createTestPipelineInput());
 
-      const res = await app.request(`/pipelines/${pipeline.id}/runs/run_unknown`);
+      const res = await app.request(
+        `/pipelines/${pipeline.id}/runs/run_unknown`,
+      );
 
       expect(res.status).toBe(404);
     });
@@ -1185,7 +1204,8 @@ describe("Pipeline Triggers", () => {
   });
 
   test("webhook trigger", () => {
-    const webhookSecret = process.env["TEST_WEBHOOK_SECRET"] ?? crypto.randomUUID();
+    const webhookSecret =
+      process.env["TEST_WEBHOOK_SECRET"] ?? crypto.randomUUID();
     const input: CreatePipelineInput = {
       name: "Webhook",
       trigger: {
@@ -1243,5 +1263,26 @@ describe("Pipeline Triggers", () => {
       config: { events: string[] };
     };
     expect(config.config.events).toContain("created");
+  });
+
+  test("rehydrates pipelines, runs, and step results from SQLite after cache eviction", async () => {
+    const pipeline = createPipeline(createTestPipelineInput());
+    const run = await runPipeline(pipeline.id, {
+      params: { persistCheck: "yes" },
+    });
+
+    // Evict in-memory caches without deleting SQLite rows
+    _evictPipelineCacheForTesting();
+
+    const rehydratedPipeline = getPipeline(pipeline.id);
+    expect(rehydratedPipeline).toBeDefined();
+    expect(rehydratedPipeline!.name).toBe("Test Pipeline");
+    expect(rehydratedPipeline!.steps).toHaveLength(2);
+
+    const rehydratedRun = getRun(run.id);
+    expect(rehydratedRun).toBeDefined();
+    expect(rehydratedRun!.pipelineId).toBe(pipeline.id);
+    expect(rehydratedRun!.context["persistCheck"]).toBe("yes");
+    expect(rehydratedRun!.steps.map((s) => s.id)).toEqual(["step1", "step2"]);
   });
 });

@@ -43,6 +43,8 @@ function shouldTrustIncomingTraceContext(): boolean {
 export interface RequestContext {
   correlationId: string;
   requestId: string;
+  traceId?: string;
+  spanId?: string;
   startTime: number;
   logger: Logger;
 }
@@ -50,14 +52,33 @@ export interface RequestContext {
 /**
  * AsyncLocalStorage instance for request context propagation.
  */
-export const requestContextStorage = new AsyncLocalStorage<RequestContext>();
+const baseRequestContextStorage = new AsyncLocalStorage<RequestContext>();
+const nativeEnterWith = baseRequestContextStorage.enterWith.bind(
+  baseRequestContextStorage,
+);
+const nativeDisable = baseRequestContextStorage.disable.bind(
+  baseRequestContextStorage,
+);
+let fallbackEnteredContext: RequestContext | undefined;
+
+export const requestContextStorage: AsyncLocalStorage<RequestContext> =
+  Object.assign(baseRequestContextStorage, {
+    enterWith(store: RequestContext): void {
+      fallbackEnteredContext = store;
+      nativeEnterWith(store);
+    },
+    disable(): void {
+      fallbackEnteredContext = undefined;
+      nativeDisable();
+    },
+  });
 
 /**
  * Get the current request context from AsyncLocalStorage.
  * Returns undefined if called outside of a request context.
  */
 export function getRequestContext(): RequestContext | undefined {
-  return requestContextStorage.getStore();
+  return baseRequestContextStorage.getStore() ?? fallbackEnteredContext;
 }
 
 /**
@@ -66,6 +87,34 @@ export function getRequestContext(): RequestContext | undefined {
  */
 export function getCorrelationId(): string {
   return getRequestContext()?.correlationId ?? "unknown";
+}
+
+/**
+ * Get the trace ID from the current request context or active OTel span.
+ */
+export function getTraceId(): string | undefined {
+  const ctxTraceId = getRequestContext()?.traceId;
+  if (ctxTraceId) return ctxTraceId;
+  const activeSpan = trace.getSpan(otelContext.active());
+  const spanTraceId = activeSpan?.spanContext().traceId;
+  if (spanTraceId && spanTraceId !== "00000000000000000000000000000000") {
+    return spanTraceId;
+  }
+  return undefined;
+}
+
+/**
+ * Get the span ID from the current request context or active OTel span.
+ */
+export function getSpanId(): string | undefined {
+  const ctxSpanId = getRequestContext()?.spanId;
+  if (ctxSpanId) return ctxSpanId;
+  const activeSpan = trace.getSpan(otelContext.active());
+  const spanId = activeSpan?.spanContext().spanId;
+  if (spanId && spanId !== "0000000000000000") {
+    return spanId;
+  }
+  return undefined;
 }
 
 /**
@@ -84,12 +133,20 @@ function generateId(): string {
   return crypto.randomUUID();
 }
 
+function generateHexTraceId(): string {
+  return crypto.randomUUID().replace(/-/g, "");
+}
+
+function generateHexSpanId(): string {
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+}
+
 /**
  * Correlation ID middleware for Hono.
  *
  * - Accepts incoming X-Correlation-ID header or generates a new one
  * - Stores context in AsyncLocalStorage for automatic propagation
- * - Adds X-Correlation-ID and X-Request-ID to response headers
+ * - Adds X-Correlation-ID, X-Request-ID, and X-Trace-ID to response headers
  */
 export function correlationMiddleware() {
   return async (c: Context, next: Next) => {
@@ -98,29 +155,14 @@ export function correlationMiddleware() {
     const requestId = generateId();
     const startTime = performance.now();
 
-    const requestLogger = createChildLogger({
-      correlationId,
-      requestId,
-      method: c.req.method,
-      path: c.req.path,
-    });
-
-    const context: RequestContext = {
-      correlationId,
-      requestId,
-      startTime,
-      logger: requestLogger,
-    };
-
-    // Set response headers
-    c.header("X-Correlation-ID", correlationId);
-    c.header("X-Request-ID", requestId);
-    c.set("correlationId", correlationId);
-    c.set("requestId", requestId);
-
     const tracer = trace.getTracer("flywheel-gateway");
-    const parentContext = shouldTrustIncomingTraceContext()
-      ? propagation.extract(otelContext.active(), c.req.raw.headers, headersGetter)
+    const trustIncoming = shouldTrustIncomingTraceContext();
+    const parentContext = trustIncoming
+      ? propagation.extract(
+          otelContext.active(),
+          c.req.raw.headers,
+          headersGetter,
+        )
       : otelContext.active();
 
     const span = tracer.startSpan(
@@ -136,6 +178,50 @@ export function correlationMiddleware() {
       },
       parentContext,
     );
+
+    const otelSpanCtx = span.spanContext();
+    const hasValidOtelTrace =
+      otelSpanCtx.traceId &&
+      otelSpanCtx.traceId !== "00000000000000000000000000000000";
+    const incomingTraceHeader = trustIncoming
+      ? c.req.header("x-trace-id")?.trim()
+      : undefined;
+
+    const traceId = hasValidOtelTrace
+      ? otelSpanCtx.traceId
+      : incomingTraceHeader || generateHexTraceId();
+    const spanId =
+      otelSpanCtx.spanId && otelSpanCtx.spanId !== "0000000000000000"
+        ? otelSpanCtx.spanId
+        : generateHexSpanId();
+
+    span.setAttribute("flywheel.trace_id", traceId);
+
+    const requestLogger = createChildLogger({
+      correlationId,
+      requestId,
+      traceId,
+      spanId,
+      method: c.req.method,
+      path: c.req.path,
+    });
+
+    const context: RequestContext = {
+      correlationId,
+      requestId,
+      traceId,
+      spanId,
+      startTime,
+      logger: requestLogger,
+    };
+
+    // Set response headers
+    c.header("X-Correlation-ID", correlationId);
+    c.header("X-Request-ID", requestId);
+    c.header("X-Trace-ID", traceId);
+    c.set("correlationId", correlationId);
+    c.set("requestId", requestId);
+    c.set("traceId", traceId);
 
     // Run the rest of the middleware chain within the request context and span context.
     await requestContextStorage.run(context, async () => {
@@ -158,7 +244,9 @@ export function correlationMiddleware() {
           if (caughtError) {
             span.setStatus({ code: SpanStatusCode.ERROR });
             const error =
-              caughtError instanceof Error ? caughtError : new Error(String(caughtError));
+              caughtError instanceof Error
+                ? caughtError
+                : new Error(String(caughtError));
             span.recordException(error);
           } else if (status >= 500) {
             span.setStatus({ code: SpanStatusCode.ERROR });

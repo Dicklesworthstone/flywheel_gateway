@@ -187,7 +187,11 @@ mock.module("../services/cm.service", () => ({
   CMClientError: class CMClientError extends Error {
     kind: string;
     details: Record<string, unknown> | undefined;
-    constructor(kind: string, message: string, details?: Record<string, unknown>) {
+    constructor(
+      kind: string,
+      message: string,
+      details?: Record<string, unknown>,
+    ) {
       super(message);
       this.name = "CMClientError";
       this.kind = kind;
@@ -196,8 +200,11 @@ mock.module("../services/cm.service", () => ({
   },
 }));
 
+import { restoreCmService } from "./test-utils/db-mock-restore";
+
 afterAll(() => {
   mock.restore();
+  restoreCmService();
 });
 
 // ============================================================================
@@ -294,7 +301,10 @@ describe("Memory Routes", () => {
       expect(body.data.task).toBe("test task");
       expect(body.data.relevantBullets).toBeInstanceOf(Array);
       expect(body.data.historySnippets).toBeInstanceOf(Array);
-      expect(mockGetTaskContext).toHaveBeenCalledWith("implement authentication", {});
+      expect(mockGetTaskContext).toHaveBeenCalledWith(
+        "implement authentication",
+        {},
+      );
     });
 
     test("passes options to service", async () => {
@@ -374,7 +384,9 @@ describe("Memory Routes", () => {
     });
 
     test("passes filter options", async () => {
-      const res = await app.request("/memory/rules?category=code-style&state=active&limit=10");
+      const res = await app.request(
+        "/memory/rules?category=code-style&state=active&limit=10",
+      );
 
       expect(res.status).toBe(200);
       expect(mockListPlaybookRules).toHaveBeenCalledWith({
@@ -421,7 +433,11 @@ describe("Memory Routes", () => {
       const body = await res.json();
       expect(body.data.success).toBe(true);
       expect(body.data.recorded).toBe(2);
-      expect(mockRecordOutcome).toHaveBeenCalledWith("success", ["bullet_123", "bullet_456"], {});
+      expect(mockRecordOutcome).toHaveBeenCalledWith(
+        "success",
+        ["bullet_123", "bullet_456"],
+        {},
+      );
     });
 
     test("passes session option", async () => {
@@ -436,9 +452,13 @@ describe("Memory Routes", () => {
       });
 
       expect(res.status).toBe(200);
-      expect(mockRecordOutcome).toHaveBeenCalledWith("failure", ["bullet_789"], {
-        session: "session_abc",
-      });
+      expect(mockRecordOutcome).toHaveBeenCalledWith(
+        "failure",
+        ["bullet_789"],
+        {
+          session: "session_abc",
+        },
+      );
     });
 
     test("validates request body", async () => {

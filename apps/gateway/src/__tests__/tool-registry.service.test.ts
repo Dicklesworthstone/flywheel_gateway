@@ -2,7 +2,15 @@
  * Tool Registry Service Tests
  */
 
-import { afterAll, afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+} from "bun:test";
 import { createHash } from "node:crypto";
 import { isGatewayError } from "@flywheel/shared/errors";
 import { requestContextStorage } from "../middleware/correlation";
@@ -81,9 +89,10 @@ const TOOL_REGISTRY_MODULE_SPECIFIER =
   "../services/tool-registry.service?tool-registry-service-test";
 
 // Import after mocks are defined
-const { clearToolRegistryCache, getToolRegistryMetadata, loadToolRegistry } = (await import(
-  TOOL_REGISTRY_MODULE_SPECIFIER
-)) as typeof import("../services/tool-registry.service");
+const { clearToolRegistryCache, getToolRegistryMetadata, loadToolRegistry } =
+  (await import(
+    TOOL_REGISTRY_MODULE_SPECIFIER
+  )) as typeof import("../services/tool-registry.service");
 
 const validManifest = `schemaVersion: "1.0.0"
 source: "acfs"
@@ -162,7 +171,9 @@ describe("ToolRegistry cache behavior", () => {
     const meta = getToolRegistryMetadata();
     expect(meta?.manifestPath).toBe(manifestPath);
     expect(meta?.schemaVersion).toBe("1.0.0");
-    expect(meta?.manifestHash).toBe(createHash("sha256").update(validManifest).digest("hex"));
+    expect(meta?.manifestHash).toBe(
+      createHash("sha256").update(validManifest).digest("hex"),
+    );
   });
 
   it("re-reads registry when TTL is zero", async () => {
@@ -226,7 +237,9 @@ describe("Error mapping + logging", () => {
     }
 
     expect(isGatewayError(caught)).toBe(true);
-    const details = (caught as { details?: Record<string, unknown>; code?: string }).details;
+    const details = (
+      caught as { details?: Record<string, unknown>; code?: string }
+    ).details;
     expect(details?.["errorCategory"]).toBe("manifest_parse_error");
 
     const warnEvent = logEvents.find((event) => event.level === "warn");
@@ -390,7 +403,9 @@ describe("Provenance metadata", () => {
     expect(meta).not.toBeNull();
     expect(meta?.manifestPath).toBe(manifestPath);
     expect(meta?.schemaVersion).toBe("1.0.0");
-    expect(meta?.manifestHash).toBe(createHash("sha256").update(validManifest).digest("hex"));
+    expect(meta?.manifestHash).toBe(
+      createHash("sha256").update(validManifest).digest("hex"),
+    );
     expect(meta?.registrySource).toBe("manifest");
     expect(meta?.loadedAt).toBeGreaterThan(0);
   });
@@ -525,7 +540,9 @@ describe("Manifest provenance fields for readiness responses", () => {
     expect(meta?.errorCategory).toBe("manifest_parse_error");
     expect(meta?.manifestPath).toBe(manifestPath);
     // Hash of the content that failed to parse
-    expect(meta?.manifestHash).toBe(createHash("sha256").update(badContent).digest("hex"));
+    expect(meta?.manifestHash).toBe(
+      createHash("sha256").update(badContent).digest("hex"),
+    );
   });
 
   it("validation error fallback uses fallback registry schemaVersion", async () => {

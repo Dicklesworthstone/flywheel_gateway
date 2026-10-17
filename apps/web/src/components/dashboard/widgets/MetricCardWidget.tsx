@@ -38,7 +38,11 @@ export function MetricCardWidget({ widget, data }: MetricCardWidgetProps) {
   const metricData = data.data as MetricData | null;
 
   if (!metricData) {
-    return <div className="metric-card-widget metric-card-widget--empty">No data</div>;
+    return (
+      <div className="metric-card-widget metric-card-widget--empty">
+        No data
+      </div>
+    );
   }
 
   const { value, label, unit, trend, comparison } = metricData;
@@ -70,7 +74,9 @@ export function MetricCardWidget({ widget, data }: MetricCardWidgetProps) {
       </div>
 
       {trend && (
-        <div className={`metric-card-widget__trend metric-card-widget__trend--${trend.direction}`}>
+        <div
+          className={`metric-card-widget__trend metric-card-widget__trend--${trend.direction}`}
+        >
           <TrendIcon direction={trend.direction} />
           <span>
             {trend.direction !== "stable" && (
@@ -81,13 +87,17 @@ export function MetricCardWidget({ widget, data }: MetricCardWidgetProps) {
             )}
             {trend.direction === "stable" && "No change"}
           </span>
-          <span className="metric-card-widget__trend-period">{trend.period}</span>
+          <span className="metric-card-widget__trend-period">
+            {trend.period}
+          </span>
         </div>
       )}
 
       {comparison && (
         <div className="metric-card-widget__comparison">
-          <span className="metric-card-widget__comparison-label">{comparison.label}:</span>
+          <span className="metric-card-widget__comparison-label">
+            {comparison.label}:
+          </span>
           <span className="metric-card-widget__comparison-value">
             {typeof comparison.value === "number"
               ? comparison.value.toLocaleString()
@@ -102,7 +112,13 @@ export function MetricCardWidget({ widget, data }: MetricCardWidgetProps) {
 function TrendIcon({ direction }: { direction: "up" | "down" | "stable" }) {
   if (direction === "up") {
     return (
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden="true"
+      >
         <path d="M7 17l5-5 5 5M7 7l5-5 5 5" />
       </svg>
     );
@@ -110,14 +126,26 @@ function TrendIcon({ direction }: { direction: "up" | "down" | "stable" }) {
 
   if (direction === "down") {
     return (
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden="true"
+      >
         <path d="M7 7l5 5 5-5M7 17l5 5 5-5" />
       </svg>
     );
   }
 
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
       <path d="M5 12h14" />
     </svg>
   );

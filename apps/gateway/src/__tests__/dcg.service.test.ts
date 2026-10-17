@@ -146,7 +146,7 @@ describe("DCG Service", () => {
 
       const sensitiveEvent = {
         ...testEvent,
-        command: "curl -H 'Authorization: " + "Bearer " + secretValue + "' https://api.example.com",
+        command: `curl -H 'Authorization: Bearer ${secretValue}' https://api.example.com`,
       };
 
       const event = await ingestBlockEvent(sensitiveEvent);
@@ -197,7 +197,9 @@ describe("DCG Service", () => {
     test("getBlockEvents supports ending_before pagination", async () => {
       const agentId = `pagination-agent-${Date.now()}`;
       const base = Date.now();
-      const timestamps = [3000, 2000, 1000, 0].map((offset) => new Date(base + offset));
+      const timestamps = [3000, 2000, 1000, 0].map(
+        (offset) => new Date(base + offset),
+      );
 
       for (const [index, timestamp] of timestamps.entries()) {
         await ingestBlockEvent({
@@ -227,7 +229,9 @@ describe("DCG Service", () => {
         endingBefore: page2.prevCursor!,
       });
 
-      expect(back.events.map((e) => e.id)).toEqual(page1.events.map((e) => e.id));
+      expect(back.events.map((e) => e.id)).toEqual(
+        page1.events.map((e) => e.id),
+      );
       expect(back.hasMore).toBe(false);
     });
   });

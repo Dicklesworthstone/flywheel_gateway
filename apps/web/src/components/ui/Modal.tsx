@@ -175,7 +175,11 @@ export function ConfirmModal({
       title={title}
       footer={
         <>
-          <button type="button" className="btn btn--secondary" onClick={onClose}>
+          <button
+            type="button"
+            className="btn btn--secondary"
+            onClick={onClose}
+          >
             {cancelLabel}
           </button>
           <button

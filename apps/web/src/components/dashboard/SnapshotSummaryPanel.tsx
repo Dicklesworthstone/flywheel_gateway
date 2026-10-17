@@ -9,7 +9,11 @@
  * - Current issues and alerts
  */
 
-import type { NtmAgentSnapshot, SystemHealthStatus, ToolHealthStatus } from "@flywheel/shared";
+import type {
+  NtmAgentSnapshot,
+  SystemHealthStatus,
+  ToolHealthStatus,
+} from "@flywheel/shared";
 import { motion } from "framer-motion";
 import {
   Activity,
@@ -33,7 +37,11 @@ import {
   getHealthTone,
   useSnapshot,
 } from "../../hooks/useSnapshot";
-import { fadeVariants, listContainerVariants, listItemVariants } from "../../lib/animations";
+import {
+  fadeVariants,
+  listContainerVariants,
+  listItemVariants,
+} from "../../lib/animations";
 import { MockDataBanner } from "../ui/MockDataBanner";
 import { StatusPill } from "../ui/StatusPill";
 
@@ -118,7 +126,10 @@ function AgentCard({ agent, sessionName }: AgentCardProps) {
             >
               {agent.type}
               {agent.variant && (
-                <span className="muted" style={{ fontSize: "12px", fontWeight: 400 }}>
+                <span
+                  className="muted"
+                  style={{ fontSize: "12px", fontWeight: 400 }}
+                >
                   ({agent.variant})
                 </span>
               )}
@@ -209,9 +220,19 @@ function ToolStatusRow({ name, tool }: ToolStatusRowProps) {
         )}
       </div>
       <StatusPill
-        tone={tool.installed && tool.healthy ? "positive" : tool.installed ? "warning" : "danger"}
+        tone={
+          tool.installed && tool.healthy
+            ? "positive"
+            : tool.installed
+              ? "warning"
+              : "danger"
+        }
       >
-        {tool.installed && tool.healthy ? "OK" : tool.installed ? "Unhealthy" : "Missing"}
+        {tool.installed && tool.healthy
+          ? "OK"
+          : tool.installed
+            ? "Unhealthy"
+            : "Missing"}
       </StatusPill>
     </div>
   );
@@ -254,7 +275,9 @@ function BeadsSummary({ statusCounts, actionableCount }: BeadsSummaryProps) {
         }}
       >
         <div>
-          <div style={{ fontSize: "18px", fontWeight: 600 }}>{statusCounts.open}</div>
+          <div style={{ fontSize: "18px", fontWeight: 600 }}>
+            {statusCounts.open}
+          </div>
           <div className="muted" style={{ fontSize: "11px" }}>
             Open
           </div>
@@ -346,7 +369,10 @@ function IssuesList({ issues }: IssuesListProps) {
               gap: "6px",
             }}
           >
-            <ChevronRight size={12} style={{ marginTop: "2px", flexShrink: 0 }} />
+            <ChevronRight
+              size={12}
+              style={{ marginTop: "2px", flexShrink: 0 }}
+            />
             {issue}
           </div>
         ))}
@@ -426,7 +452,9 @@ export function SnapshotSummaryPanel() {
   const allAgents = data.ntm.sessions.flatMap((s) =>
     s.agents.map((a) => ({ ...a, sessionName: s.name })),
   );
-  const activeAgents = allAgents.filter((a) => a.state === "working" || a.isActive);
+  const activeAgents = allAgents.filter(
+    (a) => a.state === "working" || a.isActive,
+  );
 
   return (
     <motion.div
@@ -438,7 +466,11 @@ export function SnapshotSummaryPanel() {
       {usingMockData ? (
         <div style={{ marginBottom: "16px" }}>
           <MockDataBanner
-            message={error ? "Showing mock data - API unavailable" : "Mock mode enabled"}
+            message={
+              error
+                ? "Showing mock data - API unavailable"
+                : "Mock mode enabled"
+            }
           />
         </div>
       ) : null}
@@ -471,7 +503,11 @@ export function SnapshotSummaryPanel() {
               disabled={isLoading}
               title="Refresh (bypass cache)"
             >
-              {isLoading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+              {isLoading ? (
+                <Loader2 size={14} className="spin" />
+              ) : (
+                <RefreshCw size={14} />
+              )}
             </button>
           </div>
         </div>
@@ -501,7 +537,9 @@ export function SnapshotSummaryPanel() {
             gap: "16px",
           }}
         >
-          <span>Generated: {new Date(data.meta.generatedAt).toLocaleTimeString()}</span>
+          <span>
+            Generated: {new Date(data.meta.generatedAt).toLocaleTimeString()}
+          </span>
           <span>Duration: {data.meta.generationDurationMs}ms</span>
         </div>
       </div>
@@ -559,7 +597,10 @@ export function SnapshotSummaryPanel() {
               )}
             </motion.div>
           ) : (
-            <div className="card card--compact muted" style={{ textAlign: "center" }}>
+            <div
+              className="card card--compact muted"
+              style={{ textAlign: "center" }}
+            >
               No active agents
             </div>
           )}
@@ -624,8 +665,13 @@ export function SnapshotSummaryPanel() {
                 marginBottom: "8px",
               }}
             >
-              <AlertCircle size={16} style={{ color: "var(--color-red-500)" }} />
-              <span style={{ fontWeight: 500, color: "var(--color-red-800)" }}>NTM Alerts</span>
+              <AlertCircle
+                size={16}
+                style={{ color: "var(--color-red-500)" }}
+              />
+              <span style={{ fontWeight: 500, color: "var(--color-red-800)" }}>
+                NTM Alerts
+              </span>
             </div>
             {data.ntm.alerts.map((alert) => (
               <div

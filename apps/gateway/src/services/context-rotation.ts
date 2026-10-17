@@ -17,7 +17,11 @@ import { createCheckpoint, restoreCheckpoint } from "./checkpoint";
 /**
  * Context health levels based on token usage percentage.
  */
-export type ContextHealthLevel = "healthy" | "warning" | "critical" | "emergency";
+export type ContextHealthLevel =
+  | "healthy"
+  | "warning"
+  | "critical"
+  | "emergency";
 
 /**
  * Rotation strategies for handling context window limits.
@@ -96,7 +100,11 @@ export interface ContextHealthStatus {
 export type RotationHandlers = {
   spawnAgent?: (config: unknown) => Promise<{ agentId: string }>;
   terminateAgent?: (agentId: string) => Promise<void>;
-  sendMessage?: (agentId: string, type: "user" | "system", message: string) => Promise<void>;
+  sendMessage?: (
+    agentId: string,
+    type: "user" | "system",
+    message: string,
+  ) => Promise<void>;
   getConversationHistory?: (agentId: string) => Promise<unknown[]>;
   getToolState?: (agentId: string) => Promise<Record<string, unknown>>;
 };
@@ -127,7 +135,10 @@ const agentConfigs = new Map<string, RotationConfig>();
 /**
  * Set rotation configuration for an agent.
  */
-export function setRotationConfig(agentId: string, config: RotationConfigUpdate): void {
+export function setRotationConfig(
+  agentId: string,
+  config: RotationConfigUpdate,
+): void {
   const existing = agentConfigs.get(agentId) || { ...DEFAULT_CONFIG };
   agentConfigs.set(agentId, {
     ...existing,
@@ -176,7 +187,8 @@ export function calculateHealthLevel(
  */
 export function getContextHealth(agent: Agent): ContextHealthStatus {
   const configuredMaxTokens = agent.config.maxTokens ?? DEFAULT_MAX_TOKENS;
-  const maxTokens = configuredMaxTokens > 0 ? configuredMaxTokens : DEFAULT_MAX_TOKENS;
+  const maxTokens =
+    configuredMaxTokens > 0 ? configuredMaxTokens : DEFAULT_MAX_TOKENS;
   if (configuredMaxTokens <= 0) {
     const log = getLogger();
     log.warn(
@@ -185,7 +197,11 @@ export function getContextHealth(agent: Agent): ContextHealthStatus {
     );
   }
   const config = getRotationConfig(agent.id);
-  const level = calculateHealthLevel(agent.tokenUsage, maxTokens, config.thresholds);
+  const level = calculateHealthLevel(
+    agent.tokenUsage,
+    maxTokens,
+    config.thresholds,
+  );
   const usagePercent = (agent.tokenUsage.totalTokens / maxTokens) * 100;
 
   let suggestion: string;
@@ -324,7 +340,10 @@ This summary will be used to refresh your context.`;
     // and inject it as the new context start
   }
 
-  log.info({ agentId: agent.id, checkpointId }, `[ROTATION] Summarize and continue completed`);
+  log.info(
+    { agentId: agent.id, checkpointId },
+    `[ROTATION] Summarize and continue completed`,
+  );
 
   return {
     success: true,
@@ -365,7 +384,10 @@ async function rotateFreshStart(
     await handlers.terminateAgent(agent.id);
   }
 
-  log.info({ oldAgentId: agent.id, newAgentId, checkpointId }, `[ROTATION] Fresh start completed`);
+  log.info(
+    { oldAgentId: agent.id, newAgentId, checkpointId },
+    `[ROTATION] Fresh start completed`,
+  );
 
   return {
     success: true,
@@ -395,7 +417,9 @@ async function rotateCheckpointAndRestart(
   if (handlers?.spawnAgent) {
     // Fail if checkpoint creation failed to prevent data loss
     if (!checkpointId) {
-      throw new Error("Checkpoint creation failed, aborting restart to preserve state");
+      throw new Error(
+        "Checkpoint creation failed, aborting restart to preserve state",
+      );
     }
 
     // Restore from checkpoint to prepare state for new agent
@@ -517,7 +541,9 @@ async function createPreRotationCheckpoint(
     const conversationHistory = handlers?.getConversationHistory
       ? await handlers.getConversationHistory(agent.id)
       : [];
-    const toolState = handlers?.getToolState ? await handlers.getToolState(agent.id) : {};
+    const toolState = handlers?.getToolState
+      ? await handlers.getToolState(agent.id)
+      : {};
 
     const metadata = await createCheckpoint(
       agent.id,
@@ -536,7 +562,10 @@ async function createPreRotationCheckpoint(
   } catch (error) {
     // Log but don't fail rotation if checkpoint fails
     const log = getLogger();
-    log.warn({ error, agentId: agent.id }, "Failed to create pre-rotation checkpoint");
+    log.warn(
+      { error, agentId: agent.id },
+      "Failed to create pre-rotation checkpoint",
+    );
     return undefined;
   }
 }

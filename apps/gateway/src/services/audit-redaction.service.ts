@@ -10,7 +10,14 @@ import { createHash } from "node:crypto";
 /**
  * Mask patterns for different data types.
  */
-export type MaskPattern = "email" | "phone" | "card" | "ssn" | "api_key" | "token" | "custom";
+export type MaskPattern =
+  | "email"
+  | "phone"
+  | "card"
+  | "ssn"
+  | "api_key"
+  | "token"
+  | "custom";
 
 /**
  * Field mask configuration.
@@ -82,8 +89,17 @@ export const DEFAULT_REDACTION_CONFIG: RedactionConfig = {
     /Bearer\s+[A-Za-z0-9\-._~+/]+=*/g,
     // API keys (Stripe-style keys)
     /\u0073\u006b\u005f[a-zA-Z0-9_]{20,}/g,
+    // Anthropic / OpenAI / GitHub tokens
+    /\bsk-ant-[A-Za-z0-9_-]{12,}\b/g,
+    /\bsk-[A-Za-z0-9_-]{20,}\b/g,
+    /\bgh[pousr]_[A-Za-z0-9_]{20,}\b/g,
     // Generic API key patterns
     /api[_-]?key[_-]?[=:]\s*["']?[A-Za-z0-9\-._]{16,}["']?/gi,
+    // Webhook URL query parameters (e.g. ?token=..., &secret=..., ?api_key=...)
+    /[?&](?:token|key|api_key|apikey|secret|password|sig|signature|access_token|auth)=[^&\s"']+/gi,
+    // Slack and Discord webhook URLs
+    /https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9/_-]+/g,
+    /https:\/\/discord(?:app)?\.com\/api\/webhooks\/[0-9]+\/[A-Za-z0-9_-]+/g,
     // AWS access keys
     /\u0041\u004b\u0049\u0041[0-9A-Z]{16}/g,
     // Credit card numbers (basic pattern)
@@ -105,9 +121,18 @@ export class AuditRedactionService {
     this.config = {
       ...DEFAULT_REDACTION_CONFIG,
       ...config,
-      removeFields: [...DEFAULT_REDACTION_CONFIG.removeFields, ...(config.removeFields ?? [])],
-      maskFields: [...DEFAULT_REDACTION_CONFIG.maskFields, ...(config.maskFields ?? [])],
-      hashFields: [...DEFAULT_REDACTION_CONFIG.hashFields, ...(config.hashFields ?? [])],
+      removeFields: [
+        ...DEFAULT_REDACTION_CONFIG.removeFields,
+        ...(config.removeFields ?? []),
+      ],
+      maskFields: [
+        ...DEFAULT_REDACTION_CONFIG.maskFields,
+        ...(config.maskFields ?? []),
+      ],
+      hashFields: [
+        ...DEFAULT_REDACTION_CONFIG.hashFields,
+        ...(config.hashFields ?? []),
+      ],
       redactPatterns: [
         ...DEFAULT_REDACTION_CONFIG.redactPatterns,
         ...(config.redactPatterns ?? []),
@@ -180,8 +205,15 @@ export class AuditRedactionService {
 
       // Check if field should be masked
       const maskConfig = this.getMaskConfig(lowerKey);
-      if (maskConfig && (typeof value === "string" || typeof value === "number")) {
-        result[key] = this.applyMask(String(value), maskConfig.pattern, maskConfig.customMask);
+      if (
+        maskConfig &&
+        (typeof value === "string" || typeof value === "number")
+      ) {
+        result[key] = this.applyMask(
+          String(value),
+          maskConfig.pattern,
+          maskConfig.customMask,
+        );
         continue;
       }
 
@@ -195,7 +227,11 @@ export class AuditRedactionService {
       }
 
       // Recursively process nested objects/arrays
-      if (this.config.recursive && value !== null && typeof value === "object") {
+      if (
+        this.config.recursive &&
+        value !== null &&
+        typeof value === "object"
+      ) {
         result[key] = this.redact(value, visited);
         continue;
       }
@@ -241,7 +277,9 @@ export class AuditRedactionService {
    * Get mask configuration for a field.
    */
   private getMaskConfig(fieldName: string): FieldMaskConfig | undefined {
-    return this.config.maskFields.find((m) => m.field.toLowerCase() === fieldName);
+    return this.config.maskFields.find(
+      (m) => m.field.toLowerCase() === fieldName,
+    );
   }
 
   /**
@@ -323,7 +361,10 @@ export class AuditRedactionService {
   /**
    * Check if a value contains any sensitive patterns.
    */
-  containsSensitiveData(value: unknown, visited: WeakSet<object> = new WeakSet()): boolean {
+  containsSensitiveData(
+    value: unknown,
+    visited: WeakSet<object> = new WeakSet(),
+  ): boolean {
     if (typeof value === "string") {
       for (const pattern of this.config.redactPatterns) {
         pattern.lastIndex = 0;
@@ -346,11 +387,22 @@ export class AuditRedactionService {
     }
 
     if (value !== null && typeof value === "object") {
-      for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      for (const [key, val] of Object.entries(
+        value as Record<string, unknown>,
+      )) {
         const lowerKey = key.toLowerCase();
+        const isAlreadyScrubbed =
+          val === "[REMOVED]" ||
+          (typeof val === "string" &&
+            (val.includes("[REDACTED]") ||
+              val.includes("***") ||
+              val.includes("****") ||
+              val.startsWith("[HASHED:")));
+
         if (
-          this.shouldRemoveField(lowerKey) ||
-          this.getMaskConfig(lowerKey) ||
+          (!isAlreadyScrubbed &&
+            (this.shouldRemoveField(lowerKey) ||
+              Boolean(this.getMaskConfig(lowerKey)))) ||
           this.containsSensitiveData(val, visited)
         ) {
           return true;
@@ -368,12 +420,113 @@ export class AuditRedactionService {
     return new AuditRedactionService({
       ...this.config,
       ...config,
-      removeFields: [...this.config.removeFields, ...(config.removeFields ?? [])],
+      removeFields: [
+        ...this.config.removeFields,
+        ...(config.removeFields ?? []),
+      ],
       maskFields: [...this.config.maskFields, ...(config.maskFields ?? [])],
       hashFields: [...this.config.hashFields, ...(config.hashFields ?? [])],
-      redactPatterns: [...this.config.redactPatterns, ...(config.redactPatterns ?? [])],
+      redactPatterns: [
+        ...this.config.redactPatterns,
+        ...(config.redactPatterns ?? []),
+      ],
     });
   }
+
+  /**
+   * Redact data and return a structured report with counts, matched categories,
+   * elapsed duration, and optional shadow-mode or time-budget enforcement.
+   */
+  redactWithReport<T>(
+    data: T,
+    options?: { budgetMs?: number; shadowMode?: boolean },
+  ): { data: T; report: RedactionReport } {
+    const start = performance.now();
+    const budgetMs = options?.budgetMs ?? 50;
+    const shadowMode = options?.shadowMode ?? false;
+
+    const countsByType: Record<string, number> = {
+      removed_field: 0,
+      masked_field: 0,
+      hashed_field: 0,
+      pattern_match: 0,
+    };
+
+    const countDifferences = (
+      orig: unknown,
+      red: unknown,
+      visited = new WeakSet<object>(),
+    ): void => {
+      if (orig === null || orig === undefined) return;
+      if (typeof orig === "string" && typeof red === "string") {
+        if (orig !== red) {
+          countsByType["pattern_match"] =
+            (countsByType["pattern_match"] ?? 0) + 1;
+        }
+        return;
+      }
+      if (typeof orig === "object") {
+        if (visited.has(orig as object)) return;
+        visited.add(orig as object);
+      }
+      if (Array.isArray(orig) && Array.isArray(red)) {
+        for (let i = 0; i < orig.length; i++) {
+          countDifferences(orig[i], red[i], visited);
+        }
+        return;
+      }
+      if (typeof orig === "object" && typeof red === "object" && red !== null) {
+        const origObj = orig as Record<string, unknown>;
+        const redObj = red as Record<string, unknown>;
+        for (const key of Object.keys(origObj)) {
+          const lowerKey = key.toLowerCase();
+          if (this.shouldRemoveField(lowerKey)) {
+            countsByType["removed_field"] =
+              (countsByType["removed_field"] ?? 0) + 1;
+          } else if (this.getMaskConfig(lowerKey)) {
+            countsByType["masked_field"] =
+              (countsByType["masked_field"] ?? 0) + 1;
+          } else if (this.shouldHashField(lowerKey)) {
+            countsByType["hashed_field"] =
+              (countsByType["hashed_field"] ?? 0) + 1;
+          } else {
+            countDifferences(origObj[key], redObj[key], visited);
+          }
+        }
+      }
+    };
+
+    const redacted = this.redact(data);
+    countDifferences(data, redacted);
+    const durationMs = Number((performance.now() - start).toFixed(3));
+    const totalRedactions = Object.values(countsByType).reduce(
+      (sum, val) => sum + val,
+      0,
+    );
+
+    const report: RedactionReport = {
+      totalRedactions,
+      countsByType,
+      durationMs,
+      budgetMs,
+      budgetExceeded: durationMs > budgetMs,
+      shadowMode,
+    };
+
+    return {
+      data: shadowMode ? data : redacted,
+      report,
+    };
+  }
+}
+
+export interface RedactionReport {
+  totalRedactions: number;
+  countsByType: Record<string, number>;
+  durationMs: number;
+  budgetMs: number;
+  budgetExceeded: boolean;
+  shadowMode: boolean;
 }
 
 /**
@@ -386,6 +539,16 @@ export const auditRedaction = new AuditRedactionService();
  */
 export function redactSensitiveData<T>(data: T): T {
   return auditRedaction.redact(data);
+}
+
+/**
+ * Convenience function to redact data with a structured report.
+ */
+export function redactSensitiveDataWithReport<T>(
+  data: T,
+  options?: { budgetMs?: number; shadowMode?: boolean },
+): { data: T; report: RedactionReport } {
+  return auditRedaction.redactWithReport(data, options);
 }
 
 /**

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   _clearAllSyncData,
+  _evictSyncCacheForTesting,
   cancelSyncOperation,
   completeSyncOperation,
   failSyncOperation,
@@ -490,6 +491,35 @@ describe("Git Sync Operations Service", () => {
 
       updated = await getOperation(operation.id);
       expect(updated?.status).toBe("completed");
+    });
+
+    test("rehydrates operations from git_sync_operations table after cache eviction", async () => {
+      const op = await queueSyncOperation({
+        repositoryId: "repo-persist",
+        agentId: "agent-sync",
+        operation: "push",
+        branch: "feature/persist",
+        targetBranch: "main",
+        priority: 8,
+      });
+      await completeSyncOperation(op.id, {
+        success: true,
+        fromCommit: "aaa1111",
+        toCommit: "bbb2222",
+        filesChanged: 4,
+        insertions: 42,
+        deletions: 7,
+      });
+
+      _evictSyncCacheForTesting();
+
+      const rehydrated = await getOperation(op.id);
+      expect(rehydrated).not.toBeNull();
+      expect(rehydrated!.status).toBe("completed");
+      expect(rehydrated!.request.repositoryId).toBe("repo-persist");
+      expect(rehydrated!.request.agentId).toBe("agent-sync");
+      expect(rehydrated!.result?.toCommit).toBe("bbb2222");
+      expect(rehydrated!.result?.filesChanged).toBe(4);
     });
   });
 });

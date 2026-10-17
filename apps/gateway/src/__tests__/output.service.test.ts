@@ -43,7 +43,12 @@ describe("Output Service", () => {
     });
 
     test("sets correct stream type for error output", () => {
-      const chunk = pushOutput(testAgentId, "error", "Something failed", "stderr");
+      const chunk = pushOutput(
+        testAgentId,
+        "error",
+        "Something failed",
+        "stderr",
+      );
 
       expect(chunk.streamType).toBe("stderr");
     });

@@ -12,6 +12,7 @@
 import type { ServerWebSocket } from "bun";
 import { logger } from "../services/logger";
 import { persistEvent } from "../services/ws-event-log.service";
+import { redactWsPayload } from "../utils/redaction";
 import {
   type Channel,
   channelRequiresAck,
@@ -66,6 +67,28 @@ export interface PendingAck {
 }
 
 /**
+/**
+ * Backpressure configuration for per-connection outbound queues.
+ */
+export interface BackpressureConfig {
+  /** Maximum queued outbound messages per connection before overflow policy triggers (default: 256) */
+  maxOutboundQueueSize: number;
+  /** Policy when per-connection outbound queue is full (default: "drop-oldest") */
+  overflowPolicy: "drop-oldest" | "drop-newest" | "disconnect";
+  /** Disconnect a slow client after this many dropped events when disconnectOnSlowClient is true (default: 500) */
+  slowClientDropThreshold: number;
+  /** Whether to automatically disconnect slow clients that exceed slowClientDropThreshold (default: false) */
+  disconnectOnSlowClient: boolean;
+}
+
+const DEFAULT_BACKPRESSURE_CONFIG: BackpressureConfig = {
+  maxOutboundQueueSize: 256,
+  overflowPolicy: "drop-oldest",
+  slowClientDropThreshold: 500,
+  disconnectOnSlowClient: false,
+};
+
+/**
  * Data attached to each WebSocket connection.
  */
 export interface ConnectionData {
@@ -82,6 +105,12 @@ export interface ConnectionData {
   /** Messages pending acknowledgment (message ID -> pending ack) */
   pendingAcks: Map<string, PendingAck>;
   activeReplays: number;
+  /** Bounded per-connection outbound queue when socket is backpressured */
+  outboundQueue?: Array<{ json: string; channel: string; cursor: string }>;
+  /** Whether the socket is currently backpressured */
+  backpressured?: boolean;
+  /** Total events dropped for this connection due to backpressure */
+  droppedEvents?: number;
 }
 
 /**
@@ -117,10 +146,17 @@ export interface HubStats {
     totalTtlExpirations: number;
     /** Total WebSocket send failures */
     totalSendFailures: number;
+    /** Total events dropped due to per-connection outbound queue backpressure */
+    droppedEvents: number;
+    /** Total slow clients disconnected due to backpressure overflow */
+    slowClientDisconnects: number;
     /** Timestamp of last drop event */
     lastDropAt: string | null;
     /** Per-channel drop counts (only channels with drops) */
-    byChannel: Record<string, { capacityEvictions: number; ttlExpirations: number }>;
+    byChannel: Record<
+      string,
+      { capacityEvictions: number; ttlExpirations: number }
+    >;
   };
 }
 
@@ -139,6 +175,21 @@ export class WebSocketHub {
   private lastStatsReset = Date.now();
   /** WebSocket send failure counter */
   private sendFailureCount = 0;
+  /** Per-connection backpressure dropped event counter */
+  private droppedEventCount = 0;
+  /** Slow client disconnect counter */
+  private slowClientDisconnectCount = 0;
+  /** Timestamp of last backpressure drop */
+  private lastBackpressureDropAt: number | null = null;
+  /** Backpressure configuration */
+  private backpressureConfig: BackpressureConfig;
+
+  constructor(backpressureConfig?: Partial<BackpressureConfig>) {
+    this.backpressureConfig = {
+      ...DEFAULT_BACKPRESSURE_CONFIG,
+      ...backpressureConfig,
+    };
+  }
 
   /**
    * Add a new connection to the hub.
@@ -147,11 +198,17 @@ export class WebSocketHub {
    * @param auth - Authentication context
    * @returns Connection handle with assigned ID
    */
-  addConnection(ws: ServerWebSocket<ConnectionData>, auth: AuthContext): ConnectionHandle {
+  addConnection(
+    ws: ServerWebSocket<ConnectionData>,
+    auth: AuthContext,
+  ): ConnectionHandle {
     const connectionId = ws.data.connectionId;
     this.connections.set(connectionId, ws);
 
-    logger.info({ connectionId, userId: auth.userId }, "WebSocket connection added to hub");
+    logger.info(
+      { connectionId, userId: auth.userId },
+      "WebSocket connection added to hub",
+    );
 
     return {
       connectionId,
@@ -206,7 +263,10 @@ export class WebSocketHub {
     try {
       ws.close(code, reason);
     } catch (err) {
-      logger.warn({ connectionId, error: err }, "Error closing WebSocket connection");
+      logger.warn(
+        { connectionId, error: err },
+        "Error closing WebSocket connection",
+      );
     }
 
     // Remove from hub tracking
@@ -267,7 +327,9 @@ export class WebSocketHub {
     let missedMessages: HubMessage[] | undefined;
     if (cursor) {
       // Replay messages since the cursor (or full buffer if cursor expired/invalid)
-      missedMessages = buffer.isValidCursor(cursor) ? buffer.slice(cursor) : buffer.getAll();
+      missedMessages = buffer.isValidCursor(cursor)
+        ? buffer.slice(cursor)
+        : buffer.getAll();
     }
 
     logger.debug(
@@ -310,7 +372,10 @@ export class WebSocketHub {
       }
     }
 
-    logger.debug({ connectionId, channel: channelStr }, "Connection unsubscribed from channel");
+    logger.debug(
+      { connectionId, channel: channelStr },
+      "Connection unsubscribed from channel",
+    );
   }
 
   /**
@@ -330,9 +395,15 @@ export class WebSocketHub {
   ): HubMessage {
     const channelStr = channelToString(channel);
     const requiresAck = channelRequiresAck(channel);
+    const safePayload = redactWsPayload(payload);
 
     // Create message (cursor will be set by buffer)
-    const message = createHubMessage(type, channelStr, payload, metadata) as HubMessage;
+    const message = createHubMessage(
+      type,
+      channelStr,
+      safePayload,
+      metadata,
+    ) as HubMessage;
 
     // Add to ring buffer
     const buffer = this.getOrCreateBuffer(channelStr);
@@ -364,16 +435,25 @@ export class WebSocketHub {
       };
       const json = serializeServerMessage(serverMessage);
 
-      for (const connId of subs) {
+      for (const connId of Array.from(subs)) {
         const ws = this.connections.get(connId);
         if (ws) {
           try {
-            ws.send(json);
-            // Update the connection's cursor for this channel
-            ws.data.subscriptions.set(channelStr, message.cursor);
+            if (ws.data.backpressured) {
+              this.enqueueOutbound(ws, json, channelStr, message.cursor);
+            } else {
+              const sendResult = ws.send(json);
+              if (typeof sendResult === "number" && sendResult < 0) {
+                ws.data.backpressured = true;
+                this.enqueueOutbound(ws, json, channelStr, message.cursor);
+              } else {
+                // Update the connection's cursor for this channel
+                ws.data.subscriptions.set(channelStr, message.cursor);
+              }
+            }
 
             // Track pending ack if required (with limit enforcement)
-            if (requiresAck) {
+            if (requiresAck && this.connections.has(connId)) {
               if (ws.data.pendingAcks.size >= MAX_PENDING_ACKS_PER_CONNECTION) {
                 logger.warn(
                   {
@@ -407,6 +487,118 @@ export class WebSocketHub {
   }
 
   /**
+   * Enqueue an outbound message for a backpressured connection, enforcing
+   * bounded queue capacity and the configured overflow policy.
+   */
+  private enqueueOutbound(
+    ws: ServerWebSocket<ConnectionData>,
+    json: string,
+    channel: string,
+    cursor: string,
+  ): void {
+    const connId = ws.data.connectionId;
+    if (!ws.data.outboundQueue) {
+      ws.data.outboundQueue = [];
+    }
+
+    const queue = ws.data.outboundQueue;
+    const {
+      maxOutboundQueueSize,
+      overflowPolicy,
+      slowClientDropThreshold,
+      disconnectOnSlowClient,
+    } = this.backpressureConfig;
+
+    if (queue.length >= maxOutboundQueueSize) {
+      this.droppedEventCount++;
+      this.lastBackpressureDropAt = Date.now();
+      ws.data.droppedEvents = (ws.data.droppedEvents ?? 0) + 1;
+
+      const shouldDisconnect =
+        overflowPolicy === "disconnect" ||
+        (disconnectOnSlowClient &&
+          ws.data.droppedEvents >= slowClientDropThreshold);
+
+      if (shouldDisconnect) {
+        this.slowClientDisconnectCount++;
+        logger.info(
+          {
+            connectionId: connId,
+            userId: ws.data.auth.userId,
+            apiKeyId: ws.data.auth.apiKeyId,
+            droppedEvents: ws.data.droppedEvents,
+            queueLength: queue.length,
+          },
+          "Disconnecting slow WebSocket client due to backpressure overflow",
+        );
+        this.closeConnection(connId, 1008, "slow_client_backpressure");
+        return;
+      }
+
+      if (overflowPolicy === "drop-oldest") {
+        queue.shift();
+        queue.push({ json, channel, cursor });
+      }
+      // For "drop-newest", we leave the existing queue untouched and drop the new item.
+
+      logger.debug(
+        {
+          connectionId: connId,
+          userId: ws.data.auth.userId,
+          policy: overflowPolicy,
+          droppedEvents: ws.data.droppedEvents,
+          queueLength: queue.length,
+        },
+        "Dropped WebSocket event due to per-connection backpressure limit",
+      );
+      return;
+    }
+
+    queue.push({ json, channel, cursor });
+  }
+
+  /**
+   * Drain queued outbound messages for a connection once socket backpressure clears.
+   * Returns the number of messages flushed.
+   */
+  drainConnection(connectionId: string): number {
+    const ws = this.connections.get(connectionId);
+    if (!ws) return 0;
+
+    ws.data.backpressured = false;
+    const queue = ws.data.outboundQueue;
+    if (!queue || queue.length === 0) return 0;
+
+    let flushed = 0;
+    while (queue.length > 0) {
+      const next = queue[0]!;
+      try {
+        const res = ws.send(next.json);
+        if (typeof res === "number" && res < 0) {
+          ws.data.backpressured = true;
+          break;
+        }
+        queue.shift();
+        ws.data.subscriptions.set(next.channel, next.cursor);
+        flushed++;
+      } catch {
+        this.sendFailureCount++;
+        queue.shift();
+      }
+    }
+
+    return flushed;
+  }
+
+  /**
+   * Get the current per-connection outbound queue length.
+   */
+  getOutboundQueueSize(connectionId: string): number {
+    const ws = this.connections.get(connectionId);
+    return ws?.data.outboundQueue?.length ?? 0;
+  }
+
+  /**
    * Handle acknowledgment of messages from a client.
    *
    * @param connectionId - The connection acknowledging messages
@@ -436,7 +628,10 @@ export class WebSocketHub {
     }
 
     if (acknowledged.length > 0) {
-      logger.debug({ connectionId, acknowledged: acknowledged.length }, "Messages acknowledged");
+      logger.debug(
+        { connectionId, acknowledged: acknowledged.length },
+        "Messages acknowledged",
+      );
     }
 
     return {
@@ -465,13 +660,19 @@ export class WebSocketHub {
    * @param messageIds - Optional subset of message IDs to replay
    * @returns Number of messages replayed
    */
-  replayPendingAcks(connectionId: string, messageIds?: ReadonlySet<string>): number {
+  replayPendingAcks(
+    connectionId: string,
+    messageIds?: ReadonlySet<string>,
+  ): number {
     const ws = this.connections.get(connectionId);
     if (!ws) return 0;
 
     let replayed = 0;
     const entries = messageIds
-      ? Array.from(messageIds, (id) => [id, ws.data.pendingAcks.get(id)] as const)
+      ? Array.from(
+          messageIds,
+          (id) => [id, ws.data.pendingAcks.get(id)] as const,
+        )
       : Array.from(ws.data.pendingAcks.entries());
 
     for (const [msgId, pending] of entries) {
@@ -495,7 +696,10 @@ export class WebSocketHub {
     }
 
     if (replayed > 0) {
-      logger.info({ connectionId, replayed }, "Replayed pending ack messages on reconnect");
+      logger.info(
+        { connectionId, replayed },
+        "Replayed pending ack messages on reconnect",
+      );
     }
 
     return replayed;
@@ -535,7 +739,8 @@ export class WebSocketHub {
       const messages = buffer.getAll(limit + 1);
       const hasMore = messages.length > limit;
       const trimmed = hasMore ? messages.slice(0, limit) : messages;
-      const lastCursor = trimmed.length > 0 ? trimmed[trimmed.length - 1]?.cursor : undefined;
+      const lastCursor =
+        trimmed.length > 0 ? trimmed[trimmed.length - 1]?.cursor : undefined;
 
       return {
         messages: trimmed,
@@ -549,7 +754,8 @@ export class WebSocketHub {
     const messages = buffer.slice(cursor, limit + 1);
     const hasMore = messages.length > limit;
     const trimmed = hasMore ? messages.slice(0, limit) : messages;
-    const lastCursor = trimmed.length > 0 ? trimmed[trimmed.length - 1]?.cursor : undefined;
+    const lastCursor =
+      trimmed.length > 0 ? trimmed[trimmed.length - 1]?.cursor : undefined;
 
     return {
       messages: trimmed,
@@ -628,7 +834,10 @@ export class WebSocketHub {
               });
             }
           } catch (err) {
-            logger.warn({ connectionId, error: err }, "Failed to replay message");
+            logger.warn(
+              { connectionId, error: err },
+              "Failed to replay message",
+            );
           }
         }
 
@@ -648,7 +857,10 @@ export class WebSocketHub {
     }
 
     // Also replay any previously pending acks that weren't acknowledged
-    const pendingAcksReplayed = this.replayPendingAcks(connectionId, pendingAckIdsBefore);
+    const pendingAcksReplayed = this.replayPendingAcks(
+      connectionId,
+      pendingAckIdsBefore,
+    );
 
     logger.info(
       { connectionId, replayed, expired: expired.length, pendingAcksReplayed },
@@ -732,7 +944,8 @@ export class WebSocketHub {
       const channel = parseChannel(channelStr);
       if (channel) {
         const prefix = getChannelTypePrefix(channel);
-        subscriptionsByChannel[prefix] = (subscriptionsByChannel[prefix] ?? 0) + subs.size;
+        subscriptionsByChannel[prefix] =
+          (subscriptionsByChannel[prefix] ?? 0) + subs.size;
       }
     }
 
@@ -759,7 +972,10 @@ export class WebSocketHub {
     let totalCapacityEvictions = 0;
     let totalTtlExpirations = 0;
     let lastDropAt: number | null = null;
-    const byChannel: Record<string, { capacityEvictions: number; ttlExpirations: number }> = {};
+    const byChannel: Record<
+      string,
+      { capacityEvictions: number; ttlExpirations: number }
+    > = {};
 
     for (const [channelStr, buffer] of this.buffers) {
       const stats = buffer.dropStats;
@@ -777,11 +993,21 @@ export class WebSocketHub {
         totalCapacityEvictions += stats.capacityEvictions;
         totalTtlExpirations += stats.ttlExpirations;
 
-        const lastDrop = Math.max(stats.lastEvictionAt ?? 0, stats.lastExpirationAt ?? 0);
+        const lastDrop = Math.max(
+          stats.lastEvictionAt ?? 0,
+          stats.lastExpirationAt ?? 0,
+        );
         if (lastDrop > 0 && (lastDropAt === null || lastDrop > lastDropAt)) {
           lastDropAt = lastDrop;
         }
       }
+    }
+
+    if (
+      this.lastBackpressureDropAt !== null &&
+      (lastDropAt === null || this.lastBackpressureDropAt > lastDropAt)
+    ) {
+      lastDropAt = this.lastBackpressureDropAt;
     }
 
     return {
@@ -793,6 +1019,8 @@ export class WebSocketHub {
         totalCapacityEvictions,
         totalTtlExpirations,
         totalSendFailures: this.sendFailureCount,
+        droppedEvents: this.droppedEventCount,
+        slowClientDisconnects: this.slowClientDisconnectCount,
         lastDropAt: lastDropAt ? new Date(lastDropAt).toISOString() : null,
         byChannel,
       },

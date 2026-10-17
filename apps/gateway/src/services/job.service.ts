@@ -35,6 +35,7 @@ import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
 import type { MessageType } from "../ws/messages";
 import { logger as baseLogger, createChildLogger } from "./logger";
+import { withDbSpan, withJobSpan } from "./otel.service";
 
 const JOB_LIST_CURSOR_SHIFT = 10_000_000_000_000;
 
@@ -95,7 +96,11 @@ class JobExecutionContext implements JobContext {
     private readonly service: JobService,
   ) {}
 
-  async updateProgress(current: number, total: number, message?: string): Promise<void> {
+  async updateProgress(
+    current: number,
+    total: number,
+    message?: string,
+  ): Promise<void> {
     // Guard against division by zero - if total is 0, percentage is 0
     const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
     const previousProgress = this.job.progress;
@@ -142,7 +147,11 @@ class JobExecutionContext implements JobContext {
     this.cancelled = true;
   }
 
-  log(level: JobLogLevel, message: string, data?: Record<string, unknown>): void {
+  log(
+    level: JobLogLevel,
+    message: string,
+    data?: Record<string, unknown>,
+  ): void {
     this.service.addJobLog(this.job.id, level, message, data);
   }
 }
@@ -171,7 +180,9 @@ class JobExecution {
     }, this.timeoutMs);
 
     try {
-      const output = await this.handler.execute(this.context);
+      const output = await withJobSpan(this.job.type, this.job.id, () =>
+        this.handler.execute(this.context),
+      );
       this.job.output = output as Record<string, unknown>;
     } finally {
       if (this.timeout) {
@@ -191,7 +202,10 @@ class JobExecution {
 
     if (this.handler.onCancel) {
       this.handler.onCancel(this.context).catch((err) => {
-        baseLogger.error({ jobId: this.job.id, error: err }, "Job cancel handler error");
+        baseLogger.error(
+          { jobId: this.job.id, error: err },
+          "Job cancel handler error",
+        );
       });
     }
   }
@@ -214,11 +228,16 @@ export class JobService {
   private handlers = new Map<JobType, JobHandler>();
   private running = new Map<string, JobExecution>();
   /** Track jobs that are starting but not yet in `running` with their type/session for concurrency checks */
-  private starting = new Map<string, { type: JobType; sessionId: string | undefined }>();
+  private starting = new Map<
+    string,
+    { type: JobType; sessionId: string | undefined }
+  >();
   private started = false;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
 
-  constructor(private readonly config: JobQueueConfig = DEFAULT_JOB_QUEUE_CONFIG) {}
+  constructor(
+    private readonly config: JobQueueConfig = DEFAULT_JOB_QUEUE_CONFIG,
+  ) {}
 
   // ==========================================================================
   // Lifecycle Methods
@@ -348,25 +367,27 @@ export class JobService {
     };
 
     // Persist to database
-    await db.insert(jobs).values({
-      id: job.id,
-      type: job.type,
-      name: job.name,
-      status: job.status,
-      priority: job.priority,
-      sessionId: job.sessionId,
-      agentId: job.agentId,
-      input: job.input,
-      progressCurrent: job.progress.current,
-      progressTotal: job.progress.total,
-      progressMessage: job.progress.message,
-      createdAt: job.createdAt,
-      retryAttempts: job.retry.attempts,
-      retryMaxAttempts: job.retry.maxAttempts,
-      retryBackoffMs: job.retry.backoffMs,
-      metadata: job.metadata,
-      correlationId: job.correlationId,
-    });
+    await withDbSpan("INSERT", "jobs", () =>
+      db.insert(jobs).values({
+        id: job.id,
+        type: job.type,
+        name: job.name,
+        status: job.status,
+        priority: job.priority,
+        sessionId: job.sessionId,
+        agentId: job.agentId,
+        input: job.input,
+        progressCurrent: job.progress.current,
+        progressTotal: job.progress.total,
+        progressMessage: job.progress.message,
+        createdAt: job.createdAt,
+        retryAttempts: job.retry.attempts,
+        retryMaxAttempts: job.retry.maxAttempts,
+        retryBackoffMs: job.retry.backoffMs,
+        metadata: job.metadata,
+        correlationId: job.correlationId,
+      }),
+    );
 
     log.info({ jobId: id, type: input.type, correlationId }, "Job created");
 
@@ -387,7 +408,9 @@ export class JobService {
    * Get a job by ID.
    */
   async getJob(jobId: string): Promise<Job | null> {
-    const rows = await db.select().from(jobs).where(eq(jobs.id, jobId)).limit(1);
+    const rows = await withDbSpan("SELECT", "jobs", () =>
+      db.select().from(jobs).where(eq(jobs.id, jobId)).limit(1),
+    );
 
     const [row] = rows;
     if (!row) return null;
@@ -444,12 +467,18 @@ export class JobService {
               createdAt: jobs.createdAt,
             })
             .from(jobs)
-            .where(whereClause ? and(whereClause, eq(jobs.id, cursorId)) : eq(jobs.id, cursorId))
+            .where(
+              whereClause
+                ? and(whereClause, eq(jobs.id, cursorId))
+                : eq(jobs.id, cursorId),
+            )
             .limit(1);
           if (cursorRow) {
             cursorData = {
               id: cursorId,
-              sortValue: cursorRow.priority * JOB_LIST_CURSOR_SHIFT + cursorRow.createdAt.getTime(),
+              sortValue:
+                cursorRow.priority * JOB_LIST_CURSOR_SHIFT +
+                cursorRow.createdAt.getTime(),
             };
           }
         }
@@ -461,12 +490,16 @@ export class JobService {
     if (cursorData) {
       const cursorCondition = or(
         lt(combinedSortValue, cursorData.sortValue),
-        and(eq(combinedSortValue, cursorData.sortValue), lt(jobs.id, cursorData.id)),
+        and(
+          eq(combinedSortValue, cursorData.sortValue),
+          lt(jobs.id, cursorData.id),
+        ),
       );
       if (cursorCondition) pageConditions.push(cursorCondition);
     }
 
-    const pageWhereClause = pageConditions.length > 0 ? and(...pageConditions) : undefined;
+    const pageWhereClause =
+      pageConditions.length > 0 ? and(...pageConditions) : undefined;
 
     let pageQuery = db
       .select()
@@ -492,7 +525,8 @@ export class JobService {
     let nextCursor: string | undefined;
     if (hasMore && resultRows.length > 0) {
       const lastRow = resultRows[resultRows.length - 1]!;
-      const sortValue = lastRow.priority * JOB_LIST_CURSOR_SHIFT + lastRow.createdAt.getTime();
+      const sortValue =
+        lastRow.priority * JOB_LIST_CURSOR_SHIFT + lastRow.createdAt.getTime();
       nextCursor = createCursor(lastRow.id, sortValue);
     }
 
@@ -516,8 +550,15 @@ export class JobService {
       throw new JobNotFoundError(jobId);
     }
 
-    if (job.status === "completed" || job.status === "cancelled" || job.status === "failed") {
-      log.warn({ jobId, status: job.status }, "Cannot cancel job in terminal state");
+    if (
+      job.status === "completed" ||
+      job.status === "cancelled" ||
+      job.status === "failed"
+    ) {
+      log.warn(
+        { jobId, status: job.status },
+        "Cannot cancel job in terminal state",
+      );
       return job;
     }
 
@@ -569,7 +610,11 @@ export class JobService {
       throw new JobNotFoundError(jobId);
     }
 
-    if (job.status !== "failed" && job.status !== "cancelled" && job.status !== "timeout") {
+    if (
+      job.status !== "failed" &&
+      job.status !== "cancelled" &&
+      job.status !== "timeout"
+    ) {
       throw new Error(`Cannot retry job in status: ${job.status}`);
     }
 
@@ -778,7 +823,8 @@ export class JobService {
     });
 
     // Also log to service logger
-    const logMethod = level === "error" ? "error" : level === "warn" ? "warn" : "info";
+    const logMethod =
+      level === "error" ? "error" : level === "warn" ? "warn" : "info";
     baseLogger[logMethod]({ jobId, ...data }, message);
   }
 
@@ -802,7 +848,10 @@ export class JobService {
       .select()
       .from(jobs)
       .where(
-        and(eq(jobs.status, "pending"), or(isNull(jobs.retryNextAt), lte(jobs.retryNextAt, now))),
+        and(
+          eq(jobs.status, "pending"),
+          or(isNull(jobs.retryNextAt), lte(jobs.retryNextAt, now)),
+        ),
       )
       .orderBy(desc(jobs.priority), jobs.createdAt)
       .limit(globalConcurrency - (this.running.size + this.starting.size));
@@ -817,7 +866,10 @@ export class JobService {
         this.starting.set(job.id, { type: job.type, sessionId: job.sessionId });
         this.startJob(job)
           .catch((err) => {
-            baseLogger.error({ jobId: job.id, error: err }, "Failed to start job");
+            baseLogger.error(
+              { jobId: job.id, error: err },
+              "Failed to start job",
+            );
           })
           .finally(() => {
             this.starting.delete(job.id);
@@ -876,11 +928,17 @@ export class JobService {
    * Recover jobs that were left running when the service stopped.
    */
   private async recoverStaleJobs(): Promise<void> {
-    const staleJobs = await db.select().from(jobs).where(eq(jobs.status, "running"));
+    const staleJobs = await db
+      .select()
+      .from(jobs)
+      .where(eq(jobs.status, "running"));
 
     if (staleJobs.length === 0) return;
 
-    baseLogger.info({ count: staleJobs.length }, "Recovering stale jobs from previous run");
+    baseLogger.info(
+      { count: staleJobs.length },
+      "Recovering stale jobs from previous run",
+    );
 
     // Reset them to pending so they can be picked up again
     // OR mark them failed if we want manual intervention.
@@ -982,7 +1040,9 @@ export class JobService {
    */
   private async completeJob(job: Job): Promise<void> {
     const now = new Date();
-    const durationMs = job.startedAt ? now.getTime() - job.startedAt.getTime() : 0;
+    const durationMs = job.startedAt
+      ? now.getTime() - job.startedAt.getTime()
+      : 0;
 
     await db
       .update(jobs)
@@ -1016,7 +1076,9 @@ export class JobService {
    */
   private async failJob(job: Job, error: JobError): Promise<void> {
     const now = new Date();
-    const durationMs = job.startedAt ? now.getTime() - job.startedAt.getTime() : 0;
+    const durationMs = job.startedAt
+      ? now.getTime() - job.startedAt.getTime()
+      : 0;
 
     await db
       .update(jobs)
@@ -1067,14 +1129,17 @@ export class JobService {
 
       // Schedule retry
       const backoffMs = Math.min(
-        job.retry.backoffMs * retryConfig.backoffMultiplier ** job.retry.attempts,
+        job.retry.backoffMs *
+          retryConfig.backoffMultiplier ** job.retry.attempts,
         retryConfig.maxBackoffMs,
       );
       const desiredRetryAtMs = Date.now() + backoffMs;
       // Drizzle SQLite `timestamp` columns store epoch seconds (floor). Round up
       // so we never make the job eligible *before* the intended retry time.
       const nextRetryAtSeconds =
-        backoffMs > 0 ? Math.ceil(desiredRetryAtMs / 1000) : Math.floor(desiredRetryAtMs / 1000);
+        backoffMs > 0
+          ? Math.ceil(desiredRetryAtMs / 1000)
+          : Math.floor(desiredRetryAtMs / 1000);
       const nextRetryAt = new Date(nextRetryAtSeconds * 1000);
 
       await db
@@ -1116,7 +1181,9 @@ export class JobService {
   private rowToJob(row: typeof jobs.$inferSelect): Job {
     // Guard against division by zero - if progressTotal is 0, percentage is 0
     const percentage =
-      row.progressTotal > 0 ? Math.round((row.progressCurrent / row.progressTotal) * 100) : 0;
+      row.progressTotal > 0
+        ? Math.round((row.progressCurrent / row.progressTotal) * 100)
+        : 0;
     const progress: Job["progress"] = {
       current: row.progressCurrent,
       total: row.progressTotal,
@@ -1167,8 +1234,10 @@ export class JobService {
     if (row.output) job.output = row.output as Record<string, unknown>;
     if (row.startedAt) job.startedAt = row.startedAt;
     if (row.completedAt) job.completedAt = row.completedAt;
-    if (row.estimatedDurationMs !== null) job.estimatedDurationMs = row.estimatedDurationMs;
-    if (row.actualDurationMs !== null) job.actualDurationMs = row.actualDurationMs;
+    if (row.estimatedDurationMs !== null)
+      job.estimatedDurationMs = row.estimatedDurationMs;
+    if (row.actualDurationMs !== null)
+      job.actualDurationMs = row.actualDurationMs;
     if (error) job.error = error;
     if (cancellation) job.cancellation = cancellation;
     if (row.correlationId) job.correlationId = row.correlationId;
@@ -1178,10 +1247,16 @@ export class JobService {
   /**
    * Emit a job event via WebSocket.
    */
-  private emitEvent(type: MessageType, job: Job, data: Record<string, unknown>): void {
+  private emitEvent(
+    type: MessageType,
+    job: Job,
+    data: Record<string, unknown>,
+  ): void {
     try {
       const channel: Channel = { type: "system:jobs" };
-      const metadata = job.correlationId ? { correlationId: job.correlationId } : {};
+      const metadata = job.correlationId
+        ? { correlationId: job.correlationId }
+        : {};
       getHub().publish(
         channel,
         type,
@@ -1225,7 +1300,9 @@ export class JobService {
     const completedCutoff = new Date(
       Date.now() - cleanupConfig.completedRetentionHours * 60 * 60 * 1000,
     );
-    const failedCutoff = new Date(Date.now() - cleanupConfig.failedRetentionHours * 60 * 60 * 1000);
+    const failedCutoff = new Date(
+      Date.now() - cleanupConfig.failedRetentionHours * 60 * 60 * 1000,
+    );
 
     const deletedRows = await db
       .delete(jobs)

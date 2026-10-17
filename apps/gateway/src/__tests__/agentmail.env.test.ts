@@ -26,7 +26,9 @@ function restoreEnv(): void {
   }
 }
 
-function setGlobalAgentMailToolCaller(callTool: AgentMailToolCaller): () => void {
+function setGlobalAgentMailToolCaller(
+  callTool: AgentMailToolCaller,
+): () => void {
   const globalAny = globalThis as {
     agentMailCallTool?: AgentMailToolCaller;
   };
@@ -45,7 +47,10 @@ afterEach(() => {
 describe("createAgentMailServiceFromEnv", () => {
   it("falls back to the client default TTL when AGENT_MAIL_DEFAULT_TTL_SECONDS is invalid", async () => {
     const calls: ToolCall[] = [];
-    const restoreGlobal = setGlobalAgentMailToolCaller((async (tool: string, input: unknown) => {
+    const restoreGlobal = setGlobalAgentMailToolCaller((async (
+      tool: string,
+      input: unknown,
+    ) => {
       calls.push({ tool, input });
       return { messageId: "msg-1", delivered: true };
     }) satisfies AgentMailToolCaller);
@@ -72,7 +77,10 @@ describe("createAgentMailServiceFromEnv", () => {
 
   it("falls back to the client default TTL when AGENT_MAIL_DEFAULT_TTL_SECONDS is non-positive", async () => {
     const calls: ToolCall[] = [];
-    const restoreGlobal = setGlobalAgentMailToolCaller((async (tool: string, input: unknown) => {
+    const restoreGlobal = setGlobalAgentMailToolCaller((async (
+      tool: string,
+      input: unknown,
+    ) => {
       calls.push({ tool, input });
       return { messageId: "msg-1", delivered: true };
     }) satisfies AgentMailToolCaller);
@@ -98,7 +106,10 @@ describe("createAgentMailServiceFromEnv", () => {
 
   it("uses AGENT_MAIL_DEFAULT_TTL_SECONDS when it is a positive integer", async () => {
     const calls: ToolCall[] = [];
-    const restoreGlobal = setGlobalAgentMailToolCaller((async (tool: string, input: unknown) => {
+    const restoreGlobal = setGlobalAgentMailToolCaller((async (
+      tool: string,
+      input: unknown,
+    ) => {
       calls.push({ tool, input });
       return { messageId: "msg-1", delivered: true };
     }) satisfies AgentMailToolCaller);

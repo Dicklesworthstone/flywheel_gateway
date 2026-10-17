@@ -5,7 +5,15 @@
  * Also tests conflict detection, TTL handling, and pattern matching.
  */
 
-import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  test,
+} from "bun:test";
 
 // Mock the logger with child method
 const mockLogger = {
@@ -26,6 +34,7 @@ afterAll(() => {
 
 import {
   _clearAllReservations,
+  _evictReservationCacheForTesting,
   checkReservation,
   createReservation,
   getReservation,
@@ -143,7 +152,9 @@ describe("Reservation Service", () => {
 
       expect(result.granted).toBe(false);
       expect(result.conflicts.length).toBeGreaterThan(0);
-      expect(result.conflicts[0]!.existingReservation.requesterId).toBe("agent-1");
+      expect(result.conflicts[0]!.existingReservation.requesterId).toBe(
+        "agent-1",
+      );
     });
 
     test("allows shared reservations to overlap", async () => {
@@ -413,7 +424,9 @@ describe("Reservation Service", () => {
 
       expect(renewResult.renewed).toBe(true);
       expect(renewResult.newExpiresAt).toBeInstanceOf(Date);
-      expect(renewResult.newExpiresAt!.getTime()).toBeGreaterThan(originalExpiry.getTime());
+      expect(renewResult.newExpiresAt!.getTime()).toBeGreaterThan(
+        originalExpiry.getTime(),
+      );
     });
 
     test("uses original TTL if additionalTtl not provided", async () => {
@@ -455,8 +468,12 @@ describe("Reservation Service", () => {
       // Renewal extends from original expiry (which is still in the future)
       // New expiry = originalExpiry + 1 hour (capped from 2 hours)
       const expectedExpiry = originalExpiry.getTime() + 3600 * 1000;
-      expect(renewResult.newExpiresAt!.getTime()).toBeLessThanOrEqual(expectedExpiry + 100);
-      expect(renewResult.newExpiresAt!.getTime()).toBeGreaterThanOrEqual(expectedExpiry - 100);
+      expect(renewResult.newExpiresAt!.getTime()).toBeLessThanOrEqual(
+        expectedExpiry + 100,
+      );
+      expect(renewResult.newExpiresAt!.getTime()).toBeGreaterThanOrEqual(
+        expectedExpiry - 100,
+      );
     });
 
     test("returns error for non-existent reservation", async () => {
@@ -687,7 +704,9 @@ describe("Reservation Service", () => {
         endingBefore: page2.prevCursor!,
       });
 
-      expect(back.reservations.map((r) => r.id)).toEqual(page1.reservations.map((r) => r.id));
+      expect(back.reservations.map((r) => r.id)).toEqual(
+        page1.reservations.map((r) => r.id),
+      );
       expect(back.hasMore).toBe(true);
       expect(back.nextCursor).toBeDefined();
       expect(back.prevCursor).toBeUndefined();
@@ -951,6 +970,47 @@ describe("Reservation Service", () => {
       expect(back.hasMore).toBe(true);
       expect(back.nextCursor).toBeDefined();
       expect(back.prevCursor).toBeUndefined();
+    });
+  });
+
+  describe("SQLite persistence & rehydration", () => {
+    test("rehydrates active reservations from file_reservations table after cache eviction", async () => {
+      const created = await createReservation({
+        projectId: "project-persist",
+        agentId: "agent-persist",
+        patterns: ["src/core/**/*.ts", "packages/shared/**/*.ts"],
+        mode: "exclusive",
+        ttl: 600,
+        reason: "Persist across restart",
+        taskId: "bd-rza6z.7",
+      });
+      expect(created.granted).toBe(true);
+      const reservationId = created.reservation!.id;
+
+      // Simulate process restart by evicting in-memory Maps without clearing SQLite
+      _evictReservationCacheForTesting();
+
+      const rehydrated = await getReservation(reservationId);
+      expect(rehydrated).not.toBeNull();
+      expect(rehydrated!.projectId).toBe("project-persist");
+      expect(rehydrated!.agentId).toBe("agent-persist");
+      expect(rehydrated!.patterns).toEqual([
+        "src/core/**/*.ts",
+        "packages/shared/**/*.ts",
+      ]);
+      expect(rehydrated!.mode).toBe("exclusive");
+      expect(rehydrated!.metadata.reason).toBe("Persist across restart");
+      expect(rehydrated!.metadata.taskId).toBe("bd-rza6z.7");
+
+      // Conflict detection works against rehydrated reservation
+      const check = await checkReservation({
+        projectId: "project-persist",
+        agentId: "agent-other",
+        filePath: "src/core/engine.ts",
+      });
+      expect(check.allowed).toBe(false);
+      expect(check.heldBy).toBe("agent-persist");
+      expect(check.reservationId).toBe(reservationId);
     });
   });
 });

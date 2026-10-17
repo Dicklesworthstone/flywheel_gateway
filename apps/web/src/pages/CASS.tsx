@@ -14,9 +14,12 @@ import { StatusPill } from "../components/ui/StatusPill";
 // ============================================================================
 
 interface CassSearchResult {
-  file: string;
-  line: number;
-  content: string;
+  file?: string;
+  source_path?: string;
+  line?: number;
+  line_number?: number;
+  content?: string;
+  snippet?: string;
   agent?: string;
   workspace?: string;
   timestamp?: string;
@@ -25,16 +28,20 @@ interface CassSearchResult {
 
 interface CassSearchResponse {
   data: {
-    results: CassSearchResult[];
-    total: number;
+    results?: CassSearchResult[];
+    hits?: CassSearchResult[];
+    total?: number;
+    totalMatches?: number;
+    count?: number;
     query: string;
-    mode: string;
+    mode?: string;
   };
 }
 
 interface CassHealthResponse {
   data: {
     available: boolean;
+    healthy?: boolean;
     version?: string;
     indexedSessions?: number;
     lastIndexed?: string;
@@ -43,10 +50,31 @@ interface CassHealthResponse {
 
 interface CassViewResponse {
   data: {
-    file: string;
-    lines: Array<{ line: number; content: string }>;
-    startLine: number;
-    endLine: number;
+    file?: string;
+    path?: string;
+    lineNumber?: number;
+    content?: string;
+    contextBefore?: string[];
+    contextAfter?: string[];
+    lines?: Array<{ line: number; content: string }>;
+    startLine?: number;
+    endLine?: number;
+  };
+}
+
+interface CassExpandedMessage {
+  lineNumber: number;
+  role: string;
+  content: string;
+  timestamp?: string;
+}
+
+interface CassExpandResponse {
+  data: {
+    path: string;
+    targetLine: number;
+    messages: CassExpandedMessage[];
+    totalMessages: number;
   };
 }
 
@@ -72,25 +100,41 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 function SearchResultRow({
   result,
   onView,
+  onExpand,
 }: {
   result: CassSearchResult;
   onView: (file: string, line: number) => void;
+  onExpand: (file: string, line: number) => void;
 }) {
+  const filePath = result.file ?? result.source_path ?? "unknown";
+  const lineNum = result.line ?? result.line_number ?? 1;
+  const textContent = result.content ?? result.snippet ?? "";
+
   return (
     <div className="table__row">
-      <span>
+      <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <button
           className="ghost-button mono"
           type="button"
-          onClick={() => onView(result.file, result.line)}
+          onClick={() => onView(filePath, lineNum)}
         >
-          {result.file.split("/").slice(-2).join("/")}:{result.line}
+          {filePath.split("/").slice(-2).join("/")}:{lineNum}
+        </button>
+        <button
+          className="ghost-button"
+          type="button"
+          onClick={() => onExpand(filePath, lineNum)}
+          title="Expand surrounding conversation messages"
+        >
+          Expand
         </button>
       </span>
       <span>{result.agent ?? "—"}</span>
-      <span className="result-text">{result.content.slice(0, 200)}</span>
+      <span className="result-text">{textContent.slice(0, 200)}</span>
       <span className="muted">
-        {result.score !== null && result.score !== undefined ? result.score.toFixed(2) : "—"}
+        {result.score !== null && result.score !== undefined
+          ? result.score.toFixed(2)
+          : "—"}
       </span>
     </div>
   );
@@ -120,6 +164,38 @@ function SessionViewer({
   );
 }
 
+function ExpandedContextViewer({ data }: { data: CassExpandResponse["data"] }) {
+  return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <div className="card__header">
+        <h3 className="mono">
+          Expanded Context: {data.path.split("/").slice(-3).join("/")} (line{" "}
+          {data.targetLine})
+        </h3>
+        <StatusPill tone="info">{data.totalMessages} messages</StatusPill>
+      </div>
+      <div className="result-list">
+        {data.messages.map((m) => (
+          <div key={`${m.lineNumber}:${m.role}`} className="result-item">
+            <StatusPill
+              tone={
+                m.lineNumber === data.targetLine
+                  ? "positive"
+                  : m.role === "assistant"
+                    ? "info"
+                    : "muted"
+              }
+            >
+              L{m.lineNumber} · {m.role}
+            </StatusPill>
+            <span className="result-text">{m.content}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ============================================================================
 // Page
 // ============================================================================
@@ -131,7 +207,13 @@ export function CASSPage() {
   const [mode, setMode] = useState<SearchMode>("lexical");
   const [agentFilter, setAgentFilter] = useState("");
   const [limit, setLimit] = useState(20);
-  const [viewerData, setViewerData] = useState<CassViewResponse["data"] | null>(null);
+  const [viewerData, setViewerData] = useState<{
+    file: string;
+    lines: Array<{ line: number; content: string }>;
+  } | null>(null);
+  const [expandedData, setExpandedData] = useState<
+    CassExpandResponse["data"] | null
+  >(null);
 
   const { data: health } = useQuery({
     queryKey: ["cass", "health"],
@@ -153,11 +235,45 @@ export function CASSPage() {
 
   const viewMutation = useMutation({
     mutationFn: ({ file, line }: { file: string; line: number }) =>
-      fetchJson<CassViewResponse>(`/cass/view/${encodeURIComponent(file)}?line=${line}&context=10`),
-    onSuccess: (data) => setViewerData(data.data),
+      fetchJson<CassViewResponse>(
+        `/cass/view/${encodeURIComponent(file)}?line=${line}&context=10`,
+      ),
+    onSuccess: (res) => {
+      const d = res.data;
+      const file = d.file ?? d.path ?? "unknown";
+      if (Array.isArray(d.lines) && d.lines.length > 0) {
+        setViewerData({ file, lines: d.lines });
+        return;
+      }
+      const lineNumber = d.lineNumber ?? 1;
+      const before = d.contextBefore ?? [];
+      const after = d.contextAfter ?? [];
+      const start = Math.max(1, lineNumber - before.length);
+      const lines = [
+        ...before.map((c, idx) => ({ line: start + idx, content: c })),
+        { line: lineNumber, content: d.content ?? "" },
+        ...after.map((c, idx) => ({ line: lineNumber + idx + 1, content: c })),
+      ];
+      setViewerData({ file, lines });
+    },
   });
 
-  const results = searchMutation.data?.data?.results ?? [];
+  const expandMutation = useMutation({
+    mutationFn: ({ file, line }: { file: string; line: number }) =>
+      fetchJson<CassExpandResponse>(
+        `/cass/expand/${encodeURIComponent(file)}?line=${line}&context=3`,
+      ),
+    onSuccess: (res) => setExpandedData(res.data),
+  });
+
+  const searchPayload = searchMutation.data?.data;
+  const results = searchPayload?.results ?? searchPayload?.hits ?? [];
+  const totalMatches =
+    searchPayload?.total ??
+    searchPayload?.totalMatches ??
+    searchPayload?.count ??
+    results.length;
+  const searchMode = searchPayload?.mode ?? mode;
   const available = health?.data?.available ?? false;
 
   return (
@@ -165,7 +281,9 @@ export function CASSPage() {
       <div className="page__header">
         <h2>Session Search</h2>
         <StatusPill tone={available ? "positive" : "warning"}>
-          {available ? `CASS v${health?.data?.version ?? "?"}` : "unavailable"}
+          {available
+            ? `CASS v${health?.data?.version ?? "ready"}`
+            : "unavailable"}
         </StatusPill>
       </div>
 
@@ -175,7 +293,11 @@ export function CASSPage() {
           <p className="muted">
             {health.data.indexedSessions ?? 0} sessions indexed
             {health.data.lastIndexed && (
-              <> | Last indexed: {new Date(health.data.lastIndexed).toLocaleString()}</>
+              <>
+                {" "}
+                | Last indexed:{" "}
+                {new Date(health.data.lastIndexed).toLocaleString()}
+              </>
             )}
           </p>
         </div>
@@ -242,7 +364,7 @@ export function CASSPage() {
           <div className="card__header">
             <h3>Results</h3>
             <StatusPill tone="muted">
-              {searchMutation.data.data.total} matches ({searchMutation.data.data.mode})
+              {totalMatches} matches ({searchMode})
             </StatusPill>
           </div>
           {results.length === 0 && <p className="muted">No results found.</p>}
@@ -256,9 +378,12 @@ export function CASSPage() {
               </div>
               {results.map((r, i) => (
                 <SearchResultRow
-                  key={`${r.file}:${r.line}:${i}`}
+                  key={`${r.file ?? r.source_path ?? "hit"}:${r.line ?? r.line_number ?? i}:${i}`}
                   result={r}
                   onView={(file, line) => viewMutation.mutate({ file, line })}
+                  onExpand={(file, line) =>
+                    expandMutation.mutate({ file, line })
+                  }
                 />
               ))}
             </div>
@@ -267,7 +392,12 @@ export function CASSPage() {
       )}
 
       {/* Session viewer */}
-      {viewerData && <SessionViewer file={viewerData.file} lines={viewerData.lines} />}
+      {viewerData && (
+        <SessionViewer file={viewerData.file} lines={viewerData.lines} />
+      )}
+
+      {/* Expanded context viewer */}
+      {expandedData && <ExpandedContextViewer data={expandedData} />}
     </div>
   );
 }

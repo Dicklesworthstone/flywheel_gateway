@@ -9,11 +9,18 @@
  * Implements PLAN.md §12 Conflict Management requirements.
  */
 
-import { createCursor, DEFAULT_PAGINATION, decodeCursor } from "@flywheel/shared/api/pagination";
+import {
+  createCursor,
+  DEFAULT_PAGINATION,
+  decodeCursor,
+} from "@flywheel/shared/api/pagination";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
-import { type Reservation, ReservationConflictEngine } from "./reservation-conflicts";
+import {
+  type Reservation,
+  ReservationConflictEngine,
+} from "./reservation-conflicts";
 
 // ============================================================================
 // Types
@@ -209,7 +216,11 @@ function createConflict(
  * Publish a conflict event via WebSocket.
  */
 function publishConflictEvent(
-  eventType: "conflict.detected" | "conflict.updated" | "conflict.resolved" | "conflict.escalated",
+  eventType:
+    | "conflict.detected"
+    | "conflict.updated"
+    | "conflict.resolved"
+    | "conflict.escalated",
   conflict: Conflict,
 ): void {
   const hub = getHub();
@@ -253,7 +264,10 @@ export function registerReservation(reservation: Reservation): void {
 /**
  * Remove a file reservation.
  */
-export function removeReservation(projectId: string, reservationId: string): boolean {
+export function removeReservation(
+  projectId: string,
+  reservationId: string,
+): boolean {
   return reservationEngine.removeReservation(projectId, reservationId);
 }
 
@@ -272,7 +286,12 @@ export function checkReservationConflicts(
   patterns: string[],
   exclusive: boolean,
 ): { hasConflicts: boolean; canProceed: boolean; conflicts: Conflict[] } {
-  const result = reservationEngine.checkConflicts(projectId, requesterId, patterns, exclusive);
+  const result = reservationEngine.checkConflicts(
+    projectId,
+    requesterId,
+    patterns,
+    exclusive,
+  );
 
   // Convert reservation conflicts to full conflicts
   const fullConflicts = result.conflicts.map((rc) =>
@@ -319,16 +338,22 @@ export async function detectGitConflicts(
 
   try {
     // Check for actual merge conflicts using git status
-    const proc = Bun.spawn(["git", "-C", workingDirectory, "status", "--porcelain=v2"], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const proc = Bun.spawn(
+      ["git", "-C", workingDirectory, "status", "--porcelain=v2"],
+      {
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
 
     const stdout = await new Response(proc.stdout).text();
     const exitCode = await proc.exited;
 
     if (exitCode !== 0) {
-      log.warn({ projectId, workingDirectory }, "[CONFLICT] Git status command failed");
+      log.warn(
+        { projectId, workingDirectory },
+        "[CONFLICT] Git status command failed",
+      );
       return conflicts;
     }
 
@@ -367,7 +392,10 @@ export async function detectGitConflicts(
       );
     }
   } catch (error) {
-    log.error({ error, projectId, workingDirectory }, "[CONFLICT] Error detecting git conflicts");
+    log.error(
+      { error, projectId, workingDirectory },
+      "[CONFLICT] Error detecting git conflicts",
+    );
   }
 
   return conflicts;
@@ -395,7 +423,14 @@ export async function detectPotentialGitConflicts(
   try {
     // Get files modified in compare branch since diverging from base
     const proc = Bun.spawn(
-      ["git", "-C", workingDirectory, "diff", "--name-only", `${baseBranch}...${compareBranch}`],
+      [
+        "git",
+        "-C",
+        workingDirectory,
+        "diff",
+        "--name-only",
+        `${baseBranch}...${compareBranch}`,
+      ],
       {
         stdout: "pipe",
         stderr: "pipe",
@@ -406,7 +441,10 @@ export async function detectPotentialGitConflicts(
     const exitCode = await proc.exited;
 
     if (exitCode !== 0) {
-      log.warn({ projectId, baseBranch, compareBranch }, "[CONFLICT] Git diff command failed");
+      log.warn(
+        { projectId, baseBranch, compareBranch },
+        "[CONFLICT] Git diff command failed",
+      );
       return conflicts;
     }
 
@@ -415,7 +453,14 @@ export async function detectPotentialGitConflicts(
     if (modifiedFiles.length > 0) {
       // Check if base branch also has modifications to these files
       const baseProc = Bun.spawn(
-        ["git", "-C", workingDirectory, "diff", "--name-only", `${compareBranch}...${baseBranch}`],
+        [
+          "git",
+          "-C",
+          workingDirectory,
+          "diff",
+          "--name-only",
+          `${compareBranch}...${baseBranch}`,
+        ],
         {
           stdout: "pipe",
           stderr: "pipe",
@@ -426,19 +471,30 @@ export async function detectPotentialGitConflicts(
       const baseExitCode = await baseProc.exited;
 
       if (baseExitCode === 0) {
-        const baseModifiedFiles = new Set(baseStdout.trim().split("\n").filter(Boolean));
+        const baseModifiedFiles = new Set(
+          baseStdout.trim().split("\n").filter(Boolean),
+        );
 
         // Find files modified in both branches
-        const commonFiles = modifiedFiles.filter((f) => baseModifiedFiles.has(f));
+        const commonFiles = modifiedFiles.filter((f) =>
+          baseModifiedFiles.has(f),
+        );
 
         if (commonFiles.length > 0) {
           conflicts.push(
-            createConflict("git_potential_conflict", "warning", projectId, [], commonFiles, {
-              baseBranch,
-              compareBranch,
-              workingDirectory,
-              potentialConflictCount: commonFiles.length,
-            }),
+            createConflict(
+              "git_potential_conflict",
+              "warning",
+              projectId,
+              [],
+              commonFiles,
+              {
+                baseBranch,
+                compareBranch,
+                workingDirectory,
+                potentialConflictCount: commonFiles.length,
+              },
+            ),
           );
         }
       }
@@ -478,14 +534,19 @@ export function recordResourceAccess(access: ResourceAccess): void {
  * @param windowMs - Time window in milliseconds (default 5 seconds)
  * @returns Array of detected contention conflicts
  */
-export function detectResourceContention(projectId: string, windowMs = 5000): Conflict[] {
+export function detectResourceContention(
+  projectId: string,
+  windowMs = 5000,
+): Conflict[] {
   const conflicts: Conflict[] = [];
   const now = Date.now();
   const cutoff = now - windowMs;
 
   // Filter to recent accesses for this project
   const recent = recentAccesses.filter(
-    (a) => a.timestamp.getTime() >= cutoff && a.resourceId.startsWith(`${projectId}:`),
+    (a) =>
+      a.timestamp.getTime() >= cutoff &&
+      a.resourceId.startsWith(`${projectId}:`),
   );
 
   // Group by resource
@@ -501,11 +562,18 @@ export function detectResourceContention(projectId: string, windowMs = 5000): Co
     if (hasContention(accesses)) {
       const uniqueAgents = [...new Set(accesses.map((a) => a.agentId))];
       conflicts.push(
-        createConflict("resource_contention", "warning", projectId, uniqueAgents, [resourceId], {
-          accessCount: accesses.length,
-          windowMs,
-          accessTypes: [...new Set(accesses.map((a) => a.accessType))],
-        }),
+        createConflict(
+          "resource_contention",
+          "warning",
+          projectId,
+          uniqueAgents,
+          [resourceId],
+          {
+            accessCount: accesses.length,
+            windowMs,
+            accessTypes: [...new Set(accesses.map((a) => a.accessType))],
+          },
+        ),
       );
     }
   }
@@ -524,7 +592,9 @@ function hasContention(accesses: ResourceAccess[]): boolean {
   if (uniqueAgents.size < 2) return false;
 
   // Check for multiple exclusive accesses from different agents
-  const exclusiveAccesses = accesses.filter((a) => a.accessType === "exclusive");
+  const exclusiveAccesses = accesses.filter(
+    (a) => a.accessType === "exclusive",
+  );
   if (exclusiveAccesses.length >= 2) return true;
 
   // Check for multiple write accesses from different agents
@@ -538,7 +608,10 @@ function hasContention(accesses: ResourceAccess[]): boolean {
   }
 
   // Check for exclusive access with any other access from different agent
-  if (exclusiveAccesses.length > 0 && accesses.length > exclusiveAccesses.length) {
+  if (
+    exclusiveAccesses.length > 0 &&
+    accesses.length > exclusiveAccesses.length
+  ) {
     return true;
   }
 
@@ -592,12 +665,15 @@ export function getActiveConflicts(
     conflicts = conflicts.filter((c) => c.projectId === params.projectId);
   }
   if (params.agentId) {
-    conflicts = conflicts.filter((c) => c.involvedAgents.includes(params.agentId!));
+    conflicts = conflicts.filter((c) =>
+      c.involvedAgents.includes(params.agentId!),
+    );
   }
 
   // Sort by severity (most severe first), then by time
   conflicts.sort((a, b) => {
-    const severityDiff = SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity];
+    const severityDiff =
+      SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity];
     if (severityDiff !== 0) return severityDiff;
     return b.detectedAt.getTime() - a.detectedAt.getTime();
   });
@@ -630,13 +706,18 @@ export function getActiveConflicts(
 
   // For forward pagination, fetch limit+1 to determine hasMore
   // For backward pagination, fetch exactly from startIndex to cursorIndex
-  const sliceEnd = isBackward && endIndex !== undefined ? endIndex : startIndex + limit + 1;
+  const sliceEnd =
+    isBackward && endIndex !== undefined ? endIndex : startIndex + limit + 1;
   const pageItems = conflicts.slice(startIndex, sliceEnd);
   // For backward pagination, hasMore indicates items exist at earlier indices
   const hasMore = isBackward ? startIndex > 0 : pageItems.length > limit;
   // For forward pagination, trim to limit if we got limit+1
   // For backward pagination, we already have the exact items
-  const resultItems = isBackward ? pageItems : hasMore ? pageItems.slice(0, limit) : pageItems;
+  const resultItems = isBackward
+    ? pageItems
+    : hasMore
+      ? pageItems.slice(0, limit)
+      : pageItems;
 
   const result: ListActiveConflictsResult = {
     conflicts: resultItems,
@@ -663,7 +744,10 @@ export function getActiveConflicts(
  * Get a specific conflict by ID.
  */
 export function getConflict(conflictId: string): Conflict | undefined {
-  return activeConflicts.get(conflictId) || conflictHistory.find((c) => c.id === conflictId);
+  return (
+    activeConflicts.get(conflictId) ||
+    conflictHistory.find((c) => c.id === conflictId)
+  );
 }
 
 /**
@@ -722,13 +806,18 @@ export function getConflictHistory(
 
   // For forward pagination, fetch limit+1 to determine hasMore
   // For backward pagination, fetch exactly from startIndex to cursorIndex
-  const sliceEnd = isBackward && endIndex !== undefined ? endIndex : startIndex + limit + 1;
+  const sliceEnd =
+    isBackward && endIndex !== undefined ? endIndex : startIndex + limit + 1;
   const pageItems = conflictHistory.slice(startIndex, sliceEnd);
   // For backward pagination, hasMore indicates items exist at earlier indices
   const hasMore = isBackward ? startIndex > 0 : pageItems.length > limit;
   // For forward pagination, trim to limit if we got limit+1
   // For backward pagination, we already have the exact items
-  const resultItems = isBackward ? pageItems : hasMore ? pageItems.slice(0, limit) : pageItems;
+  const resultItems = isBackward
+    ? pageItems
+    : hasMore
+      ? pageItems.slice(0, limit)
+      : pageItems;
 
   const result: ListConflictHistoryResult = {
     conflicts: resultItems,
@@ -867,7 +956,8 @@ export function getRecommendedActions(conflict: Conflict): RecommendedAction[] {
         {
           id: "rebase",
           label: "Rebase First",
-          description: "Rebase your branch on the target to catch conflicts early",
+          description:
+            "Rebase your branch on the target to catch conflicts early",
           type: "manual_resolve",
         },
       );
@@ -895,7 +985,8 @@ export function getRecommendedActions(conflict: Conflict): RecommendedAction[] {
         {
           id: "break_deadlock",
           label: "Break Deadlock",
-          description: "Release one of the held resources to break the deadlock",
+          description:
+            "Release one of the held resources to break the deadlock",
           type: "abort",
         },
         {
@@ -962,7 +1053,10 @@ export function getConflictStats(): {
       resolved24h++;
     }
     // Count detected conflicts in last 24h that are no longer active
-    if (conflict.detectedAt.getTime() >= dayAgo && !activeConflicts.has(conflict.id)) {
+    if (
+      conflict.detectedAt.getTime() >= dayAgo &&
+      !activeConflicts.has(conflict.id)
+    ) {
       last24h++;
     }
   }
@@ -983,7 +1077,9 @@ export function getConflictStats(): {
 /**
  * Update alert configuration.
  */
-export function updateAlertConfig(config: Partial<ConflictAlertConfig>): ConflictAlertConfig {
+export function updateAlertConfig(
+  config: Partial<ConflictAlertConfig>,
+): ConflictAlertConfig {
   alertConfig = { ...alertConfig, ...config };
   return alertConfig;
 }

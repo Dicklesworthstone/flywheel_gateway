@@ -10,7 +10,11 @@
  * - WebSocket event publishing
  */
 
-import { createCursor, DEFAULT_PAGINATION, decodeCursor } from "@flywheel/shared/api/pagination";
+import {
+  createCursor,
+  DEFAULT_PAGINATION,
+  decodeCursor,
+} from "@flywheel/shared/api/pagination";
 import { and, desc, eq, gt, inArray, lt, or } from "drizzle-orm";
 import { db } from "../db";
 import { dcgAllowlist, dcgBlocks } from "../db/schema";
@@ -176,7 +180,9 @@ const MAX_RECENT_BLOCKS = 100;
 /**
  * Ingest a DCG block event from the agent driver.
  */
-export async function ingestBlockEvent(event: Omit<DCGBlockEvent, "id">): Promise<DCGBlockEvent> {
+export async function ingestBlockEvent(
+  event: Omit<DCGBlockEvent, "id">,
+): Promise<DCGBlockEvent> {
   const correlationId = getCorrelationId();
   const log = logger.child({ correlationId, agentId: event.agentId });
 
@@ -215,7 +221,9 @@ export async function ingestBlockEvent(event: Omit<DCGBlockEvent, "id">): Promis
   // Publish to WebSocket
   const channel: Channel = { type: "system:dcg" };
   const eventType: MessageType =
-    blockEvent.severity === "critical" || blockEvent.severity === "high" ? "dcg.block" : "dcg.warn";
+    blockEvent.severity === "critical" || blockEvent.severity === "high"
+      ? "dcg.block"
+      : "dcg.warn";
 
   getHub().publish(channel, eventType, blockEvent, {
     correlationId: getCorrelationId(),
@@ -307,14 +315,20 @@ export async function getBlockEvents(options: {
       filters.push(
         or(
           lt(dcgBlocks.createdAt, cursorCreatedAt),
-          and(eq(dcgBlocks.createdAt, cursorCreatedAt), lt(dcgBlocks.id, cursorId)),
+          and(
+            eq(dcgBlocks.createdAt, cursorCreatedAt),
+            lt(dcgBlocks.id, cursorId),
+          ),
         ),
       );
     } else {
       filters.push(
         or(
           gt(dcgBlocks.createdAt, cursorCreatedAt),
-          and(eq(dcgBlocks.createdAt, cursorCreatedAt), gt(dcgBlocks.id, cursorId)),
+          and(
+            eq(dcgBlocks.createdAt, cursorCreatedAt),
+            gt(dcgBlocks.id, cursorId),
+          ),
         ),
       );
     }
@@ -344,7 +358,8 @@ export async function getBlockEvents(options: {
     ruleId: row.ruleId ?? "unknown",
     severity: (row.severity as DCGSeverity) ?? "medium",
     reason: row.reason,
-    contextClassification: (row.contextClassification as DCGContextClassification) ?? "executed",
+    contextClassification:
+      (row.contextClassification as DCGContextClassification) ?? "executed",
     falsePositive: row.falsePositive,
   }));
 
@@ -404,7 +419,12 @@ export async function markFalsePositive(
     if (dbUpdated && !cachedEvent) {
       const row = result[0]!;
       const channel: Channel = { type: "system:dcg" };
-      getHub().publish(channel, "dcg.false_positive", { eventId, markedBy }, {});
+      getHub().publish(
+        channel,
+        "dcg.false_positive",
+        { eventId, markedBy },
+        {},
+      );
       return {
         id: row.id,
         timestamp: row.createdAt,
@@ -421,7 +441,10 @@ export async function markFalsePositive(
     }
   } catch (error) {
     // Database error (table might not exist in tests) - fall through to cache check
-    logger.debug({ error, eventId }, "Database update failed for false positive");
+    logger.debug(
+      { error, eventId },
+      "Database update failed for false positive",
+    );
   }
 
   // If not found in DB and not in cache, return null
@@ -454,7 +477,9 @@ export function getConfig(): DCGConfig {
 /**
  * Update DCG configuration.
  */
-export async function updateConfig(updates: Partial<DCGConfig>): Promise<DCGConfig> {
+export async function updateConfig(
+  updates: Partial<DCGConfig>,
+): Promise<DCGConfig> {
   // Ensure we have the latest config from persistent storage before updating
   await syncConfigFromPersistent();
   const log = logger.child({ correlationId: getCorrelationId() });
@@ -478,11 +503,15 @@ export async function updateConfig(updates: Partial<DCGConfig>): Promise<DCGConf
     changeType: "bulk_update",
   };
   if (updates.enabledPacks) persistParams.enabledPacks = updates.enabledPacks;
-  if (updates.disabledPacks) persistParams.disabledPacks = updates.disabledPacks;
+  if (updates.disabledPacks)
+    persistParams.disabledPacks = updates.disabledPacks;
 
   await dcgConfigService.updateConfig(persistParams);
 
-  log.info({ enabledPacks: currentConfig.enabledPacks.length }, "DCG config updated");
+  log.info(
+    { enabledPacks: currentConfig.enabledPacks.length },
+    "DCG config updated",
+  );
 
   return getConfig();
 }
@@ -517,7 +546,9 @@ export async function enablePack(packName: string): Promise<boolean> {
   if (!currentConfig.enabledPacks.includes(packName)) {
     currentConfig.enabledPacks.push(packName);
   }
-  currentConfig.disabledPacks = currentConfig.disabledPacks.filter((p) => p !== packName);
+  currentConfig.disabledPacks = currentConfig.disabledPacks.filter(
+    (p) => p !== packName,
+  );
 
   // Persist to database
   await dcgConfigService.enablePack(packName);
@@ -539,7 +570,9 @@ export async function disablePack(packName: string): Promise<boolean> {
   }
 
   // Update in-memory cache
-  currentConfig.enabledPacks = currentConfig.enabledPacks.filter((p) => p !== packName);
+  currentConfig.enabledPacks = currentConfig.enabledPacks.filter(
+    (p) => p !== packName,
+  );
   if (!currentConfig.disabledPacks.includes(packName)) {
     currentConfig.disabledPacks.push(packName);
   }
@@ -559,7 +592,10 @@ export async function disablePack(packName: string): Promise<boolean> {
  * Get allowlist entries.
  */
 export async function getAllowlist(): Promise<DCGAllowlistEntry[]> {
-  const rows = await db.select().from(dcgAllowlist).orderBy(desc(dcgAllowlist.createdAt));
+  const rows = await db
+    .select()
+    .from(dcgAllowlist)
+    .orderBy(desc(dcgAllowlist.createdAt));
 
   return rows.map((row) => ({
     ruleId: row.ruleId,
@@ -614,7 +650,10 @@ export async function addToAllowlist(entry: {
  * Remove an entry from the allowlist.
  */
 export async function removeFromAllowlist(ruleId: string): Promise<boolean> {
-  const result = await db.delete(dcgAllowlist).where(eq(dcgAllowlist.ruleId, ruleId)).returning();
+  const result = await db
+    .delete(dcgAllowlist)
+    .where(eq(dcgAllowlist.ruleId, ruleId))
+    .returning();
 
   if (result.length === 0) {
     return false;

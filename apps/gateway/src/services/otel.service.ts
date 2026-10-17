@@ -1,4 +1,11 @@
-import { context, propagation, type TextMapPropagator, trace } from "@opentelemetry/api";
+import {
+  context,
+  propagation,
+  SpanKind,
+  SpanStatusCode,
+  type TextMapPropagator,
+  trace,
+} from "@opentelemetry/api";
 import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
 import {
   CompositePropagator,
@@ -8,7 +15,10 @@ import {
 import { OTLPTraceExporter as OTLPHttpTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { OTLPTraceExporter as OTLPProtoTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
 import { resourceFromAttributes } from "@opentelemetry/resources";
-import { BasicTracerProvider, BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import {
+  BasicTracerProvider,
+  BatchSpanProcessor,
+} from "@opentelemetry/sdk-trace-base";
 import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
 import type { OtelConfig } from "./config.service";
 import { logger } from "./logger";
@@ -65,7 +75,9 @@ function shouldEnableTracing(config: OtelConfig): boolean {
   return config.enabled || config.tracesExporter !== "none";
 }
 
-function resolveExporter(config: OtelConfig): Exclude<OtelConfig["tracesExporter"], "none"> | null {
+function resolveExporter(
+  config: OtelConfig,
+): Exclude<OtelConfig["tracesExporter"], "none"> | null {
   if (config.tracesExporter !== "none") {
     return config.tracesExporter;
   }
@@ -155,7 +167,9 @@ export function initTracing(config: OtelConfig): OtelBootstrapResult {
   }
 }
 
-export async function shutdownTracing(options?: { timeoutMs?: number }): Promise<void> {
+export async function shutdownTracing(options?: {
+  timeoutMs?: number;
+}): Promise<void> {
   const provider = tracerProvider;
   tracerProvider = null;
   tracerEnabled = false;
@@ -182,4 +196,86 @@ export async function shutdownTracing(options?: { timeoutMs?: number }): Promise
   trace.disable();
   propagation.disable();
   context.disable();
+}
+
+export async function forceFlushTracing(): Promise<void> {
+  if (!tracerProvider) return;
+  await tracerProvider.forceFlush();
+}
+
+/**
+ * Execute a database operation wrapped in an OpenTelemetry CLIENT span.
+ */
+export async function withDbSpan<T>(
+  operation: string,
+  table: string,
+  fn: () => Promise<T> | T,
+): Promise<T> {
+  const tracer = trace.getTracer("flywheel-gateway");
+  const startedAt = performance.now();
+  const span = tracer.startSpan(`DB ${operation} ${table}`, {
+    kind: SpanKind.CLIENT,
+    attributes: {
+      "db.system": "sqlite",
+      "db.operation": operation,
+      "db.sql.table": table,
+    },
+  });
+
+  const spanCtx = trace.setSpan(context.active(), span);
+  try {
+    const result = await context.with(spanCtx, async () => await fn());
+    span.setStatus({ code: SpanStatusCode.OK });
+    return result;
+  } catch (err) {
+    span.setStatus({ code: SpanStatusCode.ERROR });
+    const error = err instanceof Error ? err : new Error(String(err));
+    span.recordException(error);
+    throw err;
+  } finally {
+    span.setAttribute(
+      "db.duration_ms",
+      Math.round(performance.now() - startedAt),
+    );
+    span.end();
+  }
+}
+
+/**
+ * Execute a background job handler wrapped in an OpenTelemetry INTERNAL span.
+ */
+export async function withJobSpan<T>(
+  jobType: string,
+  jobId: string,
+  fn: () => Promise<T> | T,
+): Promise<T> {
+  const tracer = trace.getTracer("flywheel-gateway");
+  const startedAt = performance.now();
+  const span = tracer.startSpan(`Job ${jobType}`, {
+    kind: SpanKind.INTERNAL,
+    attributes: {
+      "flywheel.job.type": jobType,
+      "flywheel.job.id": jobId,
+    },
+  });
+
+  const spanCtx = trace.setSpan(context.active(), span);
+  try {
+    const result = await context.with(spanCtx, async () => await fn());
+    span.setAttribute("flywheel.job.success", true);
+    span.setStatus({ code: SpanStatusCode.OK });
+    return result;
+  } catch (err) {
+    span.setAttribute("flywheel.job.success", false);
+    span.setStatus({ code: SpanStatusCode.ERROR });
+    const error = err instanceof Error ? err : new Error(String(err));
+    span.recordException(error);
+    throw err;
+  } finally {
+    span.setAttribute(
+      "flywheel.job.duration_ms",
+      Math.round(performance.now() - startedAt),
+    );
+    span.end();
+  }
 }

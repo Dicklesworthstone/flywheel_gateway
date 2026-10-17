@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   _clearAllGitData,
+  _evictGitCacheForTesting,
   assignBranch,
   type BranchAssignment,
   coordinateSync,
@@ -106,7 +107,8 @@ describe("Git Coordination Service", () => {
       // Max is 4 hours
       const maxTtl = 4 * 60 * 60 * 1000;
       const actualTtl =
-        result.assignment!.expiresAt.getTime() - result.assignment!.assignedAt.getTime();
+        result.assignment!.expiresAt.getTime() -
+        result.assignment!.assignedAt.getTime();
       expect(actualTtl).toBeLessThanOrEqual(maxTtl + 1000); // 1s tolerance
     });
 
@@ -121,8 +123,12 @@ describe("Git Coordination Service", () => {
       });
 
       expect(result.assignment?.metadata.taskId).toBe("task-123");
-      expect(result.assignment?.metadata.taskDescription).toBe("Implement new feature");
-      expect(result.assignment?.metadata.reservedPatterns).toEqual(["src/**/*.ts"]);
+      expect(result.assignment?.metadata.taskDescription).toBe(
+        "Implement new feature",
+      );
+      expect(result.assignment?.metadata.reservedPatterns).toEqual([
+        "src/**/*.ts",
+      ]);
     });
 
     test("rejects empty branch name", async () => {
@@ -227,7 +233,9 @@ describe("Git Coordination Service", () => {
       });
 
       expect(result.renewed).toBe(true);
-      expect(result.newExpiresAt!.getTime()).toBeGreaterThan(originalExpiry.getTime());
+      expect(result.newExpiresAt!.getTime()).toBeGreaterThan(
+        originalExpiry.getTime(),
+      );
     });
 
     test("rejects renewal by non-holder", async () => {
@@ -311,7 +319,11 @@ describe("Git Coordination Service", () => {
         branchName: "feature/test",
       });
 
-      const updated = await updateAssignmentStatus(assignment!.id, "merged", "agent-1");
+      const updated = await updateAssignmentStatus(
+        assignment!.id,
+        "merged",
+        "agent-1",
+      );
 
       expect(updated).toBe(true);
 
@@ -326,7 +338,11 @@ describe("Git Coordination Service", () => {
         branchName: "feature/test",
       });
 
-      const updated = await updateAssignmentStatus(assignment!.id, "merged", "agent-2");
+      const updated = await updateAssignmentStatus(
+        assignment!.id,
+        "merged",
+        "agent-2",
+      );
 
       expect(updated).toBe(false);
     });
@@ -444,7 +460,9 @@ describe("Git Coordination Service", () => {
       });
 
       expect(report.overlappingFiles.length).toBeGreaterThan(0);
-      const sharedFile = report.overlappingFiles.find((f) => f.path === "src/shared/**");
+      const sharedFile = report.overlappingFiles.find(
+        (f) => f.path === "src/shared/**",
+      );
       expect(sharedFile?.modifiedIn.length).toBe(3);
       expect(sharedFile?.risk).toBe("high");
     });
@@ -542,7 +560,9 @@ describe("Git Coordination Service", () => {
       });
 
       const updated = await getAssignment(assignment!.id);
-      expect(updated!.lastActivityAt.getTime()).toBeGreaterThan(originalActivity.getTime());
+      expect(updated!.lastActivityAt.getTime()).toBeGreaterThan(
+        originalActivity.getTime(),
+      );
     });
   });
 
@@ -557,7 +577,9 @@ describe("Git Coordination Service", () => {
       const graph = await getGitGraph("repo-1");
 
       expect(graph.branches.length).toBeGreaterThan(0);
-      const featureBranch = graph.branches.find((b) => b.name === "feature/test");
+      const featureBranch = graph.branches.find(
+        (b) => b.name === "feature/test",
+      );
       expect(featureBranch?.assignedTo).toBe("agent-1");
     });
 
@@ -596,6 +618,54 @@ describe("Git Coordination Service", () => {
       expect(stats.byRepository["repo-1"]).toBe(2);
       expect(stats.byRepository["repo-2"]).toBe(1);
       expect(stats.byStatus.active).toBe(3);
+    });
+  });
+
+  describe("SQLite persistence & rehydration", () => {
+    test("rehydrates branch assignments and conflict predictions after cache eviction", async () => {
+      const a1 = await assignBranch({
+        repositoryId: "repo-persist",
+        agentId: "agent-alpha",
+        branchName: "feature/alpha",
+        baseBranch: "main",
+        reservedPatterns: ["src/shared/**"],
+        taskId: "bd-rza6z.7",
+        taskDescription: "Alpha work",
+      });
+      const a2 = await assignBranch({
+        repositoryId: "repo-persist",
+        agentId: "agent-beta",
+        branchName: "feature/beta",
+        baseBranch: "main",
+        reservedPatterns: ["src/shared/**"],
+      });
+      expect(a1.granted).toBe(true);
+      expect(a2.granted).toBe(true);
+
+      const prediction = await predictConflicts({
+        repositoryId: "repo-persist",
+        branchA: "feature/alpha",
+        branchB: "feature/beta",
+      });
+      expect(prediction.hasConflicts).toBe(true);
+
+      // Evict in-memory caches without clearing SQLite tables
+      _evictGitCacheForTesting();
+
+      const rehydrated = await getAssignment(a1.assignment!.id);
+      expect(rehydrated).not.toBeNull();
+      expect(rehydrated!.agentId).toBe("agent-alpha");
+      expect(rehydrated!.branchName).toBe("feature/alpha");
+      expect(rehydrated!.metadata.reservedPatterns).toEqual(["src/shared/**"]);
+      expect(rehydrated!.metadata.taskId).toBe("bd-rza6z.7");
+
+      const cachedPrediction = await predictConflicts({
+        repositoryId: "repo-persist",
+        branchA: "feature/alpha",
+        branchB: "feature/beta",
+      });
+      expect(cachedPrediction.id).toBe(prediction.id);
+      expect(cachedPrediction.hasConflicts).toBe(true);
     });
   });
 });

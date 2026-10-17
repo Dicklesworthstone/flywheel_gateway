@@ -33,7 +33,10 @@ export interface LinkGeneratorContext {
  * A function that generates links for a specific resource type.
  * @template T The resource type containing required ID fields
  */
-export type LinkGenerator<T> = (resource: T, context: LinkGeneratorContext) => LinkSet;
+export type LinkGenerator<T> = (
+  resource: T,
+  context: LinkGeneratorContext,
+) => LinkSet;
 
 // ============================================================================
 // URL Utilities
@@ -105,7 +108,10 @@ export const agentLinks: LinkGenerator<{ agentId: string }> = (agent, ctx) => ({
 /**
  * Generate minimal self-only link for agent in list context.
  */
-export const agentListLinks: LinkGenerator<{ agentId: string }> = (agent, ctx) => ({
+export const agentListLinks: LinkGenerator<{ agentId: string }> = (
+  agent,
+  ctx,
+) => ({
   self: `${ctx.baseUrl}/agents/${agent.agentId}`,
 });
 
@@ -156,7 +162,10 @@ export const checkpointListLinks: LinkGenerator<{
 /**
  * Generate HATEOAS links for a conflict resource.
  */
-export const conflictLinks: LinkGenerator<{ id: string }> = (conflict, ctx) => ({
+export const conflictLinks: LinkGenerator<{ id: string }> = (
+  conflict,
+  ctx,
+) => ({
   self: `${ctx.baseUrl}/conflicts/${conflict.id}`,
   resolve: `${ctx.baseUrl}/conflicts/${conflict.id}/resolve`,
 });
@@ -238,7 +247,10 @@ export const messageLinks: LinkGenerator<{ id: string }> = (msg, ctx) => ({
 /**
  * Generate HATEOAS links for a mail thread resource.
  */
-export const threadLinks: LinkGenerator<{ threadId: string }> = (thread, ctx) => ({
+export const threadLinks: LinkGenerator<{ threadId: string }> = (
+  thread,
+  ctx,
+) => ({
   self: `${ctx.baseUrl}/mail/threads/${thread.threadId}`,
   messages: `${ctx.baseUrl}/mail/threads/${thread.threadId}/messages`,
 });
@@ -250,7 +262,10 @@ export const threadLinks: LinkGenerator<{ threadId: string }> = (thread, ctx) =>
 /**
  * Generate HATEOAS links for an allowlist entry resource.
  */
-export const allowlistLinks: LinkGenerator<{ ruleId: string }> = (entry, ctx) => ({
+export const allowlistLinks: LinkGenerator<{ ruleId: string }> = (
+  entry,
+  ctx,
+) => ({
   self: `${ctx.baseUrl}/dcg/allowlist/${entry.ruleId}`,
   delete: `${ctx.baseUrl}/dcg/allowlist/${entry.ruleId}`,
 });
@@ -258,7 +273,10 @@ export const allowlistLinks: LinkGenerator<{ ruleId: string }> = (entry, ctx) =>
 /**
  * Generate HATEOAS links for a pending exception resource.
  */
-export const pendingExceptionLinks: LinkGenerator<{ shortCode: string }> = (exception, ctx) => ({
+export const pendingExceptionLinks: LinkGenerator<{ shortCode: string }> = (
+  exception,
+  ctx,
+) => ({
   self: `${ctx.baseUrl}/dcg/pending/${exception.shortCode}`,
   approve: `${ctx.baseUrl}/dcg/pending/${exception.shortCode}/approve`,
   deny: `${ctx.baseUrl}/dcg/pending/${exception.shortCode}/deny`,

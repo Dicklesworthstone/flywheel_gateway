@@ -23,7 +23,9 @@ interface UseRowSelectionOptions<T> {
 /**
  * Row selection hook with shift-click support.
  */
-export function useRowSelection<T>(options: UseRowSelectionOptions<T>): UseRowSelectionReturn {
+export function useRowSelection<T>(
+  options: UseRowSelectionOptions<T>,
+): UseRowSelectionReturn {
   const {
     data,
     getRowId,
@@ -33,7 +35,9 @@ export function useRowSelection<T>(options: UseRowSelectionOptions<T>): UseRowSe
   } = options;
 
   const [selected, setSelected] = useState<Set<string>>(initialSelected);
-  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(
+    null,
+  );
 
   // Compute derived state
   const isAllPageSelected = useMemo(() => {
@@ -89,7 +93,9 @@ export function useRowSelection<T>(options: UseRowSelectionOptions<T>): UseRowSe
 
         // Trigger callback
         if (onSelectionChange) {
-          const selectedRows = data.filter((row) => newSelected.has(getRowId(row)));
+          const selectedRows = data.filter((row) =>
+            newSelected.has(getRowId(row)),
+          );
           onSelectionChange(selectedRows);
         }
 
@@ -121,7 +127,9 @@ export function useRowSelection<T>(options: UseRowSelectionOptions<T>): UseRowSe
 
       // Trigger callback
       if (onSelectionChange) {
-        const selectedRows = data.filter((row) => newSelected.has(getRowId(row)));
+        const selectedRows = data.filter((row) =>
+          newSelected.has(getRowId(row)),
+        );
         onSelectionChange(selectedRows);
       }
 
@@ -154,7 +162,10 @@ export function useRowSelection<T>(options: UseRowSelectionOptions<T>): UseRowSe
 /**
  * Utility: Select all items in data.
  */
-export function selectAll<T>(data: T[], getRowId: (row: T) => string): Set<string> {
+export function selectAll<T>(
+  data: T[],
+  getRowId: (row: T) => string,
+): Set<string> {
   return new Set(data.map(getRowId));
 }
 
@@ -172,6 +183,9 @@ export function getSelectedRows<T>(
 /**
  * Utility: Check if selection is indeterminate (some but not all selected).
  */
-export function isIndeterminate(selectedCount: number, totalCount: number): boolean {
+export function isIndeterminate(
+  selectedCount: number,
+  totalCount: number,
+): boolean {
   return selectedCount > 0 && selectedCount < totalCount;
 }

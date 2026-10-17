@@ -12,7 +12,12 @@ import { z } from "zod";
 import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import { getXfService } from "../services/xf.service";
-import { sendError, sendInternalError, sendResource, sendValidationError } from "../utils/response";
+import {
+  sendError,
+  sendInternalError,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
 import { transformZodError } from "../utils/validation";
 
 const xf = new Hono();
@@ -130,7 +135,10 @@ xf.post("/search", async (c) => {
     const validated = SearchRequestSchema.parse(body);
     const log = getLogger();
 
-    log.info({ query: validated.query.slice(0, 50), types: validated.types }, "Running xf search");
+    log.info(
+      { query: validated.query.slice(0, 50), types: validated.types },
+      "Running xf search",
+    );
 
     const service = getXfService();
 
@@ -156,7 +164,9 @@ xf.get("/search", async (c) => {
   try {
     const query = c.req.query("q");
     if (!query) {
-      return sendValidationError(c, [{ path: "q", message: "Query parameter 'q' is required" }]);
+      return sendValidationError(c, [
+        { path: "q", message: "Query parameter 'q' is required" },
+      ]);
     }
 
     const limitParam = c.req.query("limit");
@@ -166,13 +176,9 @@ xf.get("/search", async (c) => {
     const types = typesParam
       ? (typesParam
           .split(",")
-          .filter((t): t is "tweet" | "like" | "dm" | "grok" | "all" => validTypes.has(t)) as (
-          | "tweet"
-          | "like"
-          | "dm"
-          | "grok"
-          | "all"
-        )[])
+          .filter((t): t is "tweet" | "like" | "dm" | "grok" | "all" =>
+            validTypes.has(t),
+          ) as ("tweet" | "like" | "dm" | "grok" | "all")[])
       : undefined;
     const db = c.req.query("db");
     const index = c.req.query("index");

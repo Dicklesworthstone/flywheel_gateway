@@ -29,7 +29,9 @@ import {
 // Test Helpers
 // ============================================================================
 
-function createMockContext(overrides?: Partial<HandoffContext>): HandoffContext {
+function createMockContext(
+  overrides?: Partial<HandoffContext>,
+): HandoffContext {
   return {
     taskDescription: "Test task description",
     currentPhase: "implementing" as TaskPhase,
@@ -350,7 +352,9 @@ describe("Handoff Service", () => {
 
       const handoff = getHandoff(handoffId);
       expect(handoff?.acknowledgment?.status).toBe("rejected");
-      expect(handoff?.acknowledgment?.rejectionReason).toBe("Busy with other work");
+      expect(handoff?.acknowledgment?.rejectionReason).toBe(
+        "Busy with other work",
+      );
       expect(handoff?.acknowledgment?.suggestedAlternative).toBe("agent-3");
     });
 

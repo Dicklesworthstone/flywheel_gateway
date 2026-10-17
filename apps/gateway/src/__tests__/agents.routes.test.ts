@@ -208,4 +208,60 @@ describe("Agent Routes", () => {
       expect(res.status).toBe(404);
     });
   });
+
+  describe("Driver Registration", () => {
+    test("registerDrivers registers sdk, acp, tmux, and ntm drivers", async () => {
+      const { getDriverRegistry } = await import("@flywheel/agent-drivers");
+      const { registerDrivers } = await import("../config/drivers");
+
+      registerDrivers();
+      const registry = getDriverRegistry();
+
+      expect(registry.has("sdk")).toBe(true);
+      expect(registry.has("acp")).toBe(true);
+      expect(registry.has("tmux")).toBe(true);
+      expect(registry.has("ntm")).toBe(true);
+    });
+
+    test("POST /agents respects custom provider and model and captureAgentCheckpointState returns live driver history", async () => {
+      const { registerDrivers } = await import("../config/drivers");
+      const { captureAgentCheckpointState, sendMessage, terminateAgent } =
+        await import("../services/agent");
+
+      registerDrivers();
+
+      const agentId = `agent_custom_model_${Date.now()}`;
+      const spawnRes = await app.request("/agents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agentId,
+          workingDirectory: "/data/projects/flywheel_gateway",
+          provider: "codex",
+          model: "o4-mini",
+          driver: "sdk",
+          systemPrompt: "Test multi-provider spawn",
+        }),
+      });
+
+      expect(spawnRes.status).toBe(201);
+      const spawnBody = await spawnRes.json();
+      expect(spawnBody.data.agentId).toBe(agentId);
+
+      try {
+        const getRes = await app.request(`/agents/${agentId}`);
+        expect(getRes.status).toBe(200);
+        const getBody = await getRes.json();
+        expect(getBody.data.config.provider).toBe("codex");
+        expect(getBody.data.config.model).toBe("o4-mini");
+
+        await sendMessage(agentId, "user", "Verify checkpoint state capture");
+        const checkpointState = await captureAgentCheckpointState(agentId);
+        expect(Array.isArray(checkpointState.conversationHistory)).toBe(true);
+        expect(checkpointState.conversationHistory.length).toBeGreaterThan(0);
+      } finally {
+        await terminateAgent(agentId, false).catch(() => {});
+      }
+    });
+  });
 });

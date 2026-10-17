@@ -12,6 +12,7 @@
  * - Audit logging for all git operations
  */
 
+import { sqlite } from "../db";
 import { getCorrelationId } from "../middleware/correlation";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
@@ -117,6 +118,253 @@ const operationHistory: Map<string, SyncOperation[]> = new Map();
 /** Operation lookup by ID */
 const operationById: Map<string, SyncOperation> = new Map();
 
+let syncTablesReady = false;
+let syncHydrated = false;
+
+function ensureSyncTables(): void {
+  if (syncTablesReady) return;
+  try {
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS git_sync_operations (
+        id TEXT PRIMARY KEY,
+        repository_id TEXT NOT NULL,
+        agent_id TEXT,
+        operation TEXT NOT NULL,
+        branch TEXT NOT NULL,
+        target_branch TEXT,
+        remote TEXT,
+        force INTEGER DEFAULT 0,
+        status TEXT NOT NULL,
+        queued_at INTEGER NOT NULL,
+        started_at INTEGER,
+        completed_at INTEGER,
+        duration_ms INTEGER,
+        success INTEGER,
+        from_commit TEXT,
+        to_commit TEXT,
+        files_changed INTEGER,
+        insertions INTEGER,
+        deletions INTEGER,
+        conflicts_detected INTEGER,
+        conflict_files TEXT,
+        error_code TEXT,
+        error_message TEXT,
+        attempt INTEGER NOT NULL DEFAULT 1,
+        max_retries INTEGER NOT NULL DEFAULT 3,
+        correlation_id TEXT
+      );
+    `);
+    syncTablesReady = true;
+  } catch {
+    // Ignore if sqlite is mocked
+  }
+}
+
+function resolveNullableAgentFk(agentId: string): string | null {
+  try {
+    const row = sqlite
+      .query(`SELECT id FROM agents WHERE id = ? LIMIT 1`)
+      .get(agentId);
+    return row ? agentId : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistSyncOpToDb(op: SyncOperation): void {
+  try {
+    ensureSyncTables();
+    const fkAgentId = resolveNullableAgentFk(op.request.agentId);
+    const durationMs =
+      op.completedAt && op.startedAt
+        ? op.completedAt.getTime() - op.startedAt.getTime()
+        : null;
+    const encodedCorrelation = JSON.stringify({
+      agentId: op.request.agentId,
+      priority: op.request.priority,
+      correlationId: op.correlationId,
+    });
+    sqlite
+      .query(
+        `INSERT OR REPLACE INTO git_sync_operations (
+          id, repository_id, agent_id, operation, branch, target_branch, remote, force,
+          status, queued_at, started_at, completed_at, duration_ms,
+          success, from_commit, to_commit, files_changed, insertions, deletions,
+          conflicts_detected, conflict_files, error_code, error_message,
+          attempt, max_retries, correlation_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        op.id,
+        op.request.repositoryId,
+        fkAgentId,
+        op.request.operation,
+        op.request.branch,
+        op.request.targetBranch ?? null,
+        op.request.remote ?? null,
+        op.request.force ? 1 : 0,
+        op.status,
+        op.queuedAt.getTime(),
+        op.startedAt ? op.startedAt.getTime() : null,
+        op.completedAt ? op.completedAt.getTime() : null,
+        durationMs,
+        op.result !== undefined ? (op.result.success ? 1 : 0) : null,
+        op.result?.fromCommit ?? null,
+        op.result?.toCommit ?? null,
+        op.result?.filesChanged ?? null,
+        op.result?.insertions ?? null,
+        op.result?.deletions ?? null,
+        op.result?.conflictsDetected !== undefined
+          ? op.result.conflictsDetected
+            ? 1
+            : 0
+          : null,
+        op.result?.conflictFiles
+          ? JSON.stringify(op.result.conflictFiles)
+          : null,
+        op.error?.code ?? null,
+        op.error?.message ?? null,
+        op.attempt,
+        op.maxRetries,
+        encodedCorrelation,
+      );
+  } catch {
+    // Ignore if sqlite is mocked
+  }
+}
+
+function hydrateSyncOpsFromDb(): void {
+  if (syncHydrated) return;
+  syncHydrated = true;
+  try {
+    ensureSyncTables();
+    const rows = sqlite
+      .query(`SELECT * FROM git_sync_operations ORDER BY queued_at DESC`)
+      .all() as Array<Record<string, unknown>>;
+
+    for (const row of rows) {
+      const id = String(row["id"]);
+      if (operationById.has(id)) continue;
+
+      let agentId =
+        typeof row["agent_id"] === "string" ? row["agent_id"] : "unknown";
+      let priority: number | undefined;
+      let correlationId: string | undefined;
+
+      if (typeof row["correlation_id"] === "string") {
+        try {
+          const parsed = JSON.parse(row["correlation_id"]);
+          if (parsed && typeof parsed === "object") {
+            if (typeof parsed.agentId === "string") agentId = parsed.agentId;
+            if (typeof parsed.priority === "number") priority = parsed.priority;
+            if (typeof parsed.correlationId === "string")
+              correlationId = parsed.correlationId;
+          } else {
+            correlationId = row["correlation_id"];
+          }
+        } catch {
+          correlationId = row["correlation_id"];
+        }
+      }
+
+      const repositoryId = String(row["repository_id"]);
+      const status = String(row["status"]) as SyncOperationStatus;
+
+      let conflictFiles: string[] | undefined;
+      if (typeof row["conflict_files"] === "string") {
+        try {
+          conflictFiles = JSON.parse(row["conflict_files"]);
+        } catch {}
+      }
+
+      const op: SyncOperation = {
+        id,
+        request: {
+          repositoryId,
+          agentId,
+          operation: String(row["operation"]) as SyncOperationType,
+          branch: String(row["branch"]),
+          ...(typeof row["target_branch"] === "string" && {
+            targetBranch: row["target_branch"],
+          }),
+          ...(typeof row["remote"] === "string" && {
+            remote: row["remote"],
+          }),
+          ...(row["force"] !== null &&
+            row["force"] !== undefined && {
+              force: Boolean(row["force"]),
+            }),
+          ...(priority !== undefined && { priority }),
+        },
+        status,
+        queuedAt: new Date(Number(row["queued_at"])),
+        ...(row["started_at"] !== null &&
+          row["started_at"] !== undefined && {
+            startedAt: new Date(Number(row["started_at"])),
+          }),
+        ...(row["completed_at"] !== null &&
+          row["completed_at"] !== undefined && {
+            completedAt: new Date(Number(row["completed_at"])),
+          }),
+        attempt: Number(row["attempt"] ?? 1),
+        maxRetries: Number(row["max_retries"] ?? MAX_RETRIES),
+        ...(correlationId !== undefined && { correlationId }),
+        ...(row["success"] !== null &&
+          row["success"] !== undefined && {
+            result: {
+              success: Boolean(row["success"]),
+              ...(typeof row["from_commit"] === "string" && {
+                fromCommit: row["from_commit"],
+              }),
+              ...(typeof row["to_commit"] === "string" && {
+                toCommit: row["to_commit"],
+              }),
+              ...(typeof row["files_changed"] === "number" && {
+                filesChanged: row["files_changed"],
+              }),
+              ...(typeof row["insertions"] === "number" && {
+                insertions: row["insertions"],
+              }),
+              ...(typeof row["deletions"] === "number" && {
+                deletions: row["deletions"],
+              }),
+              ...(row["conflicts_detected"] !== null &&
+                row["conflicts_detected"] !== undefined && {
+                  conflictsDetected: Boolean(row["conflicts_detected"]),
+                }),
+              ...(conflictFiles !== undefined && { conflictFiles }),
+            },
+          }),
+        ...(typeof row["error_code"] === "string" && {
+          error: {
+            code: row["error_code"],
+            message: String(row["error_message"] ?? ""),
+            retryable: false,
+          },
+        }),
+      };
+
+      operationById.set(id, op);
+      if (status === "queued" || status === "running") {
+        const q = operationQueues.get(repositoryId) ?? [];
+        q.push(op);
+        operationQueues.set(repositoryId, q);
+        if (status === "running") {
+          const r = runningOperations.get(repositoryId) ?? new Set();
+          r.add(id);
+          runningOperations.set(repositoryId, r);
+        }
+      } else {
+        const h = operationHistory.get(repositoryId) ?? [];
+        h.push(op);
+        operationHistory.set(repositoryId, h);
+      }
+    }
+  } catch {
+    // Ignore if sqlite is mocked
+  }
+}
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -178,7 +426,10 @@ function isRetryableError(error: SyncError): boolean {
  */
 function parseGitError(errorOutput: string): SyncError {
   // Check for common patterns
-  if (errorOutput.includes("Connection refused") || errorOutput.includes("Could not resolve")) {
+  if (
+    errorOutput.includes("Connection refused") ||
+    errorOutput.includes("Could not resolve")
+  ) {
     return {
       code: "NETWORK_ERROR",
       message: "Unable to connect to remote repository",
@@ -186,7 +437,10 @@ function parseGitError(errorOutput: string): SyncError {
     };
   }
 
-  if (errorOutput.includes("CONFLICT") || errorOutput.includes("Automatic merge failed")) {
+  if (
+    errorOutput.includes("CONFLICT") ||
+    errorOutput.includes("Automatic merge failed")
+  ) {
     return {
       code: "MERGE_CONFLICT",
       message: "Merge conflicts detected",
@@ -194,7 +448,10 @@ function parseGitError(errorOutput: string): SyncError {
     };
   }
 
-  if (errorOutput.includes("rejected") && errorOutput.includes("non-fast-forward")) {
+  if (
+    errorOutput.includes("rejected") &&
+    errorOutput.includes("non-fast-forward")
+  ) {
     return {
       code: "NON_FAST_FORWARD",
       message: "Push rejected: remote has changes not in local branch",
@@ -202,7 +459,10 @@ function parseGitError(errorOutput: string): SyncError {
     };
   }
 
-  if (errorOutput.includes("Permission denied") || errorOutput.includes("Authentication failed")) {
+  if (
+    errorOutput.includes("Permission denied") ||
+    errorOutput.includes("Authentication failed")
+  ) {
     return {
       code: "AUTH_ERROR",
       message: "Authentication failed",
@@ -232,7 +492,10 @@ function parseGitError(errorOutput: string): SyncError {
 /**
  * Queue a sync operation.
  */
-export async function queueSyncOperation(request: SyncOperationRequest): Promise<SyncOperation> {
+export async function queueSyncOperation(
+  request: SyncOperationRequest,
+): Promise<SyncOperation> {
+  hydrateSyncOpsFromDb();
   const correlationId = getCorrelationId();
   const log = logger.child({
     correlationId,
@@ -261,6 +524,7 @@ export async function queueSyncOperation(request: SyncOperationRequest): Promise
 
   operationQueues.set(request.repositoryId, queue);
   operationById.set(operation.id, operation);
+  persistSyncOpToDb(operation);
 
   log.info(
     {
@@ -305,6 +569,7 @@ function processQueue(repositoryId: string): void {
     operation.attempt++;
     running.add(operation.id);
     runningOperations.set(repositoryId, running);
+    persistSyncOpToDb(operation);
 
     logger.debug(
       {
@@ -334,6 +599,7 @@ export async function completeSyncOperation(
   operationId: string,
   result: SyncOperationResult,
 ): Promise<void> {
+  hydrateSyncOpsFromDb();
   const operation = operationById.get(operationId);
   if (!operation) {
     logger.warn({ operationId }, "Attempt to complete unknown operation");
@@ -350,6 +616,7 @@ export async function completeSyncOperation(
   operation.status = "completed";
   operation.completedAt = new Date();
   operation.result = result;
+  persistSyncOpToDb(operation);
 
   // Remove from running
   const running = runningOperations.get(operation.request.repositoryId);
@@ -416,6 +683,7 @@ export async function failSyncOperation(
   operationId: string,
   errorOutput: string,
 ): Promise<{ willRetry: boolean; nextAttemptAt?: Date }> {
+  hydrateSyncOpsFromDb();
   const operation = operationById.get(operationId);
   if (!operation) {
     logger.warn({ operationId }, "Attempt to fail unknown operation");
@@ -434,7 +702,8 @@ export async function failSyncOperation(
   });
 
   // Check if we should retry
-  const canRetry = isRetryableError(error) && operation.attempt < operation.maxRetries;
+  const canRetry =
+    isRetryableError(error) && operation.attempt < operation.maxRetries;
 
   if (canRetry) {
     const delay = calculateRetryDelay(operation.attempt);
@@ -442,6 +711,7 @@ export async function failSyncOperation(
 
     operation.status = "queued"; // Back to queued for retry
     operation.error = error;
+    persistSyncOpToDb(operation);
 
     log.warn(
       {
@@ -487,6 +757,7 @@ export async function failSyncOperation(
   // No more retries - mark as failed
   operation.status = "failed";
   operation.completedAt = new Date();
+  persistSyncOpToDb(operation);
 
   // Remove from running
   const running = runningOperations.get(operation.request.repositoryId);
@@ -544,7 +815,11 @@ export async function failSyncOperation(
 /**
  * Cancel a queued or running sync operation.
  */
-export async function cancelSyncOperation(operationId: string, agentId: string): Promise<boolean> {
+export async function cancelSyncOperation(
+  operationId: string,
+  agentId: string,
+): Promise<boolean> {
+  hydrateSyncOpsFromDb();
   const operation = operationById.get(operationId);
   if (!operation) {
     return false;
@@ -569,6 +844,7 @@ export async function cancelSyncOperation(operationId: string, agentId: string):
 
   operation.status = "cancelled";
   operation.completedAt = new Date();
+  persistSyncOpToDb(operation);
 
   // Remove from running
   const running = runningOperations.get(operation.request.repositoryId);
@@ -616,14 +892,20 @@ export async function cancelSyncOperation(operationId: string, agentId: string):
 /**
  * Get an operation by ID.
  */
-export async function getOperation(operationId: string): Promise<SyncOperation | null> {
+export async function getOperation(
+  operationId: string,
+): Promise<SyncOperation | null> {
+  hydrateSyncOpsFromDb();
   return operationById.get(operationId) ?? null;
 }
 
 /**
  * Get queued operations for a repository.
  */
-export async function getQueuedOperations(repositoryId: string): Promise<SyncOperation[]> {
+export async function getQueuedOperations(
+  repositoryId: string,
+): Promise<SyncOperation[]> {
+  hydrateSyncOpsFromDb();
   const queue = operationQueues.get(repositoryId) ?? [];
   return queue.filter((op) => op.status === "queued");
 }
@@ -631,7 +913,10 @@ export async function getQueuedOperations(repositoryId: string): Promise<SyncOpe
 /**
  * Get running operations for a repository.
  */
-export async function getRunningOperations(repositoryId: string): Promise<SyncOperation[]> {
+export async function getRunningOperations(
+  repositoryId: string,
+): Promise<SyncOperation[]> {
+  hydrateSyncOpsFromDb();
   const queue = operationQueues.get(repositoryId) ?? [];
   return queue.filter((op) => op.status === "running");
 }
@@ -648,6 +933,7 @@ export async function getOperationHistory(
     limit?: number;
   },
 ): Promise<SyncOperation[]> {
+  hydrateSyncOpsFromDb();
   let history = operationHistory.get(repositoryId) ?? [];
 
   if (options?.agentId) {
@@ -655,7 +941,9 @@ export async function getOperationHistory(
   }
 
   if (options?.operation) {
-    history = history.filter((op) => op.request.operation === options.operation);
+    history = history.filter(
+      (op) => op.request.operation === options.operation,
+    );
   }
 
   if (options?.status) {
@@ -669,13 +957,18 @@ export async function getOperationHistory(
 /**
  * Get queue statistics for a repository.
  */
-export async function getQueueStats(repositoryId: string): Promise<SyncQueueStats> {
+export async function getQueueStats(
+  repositoryId: string,
+): Promise<SyncQueueStats> {
+  hydrateSyncOpsFromDb();
   const queue = operationQueues.get(repositoryId) ?? [];
   const history = operationHistory.get(repositoryId) ?? [];
 
   const queuedCount = queue.filter((op) => op.status === "queued").length;
   const runningCount = queue.filter((op) => op.status === "running").length;
-  const completedCount = history.filter((op) => op.status === "completed").length;
+  const completedCount = history.filter(
+    (op) => op.status === "completed",
+  ).length;
   const failedCount = history.filter((op) => op.status === "failed").length;
 
   // Calculate average times
@@ -722,6 +1015,7 @@ export function getSyncStats(): {
   repositoriesWithOperations: number;
   operationsInMemory: number;
 } {
+  hydrateSyncOpsFromDb();
   let totalQueued = 0;
   let totalRunning = 0;
 
@@ -750,4 +1044,22 @@ export function _clearAllSyncData(): void {
   runningOperations.clear();
   operationHistory.clear();
   operationById.clear();
+  syncHydrated = true;
+  try {
+    ensureSyncTables();
+    sqlite.query(`DELETE FROM git_sync_operations`).run();
+  } catch {
+    // Ignore if sqlite is mocked
+  }
+}
+
+/**
+ * Evict only in-memory sync cache to test SQLite hydration on restart.
+ */
+export function _evictSyncCacheForTesting(): void {
+  operationQueues.clear();
+  runningOperations.clear();
+  operationHistory.clear();
+  operationById.clear();
+  syncHydrated = false;
 }

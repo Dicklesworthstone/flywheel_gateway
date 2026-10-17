@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import { BackpressureManager, createBackpressureManager } from "../BackpressureManager";
+import {
+  BackpressureManager,
+  createBackpressureManager,
+} from "../BackpressureManager";
 
 describe("BackpressureManager", () => {
   let manager: BackpressureManager<string>;

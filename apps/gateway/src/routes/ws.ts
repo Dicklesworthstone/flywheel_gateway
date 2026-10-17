@@ -2,12 +2,19 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import { audit } from "../services/audit";
-import { replayEvents } from "../services/ws-event-log.service";
-import { sendError, sendResource, sendValidationError } from "../utils/response";
+import {
+  getStats as getEventLogStats,
+  replayEvents,
+} from "../services/ws-event-log.service";
+import {
+  sendError,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
 import { transformZodError } from "../utils/validation";
 import { canSubscribe, createInternalAuthContext } from "../ws/authorization";
 import { parseChannel } from "../ws/channels";
-import type { AuthContext } from "../ws/hub";
+import { type AuthContext, getHub } from "../ws/hub";
 
 const ws = new Hono();
 
@@ -31,8 +38,19 @@ function getClientIp(c: Context): string | undefined {
 }
 
 function getAuthContext(c: Context): AuthContext {
-  return (c.get("auth") as AuthContext | undefined) ?? createInternalAuthContext();
+  return (
+    (c.get("auth") as AuthContext | undefined) ?? createInternalAuthContext()
+  );
 }
+
+ws.get("/stats", async (c) => {
+  const hubStats = getHub().getStats();
+  const eventLogStats = await getEventLogStats();
+  return sendResource(c, "ws_stats", {
+    hub: hubStats,
+    eventLog: eventLogStats,
+  });
+});
 
 ws.get("/replay", async (c) => {
   const log = getLogger();
@@ -64,7 +82,8 @@ ws.get("/replay", async (c) => {
   }
 
   try {
-    const connectionId = c.req.header("X-Connection-Id")?.trim() ?? `http-${crypto.randomUUID()}`;
+    const connectionId =
+      c.req.header("X-Connection-Id")?.trim() ?? `http-${crypto.randomUUID()}`;
     const correlationId = getCorrelationId();
 
     const result = await replayEvents(

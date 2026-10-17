@@ -7,14 +7,27 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useUiStore } from "../stores/ui";
+import { useAllowMockFallback } from "./useMockFallback";
 
 // ============================================================================
 // Types (mirrors backend models)
 // ============================================================================
 
-export type PipelineStatus = "idle" | "running" | "paused" | "completed" | "failed" | "cancelled";
+export type PipelineStatus =
+  | "idle"
+  | "running"
+  | "paused"
+  | "completed"
+  | "failed"
+  | "cancelled";
 
-export type StepStatus = "pending" | "running" | "completed" | "failed" | "skipped" | "cancelled";
+export type StepStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "skipped"
+  | "cancelled";
 
 export type StepType =
   | "agent_task"
@@ -323,7 +336,10 @@ const mockRuns: PipelineRun[] = [
 
 const API_BASE = "/api/pipelines";
 
-async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
+async function fetchAPI<T>(
+  endpoint: string,
+  options?: RequestInit,
+): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
       "Content-Type": "application/json",
@@ -333,7 +349,9 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Request failed" }));
+    const error = await response
+      .json()
+      .catch(() => ({ message: "Request failed" }));
     throw new Error(error.message || `HTTP ${response.status}`);
   }
 
@@ -352,8 +370,13 @@ interface UseQueryResult<T> {
   refetch: () => void;
 }
 
-function useQuery<T>(endpoint: string, mockData: T, deps: unknown[] = []): UseQueryResult<T> {
+function useQuery<T>(
+  endpoint: string,
+  mockData: T,
+  deps: unknown[] = [],
+): UseQueryResult<T> {
   const mockMode = useUiStore((state) => state.mockMode);
+  const allowMockFallback = useAllowMockFallback();
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -378,13 +401,14 @@ function useQuery<T>(endpoint: string, mockData: T, deps: unknown[] = []): UseQu
       setData(result);
     } catch (e) {
       setError(e instanceof Error ? e : new Error("Unknown error"));
-      // Fall back to mock data on error
-      setData(mockDataRef.current);
+      if (allowMockFallback) {
+        setData(mockDataRef.current);
+      }
     } finally {
       setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint, mockMode, mockDataRef.current]);
+  }, [endpoint, mockMode, allowMockFallback, mockDataRef.current]);
 
   useEffect(() => {
     fetch();
@@ -403,7 +427,8 @@ export function usePipelines(options?: {
   search?: string;
 }): UseQueryResult<Pipeline[]> {
   const params = new URLSearchParams();
-  if (options?.enabled !== undefined) params.set("enabled", String(options.enabled));
+  if (options?.enabled !== undefined)
+    params.set("enabled", String(options.enabled));
   if (options?.tags) params.set("tags", options.tags.join(","));
   if (options?.search) params.set("search", options.search);
   const query = params.toString() ? `?${params.toString()}` : "";
@@ -413,12 +438,16 @@ export function usePipelines(options?: {
     filtered = filtered.filter((p) => p.enabled === options.enabled);
   }
   if (options?.tags?.length) {
-    filtered = filtered.filter((p) => options.tags?.some((t) => p.tags?.includes(t)));
+    filtered = filtered.filter((p) =>
+      options.tags?.some((t) => p.tags?.includes(t)),
+    );
   }
   if (options?.search) {
     const search = options.search.toLowerCase();
     filtered = filtered.filter(
-      (p) => p.name.toLowerCase().includes(search) || p.description?.toLowerCase().includes(search),
+      (p) =>
+        p.name.toLowerCase().includes(search) ||
+        p.description?.toLowerCase().includes(search),
     );
   }
 
@@ -469,7 +498,10 @@ export function usePipelineRuns(
 /**
  * Hook to fetch a single run by ID.
  */
-export function usePipelineRun(pipelineId: string, runId: string): UseQueryResult<PipelineRun> {
+export function usePipelineRun(
+  pipelineId: string,
+  runId: string,
+): UseQueryResult<PipelineRun> {
   const found = mockRuns.find((r) => r.id === runId);
   const mock = found ?? mockRuns[0]!;
   return useQuery(`/${pipelineId}/runs/${runId}`, mock, [pipelineId, runId]);
@@ -488,7 +520,10 @@ interface MutationResult<T, A extends unknown[]> {
 /**
  * Hook to create a new pipeline.
  */
-export function useCreatePipeline(): MutationResult<Pipeline, [Partial<Pipeline>]> {
+export function useCreatePipeline(): MutationResult<
+  Pipeline,
+  [Partial<Pipeline>]
+> {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const mockMode = useUiStore((state) => state.mockMode);
@@ -543,7 +578,10 @@ export function useCreatePipeline(): MutationResult<Pipeline, [Partial<Pipeline>
 /**
  * Hook to update a pipeline.
  */
-export function useUpdatePipeline(): MutationResult<Pipeline, [string, Partial<Pipeline>]> {
+export function useUpdatePipeline(): MutationResult<
+  Pipeline,
+  [string, Partial<Pipeline>]
+> {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const mockMode = useUiStore((state) => state.mockMode);
@@ -625,13 +663,19 @@ export function useDeletePipeline(): MutationResult<void, [string]> {
 /**
  * Hook to run a pipeline.
  */
-export function useRunPipeline(): MutationResult<PipelineRun, [string, Record<string, unknown>?]> {
+export function useRunPipeline(): MutationResult<
+  PipelineRun,
+  [string, Record<string, unknown>?]
+> {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const mockMode = useUiStore((state) => state.mockMode);
 
   const mutate = useCallback(
-    async (pipelineId: string, params?: Record<string, unknown>): Promise<PipelineRun> => {
+    async (
+      pipelineId: string,
+      params?: Record<string, unknown>,
+    ): Promise<PipelineRun> => {
       setIsLoading(true);
       setError(null);
 
@@ -672,7 +716,10 @@ export function useRunPipeline(): MutationResult<PipelineRun, [string, Record<st
 /**
  * Hook to pause a pipeline run.
  */
-export function usePausePipeline(): MutationResult<PipelineRun, [string, string]> {
+export function usePausePipeline(): MutationResult<
+  PipelineRun,
+  [string, string]
+> {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const mockMode = useUiStore((state) => state.mockMode);
@@ -691,9 +738,12 @@ export function usePausePipeline(): MutationResult<PipelineRun, [string, string]
       }
 
       try {
-        const result = await fetchAPI<PipelineRun>(`/${pipelineId}/runs/${runId}/pause`, {
-          method: "POST",
-        });
+        const result = await fetchAPI<PipelineRun>(
+          `/${pipelineId}/runs/${runId}/pause`,
+          {
+            method: "POST",
+          },
+        );
         return result;
       } catch (e) {
         const err = e instanceof Error ? e : new Error("Unknown error");
@@ -712,7 +762,10 @@ export function usePausePipeline(): MutationResult<PipelineRun, [string, string]
 /**
  * Hook to resume a pipeline run.
  */
-export function useResumePipeline(): MutationResult<PipelineRun, [string, string]> {
+export function useResumePipeline(): MutationResult<
+  PipelineRun,
+  [string, string]
+> {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const mockMode = useUiStore((state) => state.mockMode);
@@ -731,9 +784,12 @@ export function useResumePipeline(): MutationResult<PipelineRun, [string, string
       }
 
       try {
-        const result = await fetchAPI<PipelineRun>(`/${pipelineId}/runs/${runId}/resume`, {
-          method: "POST",
-        });
+        const result = await fetchAPI<PipelineRun>(
+          `/${pipelineId}/runs/${runId}/resume`,
+          {
+            method: "POST",
+          },
+        );
         return result;
       } catch (e) {
         const err = e instanceof Error ? e : new Error("Unknown error");
@@ -752,7 +808,10 @@ export function useResumePipeline(): MutationResult<PipelineRun, [string, string
 /**
  * Hook to cancel a pipeline run.
  */
-export function useCancelPipeline(): MutationResult<PipelineRun, [string, string]> {
+export function useCancelPipeline(): MutationResult<
+  PipelineRun,
+  [string, string]
+> {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const mockMode = useUiStore((state) => state.mockMode);
@@ -771,9 +830,12 @@ export function useCancelPipeline(): MutationResult<PipelineRun, [string, string
       }
 
       try {
-        const result = await fetchAPI<PipelineRun>(`/${pipelineId}/runs/${runId}/cancel`, {
-          method: "POST",
-        });
+        const result = await fetchAPI<PipelineRun>(
+          `/${pipelineId}/runs/${runId}/cancel`,
+          {
+            method: "POST",
+          },
+        );
         return result;
       } catch (e) {
         const err = e instanceof Error ? e : new Error("Unknown error");
@@ -792,13 +854,21 @@ export function useCancelPipeline(): MutationResult<PipelineRun, [string, string
 /**
  * Hook to approve an approval step.
  */
-export function useApproveStep(): MutationResult<void, [string, string, string, string?]> {
+export function useApproveStep(): MutationResult<
+  void,
+  [string, string, string, string?]
+> {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const mockMode = useUiStore((state) => state.mockMode);
 
   const mutate = useCallback(
-    async (pipelineId: string, runId: string, stepId: string, comment?: string): Promise<void> => {
+    async (
+      pipelineId: string,
+      runId: string,
+      stepId: string,
+      comment?: string,
+    ): Promise<void> => {
       setIsLoading(true);
       setError(null);
 
@@ -830,7 +900,10 @@ export function useApproveStep(): MutationResult<void, [string, string, string, 
 /**
  * Hook to toggle pipeline enabled state.
  */
-export function useTogglePipeline(): MutationResult<Pipeline, [string, boolean]> {
+export function useTogglePipeline(): MutationResult<
+  Pipeline,
+  [string, boolean]
+> {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const mockMode = useUiStore((state) => state.mockMode);

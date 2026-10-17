@@ -137,7 +137,11 @@ function globToRegex(pattern: string): RegExp {
 /**
  * Match a value against a pattern.
  */
-export function matchPattern(value: string, pattern: string, patternType: PatternType): boolean {
+export function matchPattern(
+  value: string,
+  pattern: string,
+  patternType: PatternType,
+): boolean {
   switch (patternType) {
     case "exact":
       return value === pattern;
@@ -161,7 +165,10 @@ export function matchPattern(value: string, pattern: string, patternType: Patter
       try {
         // Check for ReDoS patterns (simple heuristic)
         if (isReDoSPattern(pattern)) {
-          logger.warn({ pattern }, "Potentially dangerous regex pattern rejected");
+          logger.warn(
+            { pattern },
+            "Potentially dangerous regex pattern rejected",
+          );
           return false;
         }
         const regex = new RegExp(pattern);
@@ -195,7 +202,10 @@ function isReDoSPattern(pattern: string): boolean {
 /**
  * Evaluate a condition against an operation.
  */
-function evaluateCondition(condition: RuleCondition, operation: SafetyOperation): boolean {
+function evaluateCondition(
+  condition: RuleCondition,
+  operation: SafetyOperation,
+): boolean {
   const fieldValue = operation.fields[condition.field];
 
   if (fieldValue === undefined) {
@@ -218,7 +228,10 @@ function evaluateCondition(condition: RuleCondition, operation: SafetyOperation)
 /**
  * Evaluate a single rule against an operation.
  */
-export function evaluateRule(rule: SafetyRule, operation: SafetyOperation): RuleEvaluationResult {
+export function evaluateRule(
+  rule: SafetyRule,
+  operation: SafetyOperation,
+): RuleEvaluationResult {
   if (!rule.enabled) {
     return {
       rule,
@@ -241,9 +254,13 @@ export function evaluateRule(rule: SafetyRule, operation: SafetyOperation): Rule
   // Evaluate conditions
   let matched: boolean;
   if (rule.conditionLogic === "and") {
-    matched = rule.conditions.every((cond) => evaluateCondition(cond, operation));
+    matched = rule.conditions.every((cond) =>
+      evaluateCondition(cond, operation),
+    );
   } else {
-    matched = rule.conditions.some((cond) => evaluateCondition(cond, operation));
+    matched = rule.conditions.some((cond) =>
+      evaluateCondition(cond, operation),
+    );
   }
 
   const result: RuleEvaluationResult = {
@@ -361,7 +378,9 @@ export function getDefaultRules(): SafetyRule[] {
       name: "Block etc/passwd access",
       description: "Prevent access to system password file",
       category: "filesystem",
-      conditions: [{ field: "path", patternType: "glob", pattern: "**/etc/passwd" }],
+      conditions: [
+        { field: "path", patternType: "glob", pattern: "**/etc/passwd" },
+      ],
       conditionLogic: "and",
       action: "deny",
       severity: "critical",
@@ -400,7 +419,8 @@ export function getDefaultRules(): SafetyRule[] {
       conditionLogic: "and",
       action: "warn",
       severity: "low",
-      message: "Direct modification of node_modules is discouraged. Use package manager instead.",
+      message:
+        "Direct modification of node_modules is discouraged. Use package manager instead.",
       enabled: true,
       alternatives: ["npm install", "bun add", "pnpm add"],
     },
@@ -429,7 +449,9 @@ export function getDefaultRules(): SafetyRule[] {
       name: "Block force push",
       description: "Prevent force pushing to remote",
       category: "git",
-      conditions: [{ field: "command", patternType: "regex", pattern: "push.*--force" }],
+      conditions: [
+        { field: "command", patternType: "regex", pattern: "push.*--force" },
+      ],
       conditionLogic: "and",
       action: "approve",
       severity: "high",
@@ -442,11 +464,14 @@ export function getDefaultRules(): SafetyRule[] {
       name: "Block hard reset",
       description: "Prevent hard reset which loses uncommitted changes",
       category: "git",
-      conditions: [{ field: "command", patternType: "regex", pattern: "reset.*--hard" }],
+      conditions: [
+        { field: "command", patternType: "regex", pattern: "reset.*--hard" },
+      ],
       conditionLogic: "and",
       action: "approve",
       severity: "high",
-      message: "Hard reset can lose uncommitted changes. This requires approval.",
+      message:
+        "Hard reset can lose uncommitted changes. This requires approval.",
       enabled: true,
       alternatives: ["git stash", "git reset --soft"],
     },
@@ -455,11 +480,14 @@ export function getDefaultRules(): SafetyRule[] {
       name: "Block git clean -f",
       description: "Prevent cleaning untracked files",
       category: "git",
-      conditions: [{ field: "command", patternType: "glob", pattern: "clean*-f*" }],
+      conditions: [
+        { field: "command", patternType: "glob", pattern: "clean*-f*" },
+      ],
       conditionLogic: "and",
       action: "approve",
       severity: "medium",
-      message: "git clean -f permanently deletes untracked files. This requires approval.",
+      message:
+        "git clean -f permanently deletes untracked files. This requires approval.",
       enabled: true,
     },
 
@@ -479,7 +507,8 @@ export function getDefaultRules(): SafetyRule[] {
       conditionLogic: "and",
       action: "deny",
       severity: "critical",
-      message: "Piping curl output to shell is blocked. Download and inspect first.",
+      message:
+        "Piping curl output to shell is blocked. Download and inspect first.",
       enabled: true,
     },
     {
@@ -505,7 +534,9 @@ export function getDefaultRules(): SafetyRule[] {
       name: "Warn on sudo",
       description: "Warn when using sudo",
       category: "execution",
-      conditions: [{ field: "command", patternType: "prefix", pattern: "sudo " }],
+      conditions: [
+        { field: "command", patternType: "prefix", pattern: "sudo " },
+      ],
       conditionLogic: "and",
       action: "warn",
       severity: "medium",
@@ -523,7 +554,8 @@ export function getDefaultRules(): SafetyRule[] {
         {
           field: "url",
           patternType: "regex",
-          pattern: "^https?://(10\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|192\\.168\\.)",
+          pattern:
+            "^https?://(10\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|192\\.168\\.)",
         },
       ],
       conditionLogic: "and",

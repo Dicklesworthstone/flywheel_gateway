@@ -74,7 +74,8 @@ describe("createRouteErrorHandler", () => {
     const handleError = createRouteErrorHandler("test", [
       {
         match: (err) => err instanceof CustomNotFoundError,
-        handle: (err, c) => sendNotFound(c, "resource", (err as CustomNotFoundError).resourceId),
+        handle: (err, c) =>
+          sendNotFound(c, "resource", (err as CustomNotFoundError).resourceId),
       },
     ]);
 
@@ -99,7 +100,8 @@ describe("createRouteErrorHandler", () => {
     const handleError = createRouteErrorHandler("test", [
       {
         match: (err) => err instanceof CustomNotFoundError,
-        handle: (err, c) => sendNotFound(c, "resource", (err as CustomNotFoundError).resourceId),
+        handle: (err, c) =>
+          sendNotFound(c, "resource", (err as CustomNotFoundError).resourceId),
       },
     ]);
 

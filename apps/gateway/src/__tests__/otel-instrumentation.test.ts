@@ -9,8 +9,10 @@ import {
 } from "@opentelemetry/sdk-trace-base";
 import type { ServerWebSocket } from "bun";
 import app from "../index";
+import { withDbSpan, withJobSpan } from "../services/otel.service";
 import { handleWSMessage, handleWSOpen } from "../ws/handlers";
 import { type ConnectionData, resetHub } from "../ws/hub";
+import { createHubMessage } from "../ws/messages";
 
 function installInMemoryTracing(): {
   exporter: InMemorySpanExporter;
@@ -21,7 +23,9 @@ function installInMemoryTracing(): {
     spanProcessors: [new SimpleSpanProcessor(exporter)],
   });
 
-  context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable());
+  context.setGlobalContextManager(
+    new AsyncLocalStorageContextManager().enable(),
+  );
   propagation.setGlobalPropagator(new W3CTraceContextPropagator());
   trace.setGlobalTracerProvider(provider);
 
@@ -78,7 +82,9 @@ describe("OTel instrumentation", () => {
     expect(httpSpan?.attributes["http.route"]).toBe("/health");
     expect(httpSpan?.attributes["http.status_code"]).toBe(200);
     expect(typeof httpSpan?.attributes["http.duration_ms"]).toBe("number");
-    expect(typeof httpSpan?.attributes["flywheel.correlation_id"]).toBe("string");
+    expect(typeof httpSpan?.attributes["flywheel.correlation_id"]).toBe(
+      "string",
+    );
     expect(typeof httpSpan?.attributes["flywheel.request_id"]).toBe("string");
   });
 
@@ -154,5 +160,59 @@ describe("OTel instrumentation", () => {
     expect(wsSpan?.attributes["ws.message_type"]).toBe("subscribe");
     expect(wsSpan?.attributes["ws.channel"]).toBe("agent:output:agent_123");
     expect(wsSpan?.attributes["ws.agent_id"]).toBe("agent_123");
+  });
+
+  it("sets X-Trace-ID response header and propagates traceId into HubMessage metadata", async () => {
+    delete process.env["JWT_SECRET"];
+    delete process.env["GATEWAY_ADMIN_KEY"];
+
+    const res = await app.request("/health");
+    expect(res.status).toBe(200);
+    const headerTraceId = res.headers.get("X-Trace-ID");
+    expect(headerTraceId).toBeDefined();
+
+    const spans = exporter.getFinishedSpans();
+    const httpSpan = spans.find((s) => s.name.startsWith("HTTP "));
+    expect(httpSpan?.spanContext().traceId).toBe(headerTraceId!);
+
+    // Verify createHubMessage captures active span traceId and spanId
+    const tracer = trace.getTracer("flywheel-gateway");
+    const customSpan = tracer.startSpan("WS publish test");
+    const spanCtx = trace.setSpan(context.active(), customSpan);
+    const hubMsg = context.with(spanCtx, () =>
+      createHubMessage("output.chunk", "agent:output:a1", { text: "hello" }),
+    );
+    customSpan.end();
+
+    expect(hubMsg.metadata?.traceId).toBe(customSpan.spanContext().traceId);
+    expect(hubMsg.metadata?.spanId).toBe(customSpan.spanContext().spanId);
+  });
+
+  it("creates DB and Job spans with table, operation, and job attributes", async () => {
+    const result = await withJobSpan("codebase_scan", "job_999", async () => {
+      return await withDbSpan("INSERT", "jobs", async () => {
+        return { inserted: true };
+      });
+    });
+
+    expect(result).toEqual({ inserted: true });
+
+    const spans = exporter.getFinishedSpans();
+    const dbSpan = spans.find((s) => s.name === "DB INSERT jobs");
+    const jobSpan = spans.find((s) => s.name === "Job codebase_scan");
+
+    expect(dbSpan).toBeDefined();
+    expect(dbSpan?.attributes["db.system"]).toBe("sqlite");
+    expect(dbSpan?.attributes["db.operation"]).toBe("INSERT");
+    expect(dbSpan?.attributes["db.sql.table"]).toBe("jobs");
+    expect(typeof dbSpan?.attributes["db.duration_ms"]).toBe("number");
+
+    expect(jobSpan).toBeDefined();
+    expect(jobSpan?.attributes["flywheel.job.type"]).toBe("codebase_scan");
+    expect(jobSpan?.attributes["flywheel.job.id"]).toBe("job_999");
+    expect(jobSpan?.attributes["flywheel.job.success"]).toBe(true);
+    expect(typeof jobSpan?.attributes["flywheel.job.duration_ms"]).toBe(
+      "number",
+    );
   });
 });

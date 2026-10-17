@@ -12,16 +12,19 @@
  * lightweight and cached with a short TTL.
  */
 
+import { sqlite } from "../db/connection";
 import { getLogger } from "../middleware/correlation";
 import { LifecycleState } from "../models/agent-state";
 import { getHub } from "../ws/hub";
 import { getAgent, listAgents } from "./agent";
 import { getAgentErrorRatePerMinute } from "./agent-health-score.events";
 import { getAgentState } from "./agent-state-machine";
+import { routeAlert } from "./alert-channel.service";
 import { getCostSummary } from "./cost-tracker.service";
 import { getActiveReservationConflictCount } from "./reservation.service";
 
 export type HealthScoreBand = "green" | "yellow" | "red";
+export type HealthScoreTrend = "improving" | "declining" | "stable";
 
 export interface HealthComponents {
   /** 0-100, higher = more utilized (less headroom) */
@@ -44,10 +47,21 @@ export interface HealthComponentScores {
   conflictScore: number;
 }
 
+export interface AgentHealthHistoryEntry {
+  id: string;
+  agentId: string;
+  score: number;
+  band: HealthScoreBand;
+  componentScores: HealthComponentScores;
+  recordedAt: string;
+}
+
 export interface AgentHealthScoreResult {
   agentId: string;
   score: number;
   band: HealthScoreBand;
+  trend?: HealthScoreTrend;
+  consecutiveDrops?: number;
   components: HealthComponents;
   componentScores: HealthComponentScores;
   computedAt: string;
@@ -65,6 +79,33 @@ export interface AgentHealthScoreResult {
 interface ScoreCacheEntry {
   value: Omit<AgentHealthScoreResult, "cache">;
   expiresAt: number;
+}
+
+let historyTableEnsured = false;
+
+function ensureHealthHistoryTable(): void {
+  if (historyTableEnsured) return;
+  try {
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS agent_health_history (
+        id TEXT PRIMARY KEY NOT NULL,
+        agent_id TEXT NOT NULL,
+        score INTEGER NOT NULL,
+        band TEXT NOT NULL,
+        context_score INTEGER NOT NULL,
+        cost_score INTEGER NOT NULL,
+        state_score INTEGER NOT NULL,
+        error_score INTEGER NOT NULL,
+        conflict_score INTEGER NOT NULL,
+        recorded_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_health_history_agent_time
+        ON agent_health_history (agent_id, recorded_at DESC);
+    `);
+    historyTableEnsured = true;
+  } catch {
+    // Non-fatal fallback
+  }
 }
 
 const DEFAULT_CACHE_TTL_MS = 7_500;
@@ -88,7 +129,11 @@ export function calculateCompositeHealthScore(components: HealthComponents): {
   const costScore = clamp(100 - (components.costBurnRate - 1) * 50, 0, 100);
   const stateScore = clamp(components.stateHealth, 0, 100);
   const errorScore = clamp(100 - components.errorRate * 20, 0, 100);
-  const conflictScore = clamp(100 - components.reservationConflicts * 25, 0, 100);
+  const conflictScore = clamp(
+    100 - components.reservationConflicts * 25,
+    0,
+    100,
+  );
 
   const weighted =
     contextScore * 0.25 +
@@ -122,7 +167,9 @@ function calculateStateHealthScore(
   if (state === LifecycleState.READY) return { score: 100, durationSeconds };
 
   // Norms chosen to match bd-1x215 spec (seconds).
-  const norms: Partial<Record<LifecycleState, { normal: number; max: number }>> = {
+  const norms: Partial<
+    Record<LifecycleState, { normal: number; max: number }>
+  > = {
     [LifecycleState.EXECUTING]: { normal: 1800, max: 3600 },
     [LifecycleState.PAUSED]: { normal: 3600, max: 7200 },
     [LifecycleState.INITIALIZING]: { normal: 60, max: 300 },
@@ -152,6 +199,8 @@ function computeContextUtilizationPercent(input: {
 export class AgentHealthScoreService {
   private scoreCache = new Map<string, ScoreCacheEntry>();
   private lastPublishedScore = new Map<string, number>();
+  private consecutiveDropsByAgent = new Map<string, number>();
+  private lastAlertBandByAgent = new Map<string, string>();
 
   constructor(
     private readonly config: {
@@ -163,9 +212,15 @@ export class AgentHealthScoreService {
   clearCache(agentId?: string): void {
     if (agentId) {
       this.scoreCache.delete(agentId);
+      this.lastPublishedScore.delete(agentId);
+      this.consecutiveDropsByAgent.delete(agentId);
+      this.lastAlertBandByAgent.delete(agentId);
       return;
     }
     this.scoreCache.clear();
+    this.lastPublishedScore.clear();
+    this.consecutiveDropsByAgent.clear();
+    this.lastAlertBandByAgent.clear();
   }
 
   async getAgentScore(
@@ -213,8 +268,13 @@ export class AgentHealthScoreService {
     // data exists in the window, default to 1.0 (normal).
     let costBurnRate = 1;
     try {
-      const agentCount = options.agentCount ?? (await listAgents({ limit: 1000 })).agents.length;
-      costBurnRate = await this.computeCostBurnRate(agentId, agentCount, costWindowMs);
+      const agentCount =
+        options.agentCount ?? (await listAgents({ limit: 1000 })).agents.length;
+      costBurnRate = await this.computeCostBurnRate(
+        agentId,
+        agentCount,
+        costWindowMs,
+      );
     } catch (error) {
       log.debug({ agentId, error }, "health-score: cost burn rate unavailable");
       costBurnRate = 1;
@@ -229,14 +289,34 @@ export class AgentHealthScoreService {
     };
 
     const composite = calculateCompositeHealthScore(components);
+    const band = scoreToBand(composite.score);
+    const previousScore = this.lastPublishedScore.get(agentId);
+
+    let trend: HealthScoreTrend = "stable";
+    let consecutiveDrops = this.consecutiveDropsByAgent.get(agentId) ?? 0;
+
+    if (previousScore !== undefined) {
+      if (composite.score < previousScore) {
+        trend = "declining";
+        consecutiveDrops += 1;
+      } else if (composite.score > previousScore) {
+        trend = "improving";
+        consecutiveDrops = 0;
+      }
+      this.consecutiveDropsByAgent.set(agentId, consecutiveDrops);
+    }
+
+    const computedAt = new Date().toISOString();
 
     const value: Omit<AgentHealthScoreResult, "cache"> = {
       agentId,
       score: composite.score,
-      band: scoreToBand(composite.score),
+      band,
+      trend,
+      consecutiveDrops,
       components,
       componentScores: composite.componentScores,
-      computedAt: new Date().toISOString(),
+      computedAt,
       debug: {
         ...(state ? { state } : {}),
         ...(stateEnteredAt
@@ -251,18 +331,181 @@ export class AgentHealthScoreService {
       expiresAt: now + ttlMs,
     });
 
+    this.recordHistorySample(value);
+    this.evaluateThresholdsAndAlert(value);
     this.publishIfChanged(value);
 
     return { ...value, cache: { hit: false, ttlMs } };
   }
 
-  async getScoresForAgents(agentIds: string[]): Promise<AgentHealthScoreResult[]> {
+  async getScoresForAgents(
+    agentIds: string[],
+  ): Promise<AgentHealthScoreResult[]> {
     const agentCount = agentIds.length;
     const results = await Promise.all(
-      agentIds.map(async (agentId) => this.getAgentScore(agentId, { agentCount })),
+      agentIds.map(async (agentId) =>
+        this.getAgentScore(agentId, { agentCount }),
+      ),
     );
     // Worst-first is more useful for dashboards.
     return results.sort((a, b) => a.score - b.score);
+  }
+
+  getAgentHealthHistory(
+    agentId: string,
+    options: { limit?: number } = {},
+  ): {
+    agentId: string;
+    entries: AgentHealthHistoryEntry[];
+    trend: HealthScoreTrend;
+    consecutiveDrops: number;
+  } {
+    ensureHealthHistoryTable();
+    const limit = clamp(options.limit ?? 100, 1, 500);
+    const entries: AgentHealthHistoryEntry[] = [];
+
+    try {
+      const rows = sqlite
+        .query<
+          {
+            id: string;
+            agent_id: string;
+            score: number;
+            band: HealthScoreBand;
+            context_score: number;
+            cost_score: number;
+            state_score: number;
+            error_score: number;
+            conflict_score: number;
+            recorded_at: string;
+          },
+          [string, number]
+        >(
+          `SELECT id, agent_id, score, band, context_score, cost_score, state_score, error_score, conflict_score, recorded_at
+           FROM agent_health_history
+           WHERE agent_id = ?
+           ORDER BY recorded_at DESC
+           LIMIT ?`,
+        )
+        .all(agentId, limit);
+
+      for (const r of rows) {
+        entries.push({
+          id: r.id,
+          agentId: r.agent_id,
+          score: r.score,
+          band: r.band,
+          componentScores: {
+            contextScore: r.context_score,
+            costScore: r.cost_score,
+            stateScore: r.state_score,
+            errorScore: r.error_score,
+            conflictScore: r.conflict_score,
+          },
+          recordedAt: r.recorded_at,
+        });
+      }
+    } catch {
+      // Non-fatal
+    }
+
+    let trend: HealthScoreTrend = "stable";
+    if (entries.length >= 2) {
+      const latest = entries[0]!.score;
+      const prev = entries[1]!.score;
+      if (latest > prev) trend = "improving";
+      else if (latest < prev) trend = "declining";
+    }
+
+    return {
+      agentId,
+      entries,
+      trend,
+      consecutiveDrops: this.consecutiveDropsByAgent.get(agentId) ?? 0,
+    };
+  }
+
+  private recordHistorySample(
+    value: Omit<AgentHealthScoreResult, "cache">,
+  ): void {
+    ensureHealthHistoryTable();
+    try {
+      const id = `ahh_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      sqlite
+        .query(
+          `INSERT INTO agent_health_history
+            (id, agent_id, score, band, context_score, cost_score, state_score, error_score, conflict_score, recorded_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          id,
+          value.agentId,
+          value.score,
+          value.band,
+          value.componentScores.contextScore,
+          value.componentScores.costScore,
+          value.componentScores.stateScore,
+          value.componentScores.errorScore,
+          value.componentScores.conflictScore,
+          value.computedAt,
+        );
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  private evaluateThresholdsAndAlert(
+    value: Omit<AgentHealthScoreResult, "cache">,
+  ): void {
+    const prevBand = this.lastAlertBandByAgent.get(value.agentId);
+    const currentAlertKey =
+      value.score < 25
+        ? "critical_red"
+        : value.score < 50
+          ? "warning_yellow"
+          : (value.consecutiveDrops ?? 0) >= 3
+            ? "declining_trend"
+            : "healthy";
+
+    this.lastAlertBandByAgent.set(value.agentId, currentAlertKey);
+
+    if (currentAlertKey === "healthy" || currentAlertKey === prevBand) {
+      return;
+    }
+
+    const severity =
+      currentAlertKey === "critical_red" ? "critical" : "warning";
+    const title =
+      currentAlertKey === "critical_red"
+        ? `Agent ${value.agentId} Health Critical (${value.score}/100)`
+        : currentAlertKey === "warning_yellow"
+          ? `Agent ${value.agentId} Health Degraded (${value.score}/100)`
+          : `Agent ${value.agentId} Health Declining (${value.consecutiveDrops} consecutive drops)`;
+
+    routeAlert({
+      id: `health_${value.agentId}_${Date.now()}`,
+      type: `agent_health_${currentAlertKey}`,
+      title,
+      body: `Composite health score is ${value.score}/100 (band: ${value.band}, trend: ${value.trend ?? "stable"}).`,
+      severity,
+      category: "agent_health",
+      source: {
+        type: "agent_health_score",
+        id: value.agentId,
+        name: value.agentId,
+      },
+      metadata: {
+        agentId: value.agentId,
+        score: value.score,
+        band: value.band,
+        trend: value.trend,
+        consecutiveDrops: value.consecutiveDrops,
+        componentScores: value.componentScores,
+      },
+      timestamp: value.computedAt,
+    }).catch(() => {
+      // Non-fatal
+    });
   }
 
   private publishIfChanged(value: Omit<AgentHealthScoreResult, "cache">): void {
@@ -273,9 +516,14 @@ export class AgentHealthScoreService {
 
     this.lastPublishedScore.set(value.agentId, value.score);
 
-    getHub().publish({ type: "agent:health", agentId: value.agentId }, "health.score", value, {
-      agentId: value.agentId,
-    });
+    getHub().publish(
+      { type: "agent:health", agentId: value.agentId },
+      "health.score",
+      value,
+      {
+        agentId: value.agentId,
+      },
+    );
   }
 
   private async computeCostBurnRate(

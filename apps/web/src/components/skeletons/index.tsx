@@ -25,13 +25,23 @@ function SkeletonTableRow({ columns }: { columns: number }) {
   return (
     <div className="table__row">
       {Array.from({ length: columns }, (_, i) => i).map((i) => (
-        <Skeleton key={`col-${i}`} variant="text" style={{ width: i === 0 ? "80%" : "60%" }} />
+        <Skeleton
+          key={`col-${i}`}
+          variant="text"
+          style={{ width: i === 0 ? "80%" : "60%" }}
+        />
       ))}
     </div>
   );
 }
 
-function SkeletonTable({ rows = 5, columns = 4 }: { rows?: number; columns?: number }) {
+function SkeletonTable({
+  rows = 5,
+  columns = 4,
+}: {
+  rows?: number;
+  columns?: number;
+}) {
   return (
     <div className="table">
       <SkeletonTableHeader columns={columns} />
@@ -56,7 +66,10 @@ export function DashboardSkeleton() {
             <Skeleton variant="text" style={{ width: 100 }} />
             <Skeleton variant="button" style={{ width: 80 }} />
           </div>
-          <Skeleton variant="text" style={{ width: 60, height: 48, marginBottom: 8 }} />
+          <Skeleton
+            variant="text"
+            style={{ width: 60, height: 48, marginBottom: 8 }}
+          />
           <Skeleton variant="text-sm" style={{ width: "70%" }} />
         </div>
         <div className="card">
@@ -64,7 +77,10 @@ export function DashboardSkeleton() {
             <Skeleton variant="text" style={{ width: 100 }} />
             <Skeleton variant="button" style={{ width: 80 }} />
           </div>
-          <Skeleton variant="text" style={{ width: 60, height: 48, marginBottom: 8 }} />
+          <Skeleton
+            variant="text"
+            style={{ width: 60, height: 48, marginBottom: 8 }}
+          />
           <Skeleton variant="text-sm" style={{ width: "70%" }} />
         </div>
       </section>
@@ -73,8 +89,14 @@ export function DashboardSkeleton() {
       <section className="grid grid--3">
         {[1, 2, 3].map((i) => (
           <div key={i} className="card card--compact">
-            <Skeleton variant="text-sm" style={{ width: 80, marginBottom: 8 }} />
-            <Skeleton variant="text" style={{ width: 60, height: 32, marginBottom: 4 }} />
+            <Skeleton
+              variant="text-sm"
+              style={{ width: 80, marginBottom: 8 }}
+            />
+            <Skeleton
+              variant="text"
+              style={{ width: 60, height: 32, marginBottom: 4 }}
+            />
             <Skeleton variant="text-sm" style={{ width: "60%" }} />
           </div>
         ))}
@@ -112,7 +134,10 @@ export function FleetSkeleton() {
       <section className="grid grid--4">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="card card--compact">
-            <Skeleton variant="text-sm" style={{ width: 60, marginBottom: 8 }} />
+            <Skeleton
+              variant="text-sm"
+              style={{ width: 60, marginBottom: 8 }}
+            />
             <Skeleton variant="text" style={{ width: 40, height: 32 }} />
           </div>
         ))}
@@ -182,7 +207,10 @@ export function SettingsSkeleton() {
         {/* Form fields */}
         {[1, 2, 3, 4].map((i) => (
           <div key={i} style={{ marginBottom: 24 }}>
-            <Skeleton variant="text-sm" style={{ width: 120, marginBottom: 8 }} />
+            <Skeleton
+              variant="text-sm"
+              style={{ width: 120, marginBottom: 8 }}
+            />
             <Skeleton variant="text" style={{ width: "100%", height: 40 }} />
           </div>
         ))}
@@ -220,7 +248,10 @@ export function DCGSkeleton() {
       <section className="grid grid--3">
         {[1, 2, 3].map((i) => (
           <div key={i} className="card card--compact">
-            <Skeleton variant="text-sm" style={{ width: 80, marginBottom: 8 }} />
+            <Skeleton
+              variant="text-sm"
+              style={{ width: 80, marginBottom: 8 }}
+            />
             <Skeleton variant="text" style={{ width: 50, height: 36 }} />
           </div>
         ))}
@@ -279,7 +310,10 @@ export function VelocitySkeleton() {
       <section className="grid grid--4">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="card card--compact">
-            <Skeleton variant="text-sm" style={{ width: 80, marginBottom: 8 }} />
+            <Skeleton
+              variant="text-sm"
+              style={{ width: 80, marginBottom: 8 }}
+            />
             <Skeleton variant="text" style={{ width: 50, height: 32 }} />
           </div>
         ))}
@@ -294,7 +328,11 @@ export function VelocitySkeleton() {
 
 export function CollaborationGraphSkeleton() {
   return (
-    <section className="page" aria-busy="true" aria-label="Loading collaboration graph">
+    <section
+      className="page"
+      aria-busy="true"
+      aria-label="Loading collaboration graph"
+    >
       {/* Graph area */}
       <div className="card" style={{ minHeight: 400 }}>
         <div className="card__header">
@@ -313,12 +351,19 @@ export function CollaborationGraphSkeleton() {
 
 export function CostAnalyticsSkeleton() {
   return (
-    <section className="page" aria-busy="true" aria-label="Loading cost analytics">
+    <section
+      className="page"
+      aria-busy="true"
+      aria-label="Loading cost analytics"
+    >
       {/* Summary cards */}
       <section className="grid grid--4">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="card card--compact">
-            <Skeleton variant="text-sm" style={{ width: 80, marginBottom: 8 }} />
+            <Skeleton
+              variant="text-sm"
+              style={{ width: 80, marginBottom: 8 }}
+            />
             <Skeleton variant="text" style={{ width: 70, height: 36 }} />
           </div>
         ))}
@@ -359,7 +404,10 @@ export function SetupSkeleton() {
         }}
       >
         <div>
-          <Skeleton variant="text" style={{ width: 200, height: 32, marginBottom: 8 }} />
+          <Skeleton
+            variant="text"
+            style={{ width: 200, height: 32, marginBottom: 8 }}
+          />
           <Skeleton variant="text-sm" style={{ width: 300 }} />
         </div>
         <Skeleton variant="button" style={{ width: 100 }} />
@@ -377,9 +425,14 @@ export function SetupSkeleton() {
         <div className="card">
           <Skeleton variant="text" style={{ width: 120, marginBottom: 16 }} />
           <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-            <Skeleton style={{ width: 100, height: 100, borderRadius: "50%" }} />
+            <Skeleton
+              style={{ width: 100, height: 100, borderRadius: "50%" }}
+            />
             <div>
-              <Skeleton variant="text-sm" style={{ width: 150, marginBottom: 8 }} />
+              <Skeleton
+                variant="text-sm"
+                style={{ width: 150, marginBottom: 8 }}
+              />
               <Skeleton variant="text-sm" style={{ width: 120 }} />
             </div>
           </div>
@@ -396,7 +449,10 @@ export function SetupSkeleton() {
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <Skeleton style={{ width: 36, height: 36, borderRadius: 8 }} />
                 <div>
-                  <Skeleton variant="text" style={{ width: 100, marginBottom: 4 }} />
+                  <Skeleton
+                    variant="text"
+                    style={{ width: 100, marginBottom: 4 }}
+                  />
                   <Skeleton variant="text-sm" style={{ width: 60 }} />
                 </div>
               </div>
@@ -437,7 +493,11 @@ export function UtilitiesSkeleton() {
 
 export function NTMSkeleton() {
   return (
-    <section className="page" aria-busy="true" aria-label="Loading NTM sessions">
+    <section
+      className="page"
+      aria-busy="true"
+      aria-label="Loading NTM sessions"
+    >
       <div className="card">
         <div className="card__header">
           <Skeleton variant="text" style={{ width: 100 }} />
@@ -461,7 +521,11 @@ export function NTMSkeleton() {
 
 export function CASSSkeleton() {
   return (
-    <section className="page" aria-busy="true" aria-label="Loading session search">
+    <section
+      className="page"
+      aria-busy="true"
+      aria-label="Loading session search"
+    >
       <div className="card">
         <Skeleton variant="text" style={{ width: 80, marginBottom: 12 }} />
         <div className="form-row">
@@ -483,7 +547,11 @@ export function CASSSkeleton() {
 
 export function SLBSkeleton() {
   return (
-    <section className="page" aria-busy="true" aria-label="Loading safety line buffer">
+    <section
+      className="page"
+      aria-busy="true"
+      aria-label="Loading safety line buffer"
+    >
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <Skeleton variant="button" style={{ width: 80 }} />
         <Skeleton variant="button" style={{ width: 80 }} />
@@ -503,7 +571,11 @@ export function SLBSkeleton() {
 
 export function CMSkeleton() {
   return (
-    <section className="page" aria-busy="true" aria-label="Loading credential manager">
+    <section
+      className="page"
+      aria-busy="true"
+      aria-label="Loading credential manager"
+    >
       <div className="card card--compact" style={{ marginBottom: 16 }}>
         <Skeleton variant="text" style={{ width: 200 }} />
       </div>

@@ -364,11 +364,20 @@ describe("Notification Filtering", () => {
     });
 
     expect(result.notifications).toHaveLength(2);
-    expect(result.notifications.every((n) => ["agents", "costs"].includes(n.category))).toBe(true);
+    expect(
+      result.notifications.every((n) =>
+        ["agents", "costs"].includes(n.category),
+      ),
+    ).toBe(true);
   });
 
   test("filters by priority", async () => {
-    const priorities: NotificationPriority[] = ["low", "normal", "high", "urgent"];
+    const priorities: NotificationPriority[] = [
+      "low",
+      "normal",
+      "high",
+      "urgent",
+    ];
     for (const priority of priorities) {
       await createNotification({
         type: "test",
@@ -387,7 +396,11 @@ describe("Notification Filtering", () => {
     });
 
     expect(result.notifications).toHaveLength(2);
-    expect(result.notifications.every((n) => ["high", "urgent"].includes(n.priority))).toBe(true);
+    expect(
+      result.notifications.every((n) =>
+        ["high", "urgent"].includes(n.priority),
+      ),
+    ).toBe(true);
   });
 
   test("filters by status", async () => {

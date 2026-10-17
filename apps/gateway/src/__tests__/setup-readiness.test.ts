@@ -10,7 +10,15 @@
  * and detection layer, allowing tests to run without requiring actual CLIs.
  */
 
-import { afterAll, afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+} from "bun:test";
 import { Hono } from "hono";
 import { requestContextStorage } from "../middleware/correlation";
 import {
@@ -109,98 +117,155 @@ const DEFAULT_TEST_TOOLS = [
   },
 ];
 
-// Mock tool registry service
-mock.module("../services/tool-registry.service", () => ({
-  loadToolRegistry: async () => {
-    if (mockRegistryError) {
-      throw mockRegistryError;
-    }
-    return {
-      schemaVersion: mockRegistrySchemaVersion,
-      source: "test-harness",
-      generatedAt: new Date().toISOString(),
-      tools: mockRegistryTools,
-    };
-  },
-  loadToolRegistryWithMetadata: async () => {
-    if (mockRegistryError) {
-      throw mockRegistryError;
-    }
-    return {
-      registry: {
+function installSetupReadinessMocks() {
+  // Mock tool registry service
+  mock.module("../services/tool-registry.service", () => ({
+    loadToolRegistry: async () => {
+      if (mockRegistryError) {
+        throw mockRegistryError;
+      }
+      return {
         schemaVersion: mockRegistrySchemaVersion,
         source: "test-harness",
         generatedAt: new Date().toISOString(),
         tools: mockRegistryTools,
-      },
-      source: "manifest" as const,
-    };
-  },
-  getToolRegistryMetadata: () => ({
-    manifestPath: "/test/manifest.yaml",
-    schemaVersion: mockRegistrySchemaVersion,
-    manifestHash: "test-hash-123",
-    loadedAt: Date.now(),
-    registrySource: "manifest" as const,
-  }),
-  clearToolRegistryCache: () => {},
-  getRequiredTools: async () =>
-    mockRegistryTools.filter(
-      (t) =>
-        t.tags?.includes("critical") ||
-        t.tags?.includes("required") ||
-        (t.optional !== true && t.enabledByDefault === true),
-    ),
-  getRecommendedTools: async () =>
-    mockRegistryTools.filter(
-      (t) =>
-        t.tags?.includes("recommended") || (t.optional === true && t.enabledByDefault === true),
-    ),
-  getOptionalTools: async () =>
-    mockRegistryTools.filter((t) => t.optional === true && !t.tags?.includes("recommended")),
-  categorizeTools: async () => {
-    const required = mockRegistryTools.filter(
-      (t) =>
-        t.tags?.includes("critical") ||
-        t.tags?.includes("required") ||
-        (t.optional !== true && t.enabledByDefault === true),
-    );
-    const recommended = mockRegistryTools.filter(
-      (t) =>
-        !required.includes(t) &&
-        (t.tags?.includes("recommended") || (t.optional === true && t.enabledByDefault === true)),
-    );
-    const optional = mockRegistryTools.filter(
-      (t) => !required.includes(t) && !recommended.includes(t),
-    );
-    return { required, recommended, optional };
-  },
-  getToolsByPhase: async () => {
-    const phaseMap = new Map<number, typeof mockRegistryTools>();
-    for (const tool of mockRegistryTools) {
-      const phase = tool.phase ?? 999;
-      const existing = phaseMap.get(phase) ?? [];
-      existing.push(tool);
-      phaseMap.set(phase, existing);
-    }
-    return Array.from(phaseMap.entries())
-      .sort(([a], [b]) => a - b)
-      .map(([phase, tools]) => ({ phase, tools }));
-  },
-  listAllTools: async () => mockRegistryTools,
-}));
+      };
+    },
+    loadToolRegistryWithMetadata: async () => {
+      if (mockRegistryError) {
+        throw mockRegistryError;
+      }
+      return {
+        registry: {
+          schemaVersion: mockRegistrySchemaVersion,
+          source: "test-harness",
+          generatedAt: new Date().toISOString(),
+          tools: mockRegistryTools,
+        },
+        source: "manifest" as const,
+      };
+    },
+    getToolRegistryMetadata: () => ({
+      manifestPath: "/test/manifest.yaml",
+      schemaVersion: mockRegistrySchemaVersion,
+      manifestHash: "test-hash-123",
+      loadedAt: Date.now(),
+      registrySource: "manifest" as const,
+    }),
+    clearToolRegistryCache: () => {},
+    getRequiredTools: async () =>
+      mockRegistryTools.filter(
+        (t) =>
+          t.tags?.includes("critical") ||
+          t.tags?.includes("required") ||
+          (t.optional !== true && t.enabledByDefault === true),
+      ),
+    getRecommendedTools: async () =>
+      mockRegistryTools.filter(
+        (t) =>
+          t.tags?.includes("recommended") ||
+          (t.optional === true && t.enabledByDefault === true),
+      ),
+    getOptionalTools: async () =>
+      mockRegistryTools.filter(
+        (t) => t.optional === true && !t.tags?.includes("recommended"),
+      ),
+    categorizeTools: async () => {
+      const required = mockRegistryTools.filter(
+        (t) =>
+          t.tags?.includes("critical") ||
+          t.tags?.includes("required") ||
+          (t.optional !== true && t.enabledByDefault === true),
+      );
+      const recommended = mockRegistryTools.filter(
+        (t) =>
+          !required.includes(t) &&
+          (t.tags?.includes("recommended") ||
+            (t.optional === true && t.enabledByDefault === true)),
+      );
+      const optional = mockRegistryTools.filter(
+        (t) => !required.includes(t) && !recommended.includes(t),
+      );
+      return { required, recommended, optional };
+    },
+    getToolsByPhase: async () => {
+      const phaseMap = new Map<number, typeof mockRegistryTools>();
+      for (const tool of mockRegistryTools) {
+        const phase = tool.phase ?? 999;
+        const existing = phaseMap.get(phase) ?? [];
+        existing.push(tool);
+        phaseMap.set(phase, existing);
+      }
+      return Array.from(phaseMap.entries())
+        .sort(([a], [b]) => a - b)
+        .map(([phase, tools]) => ({ phase, tools }));
+    },
+    listAllTools: async () => mockRegistryTools,
+  }));
 
-// Mock agent detection service
-mock.module("../services/agent-detection.service", () => ({
-  getAgentDetectionService: () => ({
-    detectAll: async () => {
-      const agents = mockRegistryTools
-        .filter((t) => t.category === "agent")
-        .map((t) => ({
-          name: t.name,
-          available: mockToolAvailability.get(t.name) ?? false,
-          version: mockToolVersions.get(t.name),
-          authenticated: mockToolAuthenticated.get(t.name),
+  // Mock agent detection service
+  mock.module("../services/agent-detection.service", () => ({
+    getAgentDetectionService: () => ({
+      detectAll: async () => {
+        const agents = mockRegistryTools
+          .filter((t) => t.category === "agent")
+          .map((t) => ({
+            name: t.name,
+            available: mockToolAvailability.get(t.name) ?? false,
+            version: mockToolVersions.get(t.name),
+            authenticated: mockToolAuthenticated.get(t.name),
+            capabilities: {
+              streaming: false,
+              toolUse: false,
+              vision: false,
+              codeExecution: false,
+              fileAccess: false,
+            },
+            detectedAt: new Date(),
+            durationMs: 10,
+          }));
+
+        const tools = mockRegistryTools
+          .filter((t) => t.category === "tool")
+          .map((t) => ({
+            name: t.name,
+            available: mockToolAvailability.get(t.name) ?? false,
+            version: mockToolVersions.get(t.name),
+            capabilities: {
+              streaming: false,
+              toolUse: false,
+              vision: false,
+              codeExecution: false,
+              fileAccess: false,
+            },
+            detectedAt: new Date(),
+            durationMs: 5,
+          }));
+
+        return {
+          agents,
+          tools,
+          summary: {
+            agentsAvailable: agents.filter((a) => a.available).length,
+            agentsTotal: agents.length,
+            toolsAvailable: tools.filter((t) => t.available).length,
+            toolsTotal: tools.length,
+            authIssues: agents
+              .filter((a) => a.available && a.authenticated === false)
+              .map((a) => `${a.name}: Not authenticated`),
+          },
+          detectedAt: new Date(),
+          durationMs: 50,
+        };
+      },
+      detect: async (name: string) => {
+        const tool = mockRegistryTools.find((t) => t.name === name);
+        if (!tool) return null;
+        return {
+          name: tool.name,
+          available: mockToolAvailability.get(tool.name) ?? false,
+          version: mockToolVersions.get(tool.name),
+          authenticated: mockToolAuthenticated.get(tool.name),
           capabilities: {
             streaming: false,
             toolUse: false,
@@ -210,67 +275,22 @@ mock.module("../services/agent-detection.service", () => ({
           },
           detectedAt: new Date(),
           durationMs: 10,
-        }));
+        };
+      },
+      clearCache: () => {},
+    }),
+    clearDetectionCache: () => {},
+  }));
+}
 
-      const tools = mockRegistryTools
-        .filter((t) => t.category === "tool")
-        .map((t) => ({
-          name: t.name,
-          available: mockToolAvailability.get(t.name) ?? false,
-          version: mockToolVersions.get(t.name),
-          capabilities: {
-            streaming: false,
-            toolUse: false,
-            vision: false,
-            codeExecution: false,
-            fileAccess: false,
-          },
-          detectedAt: new Date(),
-          durationMs: 5,
-        }));
-
-      return {
-        agents,
-        tools,
-        summary: {
-          agentsAvailable: agents.filter((a) => a.available).length,
-          agentsTotal: agents.length,
-          toolsAvailable: tools.filter((t) => t.available).length,
-          toolsTotal: tools.length,
-          authIssues: agents
-            .filter((a) => a.available && a.authenticated === false)
-            .map((a) => `${a.name}: Not authenticated`),
-        },
-        detectedAt: new Date(),
-        durationMs: 50,
-      };
-    },
-    detect: async (name: string) => {
-      const tool = mockRegistryTools.find((t) => t.name === name);
-      if (!tool) return null;
-      return {
-        name: tool.name,
-        available: mockToolAvailability.get(tool.name) ?? false,
-        version: mockToolVersions.get(tool.name),
-        authenticated: mockToolAuthenticated.get(tool.name),
-        capabilities: {
-          streaming: false,
-          toolUse: false,
-          vision: false,
-          codeExecution: false,
-          fileAccess: false,
-        },
-        detectedAt: new Date(),
-        durationMs: 10,
-      };
-    },
-    clearCache: () => {},
-  }),
-  clearDetectionCache: () => {},
-}));
+installSetupReadinessMocks();
 
 // Import routes after mocks are set up
 import { setup } from "../routes/setup";
+
+// Restore immediately at top-level so other test files aren't affected
+restoreAgentDetectionService();
+restoreToolRegistryService();
 
 // ============================================================================
 // Test Utilities
@@ -314,14 +334,18 @@ function getLogEventsByLevel(level: LogLevel): LogEvent[] {
   return logEvents.filter((e) => e.level === level);
 }
 
-function findLogWithMessage(level: LogLevel, messageSubstring: string): LogEvent | undefined {
+function findLogWithMessage(
+  level: LogLevel,
+  messageSubstring: string,
+): LogEvent | undefined {
   return logEvents.find(
     (e) =>
       e.level === level &&
       e.args.some(
         (arg) =>
           (typeof arg === "string" && arg.includes(messageSubstring)) ||
-          (typeof arg === "object" && JSON.stringify(arg).includes(messageSubstring)),
+          (typeof arg === "object" &&
+            JSON.stringify(arg).includes(messageSubstring)),
       ),
   );
 }
@@ -376,6 +400,7 @@ describe("Setup Readiness Test Harness (bd-a1jg)", () => {
   const app = new Hono().route("/setup", setup);
 
   beforeEach(() => {
+    installSetupReadinessMocks();
     resetMockState();
     requestContextStorage.enterWith({
       correlationId: "test-harness-corr",
@@ -387,9 +412,13 @@ describe("Setup Readiness Test Harness (bd-a1jg)", () => {
 
   afterEach(() => {
     resetMockState();
+    requestContextStorage.disable();
+    restoreAgentDetectionService();
+    restoreToolRegistryService();
   });
 
   afterAll(() => {
+    requestContextStorage.disable();
     mock.restore();
     restoreAgentDetectionService();
     restoreToolRegistryService();
@@ -511,8 +540,12 @@ describe("Setup Readiness Test Harness (bd-a1jg)", () => {
 
       expect(res.status).toBe(200);
       expect(body.data.summary.toolsAvailable).toBe(1);
-      expect(body.data.tools.find((t) => t.name === "dcg")?.available).toBe(true);
-      expect(body.data.tools.find((t) => t.name === "br")?.available).toBe(false);
+      expect(body.data.tools.find((t) => t.name === "dcg")?.available).toBe(
+        true,
+      );
+      expect(body.data.tools.find((t) => t.name === "br")?.available).toBe(
+        false,
+      );
     });
 
     it("generates recommendations for missing tools", async () => {
@@ -522,10 +555,14 @@ describe("Setup Readiness Test Harness (bd-a1jg)", () => {
       const body = (await res.json()) as Envelope<ReadinessData>;
 
       expect(res.status).toBe(200);
-      expect(body.data.recommendations.some((r) => r.includes("Install required tools"))).toBe(
-        true,
-      );
-      expect(body.data.recommendations.some((r) => r.includes("agent CLI"))).toBe(true);
+      expect(
+        body.data.recommendations.some((r) =>
+          r.includes("Install required tools"),
+        ),
+      ).toBe(true);
+      expect(
+        body.data.recommendations.some((r) => r.includes("agent CLI")),
+      ).toBe(true);
     });
   });
 
@@ -546,7 +583,9 @@ describe("Setup Readiness Test Harness (bd-a1jg)", () => {
       expect(res.status).toBe(200);
       expect(body.data.ready).toBe(false); // Auth issues prevent ready state
       expect(body.data.summary.authIssues.length).toBeGreaterThan(0);
-      expect(body.data.recommendations.some((r) => r.includes("authentication"))).toBe(true);
+      expect(
+        body.data.recommendations.some((r) => r.includes("authentication")),
+      ).toBe(true);
     });
 
     it("reports ready=true when auth issues are resolved", async () => {
@@ -751,8 +790,12 @@ describe("Setup Readiness Test Harness (bd-a1jg)", () => {
       const res3 = await app.request("/setup/readiness?bypass_cache=true");
       const body3 = (await res3.json()) as Envelope<ReadinessData>;
 
-      expect(body1.data.tools.find((t) => t.name === "dcg")?.available).toBe(true);
-      expect(body3.data.tools.find((t) => t.name === "dcg")?.available).toBe(false);
+      expect(body1.data.tools.find((t) => t.name === "dcg")?.available).toBe(
+        true,
+      );
+      expect(body3.data.tools.find((t) => t.name === "dcg")?.available).toBe(
+        false,
+      );
     });
   });
 

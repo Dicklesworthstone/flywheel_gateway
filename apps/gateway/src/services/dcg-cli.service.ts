@@ -106,7 +106,9 @@ export class DCGCommandError extends Error {
   public stderr: string;
 
   constructor(command: string, exitCode: number, stderr: string) {
-    super(`DCG command '${command}' failed with exit code ${exitCode}: ${stderr}`);
+    super(
+      `DCG command '${command}' failed with exit code ${exitCode}: ${stderr}`,
+    );
     this.name = "DCGCommandError";
     this.exitCode = exitCode;
     this.stderr = stderr;
@@ -149,7 +151,10 @@ function parseJSONOutput<T>(output: string, fallback: T): T {
   try {
     return JSON.parse(output) as T;
   } catch {
-    logger.warn({ output: output.slice(0, 200) }, "Failed to parse DCG JSON output");
+    logger.warn(
+      { output: output.slice(0, 200) },
+      "Failed to parse DCG JSON output",
+    );
     return fallback;
   }
 }
@@ -161,7 +166,9 @@ function parseJSONOutput<T>(output: string, fallback: T): T {
 /**
  * Explain a command - what it does and why it might be blocked.
  */
-export async function explainCommand(command: string): Promise<DCGExplainResult> {
+export async function explainCommand(
+  command: string,
+): Promise<DCGExplainResult> {
   const log = getLogger();
   const startTime = performance.now();
   const args = ["explain", "--json", command];
@@ -311,7 +318,10 @@ export async function scanFile(filePath: string): Promise<DCGScanResult> {
 /**
  * Scan inline content for potentially dangerous commands.
  */
-export async function scanContent(content: string, filename?: string): Promise<DCGScanResult> {
+export async function scanContent(
+  content: string,
+  filename?: string,
+): Promise<DCGScanResult> {
   const correlationId = getCorrelationId();
   const log = getLogger();
 
@@ -420,7 +430,10 @@ export async function getPackInfo(packId: string): Promise<DCGPackInfo> {
 
     return pack;
   } catch (error) {
-    if (error instanceof DCGPackNotFoundError || error instanceof DCGCommandError) {
+    if (
+      error instanceof DCGPackNotFoundError ||
+      error instanceof DCGCommandError
+    ) {
       throw error;
     }
     // DCG not available
@@ -531,7 +544,8 @@ export async function validateAgentScript(
 
   const scanResult = await scanContent(scriptContent, scriptName);
 
-  const safe = scanResult.summary.critical === 0 && scanResult.summary.high === 0;
+  const safe =
+    scanResult.summary.critical === 0 && scanResult.summary.high === 0;
 
   if (!safe) {
     log.warn(
@@ -540,7 +554,9 @@ export async function validateAgentScript(
         agentId,
         scriptName,
         summary: scanResult.summary,
-        criticalFindings: scanResult.findings.filter((f) => f.severity === "critical"),
+        criticalFindings: scanResult.findings.filter(
+          (f) => f.severity === "critical",
+        ),
       },
       "Agent script contains dangerous commands",
     );

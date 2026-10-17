@@ -5,7 +5,11 @@
  * Handles real-time cost tracking with automatic aggregation.
  */
 
-import { createCursor, DEFAULT_PAGINATION, decodeCursor } from "@flywheel/shared/api/pagination";
+import {
+  createCursor,
+  DEFAULT_PAGINATION,
+  decodeCursor,
+} from "@flywheel/shared/api/pagination";
 import { and, asc, desc, eq, gte, lt, lte, or, sql } from "drizzle-orm";
 import { db } from "../db/connection";
 import { costAggregates, costRecords, modelRateCards } from "../db/schema";
@@ -76,7 +80,10 @@ async function refreshRateCardCache(): Promise<void> {
       if (card.expiresAt) {
         rateCard.expiresAt = card.expiresAt;
       }
-      newCache.set(getRateCardKey(card.model, card.provider as ProviderId), rateCard);
+      newCache.set(
+        getRateCardKey(card.model, card.provider as ProviderId),
+        rateCard,
+      );
     }
 
     // Add default rate cards for missing models
@@ -89,7 +96,10 @@ async function refreshRateCardCache(): Promise<void> {
 
     rateCardCache = newCache;
     rateCardCacheLastRefresh = now;
-    logger.debug({ cacheSize: rateCardCache.size }, "Rate card cache refreshed");
+    logger.debug(
+      { cacheSize: rateCardCache.size },
+      "Rate card cache refreshed",
+    );
   } catch (error) {
     logger.error({ error }, "Failed to refresh rate card cache");
     // Update timestamp even on error to prevent retry storms
@@ -97,7 +107,10 @@ async function refreshRateCardCache(): Promise<void> {
     // Use defaults on error
     if (rateCardCache.size === 0) {
       for (const defaultCard of DEFAULT_RATE_CARDS) {
-        rateCardCache.set(getRateCardKey(defaultCard.model, defaultCard.provider), defaultCard);
+        rateCardCache.set(
+          getRateCardKey(defaultCard.model, defaultCard.provider),
+          defaultCard,
+        );
       }
     }
   }
@@ -151,7 +164,10 @@ export async function calculateCost(
 
   if (!rateCard) {
     // Return zero cost with warning if no rate card found
-    logger.warn({ model, provider }, "No rate card found for model, using zero cost");
+    logger.warn(
+      { model, provider },
+      "No rate card found for model, using zero cost",
+    );
     return {
       promptCostUnits: 0,
       completionCostUnits: 0,
@@ -237,7 +253,8 @@ export async function recordCost(input: CostRecordInput): Promise<CostRecord> {
   if (input.sessionId) record.sessionId = input.sessionId;
   if (input.taskType) record.taskType = input.taskType;
   if (input.complexityTier) record.complexityTier = input.complexityTier;
-  if (input.requestDurationMs !== undefined) record.requestDurationMs = input.requestDurationMs;
+  if (input.requestDurationMs !== undefined)
+    record.requestDurationMs = input.requestDurationMs;
 
   // Insert into database
   await db.insert(costRecords).values({
@@ -284,7 +301,9 @@ export async function recordCost(input: CostRecordInput): Promise<CostRecord> {
 /**
  * Get cost records with filtering and pagination.
  */
-export async function getCostRecords(filter?: CostFilter): Promise<CostRecordListResponse> {
+export async function getCostRecords(
+  filter?: CostFilter,
+): Promise<CostRecordListResponse> {
   const baseConditions = [];
 
   if (filter?.organizationId) {
@@ -309,7 +328,8 @@ export async function getCostRecords(filter?: CostFilter): Promise<CostRecordLis
     baseConditions.push(lte(costRecords.timestamp, filter.until));
   }
 
-  const baseWhereClause = baseConditions.length > 0 ? and(...baseConditions) : undefined;
+  const baseWhereClause =
+    baseConditions.length > 0 ? and(...baseConditions) : undefined;
 
   // Get total count
   const countResult = await db
@@ -414,8 +434,10 @@ export async function getCostRecords(filter?: CostFilter): Promise<CostRecordLis
     if (row.taskId) record.taskId = row.taskId;
     if (row.sessionId) record.sessionId = row.sessionId;
     if (row.taskType) record.taskType = row.taskType;
-    if (row.complexityTier !== null) record.complexityTier = row.complexityTier as ComplexityTier;
-    if (row.requestDurationMs !== null) record.requestDurationMs = row.requestDurationMs;
+    if (row.complexityTier !== null)
+      record.complexityTier = row.complexityTier as ComplexityTier;
+    if (row.requestDurationMs !== null)
+      record.requestDurationMs = row.requestDurationMs;
     if (row.correlationId) record.correlationId = row.correlationId;
     return record;
   });
@@ -431,10 +453,16 @@ export async function getCostRecords(filter?: CostFilter): Promise<CostRecordLis
     const firstItem = resultRows[0]!;
 
     if (hasMore) {
-      result.nextCursor = createCursor(lastItem.id, lastItem.timestamp.getTime());
+      result.nextCursor = createCursor(
+        lastItem.id,
+        lastItem.timestamp.getTime(),
+      );
     }
     if (startingAfterCursor) {
-      result.prevCursor = createCursor(firstItem.id, firstItem.timestamp.getTime());
+      result.prevCursor = createCursor(
+        firstItem.id,
+        firstItem.timestamp.getTime(),
+      );
     }
   }
 
@@ -501,7 +529,8 @@ export async function getCostSummary(filter?: CostFilter): Promise<{
   // Note: cachedTokens is a SUBSET of promptTokens (see calculateCost comment),
   // so we don't add it again to avoid double-counting
   const totalTokens = row.promptTokens + row.completionTokens;
-  const avgCostPerRequest = row.requestCount > 0 ? row.totalCostUnits / row.requestCount : 0;
+  const avgCostPerRequest =
+    row.requestCount > 0 ? row.totalCostUnits / row.requestCount : 0;
 
   return {
     totalCostUnits: row.totalCostUnits,
@@ -561,13 +590,19 @@ export async function getCostBreakdown(
     .groupBy(dimensionColumn)
     .orderBy(sql`sum(${costRecords.totalCostUnits}) desc`);
 
-  const totalCostUnits = result.reduce((sum, row) => sum + row.totalCostUnits, 0);
+  const totalCostUnits = result.reduce(
+    (sum, row) => sum + row.totalCostUnits,
+    0,
+  );
 
   const items = result.map((row) => {
     const key = row.key ?? "unknown";
-    const percentage = totalCostUnits > 0 ? (row.totalCostUnits / totalCostUnits) * 100 : 0;
-    const avgCostPerRequest = row.requestCount > 0 ? row.totalCostUnits / row.requestCount : 0;
-    const costPer1kTokens = row.totalTokens > 0 ? (row.totalCostUnits / row.totalTokens) * 1000 : 0;
+    const percentage =
+      totalCostUnits > 0 ? (row.totalCostUnits / totalCostUnits) * 100 : 0;
+    const avgCostPerRequest =
+      row.requestCount > 0 ? row.totalCostUnits / row.requestCount : 0;
+    const costPer1kTokens =
+      row.totalTokens > 0 ? (row.totalCostUnits / row.totalTokens) * 1000 : 0;
 
     return {
       key,
@@ -602,7 +637,8 @@ export async function getHourlyCostTrend(
   hours = 24,
 ): Promise<Array<{ hour: Date; costUnits: number; requestCount: number }>> {
   const now = new Date();
-  const since = filter?.since ?? new Date(now.getTime() - hours * 60 * 60 * 1000);
+  const since =
+    filter?.since ?? new Date(now.getTime() - hours * 60 * 60 * 1000);
 
   const conditions = [gte(costRecords.timestamp, since)];
 
@@ -642,7 +678,8 @@ export async function getDailyCostTrend(
   days = 30,
 ): Promise<Array<{ date: Date; costUnits: number; requestCount: number }>> {
   const now = new Date();
-  const since = filter?.since ?? new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  const since =
+    filter?.since ?? new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 
   const conditions = [gte(costRecords.timestamp, since)];
 
@@ -719,7 +756,8 @@ export async function getTopSpendingAgents(
     agentId: row.agentId!,
     totalCostUnits: row.totalCostUnits,
     requestCount: row.requestCount,
-    avgCostPerRequest: row.requestCount > 0 ? row.totalCostUnits / row.requestCount : 0,
+    avgCostPerRequest:
+      row.requestCount > 0 ? row.totalCostUnits / row.requestCount : 0,
   }));
 }
 
@@ -752,11 +790,16 @@ export async function upsertRateCard(
       createdAt: now,
     })
     .onConflictDoUpdate({
-      target: [modelRateCards.model, modelRateCards.provider, modelRateCards.effectiveDate],
+      target: [
+        modelRateCards.model,
+        modelRateCards.provider,
+        modelRateCards.effectiveDate,
+      ],
       set: {
         promptCostPer1kTokens: rateCard.promptCostPer1kTokens,
         completionCostPer1kTokens: rateCard.completionCostPer1kTokens,
-        cachedPromptCostPer1kTokens: rateCard.cachedPromptCostPer1kTokens ?? null,
+        cachedPromptCostPer1kTokens:
+          rateCard.cachedPromptCostPer1kTokens ?? null,
         expiresAt: rateCard.expiresAt ?? null,
       },
     });
@@ -774,7 +817,10 @@ export async function upsertRateCard(
  * Get all rate cards.
  */
 export async function getAllRateCards(): Promise<ModelRateCard[]> {
-  const rows = await db.select().from(modelRateCards).orderBy(desc(modelRateCards.effectiveDate));
+  const rows = await db
+    .select()
+    .from(modelRateCards)
+    .orderBy(desc(modelRateCards.effectiveDate));
 
   return rows.map((row) => {
     const rateCard: ModelRateCard = {

@@ -6,7 +6,11 @@
  */
 
 import type { GatewayError } from "@flywheel/shared/errors";
-import { createGatewayError, serializeGatewayError, toGatewayError } from "@flywheel/shared/errors";
+import {
+  createGatewayError,
+  serializeGatewayError,
+  toGatewayError,
+} from "@flywheel/shared/errors";
 import { type Context, Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
@@ -22,7 +26,11 @@ import {
   rebuildIndex,
   search,
 } from "../services/ms.service";
-import { sendError, sendResource, sendValidationError } from "../utils/response";
+import {
+  sendError,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
 import { transformZodError } from "../utils/validation";
 
 const knowledge = new Hono();
@@ -34,10 +42,16 @@ const knowledge = new Hono();
 function respondWithGatewayError(c: Context, error: GatewayError) {
   const timestamp = new Date().toISOString();
   const payload = serializeGatewayError(error);
-  return sendError(c, payload.code, payload.message, payload.httpStatus as ContentfulStatusCode, {
-    ...(payload.details && { details: payload.details }),
-    timestamp,
-  });
+  return sendError(
+    c,
+    payload.code,
+    payload.message,
+    payload.httpStatus as ContentfulStatusCode,
+    {
+      ...(payload.details && { details: payload.details }),
+      timestamp,
+    },
+  );
 }
 
 function handleError(error: unknown, c: Context) {
@@ -56,16 +70,23 @@ function handleError(error: unknown, c: Context) {
       gatewayError = createGatewayError("SYSTEM_INTERNAL_ERROR", message, {
         cause: error,
       });
-    } else if (message.includes("not available") || message.includes("unavailable")) {
+    } else if (
+      message.includes("not available") ||
+      message.includes("unavailable")
+    ) {
       gatewayError = createGatewayError(
         "SYSTEM_UNAVAILABLE",
         "Knowledge service (ms) is not available",
         { cause: error },
       );
     } else if (message.includes("timed out")) {
-      gatewayError = createGatewayError("AGENT_TIMEOUT", "Knowledge service request timed out", {
-        cause: error,
-      });
+      gatewayError = createGatewayError(
+        "AGENT_TIMEOUT",
+        "Knowledge service request timed out",
+        {
+          cause: error,
+        },
+      );
     } else {
       gatewayError = toGatewayError(error);
     }
@@ -320,7 +341,8 @@ knowledge.post("/entries", async (c) => {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const { skipEmbedding, title, content, source, knowledgeBase, metadata } = parsed.data;
+    const { skipEmbedding, title, content, source, knowledgeBase, metadata } =
+      parsed.data;
 
     // Build entry data object, only including defined values
     const entryData: Parameters<typeof addEntry>[0] = { title, content };

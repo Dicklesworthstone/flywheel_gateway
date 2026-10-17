@@ -6,7 +6,10 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import { generateOpenAPISpec, getOpenAPISpecJson } from "../api/generate-openapi";
+import {
+  generateOpenAPISpec,
+  getOpenAPISpecJson,
+} from "../api/generate-openapi";
 
 describe("OpenAPI Specification", () => {
   describe("generateOpenAPISpec", () => {
@@ -103,7 +106,9 @@ describe("OpenAPI Specification", () => {
 
       expect(spec.components).toBeDefined();
       expect(spec.components?.schemas).toBeDefined();
-      expect(Object.keys(spec.components?.schemas ?? {}).length).toBeGreaterThan(10);
+      expect(
+        Object.keys(spec.components?.schemas ?? {}).length,
+      ).toBeGreaterThan(10);
     });
 
     it("should include key schema definitions", () => {

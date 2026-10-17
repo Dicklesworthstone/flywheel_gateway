@@ -87,11 +87,16 @@ export function Tooltip({
     return <>{children}</>;
   }
 
-  const childElement = isValidElement(children) ? children : <span>{children}</span>;
+  const childElement = isValidElement(children) ? (
+    children
+  ) : (
+    <span>{children}</span>
+  );
   const childProps = childElement.props as HTMLAttributes<HTMLElement>;
   const describedBy =
-    [childProps["aria-describedby"], isVisible ? tooltipId : undefined].filter(Boolean).join(" ") ||
-    undefined;
+    [childProps["aria-describedby"], isVisible ? tooltipId : undefined]
+      .filter(Boolean)
+      .join(" ") || undefined;
 
   const trigger = cloneElement(childElement, {
     onMouseEnter: (event: MouseEvent<HTMLElement>) => {

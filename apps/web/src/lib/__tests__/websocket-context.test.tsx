@@ -61,7 +61,8 @@ describe("WebSocketProvider", () => {
     MockWebSocket.instances = [];
   });
 
-  const createWebSocket = (url: string) => new MockWebSocket(url) as unknown as WebSocket;
+  const createWebSocket = (url: string) =>
+    new MockWebSocket(url) as unknown as WebSocket;
 
   it("does not queue messages in mock mode", () => {
     useUiStore.getState().setMockMode(true);
@@ -109,7 +110,10 @@ describe("WebSocketProvider", () => {
     }
 
     const { getByTestId, unmount } = render(
-      <WebSocketProvider url="ws://example.test/ws" __testCreateWebSocket={createWebSocket}>
+      <WebSocketProvider
+        url="ws://example.test/ws"
+        __testCreateWebSocket={createWebSocket}
+      >
         <Probe />
       </WebSocketProvider>,
     );
@@ -157,7 +161,10 @@ describe("WebSocketProvider", () => {
     }
 
     const { unmount } = render(
-      <WebSocketProvider url="ws://example.test/ws" __testCreateWebSocket={createWebSocket}>
+      <WebSocketProvider
+        url="ws://example.test/ws"
+        __testCreateWebSocket={createWebSocket}
+      >
         <Probe />
       </WebSocketProvider>,
     );

@@ -22,7 +22,12 @@ import { isReDoSPattern } from "./safety-rules.engine";
 // Types
 // ============================================================================
 
-export type HistoryOutcome = "success" | "failure" | "interrupted" | "timeout" | "pending";
+export type HistoryOutcome =
+  | "success"
+  | "failure"
+  | "interrupted"
+  | "timeout"
+  | "pending";
 
 export interface HistoryEntry {
   id: string;
@@ -141,7 +146,10 @@ export async function createHistoryEntry(
   // Invalidate analytics cache for this agent
   invalidateAgentAnalytics(agentId);
 
-  log.info({ entryId: id, promptTokens: entry.promptTokens }, "History entry created");
+  log.info(
+    { entryId: id, promptTokens: entry.promptTokens },
+    "History entry created",
+  );
 
   return entry;
 }
@@ -158,7 +166,11 @@ export async function completeHistoryEntry(
   const log = logger.child({ correlationId, entryId });
 
   // Get existing entry
-  const rows = await db.select().from(historyTable).where(eq(historyTable.id, entryId)).limit(1);
+  const rows = await db
+    .select()
+    .from(historyTable)
+    .where(eq(historyTable.id, entryId))
+    .limit(1);
 
   const row = rows[0];
   if (!row) {
@@ -172,7 +184,8 @@ export async function completeHistoryEntry(
     .set({
       output: {
         responseSummary: output.responseSummary,
-        responseTokens: output.responseTokens ?? estimateTokens(output.responseSummary),
+        responseTokens:
+          output.responseTokens ?? estimateTokens(output.responseSummary),
         outcome: output.outcome,
         error: output.error,
       },
@@ -192,7 +205,8 @@ export async function completeHistoryEntry(
     prompt: (inputData?.["prompt"] as string) ?? "",
     promptTokens: (inputData?.["promptTokens"] as number) ?? 0,
     responseSummary: output.responseSummary,
-    responseTokens: output.responseTokens ?? estimateTokens(output.responseSummary),
+    responseTokens:
+      output.responseTokens ?? estimateTokens(output.responseSummary),
     durationMs,
     outcome: output.outcome,
     tags: (inputData?.["tags"] as string[]) ?? [],
@@ -200,7 +214,9 @@ export async function completeHistoryEntry(
     replayCount: 0,
   };
   if (output.error) entry.error = output.error;
-  const metadata = inputData?.["metadata"] as Record<string, unknown> | undefined;
+  const metadata = inputData?.["metadata"] as
+    | Record<string, unknown>
+    | undefined;
   if (metadata) entry.metadata = metadata;
 
   log.info(
@@ -219,8 +235,14 @@ export async function completeHistoryEntry(
 /**
  * Get a history entry by ID.
  */
-export async function getHistoryEntry(entryId: string): Promise<HistoryEntry | null> {
-  const rows = await db.select().from(historyTable).where(eq(historyTable.id, entryId)).limit(1);
+export async function getHistoryEntry(
+  entryId: string,
+): Promise<HistoryEntry | null> {
+  const rows = await db
+    .select()
+    .from(historyTable)
+    .where(eq(historyTable.id, entryId))
+    .limit(1);
 
   const row = rows[0];
   if (!row) {
@@ -287,7 +309,9 @@ export async function queryHistory(options: HistoryQueryOptions = {}): Promise<{
   }
 
   if (options.tags?.length) {
-    filtered = filtered.filter((e) => options.tags?.some((tag) => e.tags.includes(tag)));
+    filtered = filtered.filter((e) =>
+      options.tags?.some((tag) => e.tags.includes(tag)),
+    );
   }
 
   // Apply cursor
@@ -309,7 +333,10 @@ export async function queryHistory(options: HistoryQueryOptions = {}): Promise<{
   // Build pagination conditionally (for exactOptionalPropertyTypes)
   const pagination: { cursor?: string; hasMore: boolean } = { hasMore };
   if (lastEntry?.id) {
-    pagination.cursor = createCursor(lastEntry.id, lastEntry.timestamp.getTime());
+    pagination.cursor = createCursor(
+      lastEntry.id,
+      lastEntry.timestamp.getTime(),
+    );
   }
 
   return { entries: result, pagination };
@@ -358,9 +385,15 @@ export async function searchHistory(
 /**
  * Star or unstar a history entry.
  */
-export async function toggleStar(entryId: string): Promise<HistoryEntry | null> {
+export async function toggleStar(
+  entryId: string,
+): Promise<HistoryEntry | null> {
   // Single read to reduce race window between read and update
-  const rows = await db.select().from(historyTable).where(eq(historyTable.id, entryId)).limit(1);
+  const rows = await db
+    .select()
+    .from(historyTable)
+    .where(eq(historyTable.id, entryId))
+    .limit(1);
 
   const row = rows[0];
   if (!row) {
@@ -380,7 +413,10 @@ export async function toggleStar(entryId: string): Promise<HistoryEntry | null> 
     })
     .where(eq(historyTable.id, entryId));
 
-  logger.info({ entryId, starred: !currentStarred }, "History entry star toggled");
+  logger.info(
+    { entryId, starred: !currentStarred },
+    "History entry star toggled",
+  );
 
   // Re-read to return consistent state
   return getHistoryEntry(entryId);
@@ -510,7 +546,8 @@ export async function exportHistory(options: ExportOptions): Promise<string> {
   // Build query options conditionally (for exactOptionalPropertyTypes)
   const queryOptions: HistoryQueryOptions = { limit: 10000 }; // Max export size
   if (options.agentId !== undefined) queryOptions.agentId = options.agentId;
-  if (options.startDate !== undefined) queryOptions.startDate = options.startDate;
+  if (options.startDate !== undefined)
+    queryOptions.startDate = options.startDate;
   if (options.endDate !== undefined) queryOptions.endDate = options.endDate;
 
   const { entries } = await queryHistory(queryOptions);
@@ -555,7 +592,13 @@ export async function exportHistory(options: ExportOptions): Promise<string> {
 // Output Extraction
 // ============================================================================
 
-export type ExtractionType = "code_blocks" | "json" | "file_paths" | "urls" | "errors" | "custom";
+export type ExtractionType =
+  | "code_blocks"
+  | "json"
+  | "file_paths"
+  | "urls"
+  | "errors"
+  | "custom";
 
 export interface ExtractionMatch {
   content: string;
@@ -624,7 +667,9 @@ export function extractFromOutput(
         try {
           JSON.parse(captured);
           const startLine = output.slice(0, matchIndex).split("\n").length - 1;
-          const endLine = output.slice(0, matchIndex + captured.length).split("\n").length - 1;
+          const endLine =
+            output.slice(0, matchIndex + captured.length).split("\n").length -
+            1;
           matches.push({
             content: captured,
             lineStart: startLine,
@@ -772,7 +817,9 @@ function rowToEntry(row: {
   const errorValue = outputData["error"] as string | undefined;
   if (errorValue !== undefined) entry.error = errorValue;
 
-  const metadataValue = inputData["metadata"] as Record<string, unknown> | undefined;
+  const metadataValue = inputData["metadata"] as
+    | Record<string, unknown>
+    | undefined;
   if (metadataValue !== undefined) entry.metadata = metadataValue;
 
   return entry;

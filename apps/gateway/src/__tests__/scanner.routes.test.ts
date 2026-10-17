@@ -4,7 +4,7 @@
  * Tests for the UBS (Ultimate Bug Scanner) REST API endpoints.
  */
 
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { Hono } from "hono";
 import { scanner } from "../routes/scanner";
 import {
@@ -127,6 +127,10 @@ describe("Scanner Routes", () => {
     setUBSService(mockService);
   });
 
+  afterEach(() => {
+    _resetUBSStore();
+  });
+
   describe("POST /scanner/run", () => {
     test("runs a scan with default options", async () => {
       const res = await app.request("/scanner/run", {
@@ -231,8 +235,8 @@ describe("Scanner Routes", () => {
     test("returns a specific finding", async () => {
       // Populate the mock with a finding
       const finding = createMockFinding({ id: "fnd_specific" });
-      (mockService.getFinding as ReturnType<typeof mock>).mockImplementation((id: string) =>
-        id === "fnd_specific" ? finding : undefined,
+      (mockService.getFinding as ReturnType<typeof mock>).mockImplementation(
+        (id: string) => (id === "fnd_specific" ? finding : undefined),
       );
 
       const res = await app.request("/scanner/findings/fnd_specific");
@@ -243,7 +247,9 @@ describe("Scanner Routes", () => {
     });
 
     test("returns 404 for unknown finding", async () => {
-      (mockService.getFinding as ReturnType<typeof mock>).mockImplementation(() => undefined);
+      (mockService.getFinding as ReturnType<typeof mock>).mockImplementation(
+        () => undefined,
+      );
 
       const res = await app.request("/scanner/findings/fnd_unknown");
 
@@ -256,21 +262,25 @@ describe("Scanner Routes", () => {
       const finding = createMockFinding({ id: "fnd_todismiss" });
 
       // Mock dismissFinding to return true (success)
-      (mockService.dismissFinding as ReturnType<typeof mock>).mockImplementation(() => true);
+      (
+        mockService.dismissFinding as ReturnType<typeof mock>
+      ).mockImplementation(() => true);
 
       // Mock getFinding to return the updated finding after dismissal
-      (mockService.getFinding as ReturnType<typeof mock>).mockImplementation((id: string) => {
-        if (id === "fnd_todismiss") {
-          return {
-            ...finding,
-            status: "dismissed",
-            dismissedBy: "agent-1",
-            dismissedAt: new Date(),
-            dismissReason: "False positive - intentional pattern",
-          };
-        }
-        return undefined;
-      });
+      (mockService.getFinding as ReturnType<typeof mock>).mockImplementation(
+        (id: string) => {
+          if (id === "fnd_todismiss") {
+            return {
+              ...finding,
+              status: "dismissed",
+              dismissedBy: "agent-1",
+              dismissedAt: new Date(),
+              dismissReason: "False positive - intentional pattern",
+            };
+          }
+          return undefined;
+        },
+      );
 
       const res = await app.request("/scanner/findings/fnd_todismiss/dismiss", {
         method: "POST",
@@ -290,7 +300,9 @@ describe("Scanner Routes", () => {
     });
 
     test("returns 404 for unknown finding", async () => {
-      (mockService.dismissFinding as ReturnType<typeof mock>).mockImplementation(() => false);
+      (
+        mockService.dismissFinding as ReturnType<typeof mock>
+      ).mockImplementation(() => false);
 
       const res = await app.request("/scanner/findings/fnd_unknown/dismiss", {
         method: "POST",
@@ -338,8 +350,8 @@ describe("Scanner Routes", () => {
   describe("GET /scanner/scans/:id", () => {
     test("returns a specific scan", async () => {
       const scan = createMockScanResult({ scanId: "scan_specific" });
-      (mockService.getScan as ReturnType<typeof mock>).mockImplementation((id: string) =>
-        id === "scan_specific" ? scan : undefined,
+      (mockService.getScan as ReturnType<typeof mock>).mockImplementation(
+        (id: string) => (id === "scan_specific" ? scan : undefined),
       );
 
       const res = await app.request("/scanner/scans/scan_specific");
@@ -350,7 +362,9 @@ describe("Scanner Routes", () => {
     });
 
     test("returns 404 for unknown scan", async () => {
-      (mockService.getScan as ReturnType<typeof mock>).mockImplementation(() => undefined);
+      (mockService.getScan as ReturnType<typeof mock>).mockImplementation(
+        () => undefined,
+      );
 
       const res = await app.request("/scanner/scans/scan_unknown");
 
@@ -382,10 +396,12 @@ describe("Scanner Routes", () => {
     });
 
     test("returns health status when unavailable", async () => {
-      (mockService.checkHealth as ReturnType<typeof mock>).mockImplementation(async () => ({
-        available: false,
-        error: "UBS not found",
-      }));
+      (mockService.checkHealth as ReturnType<typeof mock>).mockImplementation(
+        async () => ({
+          available: false,
+          error: "UBS not found",
+        }),
+      );
 
       const res = await app.request("/scanner/health");
 

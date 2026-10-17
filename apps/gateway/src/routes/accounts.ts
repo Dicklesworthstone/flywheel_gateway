@@ -19,6 +19,7 @@ import {
   updateProfile,
 } from "../caam/account.service";
 import { handleRateLimit, peekNextProfile, rotate } from "../caam/rotation";
+import { getCaamRunner } from "../caam/runner";
 import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import {
@@ -39,7 +40,12 @@ accounts.use("*", requireAdminMiddleware());
 // ============================================================================
 
 const ProviderSchema = z.enum(["claude", "codex", "gemini"]);
-const AuthModeSchema = z.enum(["oauth_browser", "device_code", "api_key", "vertex_adc"]);
+const AuthModeSchema = z.enum([
+  "oauth_browser",
+  "device_code",
+  "api_key",
+  "vertex_adc",
+]);
 const ProfileStatusSchema = z.enum([
   "unlinked",
   "linked",
@@ -70,6 +76,14 @@ const CooldownSchema = z.object({
 const StartLoginSchema = z.object({
   workspaceId: z.string().min(1),
   mode: AuthModeSchema.optional(),
+  name: z.string().min(1).max(100).optional(),
+});
+
+const CompleteLoginSchema = z.object({
+  profileId: z.string().min(1),
+  code: z.string().min(1).optional(),
+  authFileHash: z.string().min(1).optional(),
+  skipCliVerification: z.boolean().optional(),
 });
 
 // ============================================================================
@@ -298,26 +312,43 @@ accounts.post("/providers/:provider/login/start", async (c) => {
     const provider = ProviderSchema.parse(c.req.param("provider"));
     const body = await c.req.json();
     const validated = StartLoginSchema.parse(body);
+    const mode = validated.mode ?? "device_code";
 
-    // Create profile if needed
+    // Create profile in unlinked state
     const profile = await createProfile({
       workspaceId: validated.workspaceId,
       provider,
-      name: `${provider}-${Date.now()}`,
-      authMode: validated.mode ?? "device_code",
+      name: validated.name ?? `${provider}-${Date.now()}`,
+      authMode: mode,
     });
 
-    // Return login challenge (in real implementation, this would trigger OAuth/device code)
-    // For now, return a stub response
+    const runner = getCaamRunner();
+    const caamAvailable = await runner
+      .isAvailable(validated.workspaceId)
+      .catch(() => false);
+    const cliStatus = caamAvailable
+      ? await runner
+          .getStatus(validated.workspaceId, provider)
+          .catch(() => null)
+      : null;
+
+    const command = `caam login ${provider} --profile ${profile.name}`;
     const challenge = {
       provider,
       profileId: profile.id,
-      mode: validated.mode ?? "device_code",
-      instructions: `To authenticate with ${provider}:
-1. Go to the ${provider} website
-2. Sign in with your account
-3. Authorize Flywheel Gateway
-4. Call the /login/complete endpoint when done`,
+      mode,
+      caamAvailable,
+      command,
+      alreadyLoggedIn: cliStatus?.logged_in ?? false,
+      instructions: caamAvailable
+        ? `To authenticate with ${provider}:
+1. Run \`${command}\` in your workspace terminal (or complete the ${mode} flow)
+2. Sign in with your ${provider} account
+3. Call POST /accounts/providers/${provider}/login/complete with profileId "${profile.id}" when done`
+        : `To authenticate with ${provider}:
+1. Sign in with your ${provider} account (${mode})
+2. Authorize Flywheel Gateway
+3. Call POST /accounts/providers/${provider}/login/complete with profileId "${profile.id}" when done`,
       expiresInSeconds: 600,
     };
 
@@ -334,7 +365,8 @@ accounts.post("/providers/:provider/login/complete", async (c) => {
   try {
     const provider = ProviderSchema.parse(c.req.param("provider"));
     const body = await c.req.json();
-    const { profileId } = z.object({ profileId: z.string() }).parse(body);
+    const validated = CompleteLoginSchema.parse(body);
+    const { profileId, code, authFileHash, skipCliVerification } = validated;
 
     // Verify the profile exists and belongs to the correct provider
     const existingProfile = await getProfile(profileId);
@@ -352,11 +384,69 @@ accounts.post("/providers/:provider/login/complete", async (c) => {
       );
     }
 
-    // In real implementation, this would verify the OAuth callback/device code
-    // For now, mark the profile as verified
-    const profile = await markVerified(profileId);
+    const runner = getCaamRunner();
+    const cliAvailable = skipCliVerification
+      ? false
+      : await runner
+          .isAvailable(existingProfile.workspaceId)
+          .catch(() => false);
 
-    return sendResource(c, "login_complete", { profile, status: "linked" });
+    let resolvedHash = authFileHash;
+    let verifiedVia: "caam_cli" | "verification_code" | "manual" = "manual";
+
+    if (cliAvailable) {
+      const [status, cliProfiles] = await Promise.all([
+        runner.getStatus(existingProfile.workspaceId, provider),
+        runner.listProfiles(existingProfile.workspaceId, provider),
+      ]);
+      const matchedProfile = cliProfiles.find(
+        (p) => p.name === existingProfile.name || p.logged_in,
+      );
+      const isLoggedIn = Boolean(status.logged_in || matchedProfile?.logged_in);
+
+      if (!isLoggedIn && !code && !authFileHash) {
+        await updateProfile(profileId, {
+          status: "error",
+          statusMessage:
+            status.error ??
+            `CAAM CLI verification failed: no active ${provider} session found`,
+        });
+        return sendError(
+          c,
+          "VERIFICATION_FAILED",
+          status.error ??
+            `CAAM CLI verification failed: provider '${provider}' is not logged in`,
+          400,
+        );
+      }
+
+      if (isLoggedIn) {
+        verifiedVia = "caam_cli";
+        await runner
+          .backup(existingProfile.workspaceId, provider, existingProfile.name)
+          .catch(() => undefined);
+        const identityTag =
+          matchedProfile?.account_id ??
+          status.account_id ??
+          matchedProfile?.name ??
+          existingProfile.name;
+        resolvedHash = resolvedHash ?? `caam:${provider}:${identityTag}`;
+      } else if (code) {
+        verifiedVia = "verification_code";
+        resolvedHash = resolvedHash ?? `code:${provider}:${code}`;
+      }
+    } else if (code) {
+      verifiedVia = "verification_code";
+      resolvedHash = resolvedHash ?? `code:${provider}:${code}`;
+    }
+
+    const profile = await markVerified(profileId, resolvedHash);
+
+    return sendResource(c, "login_complete", {
+      profile,
+      status: "linked",
+      verifiedVia,
+    });
   } catch (error) {
     return handleError(error, c);
   }
@@ -383,7 +473,9 @@ accounts.get("/pools/:provider", async (c) => {
 
     return sendResource(c, "pool", {
       pool,
-      nextProfile: nextProfile ? { id: nextProfile.id, name: nextProfile.name } : null,
+      nextProfile: nextProfile
+        ? { id: nextProfile.id, name: nextProfile.name }
+        : null,
     });
   } catch (error) {
     return handleError(error, c);
@@ -399,10 +491,19 @@ accounts.post("/pools/:provider/rotate", async (c) => {
     const workspaceId = c.req.query("workspaceId") ?? "default";
     const reason = c.req.query("reason");
 
-    const result = await rotate(workspaceId, provider, reason ?? "Manual rotation");
+    const result = await rotate(
+      workspaceId,
+      provider,
+      reason ?? "Manual rotation",
+    );
 
     if (!result.success) {
-      return sendError(c, "ROTATION_FAILED", result.reason ?? "Rotation failed", 400);
+      return sendError(
+        c,
+        "ROTATION_FAILED",
+        result.reason ?? "Rotation failed",
+        400,
+      );
     }
 
     return sendResource(c, "rotation_result", result);
@@ -424,9 +525,15 @@ accounts.post("/pools/:provider/rate-limit", async (c) => {
     const result = await handleRateLimit(workspaceId, provider, errorMessage);
 
     if (!result.success) {
-      return sendError(c, "ROTATION_FAILED", result.reason ?? "Rate limit handling failed", 503, {
-        hint: "All accounts may be exhausted. Wait for cooldown or add more accounts.",
-      });
+      return sendError(
+        c,
+        "ROTATION_FAILED",
+        result.reason ?? "Rate limit handling failed",
+        503,
+        {
+          hint: "All accounts may be exhausted. Wait for cooldown or add more accounts.",
+        },
+      );
     }
 
     return sendResource(c, "rate_limit_result", result);

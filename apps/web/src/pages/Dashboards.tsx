@@ -76,7 +76,10 @@ export function DashboardsPage() {
     }
   };
 
-  const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>, dashboardIdValue: string) => {
+  const handleCardKeyDown = (
+    event: KeyboardEvent<HTMLDivElement>,
+    dashboardIdValue: string,
+  ) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       navigate({ to: `/dashboards/${dashboardIdValue}` });
@@ -103,7 +106,8 @@ export function DashboardsPage() {
     if (!definition) return;
 
     // Find an empty spot in the grid
-    const existingPositions = currentDashboard?.widgets.map((w) => w.position) || [];
+    const existingPositions =
+      currentDashboard?.widgets.map((w) => w.position) || [];
     const columns = currentDashboard?.layout.columns || 12;
 
     // Simple placement: find next available row
@@ -246,9 +250,16 @@ export function DashboardsPage() {
                     className={`dashboards-page__favorite ${dashboard.isFavorite ? "dashboards-page__favorite--active" : ""}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleFavorite(dashboard.id, dashboard.isFavorite || false);
+                      toggleFavorite(
+                        dashboard.id,
+                        dashboard.isFavorite || false,
+                      );
                     }}
-                    aria-label={dashboard.isFavorite ? "Remove from favorites" : "Add to favorites"}
+                    aria-label={
+                      dashboard.isFavorite
+                        ? "Remove from favorites"
+                        : "Add to favorites"
+                    }
                   >
                     <svg
                       width="16"
@@ -264,7 +275,9 @@ export function DashboardsPage() {
                   </button>
                 </div>
                 {dashboard.description && (
-                  <p className="dashboards-page__card-description">{dashboard.description}</p>
+                  <p className="dashboards-page__card-description">
+                    {dashboard.description}
+                  </p>
                 )}
                 <div className="dashboards-page__card-meta">
                   <span>{dashboard.widgetCount} widgets</span>
@@ -406,7 +419,11 @@ export function DashboardsPage() {
               >
                 Duplicate
               </button>
-              <button type="button" className="btn btn--primary" onClick={() => setIsEditing(true)}>
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() => setIsEditing(true)}
+              >
                 Edit
               </button>
             </>
@@ -431,7 +448,10 @@ export function DashboardsPage() {
         {/* Side panels */}
         {showGallery && (
           <div className="dashboards-page__panel">
-            <WidgetGallery onAddWidget={handleAddWidget} onClose={() => setShowGallery(false)} />
+            <WidgetGallery
+              onAddWidget={handleAddWidget}
+              onClose={() => setShowGallery(false)}
+            />
           </div>
         )}
 

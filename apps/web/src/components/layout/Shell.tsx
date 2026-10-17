@@ -30,7 +30,11 @@ export function Shell() {
       </div>
 
       {/* Mobile Drawer Navigation */}
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Navigation">
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title="Navigation"
+      >
         <MobileNavContent onNavigate={() => setDrawerOpen(false)} />
       </Drawer>
 

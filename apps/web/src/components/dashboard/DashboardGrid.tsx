@@ -17,7 +17,9 @@ interface DashboardGridProps {
   onWidgetEdit?: (widgetId: string) => void;
   onWidgetRemove?: (widgetId: string) => void;
   onWidgetRefresh?: (widgetId: string) => void;
-  onLayoutChange?: (layouts: Array<{ widgetId: string; position: WidgetPosition }>) => void;
+  onLayoutChange?: (
+    layouts: Array<{ widgetId: string; position: WidgetPosition }>,
+  ) => void;
 }
 
 export function DashboardGrid({
@@ -30,7 +32,9 @@ export function DashboardGrid({
   onLayoutChange,
 }: DashboardGridProps) {
   const [draggedWidget, setDraggedWidget] = useState<string | null>(null);
-  const [dropTarget, setDropTarget] = useState<{ x: number; y: number } | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ x: number; y: number } | null>(
+    null,
+  );
 
   const { widgets, layout } = dashboard;
   const columns = layout.columns || 12;
@@ -177,9 +181,15 @@ export function DashboardGrid({
                 ? { data: widgetData.get(widget.id)! }
                 : {})}
               isEditing={isEditing}
-              {...(onWidgetEdit ? { onEdit: () => onWidgetEdit(widget.id) } : {})}
-              {...(onWidgetRemove ? { onRemove: () => onWidgetRemove(widget.id) } : {})}
-              {...(onWidgetRefresh ? { onRefresh: () => onWidgetRefresh(widget.id) } : {})}
+              {...(onWidgetEdit
+                ? { onEdit: () => onWidgetEdit(widget.id) }
+                : {})}
+              {...(onWidgetRemove
+                ? { onRemove: () => onWidgetRemove(widget.id) }
+                : {})}
+              {...(onWidgetRefresh
+                ? { onRefresh: () => onWidgetRefresh(widget.id) }
+                : {})}
             />
           </article>
         );

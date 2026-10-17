@@ -1,4 +1,7 @@
-import { createBunNtmCommandRunner, createNtmClient } from "@flywheel/flywheel-clients";
+import {
+  createBunNtmCommandRunner,
+  createNtmClient,
+} from "@flywheel/flywheel-clients";
 import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { registerDrivers } from "./config/drivers";
@@ -12,9 +15,13 @@ import {
 } from "./middleware/auth";
 import { correlationMiddleware } from "./middleware/correlation";
 import { globalErrorHandler } from "./middleware/error-handler";
-import { idempotencyMiddleware, stopIdempotencyCleanup } from "./middleware/idempotency";
+import {
+  idempotencyMiddleware,
+  stopIdempotencyCleanup,
+} from "./middleware/idempotency";
 import { loggingMiddleware } from "./middleware/logging";
 import { maintenanceMiddleware } from "./middleware/maintenance";
+import { gatewayRateLimitMiddleware } from "./middleware/rate-limit";
 import { apiSecurityHeaders } from "./middleware/security-headers";
 import { routes } from "./routes";
 import { initializeAgentService } from "./services/agent";
@@ -23,10 +30,16 @@ import {
   startAgentHealthScoreBroadcaster,
   stopAgentHealthScoreBroadcaster,
 } from "./services/agent-health-score.service";
-import { startStateCleanupJob, stopStateCleanupJob } from "./services/agent-state-machine";
+import {
+  startStateCleanupJob,
+  stopStateCleanupJob,
+} from "./services/agent-state-machine";
 import { initCassService } from "./services/cass.service";
 import { getConfig, loadConfig } from "./services/config.service";
-import { startDCGCleanupJob, stopDCGCleanupJob } from "./services/dcg-pending.service";
+import {
+  startDCGCleanupJob,
+  stopDCGCleanupJob,
+} from "./services/dcg-pending.service";
 import {
   startCleanupJob as startHandoffCleanupJob,
   stopCleanupJob as stopHandoffCleanupJob,
@@ -39,8 +52,15 @@ import {
   startDraining,
 } from "./services/maintenance.service";
 import { registerAgentMailToolCallerFromEnv } from "./services/mcp-agentmail";
-import { getNtmIngestService, startNtmIngest, stopNtmIngest } from "./services/ntm-ingest.service";
-import { startNtmWsBridge, stopNtmWsBridge } from "./services/ntm-ws-bridge.service";
+import {
+  getNtmIngestService,
+  startNtmIngest,
+  stopNtmIngest,
+} from "./services/ntm-ingest.service";
+import {
+  startNtmWsBridge,
+  stopNtmWsBridge,
+} from "./services/ntm-ws-bridge.service";
 import { initTracing, shutdownTracing } from "./services/otel.service";
 import {
   startCleanupJob as startReservationCleanupJob,
@@ -54,8 +74,14 @@ import {
   startCleanupJob as startWsEventLogCleanupJob,
   stopCleanupJob as stopWsEventLogCleanupJob,
 } from "./services/ws-event-log.service";
-import { enforceStartupSecurity, logStartupSecurityWarnings } from "./startup-warnings";
-import { createGuestAuthContext, createInternalAuthContext } from "./ws/authorization";
+import {
+  enforceStartupSecurity,
+  logStartupSecurityWarnings,
+} from "./startup-warnings";
+import {
+  createGuestAuthContext,
+  createInternalAuthContext,
+} from "./ws/authorization";
 import { handleWSClose, handleWSMessage, handleWSOpen } from "./ws/handlers";
 import { startHeartbeat, stopHeartbeat } from "./ws/heartbeat";
 import { getHub } from "./ws/hub";
@@ -70,6 +96,7 @@ app.use("*", correlationMiddleware());
 app.use("*", loggingMiddleware());
 app.use("*", apiSecurityHeaders());
 app.use("*", authMiddleware());
+app.use("*", gatewayRateLimitMiddleware());
 app.use("*", maintenanceMiddleware());
 app.use(
   "*",
@@ -184,9 +211,12 @@ if (import.meta.main) {
             headers.set("Retry-After", String(snapshot.retryAfterSeconds));
           }
 
-          const code = maintenanceMode === "draining" ? "DRAINING" : "MAINTENANCE_MODE";
+          const code =
+            maintenanceMode === "draining" ? "DRAINING" : "MAINTENANCE_MODE";
           const message =
-            maintenanceMode === "draining" ? "Service is draining" : "Service in maintenance mode";
+            maintenanceMode === "draining"
+              ? "Service is draining"
+              : "Service in maintenance mode";
 
           return new Response(
             JSON.stringify({
@@ -237,7 +267,9 @@ if (import.meta.main) {
 
         // When auth is disabled, treat WS connections as internal/admin so the
         // local dashboard can subscribe (workspace/user channels require auth).
-        let authContext = authEnabled ? createGuestAuthContext() : createInternalAuthContext();
+        let authContext = authEnabled
+          ? createGuestAuthContext()
+          : createInternalAuthContext();
         if (authEnabled && token) {
           if (adminKey && safeCompare(token, adminKey)) {
             authContext = createInternalAuthContext();
@@ -304,10 +336,14 @@ if (import.meta.main) {
   }
 
   async function initiateShutdown(signal: "SIGINT" | "SIGTERM"): Promise<void> {
-    const deadlineSecondsRaw = process.env["GATEWAY_DRAIN_DEADLINE_SECONDS"]?.trim();
+    const deadlineSecondsRaw =
+      process.env["GATEWAY_DRAIN_DEADLINE_SECONDS"]?.trim();
     const deadlineSeconds = Math.max(
       1,
-      Math.min(300, deadlineSecondsRaw ? Number.parseInt(deadlineSecondsRaw, 10) || 30 : 30),
+      Math.min(
+        300,
+        deadlineSecondsRaw ? Number.parseInt(deadlineSecondsRaw, 10) || 30 : 30,
+      ),
     );
     const startedAt = Date.now();
     const shutdownDeadlineAt = startedAt + deadlineSeconds * 1000;
@@ -401,7 +437,10 @@ if (import.meta.main) {
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
     process.on(signal, () => {
       if (shutdownInProgress) {
-        logger.warn({ signal }, "Second shutdown signal received; forcing exit");
+        logger.warn(
+          { signal },
+          "Second shutdown signal received; forcing exit",
+        );
         void bunServer.stop(true).finally(() => {
           process.exit(1);
         });

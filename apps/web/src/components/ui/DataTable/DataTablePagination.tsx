@@ -4,7 +4,12 @@
  * Renders pagination controls with page size selector.
  */
 
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 import type { DataTablePaginationProps } from "./types";
 
 /**
@@ -101,8 +106,8 @@ export function DataTablePagination({
       <div className="data-table__pagination-info">
         {total > 0 ? (
           <>
-            Showing <strong>{start}</strong> to <strong>{end}</strong> of <strong>{total}</strong>{" "}
-            results
+            Showing <strong>{start}</strong> to <strong>{end}</strong> of{" "}
+            <strong>{total}</strong> results
           </>
         ) : (
           "No results"

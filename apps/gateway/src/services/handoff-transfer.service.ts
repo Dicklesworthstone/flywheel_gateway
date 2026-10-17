@@ -8,7 +8,11 @@
  * - Active subscriptions
  */
 
-import type { HandoffRecord, ResourceManifest, TransferResult } from "@flywheel/shared/types";
+import type {
+  HandoffRecord,
+  ResourceManifest,
+  TransferResult,
+} from "@flywheel/shared/types";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
@@ -287,7 +291,9 @@ export async function transferResources(
     }
   }
 
-  const failedResources = results.filter((r) => !r.success).map((r) => r.resourceId);
+  const failedResources = results
+    .filter((r) => !r.success)
+    .map((r) => r.resourceId);
 
   const success = failedResources.length === 0;
 
@@ -301,12 +307,16 @@ export async function transferResources(
   );
 
   // Publish transfer completed event
-  publishTransferEvent(handoff.request.projectId, "handoff.transfer_completed", {
-    handoffId: handoff.id,
-    transferredResources: transferredCount,
-    failedResources: failedResources.length,
-    completedAt: new Date().toISOString(),
-  });
+  publishTransferEvent(
+    handoff.request.projectId,
+    "handoff.transfer_completed",
+    {
+      handoffId: handoff.id,
+      transferredResources: transferredCount,
+      failedResources: failedResources.length,
+      completedAt: new Date().toISOString(),
+    },
+  );
 
   const result: TransferResult = {
     success,
@@ -322,7 +332,10 @@ export async function transferResources(
 /**
  * Build failure result from partial results.
  */
-function buildFailureResult(results: SingleTransferResult[], error: string): TransferResult {
+function buildFailureResult(
+  results: SingleTransferResult[],
+  error: string,
+): TransferResult {
   const transferred = results.filter((r) => r.success).length;
   const failed = results.filter((r) => !r.success).map((r) => r.resourceId);
 
@@ -396,7 +409,10 @@ async function transferReservation(
   });
 
   if (!createResult.granted) {
-    log.warn({ conflicts: createResult.conflicts }, "Failed to create transferred reservation");
+    log.warn(
+      { conflicts: createResult.conflicts },
+      "Failed to create transferred reservation",
+    );
     // Try to restore original reservation
     const restoreResult = await reservationService.createReservation({
       projectId,
@@ -530,7 +546,10 @@ export async function rollbackTransfer(
     correlationId: getCorrelationId(),
   });
 
-  log.warn({ completedCount: completedTransfers.length }, "Rolling back transfer");
+  log.warn(
+    { completedCount: completedTransfers.length },
+    "Rolling back transfer",
+  );
 
   const targetAgentId = handoff.acknowledgment?.receivingAgentId;
   if (!targetAgentId) {

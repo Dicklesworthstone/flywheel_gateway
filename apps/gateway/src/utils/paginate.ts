@@ -12,7 +12,10 @@ import {
   type PaginationMeta,
 } from "@flywheel/shared/api/pagination";
 import { and, asc, desc, gt, lt, type SQL } from "drizzle-orm";
-import type { SQLiteColumn, SQLiteTableWithColumns } from "drizzle-orm/sqlite-core";
+import type {
+  SQLiteColumn,
+  SQLiteTableWithColumns,
+} from "drizzle-orm/sqlite-core";
 
 // ============================================================================
 // Types
@@ -134,7 +137,11 @@ export function getPaginatedOrderBy(
 ) {
   // For backward pagination, reverse the sort order
   const effectiveDirection =
-    direction === "backward" ? (sortDirection === "asc" ? "desc" : "asc") : sortDirection;
+    direction === "backward"
+      ? sortDirection === "asc"
+        ? "desc"
+        : "asc"
+      : sortDirection;
 
   return effectiveDirection === "desc" ? desc(column) : asc(column);
 }
@@ -200,7 +207,11 @@ export async function paginate<T>(
 
   // Get sort order (reversed for backward pagination)
   const effectiveSortColumn = sortColumn ?? idColumn;
-  const orderBy = getPaginatedOrderBy(effectiveSortColumn, params.direction, sortDirection);
+  const orderBy = getPaginatedOrderBy(
+    effectiveSortColumn,
+    params.direction,
+    sortDirection,
+  );
 
   // Fetch one extra to check if there are more
   const fetchLimit = params.limit + 1;
@@ -289,6 +300,11 @@ export async function paginateTable<
     );
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    return db.select().from(table).where(whereClause).orderBy(orderBy).limit(limit);
+    return db
+      .select()
+      .from(table)
+      .where(whereClause)
+      .orderBy(orderBy)
+      .limit(limit);
   }, options);
 }

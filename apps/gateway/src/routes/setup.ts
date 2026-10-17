@@ -8,7 +8,19 @@
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { getLogger } from "../middleware/correlation";
-import { type DetectedType, getAgentDetectionService } from "../services/agent-detection.service";
+import {
+  type DetectedType,
+  getAgentDetectionService,
+} from "../services/agent-detection.service";
+import {
+  computeInstallPlan,
+  type DetectedToolState,
+  formatInstallScript,
+} from "../services/install-plan.service";
+import {
+  buildCompatibilityReport,
+  getDeprecations,
+} from "../services/registry-compat.service";
 import {
   getAllToolInfo,
   getReadinessStatus,
@@ -53,7 +65,9 @@ const InstallRequestSchema = z.object({
     "bv",
     "ru",
   ]) as z.ZodType<DetectedType>,
-  mode: z.enum(["interactive", "easy"]).default("easy") as z.ZodType<InstallMode>,
+  mode: z
+    .enum(["interactive", "easy"])
+    .default("easy") as z.ZodType<InstallMode>,
   verify: z.boolean().default(true),
 });
 
@@ -440,6 +454,89 @@ setup.get("/registry", async (c) => {
         errorCategory: meta?.errorCategory ?? result.errorCategory ?? null,
         userMessage: meta?.userMessage ?? result.userMessage ?? null,
       },
+    });
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * GET /setup/install-plan - Compute manifest-driven install plan and remediation script
+ */
+setup.get("/install-plan", async (c) => {
+  try {
+    const bypassCache = c.req.query("bypass_cache") === "true";
+    const [registryResult, readiness, allTools] = await Promise.all([
+      loadToolRegistryWithMetadata({ bypassCache }),
+      getReadinessStatus(bypassCache),
+      getAllToolInfo(),
+    ]);
+
+    const detectedStates: DetectedToolState[] = [
+      ...readiness.agents.map((a) => ({
+        name: a.name,
+        available: a.available,
+        ...(a.version && { version: a.version }),
+        ...(a.authError && { error: a.authError }),
+      })),
+      ...readiness.tools.map((t) => ({
+        name: t.name,
+        available: t.available,
+        ...(t.version && { version: t.version }),
+      })),
+    ];
+
+    // Ensure any tool from getAllToolInfo not in readiness is represented
+    const seen = new Set(detectedStates.map((d) => d.name));
+    for (const info of allTools) {
+      if (!seen.has(info.name)) {
+        detectedStates.push({
+          name: info.name,
+          available: false,
+        });
+      }
+    }
+
+    const plan = computeInstallPlan(
+      registryResult.registry.tools,
+      detectedStates,
+    );
+    const script = formatInstallScript(plan);
+
+    return sendResource(c, "install_plan", {
+      ...plan,
+      formattedScript: script,
+    });
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * GET /setup/compatibility - Get tool registry manifest migration compatibility report
+ */
+setup.get("/compatibility", async (c) => {
+  try {
+    const bypassCache = c.req.query("bypass_cache") === "true";
+    const [registryResult, allToolInfo] = await Promise.all([
+      loadToolRegistryWithMetadata({ bypassCache }),
+      getAllToolInfo(),
+    ]);
+    const meta = getToolRegistryMetadata();
+    const hardcodedMap: Record<string, unknown> = {};
+    for (const info of allToolInfo) {
+      hardcodedMap[info.name] = info;
+    }
+
+    const report = buildCompatibilityReport(
+      registryResult.registry.tools,
+      meta?.registrySource ?? registryResult.source ?? "manifest",
+      hardcodedMap,
+    );
+
+    return sendResource(c, "compatibility_report", {
+      ...report,
+      activeDeprecations: getDeprecations(),
     });
   } catch (error) {
     return handleError(error, c);

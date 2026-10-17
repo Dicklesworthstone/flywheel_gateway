@@ -12,6 +12,7 @@
  * - Real-time status updates via WebSocket
  */
 
+import { sqlite } from "../db";
 import { getCorrelationId } from "../middleware/correlation";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
@@ -207,6 +208,251 @@ let cleanupInterval: Timer | null = null;
 /** Track which assignments have been warned about expiring */
 const warnedAssignments: Set<string> = new Set();
 
+let gitTablesReady = false;
+let gitHydrated = false;
+
+function ensureGitTables(): void {
+  if (gitTablesReady) return;
+  try {
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS branch_assignments (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT,
+        repository_id TEXT NOT NULL,
+        branch_name TEXT NOT NULL,
+        base_branch TEXT NOT NULL DEFAULT 'main',
+        status TEXT NOT NULL DEFAULT 'active',
+        assigned_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        last_activity_at INTEGER NOT NULL,
+        task_id TEXT,
+        task_description TEXT,
+        reserved_patterns TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER
+      );
+      CREATE TABLE IF NOT EXISTS conflict_predictions (
+        id TEXT PRIMARY KEY,
+        repository_id TEXT NOT NULL,
+        branch_a TEXT NOT NULL,
+        branch_b TEXT NOT NULL,
+        has_conflicts INTEGER NOT NULL DEFAULT 0,
+        conflicting_files TEXT,
+        severity TEXT NOT NULL DEFAULT 'none',
+        recommendation TEXT,
+        common_ancestor TEXT,
+        changes_in_a INTEGER NOT NULL DEFAULT 0,
+        changes_in_b INTEGER NOT NULL DEFAULT 0,
+        overlapping_files TEXT,
+        predicted_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL
+      );
+    `);
+    gitTablesReady = true;
+  } catch {
+    // Ignore if sqlite is mocked
+  }
+}
+
+function resolveNullableAgentFk(agentId: string): string | null {
+  try {
+    const row = sqlite
+      .query(`SELECT id FROM agents WHERE id = ? LIMIT 1`)
+      .get(agentId);
+    return row ? agentId : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistAssignmentToDb(assignment: BranchAssignment): void {
+  try {
+    ensureGitTables();
+    const fkAgentId = resolveNullableAgentFk(assignment.agentId);
+    const reservedPayload = JSON.stringify({
+      agentId: assignment.agentId,
+      patterns: assignment.metadata.reservedPatterns ?? undefined,
+    });
+    sqlite
+      .query(
+        `DELETE FROM branch_assignments WHERE repository_id = ? AND branch_name = ? AND id != ?`,
+      )
+      .run(assignment.repositoryId, assignment.branchName, assignment.id);
+    sqlite
+      .query(
+        `INSERT OR REPLACE INTO branch_assignments (
+          id, agent_id, repository_id, branch_name, base_branch, status,
+          assigned_at, expires_at, last_activity_at, task_id, task_description,
+          reserved_patterns, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        assignment.id,
+        fkAgentId,
+        assignment.repositoryId,
+        assignment.branchName,
+        assignment.baseBranch,
+        assignment.status,
+        assignment.assignedAt.getTime(),
+        assignment.expiresAt.getTime(),
+        assignment.lastActivityAt.getTime(),
+        assignment.metadata.taskId ?? null,
+        assignment.metadata.taskDescription ?? null,
+        reservedPayload,
+        assignment.assignedAt.getTime(),
+        assignment.lastActivityAt.getTime(),
+      );
+  } catch {
+    // Ignore if sqlite is mocked
+  }
+}
+
+function deleteAssignmentFromDb(assignmentId: string): void {
+  try {
+    ensureGitTables();
+    sqlite
+      .query(`DELETE FROM branch_assignments WHERE id = ?`)
+      .run(assignmentId);
+  } catch {
+    // Ignore if sqlite is mocked
+  }
+}
+
+function persistPredictionToDb(prediction: ConflictPrediction): void {
+  try {
+    ensureGitTables();
+    const expiresAtMs = prediction.predictedAt.getTime() + 5 * 60 * 1000;
+    sqlite
+      .query(
+        `INSERT OR REPLACE INTO conflict_predictions (
+          id, repository_id, branch_a, branch_b, has_conflicts, conflicting_files,
+          severity, recommendation, common_ancestor, changes_in_a, changes_in_b,
+          overlapping_files, predicted_at, expires_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        prediction.id,
+        prediction.repositoryId,
+        prediction.branchA,
+        prediction.branchB,
+        prediction.hasConflicts ? 1 : 0,
+        JSON.stringify(prediction.conflictingFiles),
+        prediction.severity,
+        prediction.recommendation,
+        prediction.details.commonAncestor ?? null,
+        prediction.details.changesInA,
+        prediction.details.changesInB,
+        JSON.stringify(prediction.details.overlappingFiles),
+        prediction.predictedAt.getTime(),
+        expiresAtMs,
+      );
+  } catch {
+    // Ignore if sqlite is mocked
+  }
+}
+
+function hydrateGitDataFromDb(): void {
+  if (gitHydrated) return;
+  gitHydrated = true;
+  try {
+    ensureGitTables();
+    const assignmentRows = sqlite
+      .query(`SELECT * FROM branch_assignments`)
+      .all() as Array<Record<string, unknown>>;
+
+    for (const row of assignmentRows) {
+      const id = String(row["id"]);
+      if (assignmentStore.has(id)) continue;
+      let agentId =
+        typeof row["agent_id"] === "string" ? row["agent_id"] : "unknown";
+      let reservedPatterns: string[] | undefined;
+      if (typeof row["reserved_patterns"] === "string") {
+        try {
+          const parsed = JSON.parse(row["reserved_patterns"]);
+          if (Array.isArray(parsed)) {
+            reservedPatterns = parsed;
+          } else if (parsed && typeof parsed === "object") {
+            if (typeof parsed.agentId === "string") agentId = parsed.agentId;
+            if (Array.isArray(parsed.patterns))
+              reservedPatterns = parsed.patterns;
+          }
+        } catch {
+          // Ignore parse error
+        }
+      }
+      const assignment: BranchAssignment = {
+        id,
+        repositoryId: String(row["repository_id"]),
+        agentId,
+        branchName: String(row["branch_name"]),
+        baseBranch: String(row["base_branch"] ?? "main"),
+        status: String(row["status"] ?? "active") as BranchAssignmentStatus,
+        assignedAt: new Date(Number(row["assigned_at"])),
+        expiresAt: new Date(Number(row["expires_at"])),
+        lastActivityAt: new Date(Number(row["last_activity_at"])),
+        metadata: {
+          ...(typeof row["task_id"] === "string" && {
+            taskId: row["task_id"],
+          }),
+          ...(typeof row["task_description"] === "string" && {
+            taskDescription: row["task_description"],
+          }),
+          ...(reservedPatterns !== undefined && { reservedPatterns }),
+        },
+      };
+      assignmentStore.set(id, assignment);
+    }
+
+    const predictionRows = sqlite
+      .query(`SELECT * FROM conflict_predictions`)
+      .all() as Array<Record<string, unknown>>;
+
+    for (const row of predictionRows) {
+      const repositoryId = String(row["repository_id"]);
+      const branchA = String(row["branch_a"]);
+      const branchB = String(row["branch_b"]);
+      const key = predictionCacheKey(repositoryId, branchA, branchB);
+      if (predictionCache.has(key)) continue;
+      let conflictingFiles: string[] = [];
+      let overlappingFiles: string[] = [];
+      try {
+        if (typeof row["conflicting_files"] === "string") {
+          conflictingFiles = JSON.parse(row["conflicting_files"]);
+        }
+      } catch {}
+      try {
+        if (typeof row["overlapping_files"] === "string") {
+          overlappingFiles = JSON.parse(row["overlapping_files"]);
+        }
+      } catch {}
+      const prediction: ConflictPrediction = {
+        id: String(row["id"]),
+        repositoryId,
+        branchA,
+        branchB,
+        hasConflicts: Boolean(row["has_conflicts"]),
+        conflictingFiles,
+        severity: String(
+          row["severity"] ?? "none",
+        ) as ConflictPrediction["severity"],
+        recommendation: String(row["recommendation"] ?? ""),
+        predictedAt: new Date(Number(row["predicted_at"])),
+        details: {
+          ...(typeof row["common_ancestor"] === "string" && {
+            commonAncestor: row["common_ancestor"],
+          }),
+          changesInA: Number(row["changes_in_a"] ?? 0),
+          changesInB: Number(row["changes_in_b"] ?? 0),
+          overlappingFiles,
+        },
+      };
+      predictionCache.set(key, prediction);
+    }
+  } catch {
+    // Ignore if sqlite is mocked
+  }
+}
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -244,7 +490,11 @@ function generatePredictionId(): string {
 /**
  * Create a cache key for conflict predictions.
  */
-function predictionCacheKey(repositoryId: string, branchA: string, branchB: string): string {
+function predictionCacheKey(
+  repositoryId: string,
+  branchA: string,
+  branchB: string,
+): string {
   const sorted = [branchA, branchB].sort();
   return `${repositoryId}:${sorted[0]}:${sorted[1]}`;
 }
@@ -252,7 +502,11 @@ function predictionCacheKey(repositoryId: string, branchA: string, branchB: stri
 /**
  * Create a cache key for merge base info.
  */
-function mergeBaseCacheKey(repositoryId: string, branch: string, target: string): string {
+function mergeBaseCacheKey(
+  repositoryId: string,
+  branch: string,
+  target: string,
+): string {
   return `${repositoryId}:${branch}:${target}`;
 }
 
@@ -276,7 +530,10 @@ function publishGitEvent(
 /**
  * Assign a branch to an agent with exclusive ownership.
  */
-export async function assignBranch(params: AssignBranchParams): Promise<AssignBranchResult> {
+export async function assignBranch(
+  params: AssignBranchParams,
+): Promise<AssignBranchResult> {
+  hydrateGitDataFromDb();
   const correlationId = getCorrelationId();
   const log = logger.child({
     correlationId,
@@ -358,6 +615,7 @@ export async function assignBranch(params: AssignBranchParams): Promise<AssignBr
   };
 
   assignmentStore.set(assignment.id, assignment);
+  persistAssignmentToDb(assignment);
 
   log.info(
     {
@@ -387,7 +645,10 @@ export async function assignBranch(params: AssignBranchParams): Promise<AssignBr
 /**
  * Release branch assignment(s) for an agent.
  */
-export async function releaseBranch(params: ReleaseBranchParams): Promise<ReleaseBranchResult> {
+export async function releaseBranch(
+  params: ReleaseBranchParams,
+): Promise<ReleaseBranchResult> {
+  hydrateGitDataFromDb();
   const correlationId = getCorrelationId();
   const log = logger.child({
     correlationId,
@@ -410,6 +671,7 @@ export async function releaseBranch(params: ReleaseBranchParams): Promise<Releas
       }
 
       assignmentStore.delete(id);
+      deleteAssignmentFromDb(id);
       warnedAssignments.delete(id);
       releasedAssignments.push(id);
 
@@ -449,6 +711,7 @@ export async function releaseBranch(params: ReleaseBranchParams): Promise<Releas
 export async function renewAssignment(
   params: RenewAssignmentParams,
 ): Promise<RenewAssignmentResult> {
+  hydrateGitDataFromDb();
   const correlationId = getCorrelationId();
   const log = logger.child({
     correlationId,
@@ -466,7 +729,10 @@ export async function renewAssignment(
   }
 
   if (assignment.agentId !== params.agentId) {
-    log.warn({ holderId: assignment.agentId }, "Attempt to renew assignment by non-holder");
+    log.warn(
+      { holderId: assignment.agentId },
+      "Attempt to renew assignment by non-holder",
+    );
     return {
       renewed: false,
       error: "Agent does not hold this assignment",
@@ -489,6 +755,7 @@ export async function renewAssignment(
 
   assignment.expiresAt = newExpiresAt;
   assignment.lastActivityAt = now;
+  persistAssignmentToDb(assignment);
   warnedAssignments.delete(assignment.id);
 
   log.info(
@@ -522,6 +789,7 @@ export async function getBranchAssignments(
   repositoryId: string,
   options?: { includeExpired?: boolean; agentId?: string },
 ): Promise<BranchAssignment[]> {
+  hydrateGitDataFromDb();
   const now = new Date();
   const assignments = Array.from(assignmentStore.values()).filter((a) => {
     if (a.repositoryId !== repositoryId) return false;
@@ -539,7 +807,10 @@ export async function getBranchAssignments(
 /**
  * Get a specific branch assignment by ID.
  */
-export async function getAssignment(assignmentId: string): Promise<BranchAssignment | null> {
+export async function getAssignment(
+  assignmentId: string,
+): Promise<BranchAssignment | null> {
+  hydrateGitDataFromDb();
   return assignmentStore.get(assignmentId) ?? null;
 }
 
@@ -551,6 +822,7 @@ export async function updateAssignmentStatus(
   status: BranchAssignmentStatus,
   agentId?: string,
 ): Promise<boolean> {
+  hydrateGitDataFromDb();
   const assignment = assignmentStore.get(assignmentId);
   if (!assignment) return false;
 
@@ -560,6 +832,7 @@ export async function updateAssignmentStatus(
   const previousStatus = assignment.status;
   assignment.status = status;
   assignment.lastActivityAt = new Date();
+  persistAssignmentToDb(assignment);
 
   logger.info(
     {
@@ -596,6 +869,7 @@ export async function updateAssignmentStatus(
 export async function predictConflicts(
   params: PredictConflictsParams,
 ): Promise<ConflictPrediction> {
+  hydrateGitDataFromDb();
   const correlationId = getCorrelationId();
   const log = logger.child({
     correlationId,
@@ -605,7 +879,11 @@ export async function predictConflicts(
   });
 
   // Check cache first
-  const cacheKey = predictionCacheKey(params.repositoryId, params.branchA, params.branchB);
+  const cacheKey = predictionCacheKey(
+    params.repositoryId,
+    params.branchA,
+    params.branchB,
+  );
   const cached = predictionCache.get(cacheKey);
 
   // Cache valid for 5 minutes
@@ -654,7 +932,10 @@ export async function predictConflicts(
       a.status === "active",
   );
 
-  if (assignmentA?.metadata.reservedPatterns && assignmentB?.metadata.reservedPatterns) {
+  if (
+    assignmentA?.metadata.reservedPatterns &&
+    assignmentB?.metadata.reservedPatterns
+  ) {
     // Simple overlap check - in production would use glob matching
     const patternsA = new Set(assignmentA.metadata.reservedPatterns);
     const patternsB = new Set(assignmentB.metadata.reservedPatterns);
@@ -681,8 +962,9 @@ export async function predictConflicts(
     }
   }
 
-  // Update cache
+  // Update cache and persist to SQLite
   predictionCache.set(cacheKey, prediction);
+  persistPredictionToDb(prediction);
 
   log.info(
     {
@@ -716,7 +998,9 @@ export async function getOverlappingFiles(
   for (const branch of params.branches) {
     const assignment = Array.from(assignmentStore.values()).find(
       (a) =>
-        a.repositoryId === params.repositoryId && a.branchName === branch && a.status === "active",
+        a.repositoryId === params.repositoryId &&
+        a.branchName === branch &&
+        a.status === "active",
     );
 
     if (assignment?.metadata.reservedPatterns) {
@@ -755,7 +1039,10 @@ export async function getOverlappingFiles(
     generatedAt: new Date(),
   };
 
-  log.info({ overlappingCount: overlappingFiles.length }, "Overlapping files report generated");
+  log.info(
+    { overlappingCount: overlappingFiles.length },
+    "Overlapping files report generated",
+  );
 
   return report;
 }
@@ -923,20 +1210,29 @@ export async function coordinateSync(
     }
 
     // For pull/fetch, allow but recommend getting assignment
-    recommendations.push("Consider requesting branch assignment for coordinated work");
+    recommendations.push(
+      "Consider requesting branch assignment for coordinated work",
+    );
   }
 
   // Check for force operations
   if (operation.force) {
-    warnings.push("Force operations can cause data loss. Ensure other agents are not affected.");
+    warnings.push(
+      "Force operations can cause data loss. Ensure other agents are not affected.",
+    );
 
     // Check if other agents have work on related branches
     const otherAssignments = Array.from(assignmentStore.values()).filter(
-      (a) => a.repositoryId === repositoryId && a.agentId !== agentId && a.status === "active",
+      (a) =>
+        a.repositoryId === repositoryId &&
+        a.agentId !== agentId &&
+        a.status === "active",
     );
 
     if (otherAssignments.length > 0) {
-      warnings.push(`${otherAssignments.length} other agent(s) have active branch assignments`);
+      warnings.push(
+        `${otherAssignments.length} other agent(s) have active branch assignments`,
+      );
     }
   }
 
@@ -1043,7 +1339,9 @@ export async function recordSyncResult(
   if (result.success && result.operation.type === "push") {
     const branch = result.operation.branch;
     // Use delimiter-aware matching to avoid "main" matching "maintain-feature"
-    const branchPattern = new RegExp(`(^|:)${branch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(:|$)`);
+    const branchPattern = new RegExp(
+      `(^|:)${branch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(:|$)`,
+    );
 
     // Invalidate conflict predictions involving this branch
     for (const key of predictionCache.keys()) {
@@ -1120,7 +1418,10 @@ async function cleanupExpiredAssignments(): Promise<number> {
   // Clean old expired assignments (older than 1 hour)
   const oldThreshold = new Date(now.getTime() - 60 * 60 * 1000);
   for (const [id, assignment] of assignmentStore) {
-    if (assignment.status === "expired" && assignment.expiresAt < oldThreshold) {
+    if (
+      assignment.status === "expired" &&
+      assignment.expiresAt < oldThreshold
+    ) {
       assignmentStore.delete(id);
     }
   }
@@ -1150,7 +1451,10 @@ export function startGitCleanupJob(): void {
     cleanupInterval.unref();
   }
 
-  logger.info({ intervalMs: CLEANUP_INTERVAL_MS }, "Git assignment cleanup job started");
+  logger.info(
+    { intervalMs: CLEANUP_INTERVAL_MS },
+    "Git assignment cleanup job started",
+  );
 }
 
 /**
@@ -1178,6 +1482,7 @@ export function getGitStats(): {
   predictionCacheSize: number;
   mergeBaseCacheSize: number;
 } {
+  hydrateGitDataFromDb();
   const now = new Date();
   const activeAssignments = Array.from(assignmentStore.values()).filter(
     (a) => a.status === "active" && a.expiresAt > now,
@@ -1192,7 +1497,8 @@ export function getGitStats(): {
   };
 
   for (const assignment of assignmentStore.values()) {
-    byRepository[assignment.repositoryId] = (byRepository[assignment.repositoryId] ?? 0) + 1;
+    byRepository[assignment.repositoryId] =
+      (byRepository[assignment.repositoryId] ?? 0) + 1;
     byStatus[assignment.status]++;
   }
 
@@ -1217,6 +1523,25 @@ export function _clearAllGitData(): void {
   predictionCache.clear();
   mergeBaseCache.clear();
   warnedAssignments.clear();
+  gitHydrated = true;
+  try {
+    ensureGitTables();
+    sqlite.query(`DELETE FROM branch_assignments`).run();
+    sqlite.query(`DELETE FROM conflict_predictions`).run();
+  } catch {
+    // Ignore if sqlite is mocked
+  }
+}
+
+/**
+ * Evict only in-memory git cache to test SQLite hydration on restart.
+ */
+export function _evictGitCacheForTesting(): void {
+  assignmentStore.clear();
+  predictionCache.clear();
+  mergeBaseCache.clear();
+  warnedAssignments.clear();
+  gitHydrated = false;
 }
 
 /**

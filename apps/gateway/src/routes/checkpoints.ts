@@ -5,11 +5,16 @@
  * Supports manual and automatic checkpointing with delta-based storage.
  */
 
-import { createCursor, DEFAULT_PAGINATION, decodeCursor } from "@flywheel/shared/api/pagination";
+import {
+  createCursor,
+  DEFAULT_PAGINATION,
+  decodeCursor,
+} from "@flywheel/shared/api/pagination";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
+import { captureAgentCheckpointState } from "../services/agent";
 import {
   CheckpointError,
   createCheckpoint,
@@ -22,6 +27,7 @@ import {
   restoreCheckpoint,
   verifyCheckpoint,
 } from "../services/checkpoint";
+import { getCompactionService } from "../services/checkpoint-compaction.service";
 import {
   sendError,
   sendInternalError,
@@ -149,19 +155,30 @@ checkpoints.post("/:sessionId/checkpoints", async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const validated = CreateCheckpointSchema.parse(body);
 
-    // Build state object from request or use defaults
+    const liveState =
+      validated.conversationHistory === undefined ||
+      validated.toolState === undefined ||
+      validated.tokenUsage === undefined
+        ? await captureAgentCheckpointState(sessionId)
+        : undefined;
+
+    // Build state object from request or live driver state
     const state = {
-      conversationHistory: validated.conversationHistory ?? [],
-      toolState: validated.toolState ?? {},
-      tokenUsage: validated.tokenUsage ?? {
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0,
-      },
+      conversationHistory:
+        validated.conversationHistory ?? liveState?.conversationHistory ?? [],
+      toolState: validated.toolState ?? liveState?.toolState ?? {},
+      tokenUsage: validated.tokenUsage ??
+        liveState?.tokenUsage ?? {
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+        },
     };
 
-    const options: { description?: string; tags?: string[]; delta?: boolean } = {};
-    if (validated.description !== undefined) options.description = validated.description;
+    const options: { description?: string; tags?: string[]; delta?: boolean } =
+      {};
+    if (validated.description !== undefined)
+      options.description = validated.description;
     if (validated.tags !== undefined) options.tags = validated.tags;
     if (validated.delta !== undefined) options.delta = validated.delta;
 
@@ -209,7 +226,9 @@ checkpoints.get("/:sessionId/checkpoints", async (c) => {
     const startingAfter = c.req.query("starting_after");
     const endingBefore = c.req.query("ending_before");
 
-    const parsedLimit = limitParam ? parseInt(limitParam, 10) : DEFAULT_PAGINATION.limit;
+    const parsedLimit = limitParam
+      ? parseInt(limitParam, 10)
+      : DEFAULT_PAGINATION.limit;
     const limit = Number.isNaN(parsedLimit)
       ? DEFAULT_PAGINATION.limit
       : Math.min(Math.max(1, parsedLimit), DEFAULT_PAGINATION.maxLimit);
@@ -221,7 +240,9 @@ checkpoints.get("/:sessionId/checkpoints", async (c) => {
     if (startingAfter) {
       const cursor = decodeCursor(startingAfter);
       if (cursor) {
-        const cursorIndex = allCheckpoints.findIndex((chk) => chk.id === cursor.id);
+        const cursorIndex = allCheckpoints.findIndex(
+          (chk) => chk.id === cursor.id,
+        );
         if (cursorIndex !== -1) {
           startIndex = cursorIndex + 1;
         }
@@ -229,7 +250,9 @@ checkpoints.get("/:sessionId/checkpoints", async (c) => {
     } else if (endingBefore) {
       const cursor = decodeCursor(endingBefore);
       if (cursor) {
-        const cursorIndex = allCheckpoints.findIndex((chk) => chk.id === cursor.id);
+        const cursorIndex = allCheckpoints.findIndex(
+          (chk) => chk.id === cursor.id,
+        );
         if (cursorIndex !== -1) {
           startIndex = Math.max(0, cursorIndex - limit);
         }
@@ -280,6 +303,44 @@ checkpoints.get("/:sessionId/checkpoints", async (c) => {
 });
 
 /**
+ * GET /sessions/:sessionId/checkpoints/storage-stats - Get checkpoint storage stats
+ */
+checkpoints.get("/:sessionId/checkpoints/storage-stats", async (c) => {
+  try {
+    const sessionId = c.req.param("sessionId");
+    const stats = await getCompactionService().getStorageStats(sessionId);
+    return sendResource(c, "checkpoint_storage_stats", stats);
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * POST /sessions/:sessionId/checkpoints/compact - Compact delta chains & expired checkpoints for session
+ */
+checkpoints.post("/:sessionId/checkpoints/compact", async (c) => {
+  try {
+    const sessionId = c.req.param("sessionId");
+    const result = await getCompactionService().compactAgent(sessionId);
+    return sendResource(c, "checkpoint_compaction_result", result);
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * POST /sessions/checkpoints/compact-all - Run compaction across all agents
+ */
+checkpoints.post("/checkpoints/compact-all", async (c) => {
+  try {
+    const results = await getCompactionService().runAllAgents();
+    return sendList(c, results, { total: results.length });
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
  * GET /sessions/:sessionId/checkpoints/:checkpointId - Get checkpoint details
  */
 checkpoints.get("/:sessionId/checkpoints/:checkpointId", async (c) => {
@@ -320,7 +381,8 @@ checkpoints.get("/:sessionId/checkpoints/:checkpointId", async (c) => {
         checkpoint.toolState !== null &&
         typeof checkpoint.toolState === "object" &&
         Object.keys(checkpoint.toolState).length > 0,
-      hasContextPack: checkpoint.contextPack !== undefined && checkpoint.contextPack !== null,
+      hasContextPack:
+        checkpoint.contextPack !== undefined && checkpoint.contextPack !== null,
       verification: {
         valid: verification.valid,
         errors: verification.errors,
@@ -362,7 +424,8 @@ checkpoints.post("/:sessionId/checkpoints/:checkpointId/restore", async (c) => {
 
     const options: { verify?: boolean; createNew?: boolean } = {};
     if (validated.verify !== undefined) options.verify = validated.verify;
-    if (validated.createNew !== undefined) options.createNew = validated.createNew;
+    if (validated.createNew !== undefined)
+      options.createNew = validated.createNew;
 
     const restored = await restoreCheckpoint(checkpointId, options);
 
@@ -379,7 +442,9 @@ checkpoints.post("/:sessionId/checkpoints/:checkpointId/restore", async (c) => {
       checkpointId: restored.id,
       sessionId: restored.agentId,
       createdAt:
-        restored.createdAt instanceof Date ? restored.createdAt.toISOString() : restored.createdAt,
+        restored.createdAt instanceof Date
+          ? restored.createdAt.toISOString()
+          : restored.createdAt,
       messageCount: Array.isArray(restored.conversationHistory)
         ? restored.conversationHistory.length
         : 0,

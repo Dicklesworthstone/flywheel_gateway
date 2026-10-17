@@ -15,6 +15,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
+import { kvClearNamespace, kvGet, kvSet } from "./kv-persistence.service";
 
 // ============================================================================
 // Configuration Schema
@@ -43,7 +44,9 @@ const databaseConfigSchema = z.object({
  */
 const agentConfigSchema = z.object({
   defaultModel: z.string().default("claude-sonnet-4-20250514"),
-  defaultDriver: z.enum(["sdk", "claude_code_ws", "acp", "ntm", "tmux"]).default("sdk"),
+  defaultDriver: z
+    .enum(["sdk", "claude_code_ws", "acp", "ntm", "tmux"])
+    .default("sdk"),
   maxConcurrent: z.number().min(1).max(100).default(10),
   timeoutMs: z.number().min(1000).default(300_000), // 5 minutes
   checkpointEnabled: z.boolean().default(true),
@@ -152,18 +155,30 @@ const ntmConfigSchema = z.object({
  * Complete Flywheel configuration schema.
  */
 export const flywheelConfigSchema = z.object({
-  server: serverConfigSchema.optional().transform((v) => serverConfigSchema.parse(v ?? {})),
-  database: databaseConfigSchema.optional().transform((v) => databaseConfigSchema.parse(v ?? {})),
-  agent: agentConfigSchema.optional().transform((v) => agentConfigSchema.parse(v ?? {})),
-  security: securityConfigSchema.optional().transform((v) => securityConfigSchema.parse(v ?? {})),
+  server: serverConfigSchema
+    .optional()
+    .transform((v) => serverConfigSchema.parse(v ?? {})),
+  database: databaseConfigSchema
+    .optional()
+    .transform((v) => databaseConfigSchema.parse(v ?? {})),
+  agent: agentConfigSchema
+    .optional()
+    .transform((v) => agentConfigSchema.parse(v ?? {})),
+  security: securityConfigSchema
+    .optional()
+    .transform((v) => securityConfigSchema.parse(v ?? {})),
   websocket: websocketConfigSchema
     .optional()
     .transform((v) => websocketConfigSchema.parse(v ?? {})),
   analytics: analyticsConfigSchema
     .optional()
     .transform((v) => analyticsConfigSchema.parse(v ?? {})),
-  otel: otelConfigSchema.optional().transform((v) => otelConfigSchema.parse(v ?? {})),
-  ntm: ntmConfigSchema.optional().transform((v) => ntmConfigSchema.parse(v ?? {})),
+  otel: otelConfigSchema
+    .optional()
+    .transform((v) => otelConfigSchema.parse(v ?? {})),
+  ntm: ntmConfigSchema
+    .optional()
+    .transform((v) => ntmConfigSchema.parse(v ?? {})),
 });
 
 export type FlywheelConfig = z.infer<typeof flywheelConfigSchema>;
@@ -250,7 +265,10 @@ async function loadConfigFile(path: string): Promise<{
  * Deep merge two config objects.
  * Later values override earlier values.
  */
-function deepMerge<T extends Record<string, unknown>>(base: T, override: Partial<T>): T {
+function deepMerge<T extends Record<string, unknown>>(
+  base: T,
+  override: Partial<T>,
+): T {
   const result = { ...base };
 
   for (const key of Object.keys(override) as Array<keyof T>) {
@@ -287,7 +305,9 @@ type DeepPartial<T> = {
 /**
  * Apply environment variable overrides.
  */
-function applyEnvOverrides(config: Partial<FlywheelConfig>): Partial<FlywheelConfig> {
+function applyEnvOverrides(
+  config: Partial<FlywheelConfig>,
+): Partial<FlywheelConfig> {
   // Use DeepPartial internally since we build up partial nested objects
   const result: DeepPartial<FlywheelConfig> = { ...config };
 
@@ -299,7 +319,11 @@ function applyEnvOverrides(config: Partial<FlywheelConfig>): Partial<FlywheelCon
     result.server = { ...result.server, host: process.env["HOST"] };
   }
   if (process.env["LOG_LEVEL"]) {
-    const level = process.env["LOG_LEVEL"] as "debug" | "info" | "warn" | "error";
+    const level = process.env["LOG_LEVEL"] as
+      | "debug"
+      | "info"
+      | "warn"
+      | "error";
     result.server = { ...result.server, logLevel: level };
   }
 
@@ -410,7 +434,9 @@ function applyEnvOverrides(config: Partial<FlywheelConfig>): Partial<FlywheelCon
   if (process.env["OTEL_TRACES_EXPORTER"]?.trim()) {
     const raw = process.env["OTEL_TRACES_EXPORTER"].trim();
     const tracesExporter =
-      raw === "otlp-proto" || raw === "otlp-http" || raw === "none" ? raw : undefined;
+      raw === "otlp-proto" || raw === "otlp-http" || raw === "none"
+        ? raw
+        : undefined;
 
     if (tracesExporter) {
       result.otel = { ...result.otel, tracesExporter };
@@ -423,7 +449,10 @@ function applyEnvOverrides(config: Partial<FlywheelConfig>): Partial<FlywheelCon
     // Explicit disable wins even if exporter was configured.
     if (!enabled) {
       result.otel = { ...result.otel, tracesExporter: "none" };
-    } else if (result.otel?.tracesExporter === undefined || result.otel.tracesExporter === "none") {
+    } else if (
+      result.otel?.tracesExporter === undefined ||
+      result.otel.tracesExporter === "none"
+    ) {
       // If enabled without an explicit exporter, default to OTLP/proto.
       result.otel = { ...result.otel, tracesExporter: "otlp-proto" };
     }
@@ -539,7 +568,9 @@ export async function loadConfig(
   sources.push({
     path: projectConfigPath,
     loaded: projectResult.loaded,
-    ...(projectResult.error !== undefined ? { error: projectResult.error } : {}),
+    ...(projectResult.error !== undefined
+      ? { error: projectResult.error }
+      : {}),
   });
   if (projectResult.loaded) {
     mergedConfig = deepMerge(mergedConfig, projectResult.config);
@@ -616,7 +647,11 @@ function getOverriddenKeys(config: Partial<FlywheelConfig>): string[] {
   function traverse(obj: Record<string, unknown>, prefix: string) {
     for (const [key, value] of Object.entries(obj)) {
       const path = prefix ? `${prefix}.${key}` : key;
-      if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        !Array.isArray(value)
+      ) {
         traverse(value as Record<string, unknown>, path);
       } else if (value !== undefined) {
         keys.push(path);
@@ -626,6 +661,333 @@ function getOverriddenKeys(config: Partial<FlywheelConfig>): string[] {
 
   traverse(config as Record<string, unknown>, "");
   return keys;
+}
+
+// ============================================================================
+// Hot Reload, Version History & Explain-Config (bd-1t3b4, bd-2ufn8)
+// ============================================================================
+
+const RESTART_REQUIRED_KEYS = new Set<string>([
+  "server.port",
+  "server.host",
+  "database.path",
+  "database.enableWal",
+]);
+
+const SENSITIVE_KEY_PATTERN =
+  /secret|password|token|headers|auth|credential|privatekey|apikey/i;
+
+export interface ConfigVersionEntry {
+  version: number;
+  timestamp: string;
+  changedBy: string;
+  reason?: string;
+  changedKeys: string[];
+  restartRequiredKeys: string[];
+  snapshot: FlywheelConfig;
+  rolledBackFromVersion?: number;
+}
+
+export interface ConfigKeyExplanation {
+  key: string;
+  exists: boolean;
+  effectiveValue?: unknown;
+  redacted: boolean;
+  set: boolean;
+  source: "runtime" | "env" | "project" | "user" | "default";
+  hotReloadable: boolean;
+  lastUpdatedAt?: string;
+  version: number;
+}
+
+let configVersions: ConfigVersionEntry[] = [];
+const runtimeOverriddenKeys = new Map<string, string>();
+
+export function isKeyHotReloadable(key: string): boolean {
+  return !RESTART_REQUIRED_KEYS.has(key);
+}
+
+export function isKeySensitive(key: string): boolean {
+  return SENSITIVE_KEY_PATTERN.test(key);
+}
+
+function getNestedValue(obj: unknown, dottedKey: string): unknown {
+  const parts = dottedKey.split(".");
+  let cur: unknown = obj;
+  for (const part of parts) {
+    if (cur === null || cur === undefined || typeof cur !== "object") {
+      return undefined;
+    }
+    cur = (cur as Record<string, unknown>)[part];
+  }
+  return cur;
+}
+
+function ensureInitialVersion(): void {
+  if (configVersions.length === 0) {
+    const persistedVersions = kvGet<ConfigVersionEntry[]>("config", "versions");
+    const persistedKeys = kvGet<Record<string, string>>(
+      "config",
+      "overridden_keys",
+    );
+    if (Array.isArray(persistedVersions) && persistedVersions.length > 0) {
+      configVersions = persistedVersions;
+      if (persistedKeys && typeof persistedKeys === "object") {
+        for (const [k, v] of Object.entries(persistedKeys)) {
+          runtimeOverriddenKeys.set(k, v);
+        }
+      }
+      const latest = configVersions[configVersions.length - 1];
+      if (latest?.snapshot) {
+        cachedConfig = structuredClone(latest.snapshot);
+      }
+      return;
+    }
+
+    const initialSnapshot = structuredClone(getConfig());
+    configVersions.push({
+      version: 1,
+      timestamp: new Date().toISOString(),
+      changedBy: "system",
+      reason: "Initial configuration",
+      changedKeys: [],
+      restartRequiredKeys: [],
+      snapshot: initialSnapshot,
+    });
+  }
+}
+
+function persistConfigRuntimeState(): void {
+  kvSet("config", "versions", configVersions);
+  kvSet(
+    "config",
+    "overridden_keys",
+    Object.fromEntries(runtimeOverriddenKeys.entries()),
+  );
+}
+
+/**
+ * Update configuration at runtime with validation, version history tracking,
+ * and hot-reload vs restart-required classification.
+ */
+export function updateConfigRuntime(
+  patch: Partial<FlywheelConfig>,
+  options?: { changedBy?: string; reason?: string },
+): {
+  version: number;
+  config: FlywheelConfig;
+  changedKeys: string[];
+  restartRequired: boolean;
+  restartRequiredKeys: string[];
+} {
+  ensureInitialVersion();
+  const log = getLogger();
+  const changedBy = options?.changedBy ?? "admin";
+  const current = getConfig();
+  const candidate = deepMerge(
+    structuredClone(current) as Partial<FlywheelConfig>,
+    patch,
+  );
+
+  const parseResult = flywheelConfigSchema.safeParse(candidate);
+  if (!parseResult.success) {
+    const firstIssue = parseResult.error.issues[0];
+    const key = firstIssue?.path.join(".") || "unknown";
+    const errorMsg = parseResult.error.issues
+      .map((i) => `${i.path.join(".")}: ${i.message}`)
+      .join("; ");
+
+    log.warn(
+      {
+        key,
+        attemptedValue: getNestedValue(patch, key),
+        error: errorMsg,
+        changedBy,
+      },
+      "config.validation_failed",
+    );
+    throw new Error(`Configuration validation failed: ${errorMsg}`);
+  }
+
+  const nextConfig = parseResult.data;
+  const candidateKeys = getOverriddenKeys(patch);
+  const changedKeys = candidateKeys.filter(
+    (k) =>
+      JSON.stringify(getNestedValue(current, k)) !==
+      JSON.stringify(getNestedValue(nextConfig, k)),
+  );
+  const restartRequiredKeys = changedKeys.filter((k) => !isKeyHotReloadable(k));
+  const nowIso = new Date().toISOString();
+
+  for (const k of changedKeys) {
+    runtimeOverriddenKeys.set(k, nowIso);
+  }
+
+  const nextVersion =
+    (configVersions[configVersions.length - 1]?.version ?? 1) + 1;
+
+  cachedConfig = nextConfig;
+  configVersions.push({
+    version: nextVersion,
+    timestamp: nowIso,
+    changedBy,
+    ...(options?.reason !== undefined && { reason: options.reason }),
+    changedKeys,
+    restartRequiredKeys,
+    snapshot: structuredClone(nextConfig),
+  });
+  persistConfigRuntimeState();
+
+  for (const k of changedKeys) {
+    log.info(
+      {
+        key: k,
+        oldValue: isKeySensitive(k) ? "[REDACTED]" : getNestedValue(current, k),
+        newValue: isKeySensitive(k)
+          ? "[REDACTED]"
+          : getNestedValue(nextConfig, k),
+        changedBy,
+        version: nextVersion,
+        isHotReload: isKeyHotReloadable(k),
+        ...(options?.reason !== undefined && { reason: options.reason }),
+      },
+      "config.changed",
+    );
+  }
+
+  return {
+    version: nextVersion,
+    config: nextConfig,
+    changedKeys,
+    restartRequired: restartRequiredKeys.length > 0,
+    restartRequiredKeys,
+  };
+}
+
+/**
+ * Get the version history of configuration changes (with sensitive values redacted).
+ */
+export function getConfigVersionHistory(): ConfigVersionEntry[] {
+  ensureInitialVersion();
+  return configVersions.map((entry) => ({
+    ...entry,
+    snapshot: structuredClone(entry.snapshot),
+  }));
+}
+
+/**
+ * Roll back configuration to a previous version snapshot.
+ */
+export function rollbackConfigVersion(
+  targetVersion: number,
+  options?: { rolledBackBy?: string; reason?: string },
+): {
+  version: number;
+  rolledBackFromVersion: number;
+  rolledBackToVersion: number;
+  config: FlywheelConfig;
+} {
+  ensureInitialVersion();
+  const log = getLogger();
+  const rolledBackBy = options?.rolledBackBy ?? "admin";
+  const targetEntry = configVersions.find((v) => v.version === targetVersion);
+  if (!targetEntry) {
+    throw new Error(`Configuration version not found: ${targetVersion}`);
+  }
+
+  const currentVersion =
+    configVersions[configVersions.length - 1]?.version ?? 1;
+  const nextVersion = currentVersion + 1;
+  const restored = structuredClone(targetEntry.snapshot);
+  const nowIso = new Date().toISOString();
+
+  cachedConfig = restored;
+  configVersions.push({
+    version: nextVersion,
+    timestamp: nowIso,
+    changedBy: rolledBackBy,
+    reason: options?.reason ?? `Rollback to version ${targetVersion}`,
+    changedKeys: ["*"],
+    restartRequiredKeys: [],
+    snapshot: structuredClone(restored),
+    rolledBackFromVersion: currentVersion,
+  });
+  persistConfigRuntimeState();
+
+  log.info(
+    {
+      fromVersion: currentVersion,
+      toVersion: targetVersion,
+      newVersion: nextVersion,
+      rolledBackBy,
+    },
+    "config.rollback",
+  );
+
+  return {
+    version: nextVersion,
+    rolledBackFromVersion: currentVersion,
+    rolledBackToVersion: targetVersion,
+    config: restored,
+  };
+}
+
+/**
+ * Explain where a configuration key's effective value came from without leaking secrets (bd-2ufn8).
+ */
+export function explainConfigKey(key: string): ConfigKeyExplanation {
+  ensureInitialVersion();
+  const current = getConfig();
+  const rawValue = getNestedValue(current, key);
+  const sensitive = isKeySensitive(key);
+  const exists = rawValue !== undefined || sensitive;
+  const set = rawValue !== undefined && rawValue !== null && rawValue !== "";
+
+  // Determine source precedence: runtime -> env -> default
+  const envOverrides = applyEnvOverrides({});
+  const envVal = getNestedValue(envOverrides, key);
+
+  let source: ConfigKeyExplanation["source"] = "default";
+  if (runtimeOverriddenKeys.has(key)) {
+    source = "runtime";
+  } else if (envVal !== undefined) {
+    source = "env";
+  }
+
+  const currentVersion =
+    configVersions[configVersions.length - 1]?.version ?? 1;
+  const lastUpdatedAt =
+    runtimeOverriddenKeys.get(key) ??
+    configVersions[configVersions.length - 1]?.timestamp;
+
+  return {
+    key,
+    exists,
+    ...(sensitive
+      ? {}
+      : {
+          effectiveValue: rawValue,
+        }),
+    redacted: sensitive,
+    set,
+    source,
+    hotReloadable: isKeyHotReloadable(key),
+    ...(lastUpdatedAt !== undefined && { lastUpdatedAt }),
+    version: currentVersion,
+  };
+}
+
+export function resetConfigHistoryForTesting(): void {
+  configVersions = [];
+  runtimeOverriddenKeys.clear();
+  clearConfigCache();
+  kvClearNamespace("config");
+}
+
+export function _evictConfigCacheForTesting(): void {
+  configVersions = [];
+  runtimeOverriddenKeys.clear();
+  clearConfigCache();
 }
 
 // ============================================================================

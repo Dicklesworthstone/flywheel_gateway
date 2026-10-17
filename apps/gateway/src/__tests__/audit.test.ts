@@ -5,7 +5,12 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { requestContextStorage } from "../middleware/correlation";
 import type { AuditEventOptions } from "../services/audit";
-import { audit, auditFailure, auditSuccess, setAuditDbForTesting } from "../services/audit";
+import {
+  audit,
+  auditFailure,
+  auditSuccess,
+  setAuditDbForTesting,
+} from "../services/audit";
 
 const mockLogger = {
   info: () => {},
@@ -298,7 +303,9 @@ describe("Audit Service", () => {
       expect(parsed.toString()).not.toBe("Invalid Date");
 
       // Should be ISO format with timezone
-      expect(event.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/);
+      expect(event.timestamp).toMatch(
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/,
+      );
     });
   });
 });

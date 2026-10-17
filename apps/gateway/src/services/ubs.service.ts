@@ -181,7 +181,11 @@ function mapSeverity(severity: string): FindingSeverity {
 
 function mapType(category: string): FindingType {
   const lower = category.toLowerCase();
-  if (lower.includes("security") || lower.includes("xss") || lower.includes("injection")) {
+  if (
+    lower.includes("security") ||
+    lower.includes("xss") ||
+    lower.includes("injection")
+  ) {
     return "security";
   }
   if (lower.includes("performance") || lower.includes("memory")) {
@@ -362,7 +366,9 @@ export function createUBSService(projectRoot?: string): UBSService {
           if (f.rule_id) finding.ruleId = f.rule_id;
 
           // Check if previously dismissed
-          const dismissal = store.dismissals.get(`${f.file}:${f.line}:${f.message}`);
+          const dismissal = store.dismissals.get(
+            `${f.file}:${f.line}:${f.message}`,
+          );
           if (dismissal) {
             finding.status = "dismissed";
             finding.dismissedBy = dismissal.by;
@@ -377,7 +383,8 @@ export function createUBSService(projectRoot?: string): UBSService {
 
         const result: ScanResult = {
           scanId,
-          status: exitCode === 0 ? "success" : exitCode === 2 ? "error" : "failed",
+          status:
+            exitCode === 0 ? "success" : exitCode === 2 ? "error" : "failed",
           exitCode,
           startedAt,
           completedAt,
@@ -529,7 +536,8 @@ export function createUBSService(projectRoot?: string): UBSService {
         totalScans: store.scans.size,
         totalFindings: findings.length,
         openFindings: findings.filter((f) => f.status === "open").length,
-        dismissedFindings: findings.filter((f) => f.status === "dismissed").length,
+        dismissedFindings: findings.filter((f) => f.status === "dismissed")
+          .length,
       };
     },
 
@@ -590,4 +598,5 @@ export function _resetUBSStore(): void {
   store.scans.clear();
   store.findings.clear();
   store.dismissals.clear();
+  ubsServiceInstance = null;
 }

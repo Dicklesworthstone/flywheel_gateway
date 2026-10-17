@@ -6,7 +6,11 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { LogFilter, ParsedLogLine, RawLogLine } from "../workers/logParser.worker";
+import type {
+  LogFilter,
+  ParsedLogLine,
+  RawLogLine,
+} from "../workers/logParser.worker";
 
 export type { LogFilter, ParsedLogLine, RawLogLine };
 
@@ -57,18 +61,27 @@ function searchLogsSync(query: string, logs: ParsedLogLine[]): ParsedLogLine[] {
   return logs.filter((log) => log.searchableText.includes(lowerQuery));
 }
 
-function filterLogsSync(filter: LogFilter, logs: ParsedLogLine[]): ParsedLogLine[] {
+function filterLogsSync(
+  filter: LogFilter,
+  logs: ParsedLogLine[],
+): ParsedLogLine[] {
   return logs.filter((log) => {
     if (filter.levels && !filter.levels.includes(log.level)) return false;
     if (filter.types && !filter.types.includes(log.type)) return false;
-    if (filter.search && !log.searchableText.includes(filter.search.toLowerCase())) return false;
+    if (
+      filter.search &&
+      !log.searchableText.includes(filter.search.toLowerCase())
+    )
+      return false;
     if (filter.startTime && log.timestamp < filter.startTime) return false;
     if (filter.endTime && log.timestamp > filter.endTime) return false;
     return true;
   });
 }
 
-export function useLogParser(options: UseLogParserOptions = {}): UseLogParserResult {
+export function useLogParser(
+  options: UseLogParserOptions = {},
+): UseLogParserResult {
   const { maxLogs = DEFAULT_MAX_LOGS, autoParse = true } = options;
 
   const workerRef = useRef<Worker | null>(null);
@@ -78,7 +91,10 @@ export function useLogParser(options: UseLogParserOptions = {}): UseLogParserRes
 
   // Pending promises for worker responses (store both resolve and reject)
   const pendingRef = useRef<
-    Map<string, { resolve: (value: unknown) => void; reject: (err: Error) => void }>
+    Map<
+      string,
+      { resolve: (value: unknown) => void; reject: (err: Error) => void }
+    >
   >(new Map());
   const requestIdRef = useRef(0);
 
@@ -94,9 +110,12 @@ export function useLogParser(options: UseLogParserOptions = {}): UseLogParserRes
   // Initialize worker
   useEffect(() => {
     try {
-      workerRef.current = new Worker(new URL("../workers/logParser.worker.ts", import.meta.url), {
-        type: "module",
-      });
+      workerRef.current = new Worker(
+        new URL("../workers/logParser.worker.ts", import.meta.url),
+        {
+          type: "module",
+        },
+      );
 
       workerRef.current.onmessage = (event) => {
         const { type, ...data } = event.data;
@@ -132,7 +151,10 @@ export function useLogParser(options: UseLogParserOptions = {}): UseLogParserRes
 
       setWorkerAvailable(true);
     } catch (error) {
-      console.warn("[useLogParser] Worker initialization failed, using fallback:", error);
+      console.warn(
+        "[useLogParser] Worker initialization failed, using fallback:",
+        error,
+      );
       setWorkerAvailable(false);
     }
 

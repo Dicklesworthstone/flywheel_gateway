@@ -95,10 +95,15 @@ export class ContextHealthService {
   private healthCache = new Map<string, ContextHealth>();
   private tokenHistory = new Map<string, TokenHistoryEntry[]>();
   private sessionStates = new Map<string, SessionState>();
-  private monitoringIntervals = new Map<string, ReturnType<typeof setInterval>>();
+  private monitoringIntervals = new Map<
+    string,
+    ReturnType<typeof setInterval>
+  >();
   private started = false;
 
-  constructor(private readonly config: ContextHealthConfig = DEFAULT_CONTEXT_HEALTH_CONFIG) {}
+  constructor(
+    private readonly config: ContextHealthConfig = DEFAULT_CONTEXT_HEALTH_CONFIG,
+  ) {}
 
   // ==========================================================================
   // Lifecycle Methods
@@ -148,7 +153,8 @@ export class ContextHealthService {
       options.maxTokens ??
       this.config.modelLimits[options.model ?? ""] ??
       this.config.defaultMaxTokens;
-    const maxTokens = computedMaxTokens > 0 ? computedMaxTokens : this.config.defaultMaxTokens;
+    const maxTokens =
+      computedMaxTokens > 0 ? computedMaxTokens : this.config.defaultMaxTokens;
 
     const state: SessionState = {
       id: sessionId,
@@ -169,7 +175,10 @@ export class ContextHealthService {
     if (this.started && this.config.autoHealing.enabled) {
       const interval = setInterval(() => {
         this.checkHealth(sessionId).catch((err) => {
-          baseLogger.error({ sessionId, error: err }, "Health check failed in monitoring interval");
+          baseLogger.error(
+            { sessionId, error: err },
+            "Health check failed in monitoring interval",
+          );
         });
       }, this.config.monitoring.checkIntervalMs);
       // Ensure interval doesn't prevent process exit
@@ -179,7 +188,10 @@ export class ContextHealthService {
       this.monitoringIntervals.set(sessionId, interval);
     }
 
-    baseLogger.info({ sessionId, maxTokens }, "Session registered for health monitoring");
+    baseLogger.info(
+      { sessionId, maxTokens },
+      "Session registered for health monitoring",
+    );
   }
 
   /**
@@ -196,13 +208,20 @@ export class ContextHealthService {
     this.tokenHistory.delete(sessionId);
     this.sessionStates.delete(sessionId);
 
-    baseLogger.info({ sessionId }, "Session unregistered from health monitoring");
+    baseLogger.info(
+      { sessionId },
+      "Session unregistered from health monitoring",
+    );
   }
 
   /**
    * Update session token count (call after each message).
    */
-  updateTokens(sessionId: string, tokens: number, event: string = "message"): void {
+  updateTokens(
+    sessionId: string,
+    tokens: number,
+    event: string = "message",
+  ): void {
     const state = this.sessionStates.get(sessionId);
     if (!state) return;
 
@@ -220,7 +239,10 @@ export class ContextHealthService {
 
     // Trim history if too long
     if (history.length > this.config.monitoring.historyMaxEntries) {
-      history.splice(0, history.length - this.config.monitoring.historyMaxEntries);
+      history.splice(
+        0,
+        history.length - this.config.monitoring.historyMaxEntries,
+      );
     }
 
     this.tokenHistory.set(sessionId, history);
@@ -237,7 +259,11 @@ export class ContextHealthService {
 
     // Estimate new token count
     const messageTokens = countTokens(message.content);
-    this.updateTokens(sessionId, state.currentTokens + messageTokens, "message");
+    this.updateTokens(
+      sessionId,
+      state.currentTokens + messageTokens,
+      "message",
+    );
   }
 
   // ==========================================================================
@@ -265,7 +291,10 @@ export class ContextHealthService {
       currentTokens: state.currentTokens,
       maxTokens: state.maxTokens,
       percentUsed,
-      projectedOverflowInMessages: this.projectOverflow(history, state.maxTokens),
+      projectedOverflowInMessages: this.projectOverflow(
+        history,
+        state.maxTokens,
+      ),
       estimatedTimeToWarning: this.estimateTimeToThreshold(
         history,
         this.config.thresholds.warning.percentage,
@@ -274,7 +303,11 @@ export class ContextHealthService {
       tokenHistory: history.slice(-20), // Return last 20 entries
       lastCompaction: state.lastCompaction,
       lastRotation: state.lastRotation,
-      recommendations: this.generateRecommendations(status, percentUsed, history),
+      recommendations: this.generateRecommendations(
+        status,
+        percentUsed,
+        history,
+      ),
       checkedAt: new Date(),
     };
 
@@ -314,7 +347,10 @@ export class ContextHealthService {
   /**
    * Handle health status with graduated interventions.
    */
-  private async handleStatus(health: ContextHealth, state: SessionState): Promise<void> {
+  private async handleStatus(
+    health: ContextHealth,
+    state: SessionState,
+  ): Promise<void> {
     const log = createChildLogger({
       sessionId: health.sessionId,
       status: health.status,
@@ -408,7 +444,8 @@ export class ContextHealthService {
       if (timeSinceRotation < this.config.rotation.cooldownMs) {
         log.warn(
           {
-            cooldownRemainingMs: this.config.rotation.cooldownMs - timeSinceRotation,
+            cooldownRemainingMs:
+              this.config.rotation.cooldownMs - timeSinceRotation,
           },
           "Rotation cooldown active, cannot rotate yet",
         );
@@ -452,7 +489,8 @@ export class ContextHealthService {
     }
 
     const strategy = options.strategy ?? "both";
-    const targetReduction = options.targetReduction ?? this.config.summarization.targetReduction;
+    const targetReduction =
+      options.targetReduction ?? this.config.summarization.targetReduction;
 
     log.info({ sessionId, strategy, targetReduction }, "Starting compaction");
 
@@ -463,7 +501,9 @@ export class ContextHealthService {
 
     // Determine what to preserve
     const preserveConfig = this.config.summarization.preserve;
-    const recentCutoff = new Date(Date.now() - preserveConfig.recentMinutes * 60 * 1000);
+    const recentCutoff = new Date(
+      Date.now() - preserveConfig.recentMinutes * 60 * 1000,
+    );
 
     // Split messages into preservable and summarizable
     const messagesToPreserve: TransferredMessage[] = [];
@@ -473,7 +513,9 @@ export class ContextHealthService {
     const preserveCount = preserveConfig.lastNMessages;
 
     for (const [index, msg] of messages.entries()) {
-      const isRecent = index >= messages.length - preserveCount || msg.timestamp >= recentCutoff;
+      const isRecent =
+        index >= messages.length - preserveCount ||
+        msg.timestamp >= recentCutoff;
 
       if (isRecent) {
         messagesToPreserve.push(msg);
@@ -483,7 +525,10 @@ export class ContextHealthService {
     }
 
     // Summarize older messages
-    if (messagesToSummarize.length > 0 && (strategy === "summarize" || strategy === "both")) {
+    if (
+      messagesToSummarize.length > 0 &&
+      (strategy === "summarize" || strategy === "both")
+    ) {
       const summaryContent = await this.summarizeMessages(messagesToSummarize);
       summaries.push(summaryContent);
       summarizedSections.push("conversation_history");
@@ -508,13 +553,17 @@ export class ContextHealthService {
     }
 
     // Recalculate token count
-    const newTokenCount = state.messages.reduce((sum, msg) => sum + countTokens(msg.content), 0);
+    const newTokenCount = state.messages.reduce(
+      (sum, msg) => sum + countTokens(msg.content),
+      0,
+    );
     state.currentTokens = newTokenCount;
     state.lastCompaction = new Date();
 
     const afterTokens = newTokenCount;
     const reduction = beforeTokens - afterTokens;
-    const reductionPercent = beforeTokens > 0 ? (reduction / beforeTokens) * 100 : 0;
+    const reductionPercent =
+      beforeTokens > 0 ? (reduction / beforeTokens) * 100 : 0;
 
     // Update history
     this.updateTokens(sessionId, afterTokens, "compaction");
@@ -551,9 +600,13 @@ export class ContextHealthService {
   /**
    * Summarize a list of messages into a concise summary.
    */
-  private async summarizeMessages(messages: TransferredMessage[]): Promise<SummaryContent> {
+  private async summarizeMessages(
+    messages: TransferredMessage[],
+  ): Promise<SummaryContent> {
     // Build content for summarization
-    const content = messages.map((m) => `[${m.role}]: ${m.content}`).join("\n\n");
+    const content = messages
+      .map((m) => `[${m.role}]: ${m.content}`)
+      .join("\n\n");
 
     const originalTokens = countTokens(content);
 
@@ -719,7 +772,9 @@ export class ContextHealthService {
     }
 
     // Get recent messages
-    const recentMessages = state.messages.slice(-transferConfig.includeRecentMessages);
+    const recentMessages = state.messages.slice(
+      -transferConfig.includeRecentMessages,
+    );
 
     // Get active beads (placeholder)
     const activeBeads: string[] = transferConfig.includeActiveBeads ? [] : [];
@@ -803,7 +858,10 @@ export class ContextHealthService {
   /**
    * Project when context will overflow based on history.
    */
-  private projectOverflow(history: TokenHistoryEntry[], maxTokens: number): number | null {
+  private projectOverflow(
+    history: TokenHistoryEntry[],
+    maxTokens: number,
+  ): number | null {
     if (history.length < 3) return null;
 
     // Calculate average token increase per message
@@ -814,7 +872,8 @@ export class ContextHealthService {
 
     if (messageDeltas.length === 0) return null;
 
-    const avgDelta = messageDeltas.reduce((a, b) => a + b, 0) / messageDeltas.length;
+    const avgDelta =
+      messageDeltas.reduce((a, b) => a + b, 0) / messageDeltas.length;
     const lastEntry = history[history.length - 1];
     if (!lastEntry) return null;
     const currentTokens = lastEntry.tokens;
@@ -848,7 +907,8 @@ export class ContextHealthService {
     const lastEntry = recentHistory[recentHistory.length - 1];
     if (!firstEntry || !lastEntry) return null;
 
-    const timeSpan = lastEntry.timestamp.getTime() - firstEntry.timestamp.getTime();
+    const timeSpan =
+      lastEntry.timestamp.getTime() - firstEntry.timestamp.getTime();
     const tokenIncrease = lastEntry.tokens - firstEntry.tokens;
 
     if (timeSpan <= 0 || tokenIncrease <= 0) return null;
@@ -1001,7 +1061,9 @@ export function getContextHealthService(): ContextHealthService {
 /**
  * Initialize context health service with custom config (for testing).
  */
-export function initializeContextHealthService(config?: ContextHealthConfig): ContextHealthService {
+export function initializeContextHealthService(
+  config?: ContextHealthConfig,
+): ContextHealthService {
   contextHealthServiceInstance = new ContextHealthService(config);
   return contextHealthServiceInstance;
 }

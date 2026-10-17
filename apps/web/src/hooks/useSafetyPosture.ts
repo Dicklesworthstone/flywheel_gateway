@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useUiStore } from "../stores/ui";
+import { useAllowMockFallback } from "./useMockFallback";
 
 // ============================================================================
 // Types
@@ -83,7 +84,9 @@ const mockSafetyPosture: SafetyPostureResponse = {
     },
   },
   checksums: {
-    registryGeneratedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    registryGeneratedAt: new Date(
+      Date.now() - 3 * 24 * 60 * 60 * 1000,
+    ).toISOString(),
     registryAgeMs: 3 * 24 * 60 * 60 * 1000,
     toolsWithChecksums: 2,
     staleThresholdMs: 7 * 24 * 60 * 60 * 1000,
@@ -93,7 +96,9 @@ const mockSafetyPosture: SafetyPostureResponse = {
         toolId: "safety.dcg",
         hasChecksums: true,
         checksumCount: 5,
-        registryGeneratedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        registryGeneratedAt: new Date(
+          Date.now() - 3 * 24 * 60 * 60 * 1000,
+        ).toISOString(),
         ageMs: 3 * 24 * 60 * 60 * 1000,
         stale: false,
       },
@@ -101,7 +106,9 @@ const mockSafetyPosture: SafetyPostureResponse = {
         toolId: "safety.slb",
         hasChecksums: true,
         checksumCount: 3,
-        registryGeneratedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        registryGeneratedAt: new Date(
+          Date.now() - 3 * 24 * 60 * 60 * 1000,
+        ).toISOString(),
         ageMs: 3 * 24 * 60 * 60 * 1000,
         stale: false,
       },
@@ -142,7 +149,9 @@ async function fetchAPI<T>(endpoint: string): Promise<T> {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Request failed" }));
+    const error = await response
+      .json()
+      .catch(() => ({ message: "Request failed" }));
     throw new Error(error.message || `HTTP ${response.status}`);
   }
 
@@ -168,6 +177,7 @@ export function useSafetyPosture(): UseQueryResult<SafetyPostureResponse> {
   "use no memo";
 
   const mockMode = useUiStore((state) => state.mockMode);
+  const allowMockFallback = useAllowMockFallback();
   const [data, setData] = useState<SafetyPostureResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -189,12 +199,13 @@ export function useSafetyPosture(): UseQueryResult<SafetyPostureResponse> {
       setData(result);
     } catch (e) {
       setError(e instanceof Error ? e : new Error("Unknown error"));
-      // Fall back to mock data on error
-      setData(mockSafetyPosture);
+      if (allowMockFallback) {
+        setData(mockSafetyPosture);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [mockMode]);
+  }, [mockMode, allowMockFallback]);
 
   useEffect(() => {
     fetch();
@@ -206,7 +217,9 @@ export function useSafetyPosture(): UseQueryResult<SafetyPostureResponse> {
 /**
  * Get the display color for a status.
  */
-export function getStatusColor(status: "healthy" | "degraded" | "unhealthy"): string {
+export function getStatusColor(
+  status: "healthy" | "degraded" | "unhealthy",
+): string {
   switch (status) {
     case "healthy":
       return "var(--color-green-500)";
@@ -220,7 +233,9 @@ export function getStatusColor(status: "healthy" | "degraded" | "unhealthy"): st
 /**
  * Get the display label for a status.
  */
-export function getStatusLabel(status: "healthy" | "degraded" | "unhealthy"): string {
+export function getStatusLabel(
+  status: "healthy" | "degraded" | "unhealthy",
+): string {
   switch (status) {
     case "healthy":
       return "Healthy";

@@ -27,7 +27,11 @@ import {
 const _originalSpawn = Bun.spawn;
 
 // Helper to create mock spawn result
-function createMockSpawn(stdout: string, exitCode: number = 0, stderr: string = "") {
+function createMockSpawn(
+  stdout: string,
+  exitCode: number = 0,
+  stderr: string = "",
+) {
   return {
     stdout: new Response(stdout).body,
     stderr: new Response(stderr).body,
@@ -56,7 +60,9 @@ describe("DCG CLI Service", () => {
       };
 
       const spawnSpy = spyOn(Bun, "spawn").mockReturnValue(
-        createMockSpawn(JSON.stringify(mockResult)) as ReturnType<typeof Bun.spawn>,
+        createMockSpawn(JSON.stringify(mockResult)) as ReturnType<
+          typeof Bun.spawn
+        >,
       );
 
       try {
@@ -92,7 +98,9 @@ describe("DCG CLI Service", () => {
       };
 
       const spawnSpy = spyOn(Bun, "spawn").mockReturnValue(
-        createMockSpawn(JSON.stringify(mockResult)) as ReturnType<typeof Bun.spawn>,
+        createMockSpawn(JSON.stringify(mockResult)) as ReturnType<
+          typeof Bun.spawn
+        >,
       );
 
       try {
@@ -137,7 +145,9 @@ describe("DCG CLI Service", () => {
       };
 
       const spawnSpy = spyOn(Bun, "spawn").mockReturnValue(
-        createMockSpawn(JSON.stringify(mockResult), 0) as ReturnType<typeof Bun.spawn>,
+        createMockSpawn(JSON.stringify(mockResult), 0) as ReturnType<
+          typeof Bun.spawn
+        >,
       );
 
       try {
@@ -164,7 +174,9 @@ describe("DCG CLI Service", () => {
       };
 
       const spawnSpy = spyOn(Bun, "spawn").mockReturnValue(
-        createMockSpawn(JSON.stringify(mockResult), 1) as ReturnType<typeof Bun.spawn>,
+        createMockSpawn(JSON.stringify(mockResult), 1) as ReturnType<
+          typeof Bun.spawn
+        >,
       );
 
       try {
@@ -187,7 +199,9 @@ describe("DCG CLI Service", () => {
       };
 
       const spawnSpy = spyOn(Bun, "spawn").mockReturnValue(
-        createMockSpawn(JSON.stringify(mockResult), 0) as ReturnType<typeof Bun.spawn>,
+        createMockSpawn(JSON.stringify(mockResult), 0) as ReturnType<
+          typeof Bun.spawn
+        >,
       );
 
       try {
@@ -224,7 +238,9 @@ describe("DCG CLI Service", () => {
       };
 
       const spawnSpy = spyOn(Bun, "spawn").mockReturnValue(
-        createMockSpawn(JSON.stringify(mockResult), 0) as ReturnType<typeof Bun.spawn>,
+        createMockSpawn(JSON.stringify(mockResult), 0) as ReturnType<
+          typeof Bun.spawn
+        >,
       );
 
       try {
@@ -247,7 +263,9 @@ describe("DCG CLI Service", () => {
       };
 
       const spawnSpy = spyOn(Bun, "spawn").mockReturnValue(
-        createMockSpawn(JSON.stringify(mockResult), 0) as ReturnType<typeof Bun.spawn>,
+        createMockSpawn(JSON.stringify(mockResult), 0) as ReturnType<
+          typeof Bun.spawn
+        >,
       );
 
       try {
@@ -280,7 +298,9 @@ describe("DCG CLI Service", () => {
       };
 
       const spawnSpy = spyOn(Bun, "spawn").mockReturnValue(
-        createMockSpawn(JSON.stringify(mockResult), 0) as ReturnType<typeof Bun.spawn>,
+        createMockSpawn(JSON.stringify(mockResult), 0) as ReturnType<
+          typeof Bun.spawn
+        >,
       );
 
       try {
@@ -321,7 +341,9 @@ describe("DCG CLI Service", () => {
       ];
 
       const spawnSpy = spyOn(Bun, "spawn").mockReturnValue(
-        createMockSpawn(JSON.stringify(mockPacks), 0) as ReturnType<typeof Bun.spawn>,
+        createMockSpawn(JSON.stringify(mockPacks), 0) as ReturnType<
+          typeof Bun.spawn
+        >,
       );
 
       try {
@@ -361,7 +383,9 @@ describe("DCG CLI Service", () => {
       };
 
       const spawnSpy = spyOn(Bun, "spawn").mockReturnValue(
-        createMockSpawn(JSON.stringify(mockPack), 0) as ReturnType<typeof Bun.spawn>,
+        createMockSpawn(JSON.stringify(mockPack), 0) as ReturnType<
+          typeof Bun.spawn
+        >,
       );
 
       try {
@@ -377,11 +401,15 @@ describe("DCG CLI Service", () => {
 
     test("throws DCGPackNotFoundError for unknown pack", async () => {
       const spawnSpy = spyOn(Bun, "spawn").mockReturnValue(
-        createMockSpawn("", 1, "pack not found") as ReturnType<typeof Bun.spawn>,
+        createMockSpawn("", 1, "pack not found") as ReturnType<
+          typeof Bun.spawn
+        >,
       );
 
       try {
-        await expect(getPackInfo("nonexistent.pack")).rejects.toThrow(DCGPackNotFoundError);
+        await expect(getPackInfo("nonexistent.pack")).rejects.toThrow(
+          DCGPackNotFoundError,
+        );
       } finally {
         spawnSpy.mockRestore();
       }
@@ -404,7 +432,9 @@ describe("DCG CLI Service", () => {
       let callCount = 0;
       const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
         callCount++;
-        return createMockSpawn(JSON.stringify(mockPacks), 0) as ReturnType<typeof Bun.spawn>;
+        return createMockSpawn(JSON.stringify(mockPacks), 0) as ReturnType<
+          typeof Bun.spawn
+        >;
       });
 
       try {
@@ -439,7 +469,9 @@ describe("DCG CLI Service", () => {
       };
 
       const spawnSpy = spyOn(Bun, "spawn").mockReturnValue(
-        createMockSpawn(JSON.stringify(mockResult), 0) as ReturnType<typeof Bun.spawn>,
+        createMockSpawn(JSON.stringify(mockResult), 0) as ReturnType<
+          typeof Bun.spawn
+        >,
       );
 
       try {
@@ -466,7 +498,9 @@ describe("DCG CLI Service", () => {
       };
 
       const spawnSpy = spyOn(Bun, "spawn").mockReturnValue(
-        createMockSpawn(JSON.stringify(mockResult), 1) as ReturnType<typeof Bun.spawn>,
+        createMockSpawn(JSON.stringify(mockResult), 1) as ReturnType<
+          typeof Bun.spawn
+        >,
       );
 
       try {
@@ -500,7 +534,9 @@ describe("DCG CLI Service", () => {
       };
 
       const spawnSpy = spyOn(Bun, "spawn").mockReturnValue(
-        createMockSpawn(JSON.stringify(mockResult), 0) as ReturnType<typeof Bun.spawn>,
+        createMockSpawn(JSON.stringify(mockResult), 0) as ReturnType<
+          typeof Bun.spawn
+        >,
       );
 
       try {
@@ -535,11 +571,17 @@ describe("DCG CLI Service", () => {
       };
 
       const spawnSpy = spyOn(Bun, "spawn").mockReturnValue(
-        createMockSpawn(JSON.stringify(mockResult), 0) as ReturnType<typeof Bun.spawn>,
+        createMockSpawn(JSON.stringify(mockResult), 0) as ReturnType<
+          typeof Bun.spawn
+        >,
       );
 
       try {
-        const result = await validateAgentScript("agent-123", "#!/bin/bash\nrm -rf /", "bad.sh");
+        const result = await validateAgentScript(
+          "agent-123",
+          "#!/bin/bash\nrm -rf /",
+          "bad.sh",
+        );
 
         expect(result.safe).toBe(false);
         expect(result.summary.critical).toBe(1);

@@ -7,7 +7,14 @@
  */
 
 import { Database } from "bun:sqlite";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "bun:test";
 import { readdirSync, readFileSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,7 +26,10 @@ import { join } from "node:path";
 const savedDbFile = process.env["DB_FILE_NAME"];
 const savedNodeEnv = process.env["NODE_ENV"];
 
-const dbPath = join(tmpdir(), `flywheel-svc-test-${process.pid}-${Date.now()}.db`);
+const dbPath = join(
+  tmpdir(),
+  `flywheel-svc-test-${process.pid}-${Date.now()}.db`,
+);
 const sqliteDb = new Database(dbPath);
 
 sqliteDb.exec("PRAGMA journal_mode = WAL");
@@ -49,7 +59,9 @@ for (const file of migrationFiles) {
     sqliteDb.exec(stmt);
   }
   sqliteDb
-    .query(`INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES (?, ?)`)
+    .query(
+      `INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES (?, ?)`,
+    )
     .run(file, Date.now());
 }
 
@@ -184,7 +196,9 @@ describe("History Service (real DB)", () => {
 
     expect(completed).not.toBeNull();
     expect(completed!.outcome).toBe("success");
-    expect(completed!.responseSummary).toBe("Bug fixed by updating the condition");
+    expect(completed!.responseSummary).toBe(
+      "Bug fixed by updating the condition",
+    );
     expect(completed!.durationMs).toBe(150);
   });
 
@@ -256,7 +270,10 @@ describe("History Service (real DB)", () => {
 
   // extractFromOutput is pure — verify it still works without mocks
   test("extractFromOutput works for code blocks", () => {
-    const result = extractFromOutput("```typescript\nconst x = 1;\n```", "code_blocks");
+    const result = extractFromOutput(
+      "```typescript\nconst x = 1;\n```",
+      "code_blocks",
+    );
     expect(result.totalMatches).toBe(1);
   });
 });

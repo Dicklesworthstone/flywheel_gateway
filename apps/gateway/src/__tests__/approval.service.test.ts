@@ -1,4 +1,12 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "bun:test";
 import { eq } from "drizzle-orm";
 import { agents, db, safetyConfigs, safetyRules } from "../db";
 import {
@@ -30,7 +38,9 @@ describe("Approval Service", () => {
     name: "Force Push Approval",
     description: "Force push requires approval",
     category: "git",
-    conditions: [{ field: "command", patternType: "regex", pattern: "push.*--force" }],
+    conditions: [
+      { field: "command", patternType: "regex", pattern: "push.*--force" },
+    ],
     conditionLogic: "and",
     action: "approve",
     severity: "high",
@@ -90,7 +100,9 @@ describe("Approval Service", () => {
   // Clean up after all tests
   afterAll(async () => {
     await _clearAllApprovalData();
-    await db.delete(safetyConfigs).where(eq(safetyConfigs.id, TEST_SAFETY_CONFIG_ID));
+    await db
+      .delete(safetyConfigs)
+      .where(eq(safetyConfigs.id, TEST_SAFETY_CONFIG_ID));
     await db.delete(agents).where(eq(agents.id, TEST_AGENT_ID));
   });
 
@@ -136,7 +148,8 @@ describe("Approval Service", () => {
         timeoutMinutes: 5,
       });
 
-      const expiresIn = approval.expiresAt.getTime() - approval.requestedAt.getTime();
+      const expiresIn =
+        approval.expiresAt.getTime() - approval.requestedAt.getTime();
       expect(expiresIn).toBe(5 * 60 * 1000);
     });
 
@@ -247,7 +260,11 @@ describe("Approval Service", () => {
         rule: mockRule,
       });
 
-      const result = await cancelApproval(approval.id, TEST_AGENT_ID, "No longer needed");
+      const result = await cancelApproval(
+        approval.id,
+        TEST_AGENT_ID,
+        "No longer needed",
+      );
 
       expect(result.success).toBe(true);
       expect(result.request?.status).toBe("cancelled");

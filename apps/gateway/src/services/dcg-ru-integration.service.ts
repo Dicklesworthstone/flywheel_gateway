@@ -14,7 +14,11 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { agentSweepPlans } from "../db/schema";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
-import { type DCGSeverity, getBlockEvents, ingestBlockEvent } from "./dcg.service";
+import {
+  type DCGSeverity,
+  getBlockEvents,
+  ingestBlockEvent,
+} from "./dcg.service";
 import {
   createPendingException,
   type DCGPendingSeverity,
@@ -23,7 +27,11 @@ import {
   validateExceptionForExecution,
 } from "./dcg-pending.service";
 import { logger } from "./logger";
-import { getSweepPlan, getSweepPlans, type RiskLevel } from "./ru-sweep.service";
+import {
+  getSweepPlan,
+  getSweepPlans,
+  type RiskLevel,
+} from "./ru-sweep.service";
 
 // ============================================================================
 // Types
@@ -256,7 +264,9 @@ async function testCommand(command: string): Promise<DCGTestResult> {
 /**
  * Validate a sweep plan against DCG before execution.
  */
-export async function validateSweepPlan(planId: string): Promise<PlanValidationResult> {
+export async function validateSweepPlan(
+  planId: string,
+): Promise<PlanValidationResult> {
   const correlationId = getCorrelationId();
   const log = getLogger();
   const startTime = Date.now();
@@ -316,7 +326,8 @@ export async function validateSweepPlan(planId: string): Promise<PlanValidationR
 
   // Update plan with validation results
   // Logic: blocked commands = invalid, only warnings = warning, neither = valid
-  const validationResult = blockedCommands > 0 ? "invalid" : warnings > 0 ? "warning" : "valid";
+  const validationResult =
+    blockedCommands > 0 ? "invalid" : warnings > 0 ? "warning" : "valid";
 
   await db
     .update(agentSweepPlans)
@@ -356,7 +367,9 @@ export async function validateSweepPlan(planId: string): Promise<PlanValidationR
 /**
  * Validate all plans in a sweep session.
  */
-export async function validateSweepSession(sessionId: string): Promise<SessionValidationResult> {
+export async function validateSweepSession(
+  sessionId: string,
+): Promise<SessionValidationResult> {
   const correlationId = getCorrelationId();
   const log = getLogger();
 

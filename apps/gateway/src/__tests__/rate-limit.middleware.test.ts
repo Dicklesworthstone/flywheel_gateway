@@ -2,32 +2,49 @@
  * Tests for the Rate Limit Middleware.
  */
 
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import type { ServerWebSocket } from "bun";
 import type { Context } from "hono";
 import { Hono } from "hono";
+import gatewayApp from "../index";
 import {
   byAPIKey,
   byIP,
   byUser,
   byWorkspace,
   compositeKey,
+  configureGatewayRateLimits,
   globalRateLimiter,
   InMemoryRateLimiter,
   type RateLimitConfig,
   RELAXED_RATE_LIMIT,
   rateLimitMiddleware,
+  resetGatewayRateLimits,
   STANDARD_RATE_LIMIT,
   STRICT_RATE_LIMIT,
   strictRateLimitMiddleware,
   withPath,
 } from "../middleware/rate-limit";
+import {
+  configureWsRateLimits,
+  handleWSMessage,
+  resetWsRateLimits,
+} from "../ws/handlers";
+import type { ConnectionData } from "../ws/hub";
 
 /** Test-specific context variables */
 type TestEnv = { Variables: { userId: string; workspaceId: string } };
 
 describe("Rate Limit Middleware", () => {
   beforeEach(() => {
-    globalRateLimiter.clear();
+    resetGatewayRateLimits();
+    resetWsRateLimits();
+  });
+
+  afterEach(() => {
+    resetGatewayRateLimits();
+    resetWsRateLimits();
+    delete process.env["TRUST_PROXY"];
   });
 
   describe("InMemoryRateLimiter", () => {
@@ -317,7 +334,10 @@ describe("Rate Limit Middleware", () => {
     test("byWorkspace extracts from context", async () => {
       const app = new Hono<TestEnv>();
       app.use("*", (c, next) => {
-        (c.set as (key: string, value: unknown) => void)("workspaceId", "ws_456");
+        (c.set as (key: string, value: unknown) => void)(
+          "workspaceId",
+          "ws_456",
+        );
         return next();
       });
       app.get("/test", (c) => c.text(byWorkspace(c as unknown as Context)));
@@ -332,7 +352,9 @@ describe("Rate Limit Middleware", () => {
         (c.set as (key: string, value: unknown) => void)("userId", "user_abc");
         return next();
       });
-      app.get("/test", (c) => c.text(compositeKey(byUser, byIP)(c as unknown as Context)));
+      app.get("/test", (c) =>
+        c.text(compositeKey(byUser, byIP)(c as unknown as Context)),
+      );
 
       const res = await app.request("/test", {
         headers: { "X-Real-IP": "10.0.0.5" },
@@ -756,6 +778,186 @@ describe("Rate Limit Middleware", () => {
       await app.request("/expensive", { headers });
       const res = await app.request("/expensive", { headers });
       expect(res.status).toBe(429);
+    });
+
+    test("byIP ignores spoofable proxy headers when TRUST_PROXY=false", async () => {
+      process.env["TRUST_PROXY"] = "false";
+      const app = new Hono();
+      app.get("/test", (c) => c.text(byIP(c)));
+
+      const res1 = await app.request("/test", {
+        headers: {
+          "X-Forwarded-For": "203.0.113.10",
+          "X-Real-IP": "203.0.113.11",
+        },
+      });
+      expect(await res1.text()).toBe("ip:direct");
+    });
+
+    test("gatewayApp enforces concurrent burst limit on mutating routes and exempts /health", async () => {
+      configureGatewayRateLimits({
+        enabled: true,
+        mutatingLimit: 4,
+        readLimit: 50,
+        windowMs: 60_000,
+      });
+
+      const headers = {
+        "Content-Type": "application/json",
+        "X-Real-IP": "198.51.100.77",
+      };
+
+      const responses = await Promise.all(
+        Array.from({ length: 12 }, () =>
+          gatewayApp.request("/secrets/redact", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ input: "safe text", shadowMode: false }),
+          }),
+        ),
+      );
+
+      const allowed = responses.filter((r) => r.status === 200);
+      const limited = responses.filter((r) => r.status === 429);
+
+      expect(allowed.length).toBe(4);
+      expect(limited.length).toBe(8);
+
+      const first429 = limited[0]!;
+      expect(first429.headers.get("Retry-After")).toBeDefined();
+      expect(first429.headers.get("X-RateLimit-Limit")).toBe("4");
+      expect(first429.headers.get("X-RateLimit-Remaining")).toBe("0");
+
+      // /health remains exempt even after mutating budget is exhausted
+      const healthRes = await gatewayApp.request("/health", {
+        headers: { "X-Real-IP": "198.51.100.77" },
+      });
+      expect(healthRes.status).toBe(200);
+    });
+
+    test("WebSocket message spam triggers system:rate_limited and closes socket on continued abuse", () => {
+      configureWsRateLimits({
+        enabled: true,
+        windowMs: 60_000,
+        perConnectionLimit: 3,
+        perAuthScopeLimit: 100,
+        maxViolationsBeforeClose: 2,
+      });
+
+      const sentMessages: Array<Record<string, unknown>> = [];
+      let closedWith: {
+        code: number | undefined;
+        reason: string | undefined;
+      } | null = null;
+
+      const mockWs = {
+        data: {
+          connectionId: "ws-spam-conn-1",
+          connectedAt: new Date(),
+          auth: {
+            userId: "user-ws-1",
+            workspaceIds: ["ws-1"],
+            isAdmin: false,
+          },
+          subscriptions: new Map(),
+          lastHeartbeat: new Date(),
+          pendingAcks: new Map(),
+        },
+        send: (msg: string) => {
+          sentMessages.push(JSON.parse(msg));
+          return msg.length;
+        },
+        close: (code?: number, reason?: string) => {
+          closedWith = { code, reason };
+        },
+      } as unknown as ServerWebSocket<ConnectionData>;
+
+      const pingPayload = JSON.stringify({
+        type: "ping",
+        timestamp: Date.now(),
+      });
+
+      // 3 allowed messages
+      handleWSMessage(mockWs, pingPayload);
+      handleWSMessage(mockWs, pingPayload);
+      handleWSMessage(mockWs, pingPayload);
+      expect(
+        sentMessages.filter((m) => m["type"] === "system:rate_limited").length,
+      ).toBe(0);
+      expect(closedWith).toBeNull();
+
+      // 4th message -> violation 1 -> emits system:rate_limited
+      handleWSMessage(mockWs, pingPayload);
+      const rateLimitedMsgs = sentMessages.filter(
+        (m) => m["type"] === "system:rate_limited",
+      );
+      expect(rateLimitedMsgs.length).toBe(1);
+      expect(rateLimitedMsgs[0]?.["scope"]).toBe("connection");
+      expect(typeof rateLimitedMsgs[0]?.["retryAfterSeconds"]).toBe("number");
+      expect(closedWith).toBeNull();
+
+      // 5th message -> violation 2 -> reaches maxViolationsBeforeClose (2) -> closes socket with 1008
+      handleWSMessage(mockWs, pingPayload);
+      expect(closedWith as unknown).toEqual({
+        code: 1008,
+        reason: "rate_limit_exceeded",
+      });
+    });
+
+    test("WebSocket enforces per-auth-scope budget across multiple connections", () => {
+      configureWsRateLimits({
+        enabled: true,
+        windowMs: 60_000,
+        perConnectionLimit: 10,
+        perAuthScopeLimit: 3,
+        maxViolationsBeforeClose: 5,
+      });
+
+      const createMockSocket = (connId: string) => {
+        const sent: Array<Record<string, unknown>> = [];
+        const ws = {
+          data: {
+            connectionId: connId,
+            connectedAt: new Date(),
+            auth: {
+              apiKeyId: "shared-key-99",
+              workspaceIds: ["ws-1"],
+              isAdmin: false,
+            },
+            subscriptions: new Map(),
+            lastHeartbeat: new Date(),
+            pendingAcks: new Map(),
+          },
+          send: (msg: string) => {
+            sent.push(JSON.parse(msg));
+            return msg.length;
+          },
+          close: () => {},
+        } as unknown as ServerWebSocket<ConnectionData>;
+        return { ws, sent };
+      };
+
+      const c1 = createMockSocket("conn-auth-1");
+      const c2 = createMockSocket("conn-auth-2");
+      const pingPayload = JSON.stringify({
+        type: "ping",
+        timestamp: Date.now(),
+      });
+
+      // 2 messages on c1 + 1 message on c2 = 3 total for auth:key:shared-key-99
+      handleWSMessage(c1.ws, pingPayload);
+      handleWSMessage(c1.ws, pingPayload);
+      handleWSMessage(c2.ws, pingPayload);
+
+      // Next message on c2 exceeds perAuthScopeLimit (even though c2 only sent 1 message!)
+      handleWSMessage(c2.ws, pingPayload);
+
+      const authLimited = c2.sent.filter(
+        (m) => m["type"] === "system:rate_limited",
+      );
+      expect(authLimited.length).toBe(1);
+      expect(authLimited[0]?.["scope"]).toBe("auth");
+      expect(authLimited[0]?.["limit"]).toBe(3);
     });
   });
 });

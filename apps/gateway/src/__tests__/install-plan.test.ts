@@ -195,7 +195,9 @@ describe("Remediation guidance", () => {
       [],
     );
     const entry = plan.entries[0]!;
-    expect(entry.remediation.some((r) => r.includes("cargo install dcg"))).toBe(true);
+    expect(entry.remediation.some((r) => r.includes("cargo install dcg"))).toBe(
+      true,
+    );
   });
 
   it("includes docsUrl in remediation", () => {
@@ -210,7 +212,9 @@ describe("Remediation guidance", () => {
       [],
     );
     const entry = plan.entries[0]!;
-    expect(entry.remediation.some((r) => r.includes("https://dcg.dev"))).toBe(true);
+    expect(entry.remediation.some((r) => r.includes("https://dcg.dev"))).toBe(
+      true,
+    );
   });
 
   it("includes verify command", () => {
@@ -225,7 +229,9 @@ describe("Remediation guidance", () => {
       [],
     );
     const entry = plan.entries[0]!;
-    expect(entry.remediation.some((r) => r.includes("dcg --version"))).toBe(true);
+    expect(entry.remediation.some((r) => r.includes("dcg --version"))).toBe(
+      true,
+    );
   });
 
   it("notes sudo requirement", () => {
@@ -259,7 +265,10 @@ describe("Remediation guidance", () => {
   });
 
   it("provides fallback remediation when nothing available", () => {
-    const plan = computeInstallPlan([makeTool({ name: "x", tags: ["critical"] })], []);
+    const plan = computeInstallPlan(
+      [makeTool({ name: "x", tags: ["critical"] })],
+      [],
+    );
     const entry = plan.entries[0]!;
     expect(entry.remediation.length).toBeGreaterThan(0);
     expect(entry.remediation[0]).toContain("documentation");

@@ -6,6 +6,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import type { NtmClient } from "@flywheel/flywheel-clients";
+import { Hono } from "hono";
+import { health } from "../routes/health";
 
 import {
   _clearAllBreakers,
@@ -18,13 +21,21 @@ import {
   shouldCheck,
   withCircuitBreaker,
 } from "../services/circuit-breaker.service";
+import {
+  clearAgentMailOfflineQueue,
+  getAgentMailOfflineQueue,
+  withAgentMailCircuitBreaker,
+} from "../services/mcp-agentmail";
+import { NtmIngestService } from "../services/ntm-ingest.service";
 
 beforeEach(() => {
   _clearAllBreakers();
+  clearAgentMailOfflineQueue();
 });
 
 afterEach(() => {
   _clearAllBreakers();
+  clearAgentMailOfflineQueue();
 });
 
 describe("Circuit Breaker State Machine", () => {
@@ -298,5 +309,137 @@ describe("Independent per-tool breakers", () => {
 
     expect(getBreakerStatus("tool-x").state).toBe("OPEN");
     expect(getBreakerStatus("tool-y").state).toBe("CLOSED");
+  });
+});
+
+describe("GET /health/circuits endpoint", () => {
+  const app = new Hono().route("/health", health);
+
+  test("returns sorted circuit breaker statuses when CLOSED", async () => {
+    recordSuccess("ntm");
+    recordSuccess("cass");
+
+    const res = await app.request("/health/circuits");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      object: string;
+      data: Array<{ tool: string; state: string; consecutiveFailures: number }>;
+    };
+    expect(body.object).toBe("list");
+    expect(body.data.map((b) => b.tool)).toEqual(["cass", "ntm"]);
+    expect(body.data.every((b) => b.state === "CLOSED")).toBe(true);
+  });
+
+  test("reports OPEN and CLOSED breaker states in list", async () => {
+    configureBreaker("cass", { failureThreshold: 1 });
+    recordFailure("cass");
+    recordSuccess("ntm");
+
+    const res = await app.request("/health/circuits");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      object: string;
+      data: Array<{ tool: string; state: string }>;
+    };
+    expect(body.data).toEqual([
+      expect.objectContaining({ tool: "cass", state: "OPEN" }),
+      expect.objectContaining({ tool: "ntm", state: "CLOSED" }),
+    ]);
+  });
+});
+
+describe("Graceful degradation integrations (NTM + Agent Mail)", () => {
+  test("NtmIngestService trips 'ntm' circuit breaker and enters standalone mode", async () => {
+    configureBreaker("ntm", { failureThreshold: 2, resetTimeoutMs: 60000 });
+    let isAvailableCalls = 0;
+    let available = false;
+
+    const mockClient = {
+      isAvailable: async () => {
+        isAvailableCalls++;
+        return available;
+      },
+      status: async () => ({
+        sessions: [],
+        summary: { total_sessions: 0, total_agents: 0 },
+      }),
+      snapshot: async () => ({ sessions: [] }),
+      health: async () => ({ status: "healthy", agents: [] }),
+      isWorking: async () => ({ agents: {} }),
+    } as unknown as NtmClient;
+
+    const ingest = new NtmIngestService({ client: mockClient });
+
+    await ingest.pollNow();
+    await ingest.pollNow();
+
+    expect(isAvailableCalls).toBe(2);
+    expect(ingest.getStatus().circuitState).toBe("OPEN");
+    expect(ingest.getStatus().degradedMode).toBe(true);
+
+    // While circuit is OPEN, pollNow() short-circuits without calling client.isAvailable()
+    await ingest.pollNow();
+    expect(isAvailableCalls).toBe(2);
+
+    // Reset breaker and recover
+    resetBreaker("ntm");
+    available = true;
+    await ingest.pollNow();
+
+    expect(isAvailableCalls).toBe(3);
+    expect(ingest.getStatus().circuitState).toBe("CLOSED");
+    expect(ingest.getStatus().degradedMode).toBe(false);
+  });
+
+  test("withAgentMailCircuitBreaker queues send_message when OPEN and flushes on recovery", async () => {
+    configureBreaker("agentmail", {
+      failureThreshold: 1,
+      resetTimeoutMs: 5,
+    });
+
+    const delivered: Array<Record<string, unknown>> = [];
+    let shouldFail = true;
+
+    const wrappedCaller = withAgentMailCircuitBreaker(
+      async (toolName, input) => {
+        if (shouldFail) {
+          throw new Error("MCP transport disconnected");
+        }
+        if (toolName === "send_message") {
+          delivered.push((input as Record<string, unknown>) ?? {});
+          return { deliveries: [{ to: "AgentB" }], count: 1 };
+        }
+        return { ok: true };
+      },
+    );
+
+    // First send_message fails, opens circuit, and queues the message for offline delivery
+    const firstResult = (await wrappedCaller("send_message", {
+      subject: "msg-1",
+    })) as { queuedOffline?: boolean };
+    expect(firstResult.queuedOffline).toBe(true);
+    expect(getBreakerStatus("agentmail").state).toBe("OPEN");
+    expect(getAgentMailOfflineQueue().length).toBe(1);
+
+    // Second send_message while OPEN is immediately queued offline without calling transport
+    const secondResult = (await wrappedCaller("send_message", {
+      subject: "msg-2",
+    })) as { queuedOffline?: boolean };
+    expect(secondResult.queuedOffline).toBe(true);
+    expect(getAgentMailOfflineQueue().length).toBe(2);
+
+    // fetch_inbox while OPEN returns empty array fallback
+    const inboxFallback = await wrappedCaller("fetch_inbox", {});
+    expect(inboxFallback).toEqual([]);
+
+    // Wait for HALF_OPEN window, restore transport, and make a call — offline queue flushes!
+    await Bun.sleep(10);
+    shouldFail = false;
+
+    await wrappedCaller("whois", { agent_name: "AgentA" });
+
+    expect(getBreakerStatus("agentmail").state).toBe("CLOSED");
+    expect(getAgentMailOfflineQueue().length).toBe(0);
+    expect(delivered.map((d) => d["subject"])).toEqual(["msg-1", "msg-2"]);
   });
 });

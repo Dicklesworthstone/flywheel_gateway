@@ -55,7 +55,9 @@ const ActionSchema = z.object({
 
 const PreferencesUpdateSchema = z.object({
   enabled: z.boolean().optional(),
-  defaultChannels: z.array(z.enum(["in_app", "email", "slack", "webhook"])).optional(),
+  defaultChannels: z
+    .array(z.enum(["in_app", "email", "slack", "webhook"]))
+    .optional(),
   quietHours: z
     .object({
       enabled: z.boolean().optional(),
@@ -73,10 +75,19 @@ const PreferencesUpdateSchema = z.object({
     .optional(),
   categories: z
     .record(
-      z.enum(["agents", "coordination", "tasks", "costs", "security", "system"]),
+      z.enum([
+        "agents",
+        "coordination",
+        "tasks",
+        "costs",
+        "security",
+        "system",
+      ]),
       z.object({
         enabled: z.boolean().optional(),
-        channels: z.array(z.enum(["in_app", "email", "slack", "webhook"])).optional(),
+        channels: z
+          .array(z.enum(["in_app", "email", "slack", "webhook"]))
+          .optional(),
         minPriority: z.enum(["low", "normal", "high", "urgent"]).optional(),
       }),
     )
@@ -117,7 +128,14 @@ const TestNotificationSchema = z.object({
 
 const CreateNotificationSchema = z.object({
   type: z.string().min(1),
-  category: z.enum(["agents", "coordination", "tasks", "costs", "security", "system"]),
+  category: z.enum([
+    "agents",
+    "coordination",
+    "tasks",
+    "costs",
+    "security",
+    "system",
+  ]),
   priority: z.enum(["low", "normal", "high", "urgent"]),
   title: z.string().min(1).max(200),
   body: z.string().min(1).max(2000),
@@ -140,7 +158,9 @@ const CreateNotificationSchema = z.object({
     )
     .optional(),
   link: z.string().url().optional(),
-  forceChannels: z.array(z.enum(["in_app", "email", "slack", "webhook"])).optional(),
+  forceChannels: z
+    .array(z.enum(["in_app", "email", "slack", "webhook"]))
+    .optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -159,7 +179,9 @@ function handleError(error: unknown, c: Context) {
   return sendInternalError(c);
 }
 
-function parseArrayQuery<T extends string>(value: string | undefined): T[] | undefined {
+function parseArrayQuery<T extends string>(
+  value: string | undefined,
+): T[] | undefined {
   return value ? (value.split(",") as T[]) : undefined;
 }
 
@@ -194,7 +216,10 @@ function serializeNotification(notification: Notification) {
   };
 }
 
-function resolveUserId(c: Context, paramName: "user_id" | "recipient_id"): string | Response {
+function resolveUserId(
+  c: Context,
+  paramName: "user_id" | "recipient_id",
+): string | Response {
   const auth = c.get("auth") as AuthContext | undefined;
   const requested = c.req.query(paramName);
 
@@ -212,11 +237,21 @@ function resolveUserId(c: Context, paramName: "user_id" | "recipient_id"): strin
   }
 
   if (!auth.userId) {
-    return sendError(c, "AUTH_INSUFFICIENT_SCOPE", "User identity required", 403);
+    return sendError(
+      c,
+      "AUTH_INSUFFICIENT_SCOPE",
+      "User identity required",
+      403,
+    );
   }
 
   if (requested && requested !== auth.userId) {
-    return sendError(c, "AUTH_INSUFFICIENT_SCOPE", "Cannot access another user's data", 403);
+    return sendError(
+      c,
+      "AUTH_INSUFFICIENT_SCOPE",
+      "Cannot access another user's data",
+      403,
+    );
   }
 
   return auth.userId;
@@ -251,13 +286,19 @@ notifications.get("/", (c) => {
       limit: safeParseInt(c.req.query("limit"), 50),
     };
 
-    const categoryParam = parseArrayQuery<NotificationCategory>(c.req.query("category"));
+    const categoryParam = parseArrayQuery<NotificationCategory>(
+      c.req.query("category"),
+    );
     if (categoryParam) filter.category = categoryParam;
 
-    const priorityParam = parseArrayQuery<NotificationPriority>(c.req.query("priority"));
+    const priorityParam = parseArrayQuery<NotificationPriority>(
+      c.req.query("priority"),
+    );
     if (priorityParam) filter.priority = priorityParam;
 
-    const statusParam = parseArrayQuery<NotificationStatus>(c.req.query("status"));
+    const statusParam = parseArrayQuery<NotificationStatus>(
+      c.req.query("status"),
+    );
     if (statusParam) filter.status = statusParam;
 
     const sinceParam = parseDateQuery(c.req.query("since"));
@@ -274,7 +315,9 @@ notifications.get("/", (c) => {
 
     const result = getNotifications(filter);
 
-    const serializedNotifications = result.notifications.map(serializeNotification);
+    const serializedNotifications = result.notifications.map(
+      serializeNotification,
+    );
 
     const listOptions: Parameters<typeof sendList>[2] = {
       hasMore: result.hasMore,
@@ -327,7 +370,10 @@ notifications.put("/preferences", async (c) => {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const prefs = updatePreferences(userId, parsed.data as PreferencesUpdateRequest);
+    const prefs = updatePreferences(
+      userId,
+      parsed.data as PreferencesUpdateRequest,
+    );
 
     return sendResource(c, "notification_preferences", {
       ...prefs,
@@ -442,9 +488,17 @@ notifications.post("/test", async (c) => {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const notification = await sendTestNotification(recipientId, parsed.data.channel);
+    const notification = await sendTestNotification(
+      recipientId,
+      parsed.data.channel,
+    );
 
-    return sendResource(c, "notification", serializeNotification(notification), 201);
+    return sendResource(
+      c,
+      "notification",
+      serializeNotification(notification),
+      201,
+    );
   } catch (error) {
     return handleError(error, c);
   }
@@ -462,9 +516,16 @@ notifications.post("/", async (c) => {
       return sendValidationError(c, transformZodError(parsed.error));
     }
 
-    const notification = await createNotification(parsed.data as CreateNotificationRequest);
+    const notification = await createNotification(
+      parsed.data as CreateNotificationRequest,
+    );
 
-    return sendResource(c, "notification", serializeNotification(notification), 201);
+    return sendResource(
+      c,
+      "notification",
+      serializeNotification(notification),
+      201,
+    );
   } catch (error) {
     return handleError(error, c);
   }

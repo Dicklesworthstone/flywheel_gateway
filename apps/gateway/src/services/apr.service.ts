@@ -120,14 +120,18 @@ async function executeAprCommand(
       await proc.exited;
 
       // Truncate if needed
-      const output = stdout.length > maxOutputSize ? stdout.slice(0, maxOutputSize) : stdout;
+      const output =
+        stdout.length > maxOutputSize ? stdout.slice(0, maxOutputSize) : stdout;
 
       // Parse JSON response
       try {
         return JSON.parse(output.trim()) as AprResponse;
       } catch {
         // If parsing fails, create an error response
-        log.error({ stdout: output.slice(0, 200), stderr }, "Failed to parse apr output");
+        log.error(
+          { stdout: output.slice(0, 200), stderr },
+          "Failed to parse apr output",
+        );
         return {
           ok: false,
           code: "parse_error",
@@ -311,7 +315,9 @@ export async function runRound(
 /**
  * Get revision history for a workflow.
  */
-export async function getHistory(options: { workflow?: string } = {}): Promise<AprHistory> {
+export async function getHistory(
+  options: { workflow?: string } = {},
+): Promise<AprHistory> {
   const args = ["history"];
 
   if (options.workflow) {
@@ -435,13 +441,20 @@ export interface AprService {
   ): Promise<{ valid: boolean; issues?: string[] }>;
 
   /** Run a revision round */
-  runRound(round: number, options?: { workflow?: string; timeout?: number }): Promise<AprRound>;
+  runRound(
+    round: number,
+    options?: { workflow?: string; timeout?: number },
+  ): Promise<AprRound>;
 
   /** Get revision history */
   getHistory(options?: { workflow?: string }): Promise<AprHistory>;
 
   /** Compare rounds */
-  diffRounds(roundA: number, roundB?: number, options?: { workflow?: string }): Promise<AprDiff>;
+  diffRounds(
+    roundA: number,
+    roundB?: number,
+    options?: { workflow?: string },
+  ): Promise<AprDiff>;
 
   /** Get integration prompt */
   getIntegrationPrompt(
@@ -450,7 +463,9 @@ export interface AprService {
   ): Promise<AprIntegration>;
 
   /** Get stats and metrics */
-  getStats(options?: { workflow?: string }): Promise<AprMetrics & { convergence_trend?: number[] }>;
+  getStats(options?: {
+    workflow?: string;
+  }): Promise<AprMetrics & { convergence_trend?: number[] }>;
 }
 
 export function createAprService(): AprService {

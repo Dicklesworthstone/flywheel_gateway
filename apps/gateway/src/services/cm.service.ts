@@ -104,6 +104,13 @@ export function isCMEnabled(): boolean {
   return _cmClient !== null;
 }
 
+/**
+ * Override the CM client instance for testing.
+ */
+export function setCMClientForTesting(client: CMClient | null): void {
+  _cmClient = client;
+}
+
 // ============================================================================
 // Service Functions
 // ============================================================================
@@ -135,7 +142,8 @@ export async function getCMStatus(): Promise<CMServiceStatus> {
     }
     return result;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     log.warn({ correlationId, error: errorMessage }, "CM health check failed");
     return {
       available: false,
@@ -240,7 +248,10 @@ export async function getPlaybookStats(): Promise<CMStatsResult> {
 
   try {
     const result = await _cmClient.stats();
-    log.debug({ correlationId, total: result.total }, "CM playbook stats retrieved");
+    log.debug(
+      { correlationId, total: result.total },
+      "CM playbook stats retrieved",
+    );
     return result;
   } catch (error) {
     log.error(
@@ -269,7 +280,10 @@ export async function listPlaybookRules(
 
   try {
     const result = await _cmClient.listPlaybook(options);
-    log.debug({ correlationId, count: result.bullets.length }, "CM playbook rules listed");
+    log.debug(
+      { correlationId, count: result.bullets.length },
+      "CM playbook rules listed",
+    );
     return result;
   } catch (error) {
     log.error(
@@ -286,7 +300,9 @@ export async function listPlaybookRules(
 /**
  * Run health diagnostics.
  */
-export async function runDiagnostics(options?: CMDoctorOptions): Promise<CMDoctorResult> {
+export async function runDiagnostics(
+  options?: CMDoctorOptions,
+): Promise<CMDoctorResult> {
   const log = getLogger();
   const correlationId = getCorrelationId();
 

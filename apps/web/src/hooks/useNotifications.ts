@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useUiStore } from "../stores/ui";
+import { useAllowMockFallback } from "./useMockFallback";
 
 // ============================================================================
 // Types
@@ -25,7 +26,13 @@ export type NotificationCategory =
 
 export type NotificationChannel = "in_app" | "email" | "slack" | "webhook";
 
-export type NotificationStatus = "pending" | "sent" | "delivered" | "read" | "actioned" | "failed";
+export type NotificationStatus =
+  | "pending"
+  | "sent"
+  | "delivered"
+  | "read"
+  | "actioned"
+  | "failed";
 
 export interface NotificationSource {
   type: "agent" | "system" | "bead" | "user" | "scheduler";
@@ -142,7 +149,9 @@ export interface PreferencesUpdateRequest {
   enabled?: boolean;
   defaultChannels?: NotificationChannel[];
   quietHours?: Partial<QuietHours>;
-  categories?: Partial<Record<NotificationCategory, Partial<CategoryPreference>>>;
+  categories?: Partial<
+    Record<NotificationCategory, Partial<CategoryPreference>>
+  >;
   digest?: Partial<DigestConfig>;
   channelConfig?: NotificationPreferences["channelConfig"];
 }
@@ -337,7 +346,7 @@ const mockPreferences: NotificationPreferences = {
 // API Helpers
 // ============================================================================
 
-const API_BASE = "/api/v1";
+const API_BASE = "/api";
 
 async function fetchApi<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${url}`, {
@@ -350,10 +359,39 @@ async function fetchApi<T>(url: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(error.message || `Request failed: ${res.status}`);
+    throw new Error(
+      error.error?.message || error.message || `Request failed: ${res.status}`,
+    );
   }
 
   return res.json();
+}
+
+function buildFilteredMockNotifications(
+  filter: NotificationFilter,
+): NotificationListResponse {
+  let filtered = [...mockNotifications];
+
+  if (filter.category?.length) {
+    filtered = filtered.filter((n) => filter.category?.includes(n.category));
+  }
+  if (filter.priority?.length) {
+    filtered = filtered.filter((n) => filter.priority?.includes(n.priority));
+  }
+  if (filter.status?.length) {
+    filtered = filtered.filter((n) => filter.status?.includes(n.status));
+  }
+
+  const unreadCount = filtered.filter(
+    (n) => n.status !== "read" && n.status !== "actioned",
+  ).length;
+
+  return {
+    data: filtered,
+    hasMore: false,
+    total: filtered.length,
+    unreadCount,
+  };
 }
 
 // ============================================================================
@@ -365,6 +403,7 @@ async function fetchApi<T>(url: string, options?: RequestInit): Promise<T> {
  */
 export function useNotifications(filter: NotificationFilter = {}) {
   const mockMode = useUiStore((state) => state.mockMode);
+  const allowMockFallback = useAllowMockFallback();
   const [data, setData] = useState<NotificationListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -376,30 +415,7 @@ export function useNotifications(filter: NotificationFilter = {}) {
     if (mockMode) {
       // Simulate API delay
       await new Promise((resolve) => setTimeout(resolve, 200));
-
-      // Apply filters to mock data
-      let filtered = [...mockNotifications];
-
-      if (filter.category?.length) {
-        filtered = filtered.filter((n) => filter.category?.includes(n.category));
-      }
-      if (filter.priority?.length) {
-        filtered = filtered.filter((n) => filter.priority?.includes(n.priority));
-      }
-      if (filter.status?.length) {
-        filtered = filtered.filter((n) => filter.status?.includes(n.status));
-      }
-
-      const unreadCount = filtered.filter(
-        (n) => n.status !== "read" && n.status !== "actioned",
-      ).length;
-
-      setData({
-        data: filtered,
-        hasMore: false,
-        total: filtered.length,
-        unreadCount,
-      });
+      setData(buildFilteredMockNotifications(filter));
       setLoading(false);
       return;
     }
@@ -407,26 +423,47 @@ export function useNotifications(filter: NotificationFilter = {}) {
     try {
       // Build query string
       const params = new URLSearchParams();
-      if (filter.recipientId) params.set("recipient_id", filter.recipientId);
-      if (filter.category?.length) params.set("category", filter.category.join(","));
-      if (filter.priority?.length) params.set("priority", filter.priority.join(","));
+      params.set("recipient_id", filter.recipientId ?? "default");
+      if (filter.category?.length)
+        params.set("category", filter.category.join(","));
+      if (filter.priority?.length)
+        params.set("priority", filter.priority.join(","));
       if (filter.status?.length) params.set("status", filter.status.join(","));
       if (filter.since) params.set("since", filter.since);
       if (filter.until) params.set("until", filter.until);
       if (filter.limit) params.set("limit", filter.limit.toString());
-      if (filter.startingAfter) params.set("starting_after", filter.startingAfter);
+      if (filter.startingAfter)
+        params.set("starting_after", filter.startingAfter);
       if (filter.endingBefore) params.set("ending_before", filter.endingBefore);
 
-      const result = await fetchApi<NotificationListResponse>(
-        `/notifications?${params.toString()}`,
-      );
-      setData(result);
+      const result = await fetchApi<
+        NotificationListResponse & {
+          meta?: { unreadCount?: number; total?: number; hasMore?: boolean };
+        }
+      >(`/notifications?${params.toString()}`);
+      setData({
+        data: Array.isArray(result.data) ? result.data : [],
+        hasMore: Boolean(result.hasMore ?? result.meta?.hasMore),
+        total: Number(
+          result.total ??
+            result.meta?.total ??
+            (Array.isArray(result.data) ? result.data.length : 0),
+        ),
+        unreadCount: Number(
+          result.unreadCount ?? result.meta?.unreadCount ?? 0,
+        ),
+        ...(result.nextCursor && { nextCursor: result.nextCursor }),
+        ...(result.prevCursor && { prevCursor: result.prevCursor }),
+      });
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Unknown error"));
+      if (allowMockFallback) {
+        setData(buildFilteredMockNotifications(filter));
+      }
     } finally {
       setLoading(false);
     }
-  }, [mockMode, filter]);
+  }, [mockMode, allowMockFallback, filter]);
 
   useEffect(() => {
     refetch();
@@ -438,8 +475,9 @@ export function useNotifications(filter: NotificationFilter = {}) {
 /**
  * Hook for fetching unread notification count.
  */
-export function useUnreadCount(recipientId: string) {
+export function useUnreadCount(recipientId = "default") {
   const mockMode = useUiStore((state) => state.mockMode);
+  const allowMockFallback = useAllowMockFallback();
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -459,16 +497,24 @@ export function useUnreadCount(recipientId: string) {
     }
 
     try {
-      const result = await fetchApi<NotificationListResponse>(
-        `/notifications?recipient_id=${recipientId}&limit=1`,
+      const result = await fetchApi<
+        NotificationListResponse & { meta?: { unreadCount?: number } }
+      >(
+        `/notifications?recipient_id=${encodeURIComponent(recipientId)}&limit=1`,
       );
-      setCount(result.unreadCount ?? 0);
+      setCount(result.unreadCount ?? result.meta?.unreadCount ?? 0);
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Unknown error"));
+      if (allowMockFallback) {
+        const unread = mockNotifications.filter(
+          (n) => n.status !== "read" && n.status !== "actioned",
+        ).length;
+        setCount(unread);
+      }
     } finally {
       setLoading(false);
     }
-  }, [mockMode, recipientId]);
+  }, [mockMode, allowMockFallback, recipientId]);
 
   useEffect(() => {
     refetch();
@@ -480,8 +526,9 @@ export function useUnreadCount(recipientId: string) {
 /**
  * Hook for fetching notification preferences.
  */
-export function useNotificationPreferences(userId: string) {
+export function useNotificationPreferences(userId = "default") {
   const mockMode = useUiStore((state) => state.mockMode);
+  const allowMockFallback = useAllowMockFallback();
   const [data, setData] = useState<NotificationPreferences | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -499,15 +546,18 @@ export function useNotificationPreferences(userId: string) {
 
     try {
       const result = await fetchApi<{ data: NotificationPreferences }>(
-        `/notifications/preferences?user_id=${userId}`,
+        `/notifications/preferences?user_id=${encodeURIComponent(userId)}`,
       );
       setData(result.data);
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Unknown error"));
+      if (allowMockFallback) {
+        setData(mockPreferences);
+      }
     } finally {
       setLoading(false);
     }
-  }, [mockMode, userId]);
+  }, [mockMode, allowMockFallback, userId]);
 
   useEffect(() => {
     refetch();
@@ -645,10 +695,13 @@ export function useExecuteAction() {
             notification: Notification;
             executedAction: NotificationAction;
           };
-        }>(`/notifications/${notificationId}/action?recipient_id=${recipientId}`, {
-          method: "POST",
-          body: JSON.stringify({ actionId }),
-        });
+        }>(
+          `/notifications/${notificationId}/action?recipient_id=${recipientId}`,
+          {
+            method: "POST",
+            body: JSON.stringify({ actionId }),
+          },
+        );
         return result.data;
       } catch (err) {
         const error = err instanceof Error ? err : new Error("Unknown error");
@@ -836,10 +889,13 @@ export function useCreateNotification() {
       }
 
       try {
-        const result = await fetchApi<{ data: Notification }>("/notifications", {
-          method: "POST",
-          body: JSON.stringify(request),
-        });
+        const result = await fetchApi<{ data: Notification }>(
+          "/notifications",
+          {
+            method: "POST",
+            body: JSON.stringify(request),
+          },
+        );
         return result.data;
       } catch (err) {
         const error = err instanceof Error ? err : new Error("Unknown error");
@@ -867,7 +923,9 @@ export function useNotificationSubscription(
   onNotification?: (notification: Notification) => void,
 ) {
   const [connected, setConnected] = useState(false);
-  const [lastNotification, setLastNotification] = useState<Notification | null>(null);
+  const [lastNotification, setLastNotification] = useState<Notification | null>(
+    null,
+  );
   const mockMode = useUiStore((state) => state.mockMode);
 
   useEffect(() => {

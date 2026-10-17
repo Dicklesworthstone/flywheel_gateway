@@ -22,7 +22,18 @@ import {
 } from "@flywheel/flywheel-clients";
 import { getLogger } from "../middleware/correlation";
 import { LifecycleState } from "../models/agent-state";
-import { getAgentState, initializeAgentState, transitionState } from "./agent-state-machine";
+import {
+  getAgentState,
+  initializeAgentState,
+  transitionState,
+} from "./agent-state-machine";
+import {
+  type CircuitState as BreakerState,
+  getBreakerStatus,
+  recordFailure,
+  recordSuccess,
+  shouldCheck,
+} from "./circuit-breaker.service";
 import { incrementCounter, recordHistogram, setGauge } from "./metrics";
 
 // =============================================================================
@@ -41,6 +52,8 @@ export interface NtmIngestConfig {
   cwd?: string;
   /** Command timeout in milliseconds (default: 10000) */
   commandTimeoutMs?: number;
+  /** Optional NTM client override (for testing) */
+  client?: NtmClient;
 }
 
 /**
@@ -163,7 +176,7 @@ type NtmEventListener = (event: NtmStateChangeEvent) => void;
  */
 export class NtmIngestService {
   private client: NtmClient;
-  private config: Required<NtmIngestConfig>;
+  private config: Required<Omit<NtmIngestConfig, "client">>;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
   private running = false;
   private backoffMultiplier = 1;
@@ -184,12 +197,16 @@ export class NtmIngestService {
       commandTimeoutMs: config.commandTimeoutMs ?? 10000,
     };
 
-    const runner = createBunNtmCommandRunner();
-    this.client = createNtmClient({
-      runner,
-      cwd: this.config.cwd,
-      timeout: this.config.commandTimeoutMs,
-    });
+    if (config.client) {
+      this.client = config.client;
+    } else {
+      const runner = createBunNtmCommandRunner();
+      this.client = createNtmClient({
+        runner,
+        cwd: this.config.cwd,
+        timeout: this.config.commandTimeoutMs,
+      });
+    }
   }
 
   /**
@@ -288,14 +305,26 @@ export class NtmIngestService {
     backoffMultiplier: number;
     consecutiveErrors: number;
     trackedAgentCount: number;
+    circuitState: BreakerState;
+    degradedMode: boolean;
   } {
+    const breakerStatus = getBreakerStatus("ntm");
     return {
       running: this.running,
       lastPollTime: this.lastPollTime,
       backoffMultiplier: this.backoffMultiplier,
       consecutiveErrors: this.consecutiveErrors,
       trackedAgentCount: this.trackedAgents.size,
+      circuitState: breakerStatus.state,
+      degradedMode: breakerStatus.state === "OPEN",
     };
+  }
+
+  /**
+   * Trigger an immediate poll cycle (respects the "ntm" circuit breaker).
+   */
+  async pollNow(): Promise<void> {
+    await this.poll();
   }
 
   // ===========================================================================
@@ -323,6 +352,17 @@ export class NtmIngestService {
 
   private async poll(): Promise<void> {
     const log = getLogger();
+
+    // Respect the "ntm" circuit breaker: when OPEN, operate in standalone mode
+    // using cached trackedAgents and lastIsWorkingSnapshot without shelling out.
+    if (!shouldCheck("ntm")) {
+      log.debug(
+        { trackedAgents: this.trackedAgents.size },
+        "[NTM-INGEST] Circuit breaker OPEN for 'ntm' — operating in standalone mode with cached state",
+      );
+      return;
+    }
+
     const pollStart = performance.now();
 
     try {
@@ -362,10 +402,14 @@ export class NtmIngestService {
         const isWorking = await this.client.isWorking();
         await this.processIsWorking(isWorking);
       } catch (err) {
-        log.debug({ error: String(err) }, "[NTM-INGEST] Failed to get is-working signal");
+        log.debug(
+          { error: String(err) },
+          "[NTM-INGEST] Failed to get is-working signal",
+        );
       }
 
-      // Success - reset backoff
+      // Success - reset backoff and record circuit breaker success
+      recordSuccess("ntm");
       this.consecutiveErrors = 0;
       if (this.backoffMultiplier > 1) {
         this.backoffMultiplier = 1;
@@ -393,6 +437,7 @@ export class NtmIngestService {
   private handleUnavailable(reason: string): void {
     const log = getLogger();
     this.consecutiveErrors++;
+    recordFailure("ntm");
 
     // Emit error metric
     incrementCounter("flywheel_ntm_poll_errors_total", 1, {
@@ -422,6 +467,7 @@ export class NtmIngestService {
   private handleError(err: unknown): void {
     const log = getLogger();
     this.consecutiveErrors++;
+    recordFailure("ntm");
 
     // Emit error metric
     incrementCounter("flywheel_ntm_poll_errors_total", 1, {
@@ -430,7 +476,10 @@ export class NtmIngestService {
     setGauge("flywheel_ntm_consecutive_errors", this.consecutiveErrors);
 
     // Increase backoff on repeated errors
-    if (this.consecutiveErrors >= 3 && this.backoffMultiplier < this.config.maxBackoffMultiplier) {
+    if (
+      this.consecutiveErrors >= 3 &&
+      this.backoffMultiplier < this.config.maxBackoffMultiplier
+    ) {
       this.backoffMultiplier = Math.min(
         this.backoffMultiplier * 2,
         this.config.maxBackoffMultiplier,
@@ -513,7 +562,10 @@ export class NtmIngestService {
     const log = getLogger();
     try {
       const agentRecord = getAgentState(agentId);
-      if (agentRecord && agentRecord.currentState !== LifecycleState.TERMINATED) {
+      if (
+        agentRecord &&
+        agentRecord.currentState !== LifecycleState.TERMINATED
+      ) {
         transitionState(agentId, LifecycleState.TERMINATED, "driver_error");
         log.info(
           { agentId },
@@ -521,7 +573,10 @@ export class NtmIngestService {
         );
       }
     } catch (err) {
-      log.warn({ agentId, error: String(err) }, "[NTM-INGEST] Failed to mark agent terminated");
+      log.warn(
+        { agentId, error: String(err) },
+        "[NTM-INGEST] Failed to mark agent terminated",
+      );
     }
   }
 
@@ -558,7 +613,11 @@ export class NtmIngestService {
 
           // Update gateway agent state if registered
           if (tracked.gatewayAgentId) {
-            this.updateGatewayAgentState(tracked.gatewayAgentId, previousState, newState);
+            this.updateGatewayAgentState(
+              tracked.gatewayAgentId,
+              previousState,
+              newState,
+            );
           }
 
           log.info(
@@ -576,7 +635,10 @@ export class NtmIngestService {
     }
   }
 
-  private async processHealth(sessionName: string, health: NtmSessionHealthOutput): Promise<void> {
+  private async processHealth(
+    sessionName: string,
+    health: NtmSessionHealthOutput,
+  ): Promise<void> {
     const log = getLogger();
 
     for (const agentHealth of health.agents) {
@@ -587,7 +649,10 @@ export class NtmIngestService {
       // Try alternate pane format
       if (!tracked) {
         for (const [key, agent] of this.trackedAgents.entries()) {
-          if (agent.sessionName === sessionName && key.includes(`.${agentHealth.pane}`)) {
+          if (
+            agent.sessionName === sessionName &&
+            key.includes(`.${agentHealth.pane}`)
+          ) {
             tracked = agent;
             break;
           }
@@ -727,7 +792,10 @@ export class NtmIngestService {
           { code: "NTM_UNHEALTHY", message: "NTM reported agent as unhealthy" },
         );
 
-        log.warn({ agentId, reason }, "[NTM-INGEST] Marked gateway agent as failed");
+        log.warn(
+          { agentId, reason },
+          "[NTM-INGEST] Marked gateway agent as failed",
+        );
       }
     } catch (err) {
       log.warn(
@@ -743,7 +811,10 @@ export class NtmIngestService {
       try {
         listener(event);
       } catch (err) {
-        log.error({ error: String(err), event }, "[NTM-INGEST] Event listener threw error");
+        log.error(
+          { error: String(err), event },
+          "[NTM-INGEST] Event listener threw error",
+        );
       }
     }
   }

@@ -111,7 +111,13 @@ const ForecastOptionsSchema = z.object({
 });
 
 const RecommendationStatusSchema = z.object({
-  status: z.enum(["pending", "in_progress", "implemented", "rejected", "failed"]),
+  status: z.enum([
+    "pending",
+    "in_progress",
+    "implemented",
+    "rejected",
+    "failed",
+  ]),
   implementedBy: z.string().optional(),
   rejectedReason: z.string().optional(),
   actualSavingsUnits: z.number().int().optional(),
@@ -198,8 +204,10 @@ costAnalytics.get("/records", async (c) => {
       ...(agentId && { agentId }),
       ...(model && { model }),
       ...(provider && { provider }),
-      ...(since && !Number.isNaN(new Date(since).getTime()) && { since: new Date(since) }),
-      ...(until && !Number.isNaN(new Date(until).getTime()) && { until: new Date(until) }),
+      ...(since &&
+        !Number.isNaN(new Date(since).getTime()) && { since: new Date(since) }),
+      ...(until &&
+        !Number.isNaN(new Date(until).getTime()) && { until: new Date(until) }),
       ...(!Number.isNaN(parsedLimit) && { limit: parsedLimit }),
       ...(startingAfter && { startingAfter }),
     };
@@ -246,8 +254,10 @@ costAnalytics.get("/summary", async (c) => {
       ...(organizationId && { organizationId }),
       ...(projectId && { projectId }),
       ...(agentId && { agentId }),
-      ...(since && !Number.isNaN(new Date(since).getTime()) && { since: new Date(since) }),
-      ...(until && !Number.isNaN(new Date(until).getTime()) && { until: new Date(until) }),
+      ...(since &&
+        !Number.isNaN(new Date(since).getTime()) && { since: new Date(since) }),
+      ...(until &&
+        !Number.isNaN(new Date(until).getTime()) && { until: new Date(until) }),
     };
 
     const summary = await getCostSummary(filter);
@@ -267,7 +277,11 @@ costAnalytics.get("/summary", async (c) => {
  */
 costAnalytics.get("/breakdown/:dimension", async (c) => {
   try {
-    const dimension = c.req.param("dimension") as "model" | "agent" | "project" | "provider";
+    const dimension = c.req.param("dimension") as
+      | "model"
+      | "agent"
+      | "project"
+      | "provider";
 
     if (!["model", "agent", "project", "provider"].includes(dimension)) {
       return sendError(
@@ -286,8 +300,10 @@ costAnalytics.get("/breakdown/:dimension", async (c) => {
     const filter: CostFilter = {
       ...(organizationId && { organizationId }),
       ...(projectId && { projectId }),
-      ...(since && !Number.isNaN(new Date(since).getTime()) && { since: new Date(since) }),
-      ...(until && !Number.isNaN(new Date(until).getTime()) && { until: new Date(until) }),
+      ...(since &&
+        !Number.isNaN(new Date(since).getTime()) && { since: new Date(since) }),
+      ...(until &&
+        !Number.isNaN(new Date(until).getTime()) && { until: new Date(until) }),
     };
 
     const breakdown = await getCostBreakdown(dimension, filter);
@@ -324,8 +340,10 @@ costAnalytics.get("/trends/hourly", async (c) => {
     const filter: CostFilter = {
       ...(organizationId && { organizationId }),
       ...(projectId && { projectId }),
-      ...(since && !Number.isNaN(new Date(since).getTime()) && { since: new Date(since) }),
-      ...(until && !Number.isNaN(new Date(until).getTime()) && { until: new Date(until) }),
+      ...(since &&
+        !Number.isNaN(new Date(since).getTime()) && { since: new Date(since) }),
+      ...(until &&
+        !Number.isNaN(new Date(until).getTime()) && { until: new Date(until) }),
     };
     const parsedHours = hoursParam ? parseInt(hoursParam, 10) : 24;
     const hours = Number.isNaN(parsedHours) ? 24 : parsedHours;
@@ -361,8 +379,10 @@ costAnalytics.get("/trends/daily", async (c) => {
     const filter: CostFilter = {
       ...(organizationId && { organizationId }),
       ...(projectId && { projectId }),
-      ...(since && !Number.isNaN(new Date(since).getTime()) && { since: new Date(since) }),
-      ...(until && !Number.isNaN(new Date(until).getTime()) && { until: new Date(until) }),
+      ...(since &&
+        !Number.isNaN(new Date(since).getTime()) && { since: new Date(since) }),
+      ...(until &&
+        !Number.isNaN(new Date(until).getTime()) && { until: new Date(until) }),
     };
     const parsedDays = daysParam ? parseInt(daysParam, 10) : 30;
     const days = Number.isNaN(parsedDays) ? 30 : parsedDays;
@@ -398,8 +418,10 @@ costAnalytics.get("/top-agents", async (c) => {
     const filter: CostFilter = {
       ...(organizationId && { organizationId }),
       ...(projectId && { projectId }),
-      ...(since && !Number.isNaN(new Date(since).getTime()) && { since: new Date(since) }),
-      ...(until && !Number.isNaN(new Date(until).getTime()) && { until: new Date(until) }),
+      ...(since &&
+        !Number.isNaN(new Date(since).getTime()) && { since: new Date(since) }),
+      ...(until &&
+        !Number.isNaN(new Date(until).getTime()) && { until: new Date(until) }),
     };
     const parsedLimit = limitParam ? parseInt(limitParam, 10) : 10;
     const limit = Number.isNaN(parsedLimit) ? 10 : parsedLimit;
@@ -616,9 +638,18 @@ costAnalytics.get("/budget-statuses", async (c) => {
     const items = statuses.map((status) => ({
       budgetId: status.budget.id,
       budgetName: status.budget.name,
+      period: status.budget.period,
+      amountUnits: status.budget.amountUnits,
+      formattedBudget: formatCostUnits(status.budget.amountUnits),
       periodStart: status.periodStart.toISOString(),
       periodEnd: status.periodEnd.toISOString(),
+      usedUnits: status.usedUnits,
       usedPercent: status.usedPercent,
+      remainingUnits: status.remainingUnits,
+      formattedUsed: formatCostUnits(status.usedUnits),
+      formattedRemaining: formatCostUnits(status.remainingUnits),
+      burnRateUnitsPerDay: status.burnRateUnitsPerDay,
+      daysUntilExhausted: status.daysUntilExhausted,
       status: status.status,
       projectedExceed: status.projectedExceed,
     }));
@@ -659,7 +690,8 @@ costAnalytics.get("/budget-alerts", async (c) => {
       ...(acknowledgedParam !== undefined && {
         acknowledged: acknowledgedParam === "true",
       }),
-      ...(since && !Number.isNaN(new Date(since).getTime()) && { since: new Date(since) }),
+      ...(since &&
+        !Number.isNaN(new Date(since).getTime()) && { since: new Date(since) }),
       ...(!Number.isNaN(parsedLimit) && { limit: parsedLimit }),
     };
 
@@ -964,15 +996,21 @@ costAnalytics.get("/recommendations/summary", async (c) => {
       totalRecommendations: summary.totalRecommendations,
       byCategory: summary.byCategory,
       totalPotentialSavingsUnits: summary.totalPotentialSavingsUnits,
-      formattedPotentialSavings: formatCostUnits(summary.totalPotentialSavingsUnits),
+      formattedPotentialSavings: formatCostUnits(
+        summary.totalPotentialSavingsUnits,
+      ),
       implementedSavingsUnits: summary.implementedSavingsUnits,
-      formattedImplementedSavings: formatCostUnits(summary.implementedSavingsUnits),
-      topRecommendations: summary.pendingRecommendations.slice(0, 5).map((r) => ({
-        id: r.id,
-        title: r.title,
-        estimatedSavingsUnits: r.estimatedSavingsUnits,
-        formattedSavings: formatCostUnits(r.estimatedSavingsUnits),
-      })),
+      formattedImplementedSavings: formatCostUnits(
+        summary.implementedSavingsUnits,
+      ),
+      topRecommendations: summary.pendingRecommendations
+        .slice(0, 5)
+        .map((r) => ({
+          id: r.id,
+          title: r.title,
+          estimatedSavingsUnits: r.estimatedSavingsUnits,
+          formattedSavings: formatCostUnits(r.estimatedSavingsUnits),
+        })),
     });
   } catch (error) {
     return handleError(error, c);
@@ -988,17 +1026,21 @@ costAnalytics.put("/recommendations/:recommendationId/status", async (c) => {
     const body = await c.req.json();
     const validated = RecommendationStatusSchema.parse(body);
 
-    const updated = await updateRecommendationStatus(recommendationId, validated.status, {
-      ...(validated.implementedBy && {
-        implementedBy: validated.implementedBy,
-      }),
-      ...(validated.rejectedReason && {
-        rejectedReason: validated.rejectedReason,
-      }),
-      ...(validated.actualSavingsUnits !== undefined && {
-        actualSavingsUnits: validated.actualSavingsUnits,
-      }),
-    });
+    const updated = await updateRecommendationStatus(
+      recommendationId,
+      validated.status,
+      {
+        ...(validated.implementedBy && {
+          implementedBy: validated.implementedBy,
+        }),
+        ...(validated.rejectedReason && {
+          rejectedReason: validated.rejectedReason,
+        }),
+        ...(validated.actualSavingsUnits !== undefined && {
+          actualSavingsUnits: validated.actualSavingsUnits,
+        }),
+      },
+    );
 
     if (!updated) {
       return sendNotFound(c, "recommendation", recommendationId);

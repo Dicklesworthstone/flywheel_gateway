@@ -9,7 +9,11 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
-import { getSlbService, type SlbRequestStatus, type SlbTier } from "../services/slb.service";
+import {
+  getSlbService,
+  type SlbRequestStatus,
+  type SlbTier,
+} from "../services/slb.service";
 import {
   sendError,
   sendInternalError,
@@ -96,8 +100,8 @@ const HistoryQuerySchema = z.object({
 });
 
 const ApproveRequestSchema = z.object({
-  sessionId: z.string().min(1),
-  sessionKey: z.string().min(1),
+  sessionId: z.string().min(1).default("web-operator"),
+  sessionKey: z.string().min(1).default("web-dashboard"),
   comments: z.string().max(5000).optional(),
   reasonResponse: z.string().max(5000).optional(),
   safetyResponse: z.string().max(5000).optional(),
@@ -108,8 +112,8 @@ const ApproveRequestSchema = z.object({
 });
 
 const RejectRequestSchema = z.object({
-  sessionId: z.string().min(1),
-  sessionKey: z.string().min(1),
+  sessionId: z.string().min(1).default("web-operator"),
+  sessionKey: z.string().min(1).default("web-dashboard"),
   reason: z.string().max(5000).optional(),
   project: z.string().optional(),
 });
@@ -145,7 +149,10 @@ function handleError(error: unknown, c: Context) {
 
   if (error instanceof Error) {
     // Check for slb not installed error
-    if (error.message.includes("not installed") || error.message.includes("ENOENT")) {
+    if (
+      error.message.includes("not installed") ||
+      error.message.includes("ENOENT")
+    ) {
       return sendError(
         c,
         "SLB_NOT_INSTALLED",
@@ -176,7 +183,10 @@ function handleError(error: unknown, c: Context) {
 slb.get("/status", async (c) => {
   try {
     const service = getSlbService();
-    const [available, version] = await Promise.all([service.isAvailable(), service.getVersion()]);
+    const [available, version] = await Promise.all([
+      service.isAvailable(),
+      service.getVersion(),
+    ]);
 
     return sendResource(c, "slb_status", {
       available,
@@ -264,9 +274,17 @@ slb.get("/sessions", async (c) => {
 
     const sessions = await service.listSessions(options);
 
-    return sendList(c, sessions, {
-      total: sessions.length,
-    });
+    return sendList(
+      c,
+      sessions.map((s) => ({
+        ...s,
+        startedAt: s.started_at,
+        lastHeartbeat: s.last_active_at ?? s.started_at,
+      })),
+      {
+        total: sessions.length,
+      },
+    );
   } catch (error) {
     return handleError(error, c);
   }
@@ -338,7 +356,11 @@ slb.post("/check", async (c) => {
 
     const result = await service.checkCommand(validated.command, options);
 
-    return sendResource(c, "slb_tier_check", result);
+    return sendResource(c, "slb_tier_check", {
+      ...result,
+      pattern: result.matched_pattern,
+      requiresApproval: result.requires_approval,
+    });
   } catch (error) {
     return handleError(error, c);
   }
@@ -369,7 +391,8 @@ slb.post("/requests", async (c) => {
     if (validated.reason !== undefined) options.reason = validated.reason;
     if (validated.safety !== undefined) options.safety = validated.safety;
     if (validated.goal !== undefined) options.goal = validated.goal;
-    if (validated.expectedEffect !== undefined) options.expectedEffect = validated.expectedEffect;
+    if (validated.expectedEffect !== undefined)
+      options.expectedEffect = validated.expectedEffect;
     if (validated.project !== undefined) options.project = validated.project;
 
     const request = await service.createRequest(validated.command, options);
@@ -395,14 +418,27 @@ slb.get("/requests/pending", async (c) => {
       allProjects?: boolean;
     } = {};
     if (validated.project !== undefined) options.project = validated.project;
-    if (validated.reviewPool !== undefined) options.reviewPool = validated.reviewPool;
-    if (validated.allProjects !== undefined) options.allProjects = validated.allProjects;
+    if (validated.reviewPool !== undefined)
+      options.reviewPool = validated.reviewPool;
+    if (validated.allProjects !== undefined)
+      options.allProjects = validated.allProjects;
 
     const requests = await service.listPendingRequests(options);
 
-    return sendList(c, requests, {
-      total: requests.length,
-    });
+    return sendList(
+      c,
+      requests.map((r) => ({
+        ...r,
+        requestedBy: r.requestor_agent ?? r.requestor_session_id,
+        requestedAt: r.created_at,
+        reviewedBy: r.approvals?.[0]?.agent ?? r.approvals?.[0]?.session_id,
+        reviewedAt:
+          r.approvals?.[0]?.approved_at ?? r.approved_at ?? r.rejected_at,
+      })),
+      {
+        total: requests.length,
+      },
+    );
   } catch (error) {
     return handleError(error, c);
   }
@@ -437,9 +473,20 @@ slb.get("/requests/history", async (c) => {
 
     const requests = await service.getHistory(options);
 
-    return sendList(c, requests, {
-      total: requests.length,
-    });
+    return sendList(
+      c,
+      requests.map((r) => ({
+        ...r,
+        requestedBy: r.requestor_agent ?? r.requestor_session_id,
+        requestedAt: r.created_at,
+        reviewedBy: r.approvals?.[0]?.agent ?? r.approvals?.[0]?.session_id,
+        reviewedAt:
+          r.approvals?.[0]?.approved_at ?? r.approved_at ?? r.rejected_at,
+      })),
+      {
+        total: requests.length,
+      },
+    );
   } catch (error) {
     return handleError(error, c);
   }
@@ -476,7 +523,7 @@ slb.get("/requests/:id", async (c) => {
 slb.post("/requests/:id/approve", async (c) => {
   try {
     const requestId = c.req.param("id");
-    const body = await c.req.json();
+    const body = await c.req.json().catch(() => ({}));
     const validated = ApproveRequestSchema.parse(body);
     const service = getSlbService();
 
@@ -496,12 +543,17 @@ slb.post("/requests/:id/approve", async (c) => {
     };
 
     if (validated.comments !== undefined) options.comments = validated.comments;
-    if (validated.reasonResponse !== undefined) options.reasonResponse = validated.reasonResponse;
-    if (validated.safetyResponse !== undefined) options.safetyResponse = validated.safetyResponse;
-    if (validated.goalResponse !== undefined) options.goalResponse = validated.goalResponse;
-    if (validated.effectResponse !== undefined) options.effectResponse = validated.effectResponse;
+    if (validated.reasonResponse !== undefined)
+      options.reasonResponse = validated.reasonResponse;
+    if (validated.safetyResponse !== undefined)
+      options.safetyResponse = validated.safetyResponse;
+    if (validated.goalResponse !== undefined)
+      options.goalResponse = validated.goalResponse;
+    if (validated.effectResponse !== undefined)
+      options.effectResponse = validated.effectResponse;
     if (validated.project !== undefined) options.project = validated.project;
-    if (validated.targetProject !== undefined) options.targetProject = validated.targetProject;
+    if (validated.targetProject !== undefined)
+      options.targetProject = validated.targetProject;
 
     const request = await service.approveRequest(requestId, options);
 
@@ -517,7 +569,7 @@ slb.post("/requests/:id/approve", async (c) => {
 slb.post("/requests/:id/reject", async (c) => {
   try {
     const requestId = c.req.param("id");
-    const body = await c.req.json();
+    const body = await c.req.json().catch(() => ({}));
     const validated = RejectRequestSchema.parse(body);
     const service = getSlbService();
 

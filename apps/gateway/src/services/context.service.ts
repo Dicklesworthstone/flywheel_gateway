@@ -14,7 +14,9 @@ import {
   type ContextPackRequest,
   DEFAULT_BUDGET_STRATEGY,
   DEFAULT_CONTEXT_BUILDER_CONFIG,
+  type HistoryEntry,
   type HistorySection,
+  type MemoryRule,
   type MemorySection,
   type SearchSection,
   type SystemSection,
@@ -23,13 +25,24 @@ import {
   type TruncationRecord,
 } from "../types/context.types";
 import { getBvTriage } from "./bv.service";
-import { type CassSearchHit, isCassAvailable, searchWithTokenBudget } from "./cass.service";
+import {
+  type CassSearchHit,
+  isCassAvailable,
+  searchWithTokenBudget,
+} from "./cass.service";
+import {
+  type CMPlaybookBullet,
+  getTaskContext,
+  isCMAvailable,
+  listPlaybookRules,
+} from "./cm.service";
 import {
   allocateBudget,
   createStrategy,
   getModelLimit,
   getTotalAllocated,
 } from "./context-budget.service";
+import { queryHistory } from "./history.service";
 import { countTokens, truncateToTokens } from "./tokenizer.service";
 
 // ============================================================================
@@ -45,7 +58,10 @@ Follow the guidelines in AGENTS.md and use structured logging patterns.
 Prioritize correctness, maintainability, and clear communication.`;
 
   const tokens = countTokens(systemPrompt);
-  const content = tokens > tokenBudget ? truncateToTokens(systemPrompt, tokenBudget) : systemPrompt;
+  const content =
+    tokens > tokenBudget
+      ? truncateToTokens(systemPrompt, tokenBudget)
+      : systemPrompt;
 
   return {
     content,
@@ -55,9 +71,6 @@ Prioritize correctness, maintainability, and clear communication.`;
 
 /**
  * Build the triage section from Bead Valuation.
- *
- * Currently uses a stub implementation since BV is not yet integrated.
- * Will be replaced with actual BV queries when available.
  */
 async function buildTriageSection(
   sessionId: string,
@@ -79,10 +92,15 @@ async function buildTriageSection(
     recommendations = triage.triage.recommendations ?? [];
     dataHash = triage.data_hash;
   } catch (error) {
-    log.warn({ error }, "BV triage unavailable; returning empty triage section");
+    log.warn(
+      { error },
+      "BV triage unavailable; returning empty triage section",
+    );
   }
 
-  const filtered = recommendations.filter((rec) => rec.score >= minScore).slice(0, maxBeads);
+  const filtered = recommendations
+    .filter((rec) => rec.score >= minScore)
+    .slice(0, maxBeads);
 
   const beads: TriagedBead[] = [];
   let totalTokens = 0;
@@ -111,15 +129,21 @@ async function buildTriageSection(
   }
 
   const topScore =
-    recommendations.length > 0 ? Math.max(...recommendations.map((rec) => rec.score)) : 0;
+    recommendations.length > 0
+      ? Math.max(...recommendations.map((rec) => rec.score))
+      : 0;
   const avgScore =
-    beads.length > 0 ? beads.reduce((sum, bead) => sum + bead.score, 0) / beads.length : 0;
+    beads.length > 0
+      ? beads.reduce((sum, bead) => sum + bead.score, 0) / beads.length
+      : 0;
 
   const section: TriageSection = {
     beads,
     totalTokens,
     truncated:
-      truncated || beads.length < filtered.length || recommendations.length > filtered.length,
+      truncated ||
+      beads.length < filtered.length ||
+      recommendations.length > filtered.length,
     metadata: {
       totalAvailable: recommendations.length,
       included: beads.length,
@@ -156,20 +180,39 @@ function normalizeBeadType(value?: string): TriagedBead["type"] {
 }
 
 /**
- * Build the memory section from Collective Memory.
- *
- * Currently uses a stub implementation since CM is not yet integrated.
+ * Convert a CM playbook bullet into a MemoryRule.
+ */
+function bulletToMemoryRule(bullet: CMPlaybookBullet): MemoryRule {
+  const category = bullet.category ?? bullet.kind ?? "general";
+  const content =
+    bullet.kind === "anti-pattern"
+      ? `[ANTI-PATTERN] ${bullet.text}`
+      : bullet.text;
+  const rawScore = bullet.score ?? bullet.confidence ?? 0.8;
+  const applicability = Math.max(0, Math.min(1, rawScore));
+  const priority = Math.round((bullet.confidence ?? rawScore) * 100);
+  const tokens = countTokens(`[${category}] ${content}`);
+
+  return {
+    id: bullet.id,
+    category,
+    content,
+    priority,
+    tokens,
+    applicability,
+  };
+}
+
+/**
+ * Build the memory section from Collective Memory (Cass-Memory / CM).
  */
 async function buildMemorySection(
   sessionId: string,
-  _taskContext: string | undefined,
+  taskContext: string | undefined,
   tokenBudget: number,
 ): Promise<MemorySection> {
   const log = getLogger();
   const startTime = performance.now();
-
-  // Stub: In production, query CM for relevant rules
-  // const rules = await collectiveMemory.queryRules({ context: taskContext, ... });
 
   const section: MemorySection = {
     rules: [],
@@ -182,16 +225,97 @@ async function buildMemorySection(
     },
   };
 
-  // When CM integration is available, populate with real rules
+  if (tokenBudget <= 0) {
+    return section;
+  }
 
-  log.debug(
-    {
-      sessionId,
-      tokenBudget,
-      buildTimeMs: Math.round(performance.now() - startTime),
-    },
-    "Built memory section (stub)",
-  );
+  try {
+    const available = await isCMAvailable();
+    if (!available) {
+      log.debug(
+        { sessionId, tokenBudget },
+        "CM unavailable, returning empty memory section",
+      );
+      return section;
+    }
+
+    let bullets: CMPlaybookBullet[] = [];
+    if (taskContext && taskContext.trim().length > 0) {
+      const contextResult = await getTaskContext(taskContext.trim());
+      bullets = [
+        ...contextResult.relevantBullets,
+        ...contextResult.antiPatterns.map((b) => ({
+          ...b,
+          kind: b.kind ?? ("anti-pattern" as const),
+        })),
+      ];
+    } else {
+      const listResult = await listPlaybookRules({ state: "active" });
+      bullets = listResult.bullets;
+    }
+
+    const candidateRules = bullets.map(bulletToMemoryRule);
+    const matchedCategoriesSet = new Set<string>(
+      candidateRules.map((r) => r.category),
+    );
+    section.metadata.totalRulesMatched = candidateRules.length;
+    section.metadata.matchedCategories = Array.from(matchedCategoriesSet);
+
+    const includedCategoriesSet = new Set<string>();
+
+    for (const rule of candidateRules) {
+      if (section.totalTokens + rule.tokens > tokenBudget) {
+        const remainingBudget = tokenBudget - section.totalTokens;
+        if (remainingBudget > 10) {
+          const truncatedContent = truncateToTokens(
+            rule.content,
+            remainingBudget,
+          );
+          if (truncatedContent.length > 20) {
+            const truncatedTokens = countTokens(
+              `[${rule.category}] ${truncatedContent}`,
+            );
+            if (section.totalTokens + truncatedTokens <= tokenBudget) {
+              section.rules.push({
+                ...rule,
+                content: truncatedContent,
+                tokens: truncatedTokens,
+              });
+              section.totalTokens += truncatedTokens;
+              includedCategoriesSet.add(rule.category);
+            }
+          }
+        }
+        break;
+      }
+
+      section.rules.push(rule);
+      section.totalTokens += rule.tokens;
+      includedCategoriesSet.add(rule.category);
+    }
+
+    section.categories = Array.from(includedCategoriesSet);
+    section.metadata.rulesIncluded = section.rules.length;
+
+    log.debug(
+      {
+        sessionId,
+        tokenBudget,
+        totalRulesMatched: section.metadata.totalRulesMatched,
+        rulesIncluded: section.metadata.rulesIncluded,
+        buildTimeMs: Math.round(performance.now() - startTime),
+      },
+      "Built memory section from CM",
+    );
+  } catch (error) {
+    log.warn(
+      {
+        sessionId,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      "CM query failed, returning empty memory section",
+    );
+  }
 
   return section;
 }
@@ -234,7 +358,10 @@ async function buildSearchSection(
   const cassAvailable = await isCassAvailable();
   if (!cassAvailable) {
     section.metadata.searchTimeMs = Math.round(performance.now() - startTime);
-    log.debug({ query, tokenBudget }, "CASS unavailable, returning empty search section");
+    log.debug(
+      { query, tokenBudget },
+      "CASS unavailable, returning empty search section",
+    );
     return section;
   }
 
@@ -262,7 +389,10 @@ async function buildSearchSection(
       // Check if we can fit this result
       if (section.totalTokens + resultTokens > tokenBudget) {
         // Try truncating
-        const truncatedContent = truncateToTokens(content, tokenBudget - section.totalTokens);
+        const truncatedContent = truncateToTokens(
+          content,
+          tokenBudget - section.totalTokens,
+        );
         if (truncatedContent.length > 20) {
           const truncatedTokens = countTokens(truncatedContent);
           section.results.push({
@@ -330,22 +460,17 @@ function formatHitContext(hit: CassSearchHit): string {
 
 /**
  * Build the history section from conversation history.
- *
- * Currently uses a stub implementation.
  */
 async function buildHistorySection(
   sessionId: string,
   tokenBudget: number,
-  _options?: {
+  options?: {
     maxEntries?: number;
     maxAgeMs?: number;
   },
 ): Promise<HistorySection> {
   const log = getLogger();
   const startTime = performance.now();
-
-  // Stub: In production, query conversation history
-  // const history = await historyService.getRecent(sessionId, ...);
 
   const section: HistorySection = {
     entries: [],
@@ -358,16 +483,112 @@ async function buildHistorySection(
     },
   };
 
-  // When history tracking is available, populate with real entries
+  if (tokenBudget <= 0) {
+    return section;
+  }
 
-  log.debug(
-    {
-      sessionId,
-      tokenBudget,
-      buildTimeMs: Math.round(performance.now() - startTime),
-    },
-    "Built history section (stub)",
-  );
+  try {
+    const maxEntries = options?.maxEntries ?? 20;
+    const queryOpts: Parameters<typeof queryHistory>[0] = {
+      agentId: sessionId,
+      limit: maxEntries,
+    };
+    if (options?.maxAgeMs !== undefined && options.maxAgeMs > 0) {
+      queryOpts.startDate = new Date(Date.now() - options.maxAgeMs);
+    }
+
+    const { entries: rawEntries } = await queryHistory(queryOpts);
+
+    // Flatten each interaction (newest first from queryHistory) into conversation turns
+    // in reverse chronological order (assistant response then user prompt) so we keep the
+    // most recent turns within the token budget, then reverse to chronological order.
+    const candidateTurnsNewestFirst: HistoryEntry[] = [];
+    for (const item of rawEntries) {
+      if (item.responseSummary && item.responseSummary.trim().length > 0) {
+        const responseContent = item.responseSummary.trim();
+        candidateTurnsNewestFirst.push({
+          id: `${item.id}:assistant`,
+          role: "assistant",
+          content: responseContent,
+          timestamp: new Date(
+            item.timestamp.getTime() + Math.max(0, item.durationMs),
+          ),
+          tokens: countTokens(responseContent),
+        });
+      }
+      if (item.prompt && item.prompt.trim().length > 0) {
+        const promptContent = item.prompt.trim();
+        candidateTurnsNewestFirst.push({
+          id: `${item.id}:user`,
+          role: "user",
+          content: promptContent,
+          timestamp: item.timestamp,
+          tokens: countTokens(promptContent),
+        });
+      }
+    }
+
+    section.metadata.totalEntries = candidateTurnsNewestFirst.length;
+
+    const selectedNewestFirst: HistoryEntry[] = [];
+    for (const turn of candidateTurnsNewestFirst) {
+      if (selectedNewestFirst.length >= maxEntries) {
+        break;
+      }
+      if (section.totalTokens + turn.tokens > tokenBudget) {
+        const remainingBudget = tokenBudget - section.totalTokens;
+        if (remainingBudget > 10) {
+          const truncatedContent = truncateToTokens(
+            turn.content,
+            remainingBudget,
+          );
+          if (truncatedContent.length > 20) {
+            const truncatedTokens = countTokens(truncatedContent);
+            if (section.totalTokens + truncatedTokens <= tokenBudget) {
+              selectedNewestFirst.push({
+                ...turn,
+                content: truncatedContent,
+                tokens: truncatedTokens,
+              });
+              section.totalTokens += truncatedTokens;
+            }
+          }
+        }
+        break;
+      }
+
+      selectedNewestFirst.push(turn);
+      section.totalTokens += turn.tokens;
+    }
+
+    // Reverse to chronological order (oldest -> newest) for prompt rendering
+    section.entries = selectedNewestFirst.reverse();
+    section.metadata.includedEntries = section.entries.length;
+    if (section.entries.length > 0) {
+      section.metadata.oldestIncluded = section.entries[0]?.timestamp ?? null;
+      section.metadata.newestIncluded =
+        section.entries[section.entries.length - 1]?.timestamp ?? null;
+    }
+
+    log.debug(
+      {
+        sessionId,
+        tokenBudget,
+        totalEntries: section.metadata.totalEntries,
+        includedEntries: section.metadata.includedEntries,
+        buildTimeMs: Math.round(performance.now() - startTime),
+      },
+      "Built history section",
+    );
+  } catch (error) {
+    log.warn(
+      {
+        sessionId,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      "History query failed, returning empty history section",
+    );
+  }
 
   return section;
 }
@@ -382,7 +603,9 @@ async function buildHistorySection(
  * @param request - Context pack request
  * @returns Complete context pack
  */
-export async function buildContextPack(request: ContextPackRequest): Promise<ContextPack> {
+export async function buildContextPack(
+  request: ContextPackRequest,
+): Promise<ContextPack> {
   const log = getLogger();
   const correlationId = getCorrelationId();
   const startTime = performance.now();
@@ -395,7 +618,9 @@ export async function buildContextPack(request: ContextPackRequest): Promise<Con
   );
 
   // Allocate budget - merge partial strategy with defaults
-  const strategy = request.strategy ? createStrategy(request.strategy) : DEFAULT_BUDGET_STRATEGY;
+  const strategy = request.strategy
+    ? createStrategy(request.strategy)
+    : DEFAULT_BUDGET_STRATEGY;
   const breakdown = allocateBudget(totalBudget, strategy);
 
   log.info(
@@ -411,10 +636,26 @@ export async function buildContextPack(request: ContextPackRequest): Promise<Con
   // Build sections in parallel
   const [system, triage, memory, search, history] = await Promise.all([
     buildSystemSection(breakdown.system),
-    buildTriageSection(request.sessionId, breakdown.triage, request.triageOptions),
-    buildMemorySection(request.sessionId, request.taskContext, breakdown.memory),
-    buildSearchSection(request.searchQuery, breakdown.search, request.searchOptions),
-    buildHistorySection(request.sessionId, breakdown.history, request.historyOptions),
+    buildTriageSection(
+      request.sessionId,
+      breakdown.triage,
+      request.triageOptions,
+    ),
+    buildMemorySection(
+      request.sessionId,
+      request.taskContext,
+      breakdown.memory,
+    ),
+    buildSearchSection(
+      request.searchQuery,
+      breakdown.search,
+      request.searchOptions,
+    ),
+    buildHistorySection(
+      request.sessionId,
+      breakdown.history,
+      request.historyOptions,
+    ),
   ]);
 
   // Collect truncations
@@ -425,6 +666,26 @@ export async function buildContextPack(request: ContextPackRequest): Promise<Con
       originalTokens: triage.metadata.totalAvailable * 100, // Estimate
       truncatedTokens: triage.totalTokens,
       itemsRemoved: triage.metadata.totalAvailable - triage.metadata.included,
+      reason: "Token budget exceeded",
+    });
+  }
+  if (memory.metadata.totalRulesMatched > memory.metadata.rulesIncluded) {
+    truncations.push({
+      section: "memory",
+      originalTokens: memory.metadata.totalRulesMatched * 40, // Estimate
+      truncatedTokens: memory.totalTokens,
+      itemsRemoved:
+        memory.metadata.totalRulesMatched - memory.metadata.rulesIncluded,
+      reason: "Token budget exceeded",
+    });
+  }
+  if (history.metadata.totalEntries > history.metadata.includedEntries) {
+    truncations.push({
+      section: "history",
+      originalTokens: history.metadata.totalEntries * 60, // Estimate
+      truncatedTokens: history.totalTokens,
+      itemsRemoved:
+        history.metadata.totalEntries - history.metadata.includedEntries,
       reason: "Token budget exceeded",
     });
   }
@@ -458,7 +719,12 @@ export async function buildContextPack(request: ContextPackRequest): Promise<Con
     },
     metadata: {
       buildTimeMs,
-      sourcesQueried: ["bead-valuation", "collective-memory", "cass", "history"],
+      sourcesQueried: [
+        "bead-valuation",
+        "collective-memory",
+        "cass",
+        "history",
+      ],
       truncations,
     },
   };
@@ -483,7 +749,9 @@ export async function buildContextPack(request: ContextPackRequest): Promise<Con
  * @param request - Context pack request
  * @returns Preview with estimates and warnings
  */
-export async function previewContextPack(request: ContextPackRequest): Promise<ContextPackPreview> {
+export async function previewContextPack(
+  request: ContextPackRequest,
+): Promise<ContextPackPreview> {
   const totalBudget = getModelLimit(
     request.model,
     DEFAULT_CONTEXT_BUILDER_CONFIG.modelLimits,
@@ -491,7 +759,9 @@ export async function previewContextPack(request: ContextPackRequest): Promise<C
   );
 
   // Merge partial strategy with defaults
-  const strategy = request.strategy ? createStrategy(request.strategy) : DEFAULT_BUDGET_STRATEGY;
+  const strategy = request.strategy
+    ? createStrategy(request.strategy)
+    : DEFAULT_BUDGET_STRATEGY;
   const breakdown = allocateBudget(totalBudget, strategy);
 
   const warnings: string[] = [];
@@ -499,7 +769,9 @@ export async function previewContextPack(request: ContextPackRequest): Promise<C
   // Check if budget is sufficient
   const totalAllocated = getTotalAllocated(breakdown);
   if (totalAllocated > totalBudget) {
-    warnings.push(`Allocated tokens (${totalAllocated}) exceed budget (${totalBudget})`);
+    warnings.push(
+      `Allocated tokens (${totalAllocated}) exceed budget (${totalBudget})`,
+    );
   }
 
   // Check minimum allocations
@@ -581,7 +853,9 @@ export function renderContextPack(pack: ContextPack): string {
   if (pack.sections.search.results.length > 0) {
     sections.push("### Related Information (Search)");
     for (const result of pack.sections.search.results) {
-      sections.push(`- **${result.source}** (score: ${result.score.toFixed(2)})`);
+      sections.push(
+        `- **${result.source}** (score: ${result.score.toFixed(2)})`,
+      );
       sections.push(`  ${result.content}`);
     }
     sections.push("");

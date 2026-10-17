@@ -31,7 +31,10 @@ interface BottomTabBarProps {
 /**
  * Bottom Tab Bar for mobile navigation.
  */
-export function BottomTabBar({ tabs = DEFAULT_TABS, className = "" }: BottomTabBarProps) {
+export function BottomTabBar({
+  tabs = DEFAULT_TABS,
+  className = "",
+}: BottomTabBarProps) {
   const location = useLocation();
 
   return (
@@ -39,7 +42,9 @@ export function BottomTabBar({ tabs = DEFAULT_TABS, className = "" }: BottomTabB
       <div className="bottom-tab-bar__nav">
         {tabs.map((tab) => {
           const isActive =
-            tab.path === "/" ? location.pathname === "/" : location.pathname.startsWith(tab.path);
+            tab.path === "/"
+              ? location.pathname === "/"
+              : location.pathname.startsWith(tab.path);
 
           return (
             <Link
@@ -70,7 +75,12 @@ interface FABProps {
 
 export function FAB({ icon, onClick, label, className = "" }: FABProps) {
   return (
-    <button type="button" className={`fab ${className}`} onClick={onClick} aria-label={label}>
+    <button
+      type="button"
+      className={`fab ${className}`}
+      onClick={onClick}
+      aria-label={label}
+    >
       <span className="fab__icon">{icon}</span>
     </button>
   );

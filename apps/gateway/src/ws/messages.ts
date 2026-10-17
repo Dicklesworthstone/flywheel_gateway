@@ -5,6 +5,8 @@
  * All messages include metadata for tracing and debugging.
  */
 
+import { getSpanId, getTraceId } from "../middleware/correlation";
+
 /**
  * Message types that can be published to channels.
  */
@@ -158,6 +160,10 @@ export type MessageType =
 export interface MessageMetadata {
   /** Correlation ID for request tracing */
   correlationId?: string;
+  /** Distributed trace ID */
+  traceId?: string;
+  /** Span ID within the trace */
+  spanId?: string;
   /** Agent ID if message is agent-related */
   agentId?: string;
   /** User ID if message is user-related */
@@ -437,6 +443,21 @@ export interface ThrottledMessage {
 }
 
 /**
+ * Rate limit exceeded event for WebSocket client->server messages.
+ */
+export interface SystemRateLimitedMessage {
+  type: "system:rate_limited";
+  /** Seconds before the rate limit window resets */
+  retryAfterSeconds: number;
+  /** Which budget was exceeded */
+  scope: "connection" | "auth";
+  /** Maximum messages allowed in the window */
+  limit: number;
+  /** Human-readable message */
+  message: string;
+}
+
+/**
  * All server -> client message types.
  */
 export type ServerMessage =
@@ -450,7 +471,8 @@ export type ServerMessage =
   | ReconnectAckMessage
   | ErrorMessage
   | AckResponseMessage
-  | ThrottledMessage;
+  | ThrottledMessage
+  | SystemRateLimitedMessage;
 
 // ============================================================================
 // Message Helpers
@@ -465,6 +487,17 @@ export function createHubMessage(
   payload: unknown,
   metadata?: MessageMetadata,
 ): Omit<HubMessage, "cursor"> {
+  const activeTraceId = getTraceId();
+  const activeSpanId = getSpanId();
+  const mergedMetadata: MessageMetadata | undefined =
+    metadata !== undefined || activeTraceId !== undefined
+      ? {
+          ...(activeTraceId !== undefined && { traceId: activeTraceId }),
+          ...(activeSpanId !== undefined && { spanId: activeSpanId }),
+          ...metadata,
+        }
+      : undefined;
+
   return {
     id: crypto.randomUUID(),
     // cursor: "", // Will be set by ring buffer
@@ -472,7 +505,7 @@ export function createHubMessage(
     channel,
     type,
     payload,
-    ...(metadata !== undefined && { metadata }),
+    ...(mergedMetadata !== undefined && { metadata: mergedMetadata }),
   };
 }
 
@@ -491,7 +524,8 @@ export function parseClientMessage(json: string): ClientMessage | undefined {
     }
     const parsed = JSON.parse(json);
     if (!parsed || typeof parsed !== "object") return undefined;
-    if (!("type" in parsed) || typeof parsed.type !== "string") return undefined;
+    if (!("type" in parsed) || typeof parsed.type !== "string")
+      return undefined;
 
     switch (parsed.type) {
       case "subscribe":
@@ -521,8 +555,11 @@ export function parseClientMessage(json: string): ClientMessage | undefined {
         return { type: "ping", timestamp: parsed.timestamp };
 
       case "reconnect": {
-        if (!parsed.cursors || typeof parsed.cursors !== "object") return undefined;
-        const entries = Object.entries(parsed.cursors as Record<string, unknown>)
+        if (!parsed.cursors || typeof parsed.cursors !== "object")
+          return undefined;
+        const entries = Object.entries(
+          parsed.cursors as Record<string, unknown>,
+        )
           .filter(([, value]) => typeof value === "string")
           .map(([key, value]) => [key, value] as [string, string]);
         return { type: "reconnect", cursors: Object.fromEntries(entries) };
@@ -555,7 +592,9 @@ export function serializeServerMessage(message: ServerMessage): string {
   } catch {
     // Handle circular references or other serialization errors
     // Note: createWSError is safe to use here as it's defined in the same module
-    return JSON.stringify(createWSError("SERIALIZATION_ERROR", "Failed to serialize message"));
+    return JSON.stringify(
+      createWSError("SERIALIZATION_ERROR", "Failed to serialize message"),
+    );
   }
 }
 
@@ -583,7 +622,8 @@ const WS_ERROR_HINTS: Record<
   INVALID_FORMAT: {
     severity: "recoverable",
     hint: "Messages must be valid JSON with a 'type' field. Check message format.",
-    alternative: "Use the SDK client which handles message formatting automatically.",
+    alternative:
+      "Use the SDK client which handles message formatting automatically.",
     example: { type: "subscribe", channel: "agent:output:YOUR_AGENT_ID" },
     docs: `${WS_DOCS_BASE}#message-format`,
   },
@@ -621,7 +661,8 @@ const WS_ERROR_HINTS: Record<
   INVALID_CHANNEL: {
     severity: "recoverable",
     hint: "Channel format is 'scope:type:id', e.g., 'agent:output:agent-123'.",
-    alternative: "Use parseChannel() to validate channel format before subscribing.",
+    alternative:
+      "Use parseChannel() to validate channel format before subscribing.",
     example: "agent:output:agent-abc123",
     docs: `${WS_DOCS_BASE}#channels`,
   },
@@ -632,7 +673,8 @@ const WS_ERROR_HINTS: Record<
   INTERNAL_ERROR: {
     severity: "retry",
     hint: "An internal error occurred. Retry the request.",
-    alternative: "If the error persists, check the server logs or contact support.",
+    alternative:
+      "If the error persists, check the server logs or contact support.",
   },
 };
 

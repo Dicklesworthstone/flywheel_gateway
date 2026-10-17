@@ -63,7 +63,9 @@ const sampleSyncStatus: BrSyncStatus = {
 /**
  * Create a mock BeadsService with optional overrides.
  */
-function createMockService(overrides: Partial<BeadsService> = {}): BeadsService {
+function createMockService(
+  overrides: Partial<BeadsService> = {},
+): BeadsService {
   return {
     getTriage: async () => sampleTriage,
     getInsights: async () => sampleInsights,
@@ -190,7 +192,9 @@ describe("beads routes", () => {
             ...sampleTriage,
             triage: {
               ...sampleTriage.triage,
-              blockers_to_clear: [{ id: "bead-3", title: "Blocker", score: 0.5 }],
+              blockers_to_clear: [
+                { id: "bead-3", title: "Blocker", score: 0.5 },
+              ],
             },
           }),
         }),

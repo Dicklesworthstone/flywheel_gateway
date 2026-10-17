@@ -122,7 +122,11 @@ function transformIssue(issue: ZodIssue): ValidationError {
         } else {
           message = `${fieldName} must be at least ${min} character${min === 1 || min === BigInt(1) ? "" : "s"}`;
         }
-      } else if (origin === "number" || origin === "int" || origin === "bigint") {
+      } else if (
+        origin === "number" ||
+        origin === "int" ||
+        origin === "bigint"
+      ) {
         message = `${fieldName} must be at least ${min}`;
       } else if (origin === "array" || origin === "set") {
         message = `${fieldName} must have at least ${min} item${min === 1 || min === BigInt(1) ? "" : "s"}`;
@@ -137,7 +141,11 @@ function transformIssue(issue: ZodIssue): ValidationError {
       const max = issue.maximum ?? 0;
       if (origin === "string") {
         message = `${fieldName} must be at most ${max} character${max === 1 || max === BigInt(1) ? "" : "s"}`;
-      } else if (origin === "number" || origin === "int" || origin === "bigint") {
+      } else if (
+        origin === "number" ||
+        origin === "int" ||
+        origin === "bigint"
+      ) {
         message = `${fieldName} must be at most ${max}`;
       } else if (origin === "array" || origin === "set") {
         message = `${fieldName} must have at most ${max} item${max === 1 || max === BigInt(1) ? "" : "s"}`;

@@ -89,7 +89,8 @@ system.get("/snapshot/cache", (c) => {
     cached: stats.cached,
     ageMs: stats.age,
     ttlMs: stats.ttl,
-    expiresInMs: stats.cached && stats.age !== null ? stats.ttl - stats.age : null,
+    expiresInMs:
+      stats.cached && stats.age !== null ? stats.ttl - stats.age : null,
   });
 });
 
@@ -197,7 +198,10 @@ system.post("/maintenance", async (c) => {
     };
     if (input.reason !== undefined) maintenanceOptions.reason = input.reason;
     enterMaintenance(maintenanceOptions);
-    log.info({ enabled: true, mode: "maintenance", actor }, "Maintenance enabled via API");
+    log.info(
+      { enabled: true, mode: "maintenance", actor },
+      "Maintenance enabled via API",
+    );
   }
 
   const hub = getHub();

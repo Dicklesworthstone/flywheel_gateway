@@ -22,8 +22,10 @@ interface SlbSession {
   id: string;
   agent: string;
   program: string;
-  startedAt: string;
-  lastHeartbeat: string;
+  startedAt?: string;
+  started_at?: string;
+  lastHeartbeat?: string;
+  last_active_at?: string;
 }
 
 interface SlbRequest {
@@ -31,10 +33,14 @@ interface SlbRequest {
   command: string;
   tier: string;
   status: string;
-  requestedBy: string;
-  requestedAt: string;
+  requestedBy?: string;
+  requestor_agent?: string;
+  requestor_session_id?: string;
+  requestedAt?: string;
+  created_at?: string;
   reviewedBy?: string;
   reviewedAt?: string;
+  resolved_at?: string;
   reason?: string;
 }
 
@@ -42,7 +48,16 @@ interface SlbCheckResult {
   command: string;
   tier: string;
   pattern?: string;
-  requiresApproval: boolean;
+  matched_pattern?: string;
+  requiresApproval?: boolean;
+  requires_approval?: boolean;
+}
+
+interface SlbPatternItem {
+  pattern: string;
+  tier: string;
+  reason?: string;
+  builtin?: boolean;
 }
 
 // ============================================================================
@@ -71,17 +86,18 @@ const tierTone: Record<string, "positive" | "warning" | "danger" | "muted"> = {
   critical: "danger",
 };
 
-const statusTone: Record<string, "positive" | "warning" | "danger" | "muted"> = {
-  pending: "warning",
-  approved: "positive",
-  rejected: "danger",
-  cancelled: "muted",
-  timeout: "muted",
-  executed: "positive",
-  failed: "danger",
-};
+const statusTone: Record<string, "positive" | "warning" | "danger" | "muted"> =
+  {
+    pending: "warning",
+    approved: "positive",
+    rejected: "danger",
+    cancelled: "muted",
+    timeout: "muted",
+    executed: "positive",
+    failed: "danger",
+  };
 
-type TabId = "pending" | "history" | "sessions" | "check";
+type TabId = "pending" | "history" | "sessions" | "check" | "patterns";
 
 // ============================================================================
 // Page
@@ -91,6 +107,11 @@ export function SLBPage() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabId>("pending");
   const [checkCommand, setCheckCommand] = useState("");
+  const [newPattern, setNewPattern] = useState("");
+  const [newPatternTier, setNewPatternTier] = useState<
+    "safe" | "caution" | "dangerous" | "critical"
+  >("dangerous");
+  const [newPatternReason, setNewPatternReason] = useState("");
 
   const { data: status } = useQuery({
     queryKey: ["slb", "status"],
@@ -119,8 +140,26 @@ export function SLBPage() {
     enabled: tab === "history",
   });
 
+  const { data: patternsData } = useQuery({
+    queryKey: ["slb", "patterns"],
+    queryFn: () =>
+      fetchJson<{
+        data: Record<string, SlbPatternItem[]> | SlbPatternItem[];
+      }>("/slb/patterns"),
+    staleTime: 30_000,
+    enabled: tab === "patterns",
+  });
+
   const approveMutation = useMutation({
-    mutationFn: (id: string) => fetchJson(`/slb/requests/${id}/approve`, { method: "POST" }),
+    mutationFn: (id: string) =>
+      fetchJson(`/slb/requests/${id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "web-operator",
+          sessionKey: "web-dashboard",
+        }),
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["slb", "pending"] });
       queryClient.invalidateQueries({ queryKey: ["slb", "history"] });
@@ -128,7 +167,16 @@ export function SLBPage() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: (id: string) => fetchJson(`/slb/requests/${id}/reject`, { method: "POST" }),
+    mutationFn: (id: string) =>
+      fetchJson(`/slb/requests/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "web-operator",
+          sessionKey: "web-dashboard",
+          reason: "Rejected from Safety Line Buffer UI",
+        }),
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["slb", "pending"] });
       queryClient.invalidateQueries({ queryKey: ["slb", "history"] });
@@ -144,10 +192,45 @@ export function SLBPage() {
       }),
   });
 
+  const addPatternMutation = useMutation({
+    mutationFn: () =>
+      fetchJson("/slb/patterns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pattern: newPattern,
+          tier: newPatternTier,
+          ...(newPatternReason.trim()
+            ? { reason: newPatternReason.trim() }
+            : {}),
+        }),
+      }),
+    onSuccess: () => {
+      setNewPattern("");
+      setNewPatternReason("");
+      queryClient.invalidateQueries({ queryKey: ["slb", "patterns"] });
+    },
+  });
+
   const available = status?.data?.available ?? false;
-  const pendingList = pending?.data ?? [];
-  const historyList = history?.data ?? [];
-  const sessionList = sessions?.data ?? [];
+  const pendingList = Array.isArray(pending?.data) ? pending.data : [];
+  const historyList = Array.isArray(history?.data) ? history.data : [];
+  const sessionList = Array.isArray(sessions?.data) ? sessions.data : [];
+
+  const flatPatterns: SlbPatternItem[] = (() => {
+    const raw = patternsData?.data;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    const out: SlbPatternItem[] = [];
+    for (const [tierKey, items] of Object.entries(raw)) {
+      if (Array.isArray(items)) {
+        for (const item of items) {
+          out.push({ ...item, tier: item.tier ?? tierKey });
+        }
+      }
+    }
+    return out;
+  })();
 
   const tabs: Array<{ id: TabId; label: string; badge?: number }> = [
     pendingList.length > 0
@@ -162,6 +245,7 @@ export function SLBPage() {
         }
       : { id: "sessions" as const, label: "Sessions" },
     { id: "check", label: "Check Command" },
+    { id: "patterns", label: "Patterns" },
   ];
 
   return (
@@ -178,7 +262,9 @@ export function SLBPage() {
         {tabs.map((t) => (
           <button
             key={t.id}
-            className={tab === t.id ? "tab-button tab-button--active" : "tab-button"}
+            className={
+              tab === t.id ? "tab-button tab-button--active" : "tab-button"
+            }
             type="button"
             onClick={() => setTab(t.id)}
           >
@@ -196,7 +282,9 @@ export function SLBPage() {
           <div className="card__header">
             <h3>Pending Approval</h3>
           </div>
-          {pendingList.length === 0 && <p className="muted">No pending requests.</p>}
+          {pendingList.length === 0 && (
+            <p className="muted">No pending requests.</p>
+          )}
           {pendingList.length > 0 && (
             <div className="table">
               <div className="table__row table__row--header">
@@ -206,34 +294,48 @@ export function SLBPage() {
                 <span>Time</span>
                 <span>Actions</span>
               </div>
-              {pendingList.map((r) => (
-                <div key={r.id} className="table__row">
-                  <span className="mono">{r.command}</span>
-                  <span>
-                    <StatusPill tone={tierTone[r.tier] ?? "muted"}>{r.tier}</StatusPill>
-                  </span>
-                  <span>{r.requestedBy}</span>
-                  <span className="muted">{new Date(r.requestedAt).toLocaleString()}</span>
-                  <span style={{ display: "flex", gap: 4 }}>
-                    <button
-                      className="primary-button"
-                      type="button"
-                      onClick={() => approveMutation.mutate(r.id)}
-                      disabled={approveMutation.isPending}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      className="ghost-button"
-                      type="button"
-                      onClick={() => rejectMutation.mutate(r.id)}
-                      disabled={rejectMutation.isPending}
-                    >
-                      Reject
-                    </button>
-                  </span>
-                </div>
-              ))}
+              {pendingList.map((r) => {
+                const requestedBy =
+                  r.requestedBy ??
+                  r.requestor_agent ??
+                  r.requestor_session_id ??
+                  "—";
+                const requestedAt = r.requestedAt ?? r.created_at;
+                return (
+                  <div key={r.id} className="table__row">
+                    <span className="mono">{r.command}</span>
+                    <span>
+                      <StatusPill tone={tierTone[r.tier] ?? "muted"}>
+                        {r.tier}
+                      </StatusPill>
+                    </span>
+                    <span>{requestedBy}</span>
+                    <span className="muted">
+                      {requestedAt
+                        ? new Date(requestedAt).toLocaleString()
+                        : "—"}
+                    </span>
+                    <span style={{ display: "flex", gap: 4 }}>
+                      <button
+                        className="primary-button"
+                        type="button"
+                        onClick={() => approveMutation.mutate(r.id)}
+                        disabled={approveMutation.isPending}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => rejectMutation.mutate(r.id)}
+                        disabled={rejectMutation.isPending}
+                      >
+                        Reject
+                      </button>
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -245,7 +347,9 @@ export function SLBPage() {
           <div className="card__header">
             <h3>Request History</h3>
           </div>
-          {historyList.length === 0 && <p className="muted">No request history.</p>}
+          {historyList.length === 0 && (
+            <p className="muted">No request history.</p>
+          )}
           {historyList.length > 0 && (
             <div className="table">
               <div className="table__row table__row--header">
@@ -256,20 +360,36 @@ export function SLBPage() {
                 <span>Reviewed By</span>
                 <span>Time</span>
               </div>
-              {historyList.map((r) => (
-                <div key={r.id} className="table__row">
-                  <span className="mono">{r.command}</span>
-                  <span>
-                    <StatusPill tone={tierTone[r.tier] ?? "muted"}>{r.tier}</StatusPill>
-                  </span>
-                  <span>
-                    <StatusPill tone={statusTone[r.status] ?? "muted"}>{r.status}</StatusPill>
-                  </span>
-                  <span>{r.requestedBy}</span>
-                  <span>{r.reviewedBy ?? "—"}</span>
-                  <span className="muted">{new Date(r.requestedAt).toLocaleString()}</span>
-                </div>
-              ))}
+              {historyList.map((r) => {
+                const requestedBy =
+                  r.requestedBy ??
+                  r.requestor_agent ??
+                  r.requestor_session_id ??
+                  "—";
+                const requestedAt = r.requestedAt ?? r.created_at;
+                return (
+                  <div key={r.id} className="table__row">
+                    <span className="mono">{r.command}</span>
+                    <span>
+                      <StatusPill tone={tierTone[r.tier] ?? "muted"}>
+                        {r.tier}
+                      </StatusPill>
+                    </span>
+                    <span>
+                      <StatusPill tone={statusTone[r.status] ?? "muted"}>
+                        {r.status}
+                      </StatusPill>
+                    </span>
+                    <span>{requestedBy}</span>
+                    <span>{r.reviewedBy ?? "—"}</span>
+                    <span className="muted">
+                      {requestedAt
+                        ? new Date(requestedAt).toLocaleString()
+                        : "—"}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -281,7 +401,9 @@ export function SLBPage() {
           <div className="card__header">
             <h3>Active Sessions</h3>
           </div>
-          {sessionList.length === 0 && <p className="muted">No active sessions.</p>}
+          {sessionList.length === 0 && (
+            <p className="muted">No active sessions.</p>
+          )}
           {sessionList.length > 0 && (
             <div className="table">
               <div className="table__row table__row--header">
@@ -291,15 +413,26 @@ export function SLBPage() {
                 <span>Started</span>
                 <span>Last Heartbeat</span>
               </div>
-              {sessionList.map((s) => (
-                <div key={s.id} className="table__row">
-                  <span className="mono">{s.id}</span>
-                  <span>{s.agent}</span>
-                  <span>{s.program}</span>
-                  <span className="muted">{new Date(s.startedAt).toLocaleString()}</span>
-                  <span className="muted">{new Date(s.lastHeartbeat).toLocaleString()}</span>
-                </div>
-              ))}
+              {sessionList.map((s) => {
+                const startedAt = s.startedAt ?? s.started_at;
+                const lastHeartbeat =
+                  s.lastHeartbeat ?? s.last_active_at ?? startedAt;
+                return (
+                  <div key={s.id} className="table__row">
+                    <span className="mono">{s.id}</span>
+                    <span>{s.agent}</span>
+                    <span>{s.program}</span>
+                    <span className="muted">
+                      {startedAt ? new Date(startedAt).toLocaleString() : "—"}
+                    </span>
+                    <span className="muted">
+                      {lastHeartbeat
+                        ? new Date(lastHeartbeat).toLocaleString()
+                        : "—"}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -309,7 +442,9 @@ export function SLBPage() {
       {tab === "check" && (
         <div className="card">
           <h3>Check Command Tier</h3>
-          <p className="muted">Test which risk tier a command matches against SLB patterns.</p>
+          <p className="muted">
+            Test which risk tier a command matches against SLB patterns.
+          </p>
           <div className="form-row">
             <input
               type="text"
@@ -334,20 +469,111 @@ export function SLBPage() {
             <div className="result-box" style={{ marginTop: 12 }}>
               <p>
                 Tier:{" "}
-                <StatusPill tone={tierTone[checkMutation.data.data.tier] ?? "muted"}>
+                <StatusPill
+                  tone={tierTone[checkMutation.data.data.tier] ?? "muted"}
+                >
                   {checkMutation.data.data.tier}
                 </StatusPill>
               </p>
-              <p>Requires approval: {checkMutation.data.data.requiresApproval ? "Yes" : "No"}</p>
-              {checkMutation.data.data.pattern && (
+              <p>
+                Requires approval:{" "}
+                {(checkMutation.data.data.requiresApproval ??
+                checkMutation.data.data.requires_approval)
+                  ? "Yes"
+                  : "No"}
+              </p>
+              {(checkMutation.data.data.pattern ??
+                checkMutation.data.data.matched_pattern) && (
                 <p className="muted">
-                  Matched pattern: <code>{checkMutation.data.data.pattern}</code>
+                  Matched pattern:{" "}
+                  <code>
+                    {checkMutation.data.data.pattern ??
+                      checkMutation.data.data.matched_pattern}
+                  </code>
                 </p>
               )}
             </div>
           )}
           {checkMutation.isError && (
-            <p className="error-text">{(checkMutation.error as Error).message}</p>
+            <p className="error-text">
+              {(checkMutation.error as Error).message}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Patterns inspector */}
+      {tab === "patterns" && (
+        <div className="card">
+          <div className="card__header">
+            <h3>SLB Risk Tier Patterns</h3>
+          </div>
+          <div className="form-row" style={{ marginBottom: 16 }}>
+            <input
+              type="text"
+              className="text-input"
+              placeholder="Regex pattern (e.g., ^kubectl delete)"
+              value={newPattern}
+              onChange={(e) => setNewPattern(e.target.value)}
+            />
+            <select
+              className="select-input"
+              value={newPatternTier}
+              onChange={(e) =>
+                setNewPatternTier(
+                  e.target.value as
+                    | "safe"
+                    | "caution"
+                    | "dangerous"
+                    | "critical",
+                )
+              }
+            >
+              <option value="safe">Safe</option>
+              <option value="caution">Caution</option>
+              <option value="dangerous">Dangerous</option>
+              <option value="critical">Critical</option>
+            </select>
+            <input
+              type="text"
+              className="text-input"
+              placeholder="Reason (optional)"
+              value={newPatternReason}
+              onChange={(e) => setNewPatternReason(e.target.value)}
+            />
+            <button
+              className="primary-button"
+              type="button"
+              onClick={() => addPatternMutation.mutate()}
+              disabled={addPatternMutation.isPending || !newPattern.trim()}
+            >
+              {addPatternMutation.isPending ? "Adding..." : "Add Pattern"}
+            </button>
+          </div>
+          {flatPatterns.length === 0 ? (
+            <p className="muted">No patterns loaded or SLB unavailable.</p>
+          ) : (
+            <div className="table">
+              <div className="table__row table__row--header">
+                <span>Pattern</span>
+                <span>Tier</span>
+                <span>Reason</span>
+              </div>
+              {flatPatterns.map((p, idx) => (
+                <div
+                  key={`${p.tier}:${p.pattern}:${idx}`}
+                  className="table__row"
+                >
+                  <span className="mono">{p.pattern}</span>
+                  <span>
+                    <StatusPill tone={tierTone[p.tier] ?? "muted"}>
+                      {p.tier}
+                    </StatusPill>
+                  </span>
+                  <span className="muted">{p.reason ?? "—"}</span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}

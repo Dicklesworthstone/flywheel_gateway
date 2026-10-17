@@ -218,7 +218,10 @@ export function exitMaintenance(options?: { actor?: MaintenanceActor }): void {
     updatedBy: options?.actor ?? null,
   };
 
-  logger.info({ mode: state.mode, updatedBy: state.updatedBy }, "Maintenance mode disabled");
+  logger.info(
+    { mode: state.mode, updatedBy: state.updatedBy },
+    "Maintenance mode disabled",
+  );
 
   publishMaintenanceStateChanged();
 }

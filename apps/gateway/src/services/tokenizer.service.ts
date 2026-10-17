@@ -110,7 +110,10 @@ export function truncateToTokens(
  * @param maxTokensPerChunk - Maximum tokens per chunk
  * @returns Array of text chunks
  */
-export function splitIntoChunks(text: string, maxTokensPerChunk: number): string[] {
+export function splitIntoChunks(
+  text: string,
+  maxTokensPerChunk: number,
+): string[] {
   if (!text) return [];
   if (maxTokensPerChunk <= 0) return [];
 
@@ -148,7 +151,10 @@ export function splitIntoChunks(text: string, maxTokensPerChunk: number): string
           const sentTokens = countTokens(sentence);
           const sentSeparatorCost = currentChunk ? sentenceSeparatorTokens : 0;
 
-          if (currentTokens + sentSeparatorCost + sentTokens <= maxTokensPerChunk) {
+          if (
+            currentTokens + sentSeparatorCost + sentTokens <=
+            maxTokensPerChunk
+          ) {
             currentChunk += (currentChunk ? " " : "") + sentence;
             currentTokens += sentSeparatorCost + sentTokens;
           } else {

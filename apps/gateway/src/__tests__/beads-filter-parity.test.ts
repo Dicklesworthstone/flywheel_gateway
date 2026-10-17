@@ -13,7 +13,10 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createBrClient, createBunBrCommandRunner } from "@flywheel/flywheel-clients";
+import {
+  createBrClient,
+  createBunBrCommandRunner,
+} from "@flywheel/flywheel-clients";
 import { Hono } from "hono";
 import { createBeadsRoutes } from "../routes/beads";
 import { createBeadsService } from "../services/beads.service";
@@ -89,12 +92,18 @@ describe.skipIf(!BR_AVAILABLE)("Beads Filter Parity Tests (bd-3kes)", () => {
   beforeAll(async () => {
     logTest({ test: "setup", action: "initializing_filter_parity_tests" });
 
-    const testProjectRoot = mkdtempSync(join(tmpdir(), "flywheel-beads-parity-"));
-    const init = spawnSync("br", ["init", "--json", "--no-auto-import", "--no-auto-flush"], {
-      cwd: testProjectRoot,
-      encoding: "utf8",
-      timeout: TEST_TIMEOUT,
-    });
+    const testProjectRoot = mkdtempSync(
+      join(tmpdir(), "flywheel-beads-parity-"),
+    );
+    const init = spawnSync(
+      "br",
+      ["init", "--json", "--no-auto-import", "--no-auto-flush"],
+      {
+        cwd: testProjectRoot,
+        encoding: "utf8",
+        timeout: TEST_TIMEOUT,
+      },
+    );
     if (init.status !== 0) {
       throw new Error(
         `br init failed (${init.status}): ${(init.stderr || init.stdout || "").trim()}`,
@@ -240,7 +249,9 @@ describe.skipIf(!BR_AVAILABLE)("Beads Filter Parity Tests (bd-3kes)", () => {
           path: "/beads?label=filter-test-label&label=secondary-label",
         });
 
-        const res = await app.request("/beads?label=filter-test-label&label=secondary-label");
+        const res = await app.request(
+          "/beads?label=filter-test-label&label=secondary-label",
+        );
         const data = await res.json();
 
         logTest({
@@ -375,7 +386,9 @@ describe.skipIf(!BR_AVAILABLE)("Beads Filter Parity Tests (bd-3kes)", () => {
           path: "/beads?priorityMin=1&priorityMax=2&limit=10",
         });
 
-        const res = await app.request("/beads?priorityMin=1&priorityMax=2&limit=10");
+        const res = await app.request(
+          "/beads?priorityMin=1&priorityMax=2&limit=10",
+        );
         const data = await res.json();
 
         logTest({
@@ -412,7 +425,9 @@ describe.skipIf(!BR_AVAILABLE)("Beads Filter Parity Tests (bd-3kes)", () => {
           path: "/beads?titleContains=searchable-unique-xyz",
         });
 
-        const res = await app.request("/beads?titleContains=searchable-unique-xyz");
+        const res = await app.request(
+          "/beads?titleContains=searchable-unique-xyz",
+        );
         const data = await res.json();
 
         logTest({
@@ -425,7 +440,9 @@ describe.skipIf(!BR_AVAILABLE)("Beads Filter Parity Tests (bd-3kes)", () => {
         expect(res.status).toBe(200);
         // All returned beads should have the search term in title
         for (const bead of data.data.beads) {
-          expect(bead.title.toLowerCase()).toContain("searchable-unique-xyz".toLowerCase());
+          expect(bead.title.toLowerCase()).toContain(
+            "searchable-unique-xyz".toLowerCase(),
+          );
         }
       },
       TEST_TIMEOUT,
@@ -442,7 +459,9 @@ describe.skipIf(!BR_AVAILABLE)("Beads Filter Parity Tests (bd-3kes)", () => {
           path: "/beads?descContains=SEARCHABLE_UNIQUE_TOKEN_ABC",
         });
 
-        const res = await app.request("/beads?descContains=SEARCHABLE_UNIQUE_TOKEN_ABC");
+        const res = await app.request(
+          "/beads?descContains=SEARCHABLE_UNIQUE_TOKEN_ABC",
+        );
         const data = await res.json();
 
         logTest({
@@ -490,7 +509,9 @@ describe.skipIf(!BR_AVAILABLE)("Beads Filter Parity Tests (bd-3kes)", () => {
         const beads = data.data.beads;
         // Verify beads are sorted by priority (ascending - 0 is highest)
         for (let i = 1; i < beads.length; i++) {
-          expect(beads[i].priority).toBeGreaterThanOrEqual(beads[i - 1].priority);
+          expect(beads[i].priority).toBeGreaterThanOrEqual(
+            beads[i - 1].priority,
+          );
         }
       },
       TEST_TIMEOUT,
@@ -507,7 +528,9 @@ describe.skipIf(!BR_AVAILABLE)("Beads Filter Parity Tests (bd-3kes)", () => {
           path: "/beads?sort=priority&reverse=true&limit=10",
         });
 
-        const res = await app.request("/beads?sort=priority&reverse=true&limit=10");
+        const res = await app.request(
+          "/beads?sort=priority&reverse=true&limit=10",
+        );
         const data = await res.json();
 
         logTest({
@@ -585,7 +608,9 @@ describe.skipIf(!BR_AVAILABLE)("Beads Filter Parity Tests (bd-3kes)", () => {
         const beads = data.data.beads;
         // Verify beads are sorted by title (alphabetically)
         for (let i = 1; i < beads.length; i++) {
-          expect(beads[i].title.localeCompare(beads[i - 1].title)).toBeGreaterThanOrEqual(0);
+          expect(
+            beads[i].title.localeCompare(beads[i - 1].title),
+          ).toBeGreaterThanOrEqual(0);
         }
       },
       TEST_TIMEOUT,
@@ -748,7 +773,9 @@ describe.skipIf(!BR_AVAILABLE)("Beads Filter Parity Tests (bd-3kes)", () => {
           path: "/beads?priorityMax=2&label=integration&limit=10",
         });
 
-        const res = await app.request("/beads?priorityMax=2&label=integration&limit=10");
+        const res = await app.request(
+          "/beads?priorityMax=2&label=integration&limit=10",
+        );
         const data = await res.json();
 
         logTest({
@@ -778,7 +805,9 @@ describe.skipIf(!BR_AVAILABLE)("Beads Filter Parity Tests (bd-3kes)", () => {
           path: "/beads?status=open&sort=priority&limit=10",
         });
 
-        const res = await app.request("/beads?status=open&sort=priority&limit=10");
+        const res = await app.request(
+          "/beads?status=open&sort=priority&limit=10",
+        );
         const data = await res.json();
 
         logTest({
@@ -796,7 +825,9 @@ describe.skipIf(!BR_AVAILABLE)("Beads Filter Parity Tests (bd-3kes)", () => {
         }
         // Verify sorted by priority
         for (let i = 1; i < beads.length; i++) {
-          expect(beads[i].priority).toBeGreaterThanOrEqual(beads[i - 1].priority);
+          expect(beads[i].priority).toBeGreaterThanOrEqual(
+            beads[i - 1].priority,
+          );
         }
       },
       TEST_TIMEOUT,

@@ -1,6 +1,8 @@
 import {
-  createClaudeCodeWsDriver,
+  createAcpDriver,
   createClaudeDriver,
+  createNtmDriver,
+  createTmuxDriver,
   type DriverRegistryEntry,
   getDriverRegistry,
 } from "@flywheel/agent-drivers";
@@ -24,27 +26,62 @@ export function registerDrivers() {
     },
   };
 
-  const claudeCodeWsDriverEntry: DriverRegistryEntry = {
-    type: "claude_code_ws",
-    factory: createClaudeCodeWsDriver,
-    description: "Claude Code WebSocket Driver (--sdk-url)",
+  const acpDriverEntry: DriverRegistryEntry = {
+    type: "acp",
+    factory: createAcpDriver,
+    description: "ACP (Agent Client Protocol) Driver",
+    defaultCapabilities: {
+      streaming: true,
+      interrupt: true,
+      checkpoint: true,
+      fileOperations: true,
+      terminalAttach: false,
+      structuredEvents: true,
+      toolCalls: true,
+      diffRendering: true,
+    },
+  };
+
+  const tmuxDriverEntry: DriverRegistryEntry = {
+    type: "tmux",
+    factory: createTmuxDriver,
+    description: "Tmux Visual Terminal Driver",
     defaultCapabilities: {
       streaming: true,
       interrupt: true,
       checkpoint: false,
-      fileOperations: true,
-      terminalAttach: false,
+      fileOperations: false,
+      terminalAttach: true,
+      structuredEvents: false,
+      toolCalls: false,
+      diffRendering: false,
+    },
+  };
+
+  const ntmDriverEntry: DriverRegistryEntry = {
+    type: "ntm",
+    factory: createNtmDriver,
+    description: "NTM (Named Tmux Manager) Multi-Agent Driver",
+    defaultCapabilities: {
+      streaming: true,
+      interrupt: true,
+      checkpoint: false,
+      fileOperations: false,
+      terminalAttach: true,
       structuredEvents: true,
       toolCalls: true,
       diffRendering: false,
     },
   };
 
-  if (!registry.has("sdk")) {
-    registry.register(sdkDriverEntry);
-  }
-
-  if (!registry.has("claude_code_ws")) {
-    registry.register(claudeCodeWsDriverEntry);
+  for (const entry of [
+    sdkDriverEntry,
+    acpDriverEntry,
+    tmuxDriverEntry,
+    ntmDriverEntry,
+  ]) {
+    if (!registry.has(entry.type)) {
+      registry.register(entry);
+    }
   }
 }

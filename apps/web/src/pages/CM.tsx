@@ -1,41 +1,48 @@
 /**
- * CM Page - Credential Manager overview.
+ * CM Page - Cass-Memory (CM) Procedural Memory & Playbook Rules.
  *
- * Surfaces credential health, API key rotation status,
- * and provider connectivity. Works alongside the Accounts
- * page which handles BYOA profile CRUD.
+ * Surfaces procedural memory health, playbook statistics (rules, anti-patterns,
+ * procedures), and active playbook rules via /api/memory/*.
  */
 
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { StatusPill } from "../components/ui/StatusPill";
 
 // ============================================================================
 // Types
 // ============================================================================
 
-interface ByoaStatus {
-  providers: Record<
-    string,
-    {
-      configured: boolean;
-      profileCount: number;
-      activeProfile?: string;
-      lastRotation?: string;
-      healthy: boolean;
-    }
-  >;
-  totalProfiles: number;
-  healthyProviders: number;
-  totalProviders: number;
+interface MemoryHealth {
+  available: boolean;
+  healthy: boolean;
+  version?: string;
+  overallStatus?: string;
+  error?: string;
+  timestamp: string;
 }
 
-interface PoolEntry {
-  provider: string;
-  profileId: string;
-  active: boolean;
-  cooldownUntil?: string;
-  lastUsed?: string;
-  verified: boolean;
+interface MemoryStats {
+  success: boolean;
+  total: number;
+  byScope?: Record<string, number>;
+  byState?: Record<string, number>;
+  byKind?: Record<string, number>;
+  atRiskCount?: number;
+  staleCount?: number;
+}
+
+interface PlaybookRule {
+  id: string;
+  text: string;
+  category?: string;
+  scope?: string;
+  state: "active" | "deprecated" | "pending";
+  kind: "rule" | "anti-pattern" | "procedure";
+  confidence?: number;
+  helpfulCount?: number;
+  harmfulCount?: number;
+  score?: number;
 }
 
 // ============================================================================
@@ -58,120 +65,181 @@ async function fetchJson<T>(url: string): Promise<T> {
 // ============================================================================
 
 export function CMPage() {
+  const [kindFilter, setKindFilter] = useState<string>("");
+
   const {
-    data: status,
-    isLoading,
-    error,
+    data: healthRes,
+    isLoading: healthLoading,
+    error: healthError,
   } = useQuery({
-    queryKey: ["cm", "status"],
-    queryFn: () => fetchJson<{ data: ByoaStatus }>("/accounts/byoa/status"),
+    queryKey: ["cm", "memory-health"],
+    queryFn: () => fetchJson<{ data: MemoryHealth }>("/memory/health"),
     staleTime: 30_000,
   });
 
-  const { data: pool } = useQuery({
-    queryKey: ["cm", "pool"],
-    queryFn: () => fetchJson<{ data: PoolEntry[] }>("/accounts/pool"),
+  const { data: statsRes } = useQuery({
+    queryKey: ["cm", "memory-stats"],
+    queryFn: () => fetchJson<{ data: MemoryStats }>("/memory/stats"),
+    staleTime: 30_000,
+  });
+
+  const { data: rulesRes, isLoading: rulesLoading } = useQuery({
+    queryKey: ["cm", "memory-rules", kindFilter],
+    queryFn: () => {
+      const qs = kindFilter ? `?kind=${encodeURIComponent(kindFilter)}` : "";
+      return fetchJson<{ data: PlaybookRule[] }>(`/memory/rules${qs}`);
+    },
     staleTime: 15_000,
   });
 
-  const byoa = status?.data;
-  const poolEntries = pool?.data ?? [];
+  const health = healthRes?.data;
+  const stats = statsRes?.data;
+  const rules = Array.isArray(rulesRes?.data) ? rulesRes.data : [];
 
   return (
     <div className="page">
       <div className="page__header">
-        <h2>Credential Manager</h2>
-        {byoa && (
-          <StatusPill tone={byoa.healthyProviders === byoa.totalProviders ? "positive" : "warning"}>
-            {byoa.healthyProviders}/{byoa.totalProviders} healthy
+        <h2>Cass-Memory (CM) Procedural Memory</h2>
+        {health && (
+          <StatusPill tone={health.healthy ? "positive" : "warning"}>
+            {health.healthy
+              ? `healthy${health.version ? ` (${health.version})` : ""}`
+              : (health.overallStatus ?? "unavailable")}
           </StatusPill>
         )}
       </div>
 
-      {isLoading && <p className="muted">Loading credential status...</p>}
-      {error && <p className="error-text">{(error as Error).message}</p>}
-
-      {/* Provider overview */}
-      {byoa?.providers && (
-        <div className="grid grid--3" style={{ marginBottom: 16 }}>
-          {Object.entries(byoa.providers).map(([name, provider]) => (
-            <div key={name} className="card">
-              <div className="card__header">
-                <h3>{name}</h3>
-                <StatusPill tone={provider.healthy ? "positive" : "danger"}>
-                  {provider.healthy ? "healthy" : "unhealthy"}
-                </StatusPill>
-              </div>
-              <p className="muted">
-                {provider.profileCount} profile
-                {provider.profileCount !== 1 ? "s" : ""}
-                {provider.activeProfile && (
-                  <>
-                    {" "}
-                    | Active: <code>{provider.activeProfile}</code>
-                  </>
-                )}
-              </p>
-              {provider.lastRotation && (
-                <p className="muted">
-                  Last rotation: {new Date(provider.lastRotation).toLocaleString()}
-                </p>
-              )}
-              {!provider.configured && <p className="warning-text">Not configured</p>}
-            </div>
-          ))}
-        </div>
+      {healthLoading && <p className="muted">Loading Cass-Memory status...</p>}
+      {healthError && (
+        <p className="muted">
+          Cass-Memory CLI status: {(healthError as Error).message}
+        </p>
       )}
 
-      {/* Pool status */}
-      {poolEntries.length > 0 && (
+      {/* Playbook stats summary */}
+      <div className="grid grid--3" style={{ marginBottom: 16 }}>
         <div className="card">
           <div className="card__header">
-            <h3>Rotation Pool</h3>
-            <StatusPill tone="muted">{poolEntries.length} entries</StatusPill>
+            <h3>Total Playbook Rules</h3>
+            <StatusPill tone="positive">
+              {stats?.total ?? rules.length}
+            </StatusPill>
           </div>
+          <p className="muted">
+            Active:{" "}
+            {stats?.byState?.["active"] ??
+              rules.filter((r) => r.state === "active").length}
+            {" · "}Pending: {stats?.byState?.["pending"] ?? 0}
+            {" · "}Deprecated: {stats?.byState?.["deprecated"] ?? 0}
+          </p>
+        </div>
+
+        <div className="card">
+          <div className="card__header">
+            <h3>Breakdown by Kind</h3>
+            <StatusPill tone="muted">Procedural</StatusPill>
+          </div>
+          <p className="muted">
+            Rules:{" "}
+            {stats?.byKind?.["rule"] ??
+              rules.filter((r) => r.kind === "rule").length}
+            {" · "}Anti-patterns:{" "}
+            {stats?.byKind?.["anti-pattern"] ??
+              rules.filter((r) => r.kind === "anti-pattern").length}
+            {" · "}Procedures:{" "}
+            {stats?.byKind?.["procedure"] ??
+              rules.filter((r) => r.kind === "procedure").length}
+          </p>
+        </div>
+
+        <div className="card">
+          <div className="card__header">
+            <h3>Rule Freshness</h3>
+            <StatusPill
+              tone={(stats?.atRiskCount ?? 0) === 0 ? "positive" : "warning"}
+            >
+              {stats?.atRiskCount ?? 0} at risk
+            </StatusPill>
+          </div>
+          <p className="muted">
+            Stale rules: {stats?.staleCount ?? 0} · Injected into Context Packs
+          </p>
+        </div>
+      </div>
+
+      {/* Playbook rules table */}
+      <div className="card">
+        <div className="card__header">
+          <h3>Playbook Rules</h3>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <select
+              value={kindFilter}
+              onChange={(e) => setKindFilter(e.target.value)}
+              aria-label="Filter rules by kind"
+            >
+              <option value="">All kinds</option>
+              <option value="rule">Rules</option>
+              <option value="anti-pattern">Anti-patterns</option>
+              <option value="procedure">Procedures</option>
+            </select>
+            <StatusPill tone="muted">{rules.length} entries</StatusPill>
+          </div>
+        </div>
+
+        {rulesLoading ? (
+          <p className="muted">Loading playbook rules...</p>
+        ) : rules.length > 0 ? (
           <div className="table">
             <div className="table__row table__row--header">
-              <span>Provider</span>
-              <span>Profile</span>
-              <span>Status</span>
-              <span>Verified</span>
-              <span>Last Used</span>
-              <span>Cooldown</span>
+              <span>ID</span>
+              <span>Kind</span>
+              <span>Category</span>
+              <span>Rule</span>
+              <span>State</span>
+              <span>Score</span>
             </div>
-            {poolEntries.map((entry) => (
-              <div key={`${entry.provider}-${entry.profileId}`} className="table__row">
-                <span>{entry.provider}</span>
-                <span className="mono">{entry.profileId}</span>
+            {rules.map((rule) => (
+              <div key={rule.id} className="table__row">
+                <span className="mono">{rule.id}</span>
                 <span>
-                  <StatusPill tone={entry.active ? "positive" : "muted"}>
-                    {entry.active ? "active" : "inactive"}
-                  </StatusPill>
-                </span>
-                <span>
-                  <StatusPill tone={entry.verified ? "positive" : "warning"}>
-                    {entry.verified ? "yes" : "no"}
+                  <StatusPill
+                    tone={
+                      rule.kind === "anti-pattern"
+                        ? "warning"
+                        : rule.kind === "procedure"
+                          ? "positive"
+                          : "muted"
+                    }
+                  >
+                    {rule.kind}
                   </StatusPill>
                 </span>
                 <span className="muted">
-                  {entry.lastUsed ? new Date(entry.lastUsed).toLocaleString() : "never"}
+                  {rule.category ?? rule.scope ?? "general"}
                 </span>
-                <span className="muted">
-                  {entry.cooldownUntil ? new Date(entry.cooldownUntil).toLocaleString() : "—"}
+                <span>{rule.text}</span>
+                <span>
+                  <StatusPill
+                    tone={rule.state === "active" ? "positive" : "muted"}
+                  >
+                    {rule.state}
+                  </StatusPill>
+                </span>
+                <span className="mono">
+                  {rule.score !== undefined
+                    ? rule.score.toFixed(2)
+                    : `+${rule.helpfulCount ?? 0}/-${rule.harmfulCount ?? 0}`}
                 </span>
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {!isLoading && !byoa && !error && (
-        <div className="card">
+        ) : (
           <p className="muted">
-            No credential data available. Configure provider accounts in the Accounts page.
+            No playbook rules recorded yet. Rules and anti-patterns learned
+            during agent sessions will appear here.
           </p>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

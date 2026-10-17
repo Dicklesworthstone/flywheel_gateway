@@ -126,7 +126,10 @@ export class FlowControl {
   }
 
   private send(message: FlowControlMessage): void {
-    if (!this.config.socket || this.config.socket.readyState !== WebSocket.OPEN) {
+    if (
+      !this.config.socket ||
+      this.config.socket.readyState !== WebSocket.OPEN
+    ) {
       return;
     }
 

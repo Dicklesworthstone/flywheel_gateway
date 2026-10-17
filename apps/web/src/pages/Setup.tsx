@@ -182,7 +182,9 @@ function PriorityBadge({ priority, phase }: PriorityBadgeProps) {
     >
       {icon}
       {label}
-      {phase !== undefined && <span style={{ opacity: 0.7, marginLeft: "2px" }}>P{phase}</span>}
+      {phase !== undefined && (
+        <span style={{ opacity: 0.7, marginLeft: "2px" }}>P{phase}</span>
+      )}
     </div>
   );
 }
@@ -201,7 +203,14 @@ interface ToolCardProps {
   registryTool?: ToolRegistryDefinition | undefined;
 }
 
-function ToolCard({ cli, onInstall, installing, priority, phase, registryTool }: ToolCardProps) {
+function ToolCard({
+  cli,
+  onInstall,
+  installing,
+  priority,
+  phase,
+  registryTool,
+}: ToolCardProps) {
   // Use registry display info if available, otherwise fall back to static map
   const display = registryTool
     ? getToolDisplayInfoFromRegistry(registryTool)
@@ -232,7 +241,9 @@ function ToolCard({ cli, onInstall, installing, priority, phase, registryTool }:
               width: "36px",
               height: "36px",
               borderRadius: "8px",
-              backgroundColor: cli.available ? display.color : "var(--color-surface-3)",
+              backgroundColor: cli.available
+                ? display.color
+                : "var(--color-surface-3)",
               color: "white",
               display: "flex",
               alignItems: "center",
@@ -254,7 +265,10 @@ function ToolCard({ cli, onInstall, installing, priority, phase, registryTool }:
             >
               {display.displayName}
               {cli.available ? (
-                <CheckCircle size={14} style={{ color: "var(--color-green-500)" }} />
+                <CheckCircle
+                  size={14}
+                  style={{ color: "var(--color-green-500)" }}
+                />
               ) : (
                 <XCircle size={14} style={{ color: "var(--color-red-500)" }} />
               )}
@@ -268,7 +282,11 @@ function ToolCard({ cli, onInstall, installing, priority, phase, registryTool }:
               }}
             >
               <span className="muted" style={{ fontSize: "12px" }}>
-                {cli.available ? (cli.version ? `v${cli.version}` : "Installed") : "Not installed"}
+                {cli.available
+                  ? cli.version
+                    ? `v${cli.version}`
+                    : "Installed"
+                  : "Not installed"}
               </span>
               {priority && <PriorityBadge priority={priority} phase={phase} />}
             </div>
@@ -301,7 +319,11 @@ function ToolCard({ cli, onInstall, installing, priority, phase, registryTool }:
               onClick={onInstall}
               disabled={installing}
             >
-              {installing ? <Loader2 size={14} className="spin" /> : <Download size={14} />}
+              {installing ? (
+                <Loader2 size={14} className="spin" />
+              ) : (
+                <Download size={14} />
+              )}
               Install
             </button>
           )}
@@ -339,15 +361,23 @@ interface RecommendationsPanelProps {
   missingRequired: string[];
 }
 
-function RecommendationsPanel({ recommendations, missingRequired }: RecommendationsPanelProps) {
+function RecommendationsPanel({
+  recommendations,
+  missingRequired,
+}: RecommendationsPanelProps) {
   if (recommendations.length === 0 && missingRequired.length === 0) {
     return (
-      <div className="card" style={{ backgroundColor: "var(--color-green-50)" }}>
+      <div
+        className="card"
+        style={{ backgroundColor: "var(--color-green-50)" }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <CheckCircle size={24} style={{ color: "var(--color-green-500)" }} />
           <div>
             <div style={{ fontWeight: 500 }}>All systems ready!</div>
-            <div className="muted">Your setup is complete and ready to use.</div>
+            <div className="muted">
+              Your setup is complete and ready to use.
+            </div>
           </div>
         </div>
       </div>
@@ -373,7 +403,10 @@ function RecommendationsPanel({ recommendations, missingRequired }: Recommendati
               backgroundColor: "var(--color-surface-2)",
             }}
           >
-            <ChevronRight size={16} style={{ marginTop: "2px", flexShrink: 0 }} />
+            <ChevronRight
+              size={16}
+              style={{ marginTop: "2px", flexShrink: 0 }}
+            />
             <div>{rec}</div>
           </div>
         ))}
@@ -394,7 +427,11 @@ interface SetupStepsProps {
   completedSteps: SetupStep[];
 }
 
-function SetupSteps({ currentStep, onStepClick, completedSteps }: SetupStepsProps) {
+function SetupSteps({
+  currentStep,
+  onStepClick,
+  completedSteps,
+}: SetupStepsProps) {
   const steps: { id: SetupStep; label: string; icon: React.ReactNode }[] = [
     { id: "detect", label: "Detect", icon: <Terminal size={18} /> },
     { id: "install", label: "Install", icon: <Download size={18} /> },
@@ -496,7 +533,10 @@ function DetectStepContent({
           toolsAvailable={summary.toolsAvailable}
           toolsTotal={summary.toolsTotal}
         />
-        <RecommendationsPanel recommendations={recommendations} missingRequired={missingRequired} />
+        <RecommendationsPanel
+          recommendations={recommendations}
+          missingRequired={missingRequired}
+        />
       </section>
 
       {/* Agents Section */}
@@ -506,7 +546,9 @@ function DetectStepContent({
             <Zap size={20} />
             AI Coding Agents
           </h3>
-          <StatusPill tone={summary.agentsAvailable > 0 ? "positive" : "warning"}>
+          <StatusPill
+            tone={summary.agentsAvailable > 0 ? "positive" : "warning"}
+          >
             {summary.agentsAvailable} / {summary.agentsTotal} available
           </StatusPill>
         </div>
@@ -535,7 +577,9 @@ function DetectStepContent({
             <Terminal size={20} />
             Developer Tools
           </h3>
-          <StatusPill tone={summary.toolsAvailable >= 2 ? "positive" : "warning"}>
+          <StatusPill
+            tone={summary.toolsAvailable >= 2 ? "positive" : "warning"}
+          >
             {summary.toolsAvailable} / {summary.toolsTotal} installed
           </StatusPill>
         </div>
@@ -667,7 +711,9 @@ function InstallStepContent({
         <div className="card" style={{ marginBottom: "24px" }}>
           <div className="card__header">
             <h3>Already Installed</h3>
-            <StatusPill tone="positive">{installedTools.length} tools</StatusPill>
+            <StatusPill tone="positive">
+              {installedTools.length} tools
+            </StatusPill>
           </div>
           <motion.div
             variants={listContainerVariants}
@@ -760,7 +806,11 @@ function VerifyStepContent({
             onClick={onRefresh}
             disabled={loading}
           >
-            {loading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+            {loading ? (
+              <Loader2 size={14} className="spin" />
+            ) : (
+              <RefreshCw size={14} />
+            )}
             Re-verify
           </button>
         </div>
@@ -800,7 +850,8 @@ function VerifyStepContent({
               Setup Complete!
             </div>
             <div className="muted" style={{ marginTop: "8px" }}>
-              Your Flywheel Gateway environment is fully configured and ready to use.
+              Your Flywheel Gateway environment is fully configured and ready to
+              use.
             </div>
             <div
               style={{
@@ -832,7 +883,8 @@ function VerifyStepContent({
               Some components are missing
             </div>
             <div className="muted" style={{ marginTop: "4px" }}>
-              {totalAvailable} / {total} components available. Go back to install missing tools.
+              {totalAvailable} / {total} components available. Go back to
+              install missing tools.
             </div>
           </motion.div>
         )}
@@ -919,6 +971,42 @@ export function SetupPage() {
   const [currentStep, setCurrentStep] = useState<SetupStep>("detect");
   const [completedSteps, setCompletedSteps] = useState<SetupStep[]>([]);
   const [installingTool, setInstallingTool] = useState<string | null>(null);
+  const [installPlanScript, setInstallPlanScript] = useState<string | null>(
+    null,
+  );
+  const [compatSummary, setCompatSummary] = useState<{
+    compatibleCount: number;
+    totalTools: number;
+    registrySource: string;
+  } | null>(null);
+
+  const handleLoadInstallPlan = useCallback(async () => {
+    try {
+      const [planRes, compatRes] = await Promise.all([
+        fetch("/api/setup/install-plan"),
+        fetch("/api/setup/compatibility"),
+      ]);
+      if (planRes.ok) {
+        const planJson = await planRes.json();
+        setInstallPlanScript(
+          planJson.data?.formattedScript ?? "# All tools installed",
+        );
+      }
+      if (compatRes.ok) {
+        const compatJson = await compatRes.json();
+        const d = compatJson.data;
+        if (d) {
+          setCompatSummary({
+            compatibleCount: d.compatibleCount ?? 0,
+            totalTools: d.totalTools ?? 0,
+            registrySource: d.registrySource ?? "manifest",
+          });
+        }
+      }
+    } catch {
+      // Ignore network errors in mock mode
+    }
+  }, []);
 
   // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState<{
@@ -959,10 +1047,14 @@ export function SetupPage() {
 
   const handleNextStep = useCallback(() => {
     if (currentStep === "detect") {
-      setCompletedSteps((prev) => (prev.includes("detect") ? prev : [...prev, "detect"]));
+      setCompletedSteps((prev) =>
+        prev.includes("detect") ? prev : [...prev, "detect"],
+      );
       setCurrentStep("install");
     } else if (currentStep === "install") {
-      setCompletedSteps((prev) => (prev.includes("install") ? prev : [...prev, "install"]));
+      setCompletedSteps((prev) =>
+        prev.includes("install") ? prev : [...prev, "install"],
+      );
       setCurrentStep("verify");
     }
   }, [currentStep]);
@@ -1026,7 +1118,11 @@ export function SetupPage() {
           initial="hidden"
           animate="visible"
         >
-          <Loader2 size={32} className="spin" style={{ marginBottom: "16px" }} />
+          <Loader2
+            size={32}
+            className="spin"
+            style={{ marginBottom: "16px" }}
+          />
           <div>Detecting installed tools...</div>
         </motion.div>
       </div>
@@ -1065,16 +1161,63 @@ export function SetupPage() {
             Configure your development environment for Flywheel Gateway
           </p>
         </div>
-        <button
-          type="button"
-          className="btn btn--secondary"
-          onClick={handleRefresh}
-          disabled={loading}
-        >
-          {loading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
-          Refresh
-        </button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {compatSummary && (
+            <StatusPill tone="positive">
+              Registry ({compatSummary.registrySource}):{" "}
+              {compatSummary.compatibleCount}/{compatSummary.totalTools}
+            </StatusPill>
+          )}
+          <button
+            type="button"
+            className="btn btn--secondary"
+            onClick={handleLoadInstallPlan}
+          >
+            <Terminal size={16} />
+            Install Plan
+          </button>
+          <button
+            type="button"
+            className="btn btn--secondary"
+            onClick={handleRefresh}
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2 size={16} className="spin" />
+            ) : (
+              <RefreshCw size={16} />
+            )}
+            Refresh
+          </button>
+        </div>
       </motion.div>
+
+      {installPlanScript && (
+        <div className="card" style={{ marginBottom: "16px" }}>
+          <div className="card__header">
+            <h3>Generated Phased Install Script</h3>
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={() => setInstallPlanScript(null)}
+            >
+              Close
+            </button>
+          </div>
+          <pre
+            style={{
+              margin: 0,
+              fontSize: "12px",
+              overflowX: "auto",
+              padding: "12px",
+              background: "var(--color-surface-2)",
+              borderRadius: "6px",
+            }}
+          >
+            {installPlanScript}
+          </pre>
+        </div>
+      )}
 
       {/* Steps */}
       <SetupSteps

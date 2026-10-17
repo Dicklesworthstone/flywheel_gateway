@@ -67,3 +67,77 @@ describe("Tooltip", () => {
     expect(cleared).toContain(scheduledShow!.handle);
   });
 });
+
+describe("Wave 7 UI Upgrades: DashboardPage, SettingsPage, AgentsPage (bd-7ojci.7–bd-7ojci.10)", () => {
+  it("renders DashboardPage with SLO Error Budget, Safety Approvals Queue, and Gateway Mode & Runbooks panels", async () => {
+    const { QueryClient, QueryClientProvider } = await import(
+      "@tanstack/react-query"
+    );
+    const { DashboardPage } = await import("../../../pages/Dashboard");
+    const { useUiStore } = await import("../../../stores/ui");
+    useUiStore.setState({ mockMode: true });
+
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { getByText, unmount } = render(
+      <QueryClientProvider client={qc}>
+        <DashboardPage />
+      </QueryClientProvider>,
+    );
+
+    expect(getByText("SLO Error Budget")).toBeInTheDocument();
+    expect(getByText("Safety Approvals Queue")).toBeInTheDocument();
+    expect(getByText("Gateway Mode & Runbooks")).toBeInTheDocument();
+    unmount();
+  });
+
+  it("renders SettingsPage with Feature Flags & Kill Switches and Maintenance, Routing & Support Bundle panels", async () => {
+    const { QueryClient, QueryClientProvider } = await import(
+      "@tanstack/react-query"
+    );
+    const { SettingsPage } = await import("../../../pages/Settings");
+    const { useUiStore } = await import("../../../stores/ui");
+    useUiStore.setState({ mockMode: true });
+
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { getByText, unmount } = render(
+      <QueryClientProvider client={qc}>
+        <SettingsPage />
+      </QueryClientProvider>,
+    );
+
+    expect(getByText("Feature Flags & Kill Switches")).toBeInTheDocument();
+    expect(
+      getByText("Maintenance, Routing & Support Bundle"),
+    ).toBeInTheDocument();
+    expect(getByText("Export Support Bundle")).toBeInTheDocument();
+    unmount();
+  });
+
+  it("renders AgentsPage with Session Lifecycle & Compaction and Pending Safety Approvals panels", async () => {
+    const { QueryClient, QueryClientProvider } = await import(
+      "@tanstack/react-query"
+    );
+    const { AgentsPage } = await import("../../../pages/Agents");
+    const { useUiStore } = await import("../../../stores/ui");
+    useUiStore.setState({ mockMode: true });
+
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { getByText, unmount } = render(
+      <QueryClientProvider client={qc}>
+        <AgentsPage />
+      </QueryClientProvider>,
+    );
+
+    expect(getByText("Session Lifecycle & Compaction")).toBeInTheDocument();
+    expect(getByText("Compact Checkpoints")).toBeInTheDocument();
+    expect(getByText("Rotate Context Window")).toBeInTheDocument();
+    expect(getByText("Pending Safety Approvals")).toBeInTheDocument();
+    unmount();
+  });
+});

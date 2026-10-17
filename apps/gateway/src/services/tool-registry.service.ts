@@ -53,7 +53,8 @@ const FALLBACK_REGISTRY: ToolRegistry = {
       id: "agents.claude",
       name: "claude",
       displayName: "Claude Code",
-      description: "Anthropic's official CLI for Claude - primary agent interface",
+      description:
+        "Anthropic's official CLI for Claude - primary agent interface",
       category: "agent",
       tags: ["critical", "recommended"],
       optional: false,
@@ -111,7 +112,8 @@ const FALLBACK_REGISTRY: ToolRegistry = {
       id: "tools.slb",
       name: "slb",
       displayName: "SLB",
-      description: "Simultaneous Launch Button - two-person rule for destructive commands",
+      description:
+        "Simultaneous Launch Button - two-person rule for destructive commands",
       category: "tool",
       tags: ["critical", "required"],
       optional: false,
@@ -175,7 +177,8 @@ const FALLBACK_REGISTRY: ToolRegistry = {
         altFlags: ["--format jsonl", "--format sarif"],
         outputFormats: ["json", "jsonl", "sarif"],
         envelopeCompliant: false,
-        notes: "Multiple output formats: JSON, streaming JSONL, and SARIF for security tools",
+        notes:
+          "Multiple output formats: JSON, streaming JSONL, and SARIF for security tools",
       },
       mcp: { available: false },
     },
@@ -278,7 +281,8 @@ const USER_FACING_MESSAGES: Record<ManifestErrorCategory, string> = {
     "ACFS manifest failed schema validation. Using built-in fallback registry. " +
     "Ensure the manifest conforms to the expected schema version.",
   registry_load_failed:
-    "Failed to load tool registry. Using built-in fallback registry. " + "Check logs for details.",
+    "Failed to load tool registry. Using built-in fallback registry. " +
+    "Check logs for details.",
 };
 
 // ============================================================================
@@ -393,25 +397,34 @@ function resolveManifestPath(pathOverride?: string): string {
 }
 
 function getCacheTtlMs(): number {
-  const raw = process.env["ACFS_MANIFEST_TTL_MS"] ?? process.env["TOOL_REGISTRY_TTL_MS"];
+  const raw =
+    process.env["ACFS_MANIFEST_TTL_MS"] ?? process.env["TOOL_REGISTRY_TTL_MS"];
   const ttl = Number(raw);
   if (Number.isFinite(ttl) && ttl >= 0) return ttl;
   return DEFAULT_CACHE_TTL_MS;
 }
 
-function parseManifest(content: string, sourcePath: string, manifestHash: string): ToolRegistry {
+function parseManifest(
+  content: string,
+  sourcePath: string,
+  manifestHash: string,
+): ToolRegistry {
   let raw: unknown;
   try {
     raw = parseYaml(content);
   } catch (error) {
-    throw createGatewayError("SYSTEM_INTERNAL_ERROR", "Failed to parse tool registry manifest", {
-      details: {
-        path: sourcePath,
-        manifestHash,
-        errorCategory: "manifest_parse_error",
-        cause: error instanceof Error ? error.message : String(error),
+    throw createGatewayError(
+      "SYSTEM_INTERNAL_ERROR",
+      "Failed to parse tool registry manifest",
+      {
+        details: {
+          path: sourcePath,
+          manifestHash,
+          errorCategory: "manifest_parse_error",
+          cause: error instanceof Error ? error.message : String(error),
+        },
       },
-    });
+    );
   }
 
   const schemaVersion =
@@ -420,15 +433,19 @@ function parseManifest(content: string, sourcePath: string, manifestHash: string
       : undefined;
   const result = ToolRegistrySchema.safeParse(raw);
   if (!result.success) {
-    throw createGatewayError("SYSTEM_INTERNAL_ERROR", "Tool registry manifest failed validation", {
-      details: {
-        path: sourcePath,
-        manifestHash,
-        ...(schemaVersion && { schemaVersion }),
-        errorCategory: "manifest_validation_error",
-        issues: result.error.issues,
+    throw createGatewayError(
+      "SYSTEM_INTERNAL_ERROR",
+      "Tool registry manifest failed validation",
+      {
+        details: {
+          path: sourcePath,
+          manifestHash,
+          ...(schemaVersion && { schemaVersion }),
+          errorCategory: "manifest_validation_error",
+          issues: result.error.issues,
+        },
       },
-    });
+    );
   }
 
   // Build result with only defined properties to satisfy exactOptionalPropertyTypes
@@ -443,7 +460,8 @@ function parseManifest(content: string, sourcePath: string, manifestHash: string
     if (tool.description) t.description = tool.description;
     if (tool.tags) t.tags = tool.tags;
     if (tool.optional !== undefined) t.optional = tool.optional;
-    if (tool.enabledByDefault !== undefined) t.enabledByDefault = tool.enabledByDefault;
+    if (tool.enabledByDefault !== undefined)
+      t.enabledByDefault = tool.enabledByDefault;
     if (tool.phase !== undefined) t.phase = tool.phase;
     if (tool.docsUrl) t.docsUrl = tool.docsUrl;
     if (tool.install) t.install = tool.install;
@@ -567,13 +585,17 @@ export async function loadToolRegistryWithMetadata(
     );
 
     if (options.throwOnError) {
-      throw createGatewayError("SYSTEM_UNAVAILABLE", "Tool registry manifest not found", {
-        details: {
-          path: manifestPath,
-          errorCategory,
-          userMessage,
+      throw createGatewayError(
+        "SYSTEM_UNAVAILABLE",
+        "Tool registry manifest not found",
+        {
+          details: {
+            path: manifestPath,
+            errorCategory,
+            userMessage,
+          },
         },
-      });
+      );
     }
 
     // Cache and return fallback
@@ -610,21 +632,29 @@ export async function loadToolRegistryWithMetadata(
         schemaVersion: null,
         errorCategory,
         userMessage,
-        error: readError instanceof Error ? readError.message : String(readError),
+        error:
+          readError instanceof Error ? readError.message : String(readError),
         fallbackToolCount: FALLBACK_REGISTRY.tools.length,
       },
       "Failed to read tool registry manifest, using fallback",
     );
 
     if (options.throwOnError) {
-      throw createGatewayError("SYSTEM_UNAVAILABLE", "Failed to read tool registry manifest", {
-        details: {
-          path: manifestPath,
-          errorCategory,
-          userMessage,
-          cause: readError instanceof Error ? readError.message : String(readError),
+      throw createGatewayError(
+        "SYSTEM_UNAVAILABLE",
+        "Failed to read tool registry manifest",
+        {
+          details: {
+            path: manifestPath,
+            errorCategory,
+            userMessage,
+            cause:
+              readError instanceof Error
+                ? readError.message
+                : String(readError),
+          },
         },
-      });
+      );
     }
 
     cached = {
@@ -655,7 +685,8 @@ export async function loadToolRegistryWithMetadata(
         ? (parseError.details["errorCategory"] as ManifestErrorCategory)
         : "manifest_parse_error";
     const schemaVersion =
-      isGatewayError(parseError) && typeof parseError.details?.["schemaVersion"] === "string"
+      isGatewayError(parseError) &&
+      typeof parseError.details?.["schemaVersion"] === "string"
         ? String(parseError.details["schemaVersion"])
         : null;
     const userMessage = USER_FACING_MESSAGES[errorCategory];
@@ -667,7 +698,8 @@ export async function loadToolRegistryWithMetadata(
         schemaVersion,
         errorCategory,
         userMessage,
-        error: parseError instanceof Error ? parseError.message : String(parseError),
+        error:
+          parseError instanceof Error ? parseError.message : String(parseError),
         fallbackToolCount: FALLBACK_REGISTRY.tools.length,
       },
       "Tool registry manifest parse/validation failed, using fallback",
@@ -841,7 +873,9 @@ function isRecommendedTool(tool: ToolDefinition): boolean {
  * Determine if a tool is truly optional (not required or recommended).
  */
 function isOptionalTool(tool: ToolDefinition): boolean {
-  return tool.optional === true && !isRequiredTool(tool) && !isRecommendedTool(tool);
+  return (
+    tool.optional === true && !isRequiredTool(tool) && !isRecommendedTool(tool)
+  );
 }
 
 async function withRegistry<T>(
@@ -888,7 +922,9 @@ export async function listSetupTools(
 export async function getRequiredTools(
   options: ToolRegistryAccessOptions = {},
 ): Promise<ToolDefinition[]> {
-  return withRegistry(options, (registry) => registry.tools.filter((tool) => isRequiredTool(tool)));
+  return withRegistry(options, (registry) =>
+    registry.tools.filter((tool) => isRequiredTool(tool)),
+  );
 }
 
 export async function getRecommendedTools(
@@ -902,7 +938,9 @@ export async function getRecommendedTools(
 export async function getOptionalTools(
   options: ToolRegistryAccessOptions = {},
 ): Promise<ToolDefinition[]> {
-  return withRegistry(options, (registry) => registry.tools.filter((tool) => isOptionalTool(tool)));
+  return withRegistry(options, (registry) =>
+    registry.tools.filter((tool) => isOptionalTool(tool)),
+  );
 }
 
 export interface PhaseGroup {

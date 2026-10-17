@@ -67,7 +67,23 @@ const toolCassApiKeyEnv = fromCharCodes(
   69,
   89,
 );
-const toolCassTokenEnv = fromCharCodes(84, 79, 79, 76, 95, 67, 65, 83, 83, 95, 84, 79, 75, 69, 78);
+const toolCassTokenEnv = fromCharCodes(
+  84,
+  79,
+  79,
+  76,
+  95,
+  67,
+  65,
+  83,
+  83,
+  95,
+  84,
+  79,
+  75,
+  69,
+  78,
+);
 
 function setEnv(key: string, value: string): void {
   if (!(key in savedEnv)) savedEnv[key] = process.env[key];
@@ -144,7 +160,11 @@ describe("loadSecretsFromDir", () => {
     writeFileSync(join(dir, "secrets", secretFilename), `${fileSecretValue}\n`);
     writeFileSync(
       join(dir, "secrets", "secrets.yaml"),
-      "tools:\n  dcg:\n    " + ("api" + "Key") + ': "file:' + secretFilename + '"',
+      "tools:\n  dcg:\n    " +
+        ("api" + "Key") +
+        ': "file:' +
+        secretFilename +
+        '"',
     );
     const result = await loadSecretsFromDir(dir);
     expect(result.entries).toHaveLength(1);
@@ -299,7 +319,10 @@ describe("loadSecrets", () => {
     ];
     const result = await loadSecrets(specs, "/nonexistent/xyz");
     expect(result.allRequiredPresent).toBe(false);
-    expect(result.missingRequired).toEqual([`dcg:${apiKeyKey}`, `cass:${apiKeyKey}`]);
+    expect(result.missingRequired).toEqual([
+      `dcg:${apiKeyKey}`,
+      `cass:${apiKeyKey}`,
+    ]);
   });
 
   it("reports all present when env vars set", async () => {
@@ -318,7 +341,10 @@ describe("loadSecrets", () => {
     clearEnv(toolDcgApiKeyEnv);
     const dir = makeTempDir("sec-load-");
     const fileBasedValue = "file-based-" + ("se" + "cret");
-    writeFileSync(join(dir, "secrets.yaml"), `tools:\n  dcg:\n    ${apiKeyKey}: ${fileBasedValue}`);
+    writeFileSync(
+      join(dir, "secrets.yaml"),
+      `tools:\n  dcg:\n    ${apiKeyKey}: ${fileBasedValue}`,
+    );
     const specs: ToolSecretSpec[] = [
       { tool: "dcg", key: apiKeyKey, required: true, description: "DCG" },
     ];

@@ -9,7 +9,10 @@
  * - Sessions: /mail/sessions (macro)
  */
 
-import { AgentMailClientError, type AgentMailPriority } from "@flywheel/flywheel-clients";
+import {
+  AgentMailClientError,
+  type AgentMailPriority,
+} from "@flywheel/flywheel-clients";
 import type { GatewayError } from "@flywheel/shared/errors";
 import { serializeGatewayError } from "@flywheel/shared/errors";
 import { type Context, Hono } from "hono";
@@ -17,7 +20,11 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
 import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
-import { type AgentMailService, createAgentMailServiceFromEnv } from "../services/agentmail";
+import {
+  type AgentMailService,
+  createAgentMailServiceFromEnv,
+} from "../services/agentmail";
+import { createMailEventsService } from "../services/mail-events";
 import {
   createReservationConflictEngine,
   type ReservationConflictEngine,
@@ -34,6 +41,7 @@ import {
   sendValidationError,
 } from "../utils/response";
 import { transformZodError } from "../utils/validation";
+import { getHub } from "../ws/hub";
 
 // ============================================================================
 // Validation Schemas
@@ -153,7 +161,12 @@ const WhoisSchema = z.object({
 
 function respondWithGatewayError(c: Context, error: GatewayError) {
   const payload = serializeGatewayError(error);
-  return sendError(c, payload.code, payload.message, payload.httpStatus as ContentfulStatusCode);
+  return sendError(
+    c,
+    payload.code,
+    payload.message,
+    payload.httpStatus as ContentfulStatusCode,
+  );
 }
 
 function handleError(error: unknown, c: Context) {
@@ -180,7 +193,10 @@ function handleError(error: unknown, c: Context) {
 /**
  * POST /mail/projects - Ensure a project exists (idempotent)
  */
-function createMailRoutes(service?: AgentMailService, conflictEngine?: ReservationConflictEngine) {
+function createMailRoutes(
+  service?: AgentMailService,
+  conflictEngine?: ReservationConflictEngine,
+) {
   const mail = new Hono<{
     Variables: {
       agentMail: AgentMailService;
@@ -188,7 +204,8 @@ function createMailRoutes(service?: AgentMailService, conflictEngine?: Reservati
     };
   }>();
   let cachedService: AgentMailService | undefined = service;
-  let cachedConflictEngine: ReservationConflictEngine | undefined = conflictEngine;
+  let cachedConflictEngine: ReservationConflictEngine | undefined =
+    conflictEngine;
 
   mail.use("*", requireAdminMiddleware());
 
@@ -242,7 +259,12 @@ function createMailRoutes(service?: AgentMailService, conflictEngine?: Reservati
 
       const result = await service.client.registerAgent(validated);
 
-      return sendCreated(c, "agent", result, `/mail/agents/${result["agentId"] || "unknown"}`);
+      return sendCreated(
+        c,
+        "agent",
+        result,
+        `/mail/agents/${result["agentId"] || "unknown"}`,
+      );
     } catch (error) {
       return handleError(error, c);
     }
@@ -272,6 +294,21 @@ function createMailRoutes(service?: AgentMailService, conflictEngine?: Reservati
 
       const ctx = getLinkContext(c);
       const msgId = message.messageId || "unknown";
+      try {
+        const mailEvents = createMailEventsService(getHub());
+        mailEvents.publishMailReceived(validated.to, {
+          messageId: msgId,
+          projectId: validated.projectId,
+          from: { agentId: "sender" },
+          to: { agentId: validated.to },
+          subject: validated.subject,
+          priority: validated.priority,
+          receivedAt: new Date().toISOString(),
+        });
+      } catch {
+        // Non-fatal if WS hub is not active
+      }
+
       return sendCreated(
         c,
         "message",
@@ -302,7 +339,12 @@ function createMailRoutes(service?: AgentMailService, conflictEngine?: Reservati
         priority: validated.priority as AgentMailPriority | undefined,
       });
 
-      return sendCreated(c, "reply", result, `/mail/messages/${messageId}/reply`);
+      return sendCreated(
+        c,
+        "reply",
+        result,
+        `/mail/messages/${messageId}/reply`,
+      );
     } catch (error) {
       return handleError(error, c);
     }
@@ -317,7 +359,12 @@ function createMailRoutes(service?: AgentMailService, conflictEngine?: Reservati
       const agentId = c.req.query("agentId");
 
       if (!projectId || !agentId) {
-        return sendError(c, "MISSING_PARAMETERS", "projectId and agentId are required", 400);
+        return sendError(
+          c,
+          "MISSING_PARAMETERS",
+          "projectId and agentId are required",
+          400,
+        );
       }
 
       const service = c.get("agentMail");
@@ -325,7 +372,9 @@ function createMailRoutes(service?: AgentMailService, conflictEngine?: Reservati
       const parsedLimit = limitStr ? parseInt(limitStr, 10) : undefined;
       // Ensure we don't pass NaN if limit is not a valid number
       const limit =
-        parsedLimit !== undefined && !Number.isNaN(parsedLimit) ? parsedLimit : undefined;
+        parsedLimit !== undefined && !Number.isNaN(parsedLimit)
+          ? parsedLimit
+          : undefined;
       const since = c.req.query("since");
       const priority = c.req.query("priority") as AgentMailPriority | undefined;
 
@@ -374,6 +423,7 @@ function createMailRoutes(service?: AgentMailService, conflictEngine?: Reservati
       const validated = ReserveFilesSchema.parse(body);
       const service = c.get("agentMail");
       const engine = c.get("conflictEngine");
+      const mailEvents = createMailEventsService(getHub());
 
       // Check for conflicts before creating
       const conflictCheck = engine.checkConflicts(
@@ -384,6 +434,20 @@ function createMailRoutes(service?: AgentMailService, conflictEngine?: Reservati
       );
 
       if (!conflictCheck.canProceed) {
+        for (const conflict of conflictCheck.conflicts) {
+          mailEvents.publishConflictDetected(validated.projectId, {
+            conflictId: conflict.conflictId,
+            projectId: validated.projectId,
+            pattern: conflict.overlappingPattern,
+            existingReservation: {
+              reservationId: conflict.existingReservation.id,
+              requesterId: conflict.existingReservation.requesterId,
+              expiresAt: conflict.existingReservation.expiresAt.toISOString(),
+            },
+            requestingAgent: validated.requesterId,
+            detectedAt: new Date().toISOString(),
+          });
+        }
         return sendConflict(
           c,
           "RESERVATION_CONFLICT",
@@ -396,7 +460,8 @@ function createMailRoutes(service?: AgentMailService, conflictEngine?: Reservati
                 existingReservation: {
                   id: conflict.existingReservation.id,
                   requesterId: conflict.existingReservation.requesterId,
-                  expiresAt: conflict.existingReservation.expiresAt.toISOString(),
+                  expiresAt:
+                    conflict.existingReservation.expiresAt.toISOString(),
                 },
                 resolutions: conflict.resolutions,
               })),
@@ -417,14 +482,25 @@ function createMailRoutes(service?: AgentMailService, conflictEngine?: Reservati
       // Register the new reservation with the conflict engine
       if (result.reservationId) {
         const duration = validated.duration || 300; // Default 5 min
+        const acquiredAt = new Date();
+        const expiresAt = new Date(Date.now() + duration * 1000);
         engine.registerReservation({
           id: result.reservationId,
           projectId: validated.projectId,
           requesterId: validated.requesterId,
           patterns: validated.patterns,
           exclusive: validated.exclusive,
-          createdAt: new Date(),
-          expiresAt: new Date(Date.now() + duration * 1000),
+          createdAt: acquiredAt,
+          expiresAt,
+        });
+        mailEvents.publishReservationAcquired(validated.projectId, {
+          reservationId: result.reservationId,
+          projectId: validated.projectId,
+          requesterId: validated.requesterId,
+          patterns: validated.patterns,
+          exclusive: validated.exclusive,
+          acquiredAt: acquiredAt.toISOString(),
+          expiresAt: expiresAt.toISOString(),
         });
       }
 
@@ -511,7 +587,12 @@ function createMailRoutes(service?: AgentMailService, conflictEngine?: Reservati
       const exclusive = exclusiveParam !== "false";
 
       const engine = c.get("conflictEngine");
-      const result = engine.checkConflicts(projectId, requesterId, patterns, exclusive);
+      const result = engine.checkConflicts(
+        projectId,
+        requesterId,
+        patterns,
+        exclusive,
+      );
 
       return sendResource(c, "conflict_check", {
         hasConflicts: result.hasConflicts,
@@ -578,7 +659,8 @@ function createMailRoutes(service?: AgentMailService, conflictEngine?: Reservati
         name: validated.name,
         agentId: validated.agentId,
       };
-      if (validated.capabilities !== undefined) sessionInput.capabilities = validated.capabilities;
+      if (validated.capabilities !== undefined)
+        sessionInput.capabilities = validated.capabilities;
       if (validated.projectMetadata !== undefined)
         sessionInput.projectMetadata = validated.projectMetadata;
       if (validated.agentMetadata !== undefined)
@@ -613,7 +695,12 @@ function createMailRoutes(service?: AgentMailService, conflictEngine?: Reservati
       const validated = MarkReadSchema.parse(body);
       const messageId = parseInt(c.req.param("messageId"), 10);
       if (Number.isNaN(messageId)) {
-        return sendError(c, "INVALID_PARAMETER", "messageId must be a number", 400);
+        return sendError(
+          c,
+          "INVALID_PARAMETER",
+          "messageId must be a number",
+          400,
+        );
       }
       const service = c.get("agentMail");
 
@@ -637,7 +724,12 @@ function createMailRoutes(service?: AgentMailService, conflictEngine?: Reservati
       const validated = AcknowledgeSchema.parse(body);
       const messageId = parseInt(c.req.param("messageId"), 10);
       if (Number.isNaN(messageId)) {
-        return sendError(c, "INVALID_PARAMETER", "messageId must be a number", 400);
+        return sendError(
+          c,
+          "INVALID_PARAMETER",
+          "messageId must be a number",
+          400,
+        );
       }
       const service = c.get("agentMail");
 

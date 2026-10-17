@@ -18,7 +18,12 @@ import {
   searchSessions,
   viewSessionLine,
 } from "../services/cass.service";
-import { sendError, sendGatewayError, sendResource, sendValidationError } from "../utils/response";
+import {
+  sendError,
+  sendGatewayError,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
 import { transformZodError } from "../utils/validation";
 
 const cass = new Hono();
@@ -55,7 +60,11 @@ function handleError(error: unknown, c: Context) {
         );
         break;
       case "timeout":
-        gatewayError = createGatewayError("AGENT_TIMEOUT", "CASS request timed out", errorOptions);
+        gatewayError = createGatewayError(
+          "AGENT_TIMEOUT",
+          "CASS request timed out",
+          errorOptions,
+        );
         break;
       case "command_failed":
         gatewayError = createGatewayError(
@@ -202,21 +211,33 @@ cass.get("/search", async (c) => {
     if (options.limit !== undefined) searchOptions.limit = options.limit;
     if (options.offset !== undefined) searchOptions.offset = options.offset;
     if (options.agent !== undefined) searchOptions.agent = options.agent;
-    if (options.workspace !== undefined) searchOptions.workspace = options.workspace;
+    if (options.workspace !== undefined)
+      searchOptions.workspace = options.workspace;
     if (options.days !== undefined) searchOptions.days = options.days;
     if (options.since !== undefined) searchOptions.since = options.since;
     if (options.until !== undefined) searchOptions.until = options.until;
     if (options.fields !== undefined) searchOptions.fields = options.fields;
     if (options.mode !== undefined) searchOptions.mode = options.mode;
-    if (options.highlight !== undefined) searchOptions.highlight = options.highlight;
+    if (options.highlight !== undefined)
+      searchOptions.highlight = options.highlight;
 
     const result = await searchSessions(q, searchOptions);
 
+    const results = result.hits.map((hit) => ({
+      ...hit,
+      file: hit.source_path,
+      line: hit.line_number,
+      content: hit.content ?? hit.snippet ?? "",
+    }));
+
     return sendResource(c, "cass_search_result", {
       query: result.query,
+      mode: options.mode ?? "lexical",
       hits: result.hits,
+      results,
       count: result.count,
       totalMatches: result.total_matches,
+      total: result.total_matches ?? result.count,
       limit: result.limit,
       offset: result.offset,
       cursor: result.cursor,
@@ -261,12 +282,31 @@ cass.get("/view/*", async (c) => {
 
     const result = await viewSessionLine(decodeURIComponent(path), viewOptions);
 
+    const beforeLines = result.context_before ?? [];
+    const afterLines = result.context_after ?? [];
+    const startLine = Math.max(1, result.line_number - beforeLines.length);
+    const lines = [
+      ...beforeLines.map((text, idx) => ({
+        line: startLine + idx,
+        content: text,
+      })),
+      { line: result.line_number, content: result.content },
+      ...afterLines.map((text, idx) => ({
+        line: result.line_number + idx + 1,
+        content: text,
+      })),
+    ];
+
     return sendResource(c, "cass_view_result", {
       path: result.path,
+      file: result.path,
       lineNumber: result.line_number,
       content: result.content,
       contextBefore: result.context_before,
       contextAfter: result.context_after,
+      lines,
+      startLine,
+      endLine: result.line_number + afterLines.length,
       role: result.role,
       agent: result.agent,
     });
@@ -308,7 +348,10 @@ cass.get("/expand/*", async (c) => {
       expandOptions.context = parsed.data.context;
     }
 
-    const result = await expandSessionContext(decodeURIComponent(path), expandOptions);
+    const result = await expandSessionContext(
+      decodeURIComponent(path),
+      expandOptions,
+    );
 
     return sendResource(c, "cass_expand_result", {
       path: result.path,

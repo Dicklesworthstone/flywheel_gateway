@@ -22,9 +22,22 @@ import {
 } from "../services/agent";
 import { getAgentDetectionService } from "../services/agent-detection.service";
 import { getAgentHealthScoreService } from "../services/agent-health-score.service";
-import { getAgentState, getAgentStateHistory } from "../services/agent-state-machine";
+import {
+  getAgentState,
+  getAgentStateHistory,
+} from "../services/agent-state-machine";
+import {
+  AppendTimelineEventSchema,
+  appendAgentTimelineEvent,
+  exportAgentTimeline,
+  getAgentTimelineEvent,
+  queryAgentTimeline,
+  TimelineEventTypeSchema,
+  TimelineSeveritySchema,
+} from "../services/agent-timeline.service";
 import { agentLinks, agentListLinks, getLinkContext } from "../utils/links";
 import {
+  sendCreated,
   sendError,
   sendInternalError,
   sendList,
@@ -47,6 +60,9 @@ const MAX_CSV_ITEMS = 50;
 const SpawnRequestSchema = z.object({
   workingDirectory: z.string().min(1),
   agentId: z.string().min(1).optional(),
+  provider: z.enum(["claude", "codex", "gemini"]).optional(),
+  model: z.string().min(1).optional(),
+  driver: z.enum(["sdk", "acp", "tmux", "ntm", "mock"]).optional(),
   systemPrompt: z.string().min(1).optional(),
   timeout: z.number().min(1000).max(86400000).optional(),
   maxTokens: z.number().min(1000).max(1000000).optional(),
@@ -87,7 +103,10 @@ function handleAgentError(error: unknown, c: Context) {
     } catch {
       // Unknown error code, use 500
     }
-    log.warn({ error: error.code, message: error.message }, "Agent operation failed");
+    log.warn(
+      { error: error.code, message: error.message },
+      "Agent operation failed",
+    );
     return sendError(c, error.code, error.message, httpStatus);
   }
 
@@ -118,6 +137,9 @@ agents.post("/", async (c) => {
     const result = await spawnAgent({
       workingDirectory: validated.workingDirectory,
       ...(validated.agentId && { agentId: validated.agentId }),
+      ...(validated.provider && { provider: validated.provider }),
+      ...(validated.model && { model: validated.model }),
+      ...(validated.driver && { driver: validated.driver }),
       ...(validated.systemPrompt && { systemPrompt: validated.systemPrompt }),
       ...(validated.timeout && { timeout: validated.timeout }),
       ...(validated.maxTokens && { maxTokens: validated.maxTokens }),
@@ -281,6 +303,23 @@ agents.get("/:agentId/health-score", async (c) => {
 });
 
 /**
+ * GET /agents/:agentId/health-history - Get historical composite health scores and trend for an agent
+ */
+agents.get("/:agentId/health-history", async (c) => {
+  try {
+    const agentId = c.req.param("agentId");
+    // Ensure agent exists first
+    await getAgent(agentId);
+    const limit = safeParseInt(c.req.query("limit"), 100);
+    const service = getAgentHealthScoreService();
+    const history = service.getAgentHealthHistory(agentId, { limit });
+    return sendResource(c, "agent_health_history", history);
+  } catch (error) {
+    return handleAgentError(error, c);
+  }
+});
+
+/**
  * GET /agents/:agentId/status - Get detailed agent status
  *
  * Returns lifecycle state, health checks, and recent state history.
@@ -306,7 +345,9 @@ agents.get("/:agentId/status", async (c) => {
 
     const now = new Date();
     const stateEnteredAt = stateRecord.stateEnteredAt;
-    const uptime = Math.floor((now.getTime() - stateRecord.createdAt.getTime()) / 1000);
+    const uptime = Math.floor(
+      (now.getTime() - stateRecord.createdAt.getTime()) / 1000,
+    );
 
     // Build health checks based on state
     const healthChecks: Record<string, "healthy" | "degraded" | "unhealthy"> = {
@@ -329,7 +370,8 @@ agents.get("/:agentId/status", async (c) => {
       stateEnteredAt: stateEnteredAt.toISOString(),
       uptime,
       createdAt: stateRecord.createdAt.toISOString(),
-      lastActivity: agentDetails?.lastActivityAt ?? stateEnteredAt.toISOString(),
+      lastActivity:
+        agentDetails?.lastActivityAt ?? stateEnteredAt.toISOString(),
       healthChecks,
       metrics: agentDetails
         ? {
@@ -377,7 +419,11 @@ agents.post("/:agentId/send", async (c) => {
     const agentId = c.req.param("agentId");
     const body = await c.req.json();
     const validated = SendRequestSchema.parse(body);
-    const result = await sendMessage(agentId, validated.type, validated.content);
+    const result = await sendMessage(
+      agentId,
+      validated.type,
+      validated.content,
+    );
 
     return sendResource(c, "message_sent", result, 202);
   } catch (error) {
@@ -439,6 +485,110 @@ agents.get("/:agentId/output", async (c) => {
   } catch (error) {
     return handleAgentError(error, c);
   }
+});
+
+/**
+ * GET /agents/:agentId/timeline - Query normalized agent session timeline (bd-67lwz)
+ */
+agents.get("/:agentId/timeline", (c) => {
+  const agentId = c.req.param("agentId");
+  const cursorParam = c.req.query("cursor");
+  const directionParam = c.req.query("direction");
+  const limitParam = c.req.query("limit");
+  const fromParam = c.req.query("from");
+  const toParam = c.req.query("to");
+  const typesParam = c.req.query("types");
+  const severitiesParam = c.req.query("severities");
+  const correlationId = c.req.query("correlationId");
+  const search = c.req.query("search");
+
+  const types = typesParam
+    ? typesParam
+        .split(",")
+        .map((t) => TimelineEventTypeSchema.safeParse(t.trim()))
+        .filter((r) => r.success)
+        .map((r) => r.data)
+    : undefined;
+
+  const severities = severitiesParam
+    ? severitiesParam
+        .split(",")
+        .map((s) => TimelineSeveritySchema.safeParse(s.trim()))
+        .filter((r) => r.success)
+        .map((r) => r.data)
+    : undefined;
+
+  const parsedCursor = cursorParam
+    ? Number.parseInt(cursorParam, 10)
+    : undefined;
+  const result = queryAgentTimeline(agentId, {
+    ...(parsedCursor !== undefined &&
+      Number.isFinite(parsedCursor) && { cursor: parsedCursor }),
+    direction: directionParam === "backward" ? "backward" : "forward",
+    limit: safeParseInt(limitParam, 50),
+    ...(fromParam && { from: fromParam }),
+    ...(toParam && { to: toParam }),
+    ...(types?.length && { types }),
+    ...(severities?.length && { severities }),
+    ...(correlationId && { correlationId }),
+    ...(search && { search }),
+  });
+
+  return sendList(c, result.events, {
+    total: result.totalMatching,
+    hasMore: result.hasMore,
+    ...(result.nextCursor && { nextCursor: result.nextCursor }),
+    ...(result.prevCursor && { prevCursor: result.prevCursor }),
+  });
+});
+
+/**
+ * POST /agents/:agentId/timeline - Append normalized timeline event (bd-67lwz)
+ */
+agents.post("/:agentId/timeline", async (c) => {
+  const agentId = c.req.param("agentId");
+  const body = await c.req.json().catch(() => null);
+  const parsed = AppendTimelineEventSchema.safeParse(body);
+  if (!parsed.success) {
+    return sendValidationError(c, transformZodError(parsed.error));
+  }
+
+  const event = appendAgentTimelineEvent(agentId, parsed.data);
+  return sendCreated(
+    c,
+    "agent_timeline_event",
+    event,
+    `/agents/${agentId}/events/${event.id}`,
+  );
+});
+
+/**
+ * GET /agents/:agentId/timeline/export - Export session timeline in JSON or CSV (bd-67lwz)
+ */
+agents.get("/:agentId/timeline/export", (c) => {
+  const agentId = c.req.param("agentId");
+  const format = c.req.query("format") === "csv" ? "csv" : "json";
+  const exported = exportAgentTimeline(agentId, format);
+
+  c.header("Content-Type", exported.contentType);
+  c.header(
+    "Content-Disposition",
+    `attachment; filename="${exported.filename}"`,
+  );
+  return c.body(exported.body, 200);
+});
+
+/**
+ * GET /agents/:agentId/events/:eventId - Get single timeline event with full payload (bd-67lwz)
+ */
+agents.get("/:agentId/events/:eventId", (c) => {
+  const agentId = c.req.param("agentId");
+  const eventId = c.req.param("eventId");
+  const event = getAgentTimelineEvent(agentId, eventId);
+  if (!event) {
+    return sendNotFound(c, "agent_timeline_event", eventId);
+  }
+  return sendResource(c, "agent_timeline_event", event);
 });
 
 export { agents };

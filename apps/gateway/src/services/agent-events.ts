@@ -105,10 +105,15 @@ export class AgentEventsService {
       payload.error = event.error;
     }
 
-    this.hub.publish({ type: "agent:state", agentId: event.agentId }, "state.change", payload, {
-      correlationId: event.correlationId,
-      agentId: event.agentId,
-    });
+    this.hub.publish(
+      { type: "agent:state", agentId: event.agentId },
+      "state.change",
+      payload,
+      {
+        correlationId: event.correlationId,
+        agentId: event.agentId,
+      },
+    );
   }
 
   /**
@@ -116,11 +121,20 @@ export class AgentEventsService {
    *
    * Sends to: agent:output:{agentId}
    */
-  publishOutput(agentId: string, payload: AgentOutputPayload, metadata?: MessageMetadata): void {
-    this.hub.publish({ type: "agent:output", agentId }, "output.chunk", payload, {
-      ...metadata,
-      agentId,
-    });
+  publishOutput(
+    agentId: string,
+    payload: AgentOutputPayload,
+    metadata?: MessageMetadata,
+  ): void {
+    this.hub.publish(
+      { type: "agent:output", agentId },
+      "output.chunk",
+      payload,
+      {
+        ...metadata,
+        agentId,
+      },
+    );
   }
 
   /**
@@ -128,9 +142,14 @@ export class AgentEventsService {
    *
    * Sends to: agent:tools:{agentId}
    */
-  publishToolEvent(agentId: string, payload: AgentToolPayload, metadata?: MessageMetadata): void {
+  publishToolEvent(
+    agentId: string,
+    payload: AgentToolPayload,
+    metadata?: MessageMetadata,
+  ): void {
     // Map payload.type to appropriate message type
-    const messageType = payload.type === "tool_call" ? "tool.start" : "tool.end";
+    const messageType =
+      payload.type === "tool_call" ? "tool.start" : "tool.end";
     this.hub.publish({ type: "agent:tools", agentId }, messageType, payload, {
       ...metadata,
       agentId,
@@ -141,7 +160,11 @@ export class AgentEventsService {
    * Publish a text output event.
    * Convenience method for streaming text output.
    */
-  publishTextOutput(agentId: string, content: string, correlationId?: string): void {
+  publishTextOutput(
+    agentId: string,
+    content: string,
+    correlationId?: string,
+  ): void {
     // Build payload conditionally (for exactOptionalPropertyTypes)
     const payload: AgentOutputPayload = {
       agentId,
@@ -213,7 +236,9 @@ let serviceInstance: AgentEventsService | undefined;
 export function getAgentEventsService(hub?: WebSocketHub): AgentEventsService {
   if (!serviceInstance) {
     if (!hub) {
-      throw new Error("AgentEventsService requires a WebSocketHub on first initialization");
+      throw new Error(
+        "AgentEventsService requires a WebSocketHub on first initialization",
+      );
     }
     serviceInstance = new AgentEventsService(hub);
   }

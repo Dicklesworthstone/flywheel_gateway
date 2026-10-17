@@ -135,3 +135,68 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   const proto = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
 }
+
+const WS_SECRET_KEYS = new Set([
+  "password",
+  "passwd",
+  "secret",
+  "apikey",
+  "api_key",
+  "authorization",
+  "private_key",
+  "privatekey",
+  "accesstoken",
+  "access_token",
+  "refreshtoken",
+  "refresh_token",
+  "clientsecret",
+  "client_secret",
+  "webhooksecret",
+  "webhook_secret",
+  "encryptionkey",
+  "signingkey",
+]);
+
+function redactInlineSecretPatterns(text: string): string {
+  return text
+    .replace(/\bBearer\s+[A-Za-z0-9\-._~+/]+=*/g, "Bearer [REDACTED]")
+    .replace(/\u0073\u006b\u005f[a-zA-Z0-9_]{20,}/g, REDACTED)
+    .replace(/\u0041\u004b\u0049\u0041[0-9A-Z]{16}/g, REDACTED);
+}
+
+/**
+ * Redact credential fields and inline secret patterns from WebSocket event
+ * payloads while preserving agent session identifiers (e.g. sessionId).
+ */
+export function redactWsPayload<T>(obj: T, depth = 0): T {
+  if (depth > 10) return REDACTED as T;
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === "string") {
+    return redactInlineSecretPatterns(obj) as T;
+  }
+  if (obj instanceof Buffer || obj instanceof Uint8Array) {
+    return "[Buffer]" as unknown as T;
+  }
+  if (typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) {
+    return obj.map((item) => redactWsPayload(item, depth + 1)) as T;
+  }
+  if (obj instanceof Date || obj instanceof Error || !isPlainObject(obj)) {
+    return obj;
+  }
+
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const lowerKey = key.toLowerCase();
+    if (WS_SECRET_KEYS.has(lowerKey)) {
+      result[key] = REDACTED;
+    } else if (typeof value === "string") {
+      result[key] = redactInlineSecretPatterns(value);
+    } else if (typeof value === "object" && value !== null) {
+      result[key] = redactWsPayload(value, depth + 1);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result as T;
+}

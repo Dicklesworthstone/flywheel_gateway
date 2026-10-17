@@ -182,7 +182,10 @@ export class GraphBridgeService {
                   const event = JSON.parse(data) as ControlPlaneEvent;
                   this.handleEvent(event);
                 } catch (e) {
-                  logger.warn({ data, error: e }, "[GRAPH-BRIDGE] Failed to parse SSE event");
+                  logger.warn(
+                    { data, error: e },
+                    "[GRAPH-BRIDGE] Failed to parse SSE event",
+                  );
                 }
               }
             }
@@ -193,7 +196,10 @@ export class GraphBridgeService {
       } catch (error) {
         if (!this.isRunning) return;
 
-        logger.error({ error }, "[GRAPH-BRIDGE] SSE connection error, falling back to polling");
+        logger.error(
+          { error },
+          "[GRAPH-BRIDGE] SSE connection error, falling back to polling",
+        );
 
         // Fall back to polling
         this.startPolling();
@@ -208,7 +214,10 @@ export class GraphBridgeService {
   private startPolling(): void {
     if (this.pollInterval) return;
 
-    logger.info({ interval: this.config.pollIntervalMs }, "[GRAPH-BRIDGE] Starting polling mode");
+    logger.info(
+      { interval: this.config.pollIntervalMs },
+      "[GRAPH-BRIDGE] Starting polling mode",
+    );
 
     this.pollInterval = setInterval(async () => {
       if (!this.isRunning) return;
@@ -265,7 +274,10 @@ export class GraphBridgeService {
 
     const workspaceId = this.config.defaultWorkspaceId;
 
-    logger.debug({ type: event.type, version: event.version }, "[GRAPH-BRIDGE] Received event");
+    logger.debug(
+      { type: event.type, version: event.version },
+      "[GRAPH-BRIDGE] Received event",
+    );
 
     // Update our version tracker
     if (event.version > this.lastVersion) {
@@ -288,7 +300,11 @@ export class GraphBridgeService {
 
       case "node_removed":
         if (event.node) {
-          this.graphEvents.publishNodeRemoved(workspaceId, event.node.id, event.node.type);
+          this.graphEvents.publishNodeRemoved(
+            workspaceId,
+            event.node.id,
+            event.node.type,
+          );
         }
         break;
 
@@ -310,7 +326,12 @@ export class GraphBridgeService {
             id: string;
             source: string;
             target: string;
-            type: "reservation" | "handoff" | "message" | "dependency" | "conflict";
+            type:
+              | "reservation"
+              | "handoff"
+              | "message"
+              | "dependency"
+              | "conflict";
             animated?: boolean;
             label?: string;
             metadata?: Record<string, unknown>;
@@ -320,16 +341,22 @@ export class GraphBridgeService {
             target: event.edge.target,
             type: event.edge.type,
           };
-          if (event.edge.animated !== undefined) edgeAddedPayload.animated = event.edge.animated;
+          if (event.edge.animated !== undefined)
+            edgeAddedPayload.animated = event.edge.animated;
           if (event.edge.label) edgeAddedPayload.label = event.edge.label;
-          if (event.edge.metadata) edgeAddedPayload.metadata = event.edge.metadata;
+          if (event.edge.metadata)
+            edgeAddedPayload.metadata = event.edge.metadata;
           this.graphEvents.publishEdgeAdded(workspaceId, edgeAddedPayload);
         }
         break;
 
       case "edge_removed":
         if (event.edge) {
-          this.graphEvents.publishEdgeRemoved(workspaceId, event.edge.id, event.edge.type);
+          this.graphEvents.publishEdgeRemoved(
+            workspaceId,
+            event.edge.id,
+            event.edge.type,
+          );
         }
         break;
 
@@ -339,7 +366,12 @@ export class GraphBridgeService {
             id: string;
             source: string;
             target: string;
-            type: "reservation" | "handoff" | "message" | "dependency" | "conflict";
+            type:
+              | "reservation"
+              | "handoff"
+              | "message"
+              | "dependency"
+              | "conflict";
             animated?: boolean;
             label?: string;
             metadata?: Record<string, unknown>;
@@ -349,9 +381,11 @@ export class GraphBridgeService {
             target: event.edge.target,
             type: event.edge.type,
           };
-          if (event.edge.animated !== undefined) edgeUpdatedPayload.animated = event.edge.animated;
+          if (event.edge.animated !== undefined)
+            edgeUpdatedPayload.animated = event.edge.animated;
           if (event.edge.label) edgeUpdatedPayload.label = event.edge.label;
-          if (event.edge.metadata) edgeUpdatedPayload.metadata = event.edge.metadata;
+          if (event.edge.metadata)
+            edgeUpdatedPayload.metadata = event.edge.metadata;
           this.graphEvents.publishEdgeUpdated(workspaceId, edgeUpdatedPayload);
         }
         break;
@@ -362,10 +396,17 @@ export class GraphBridgeService {
           event.stats
             ? {
                 totalNodes: event.stats.totalNodes,
-                nodesByType: event.stats.nodesByType as Record<"agent" | "file" | "bead", number>,
+                nodesByType: event.stats.nodesByType as Record<
+                  "agent" | "file" | "bead",
+                  number
+                >,
                 totalEdges: event.stats.totalEdges,
                 edgesByType: event.stats.edgesByType as Record<
-                  "reservation" | "handoff" | "message" | "dependency" | "conflict",
+                  | "reservation"
+                  | "handoff"
+                  | "message"
+                  | "dependency"
+                  | "conflict",
                   number
                 >,
                 activeAgents: event.stats.activeAgents,
@@ -389,7 +430,9 @@ let serviceInstance: GraphBridgeService | undefined;
 /**
  * Get or create the graph bridge service singleton.
  */
-export function getGraphBridgeService(config?: GraphBridgeConfig): GraphBridgeService {
+export function getGraphBridgeService(
+  config?: GraphBridgeConfig,
+): GraphBridgeService {
   if (!serviceInstance) {
     if (!config) {
       throw new Error("GraphBridgeService requires config on first init");

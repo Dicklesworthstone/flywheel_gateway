@@ -10,8 +10,22 @@
 
 import type { ToolDefinition } from "@flywheel/shared/types";
 import { Hono } from "hono";
+import { z } from "zod";
 import { getLogger } from "../middleware/correlation";
+import {
+  type ApprovalStatus,
+  cancelApproval,
+  createApprovalRequest,
+  decideApproval,
+  getApproval,
+  getApprovalStats,
+  listApprovals,
+} from "../services/approval.service";
 import * as dcgService from "../services/dcg.service";
+import type {
+  SafetyCategory,
+  SafetyRule,
+} from "../services/safety-rules.engine";
 import * as slbService from "../services/slb.service";
 import {
   getRequiredTools,
@@ -19,8 +33,19 @@ import {
   loadToolRegistry,
 } from "../services/tool-registry.service";
 import { getUBSService } from "../services/ubs.service";
-import { getChecksumAge, listToolsWithChecksums } from "../services/update-checker.service";
-import { sendResource, sendValidationError } from "../utils/response";
+import {
+  getChecksumAge,
+  listToolsWithChecksums,
+} from "../services/update-checker.service";
+import {
+  sendCreated,
+  sendError,
+  sendList,
+  sendNotFound,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
+import { transformZodError } from "../utils/validation";
 
 const safety = new Hono();
 
@@ -164,7 +189,9 @@ function getToolInstallRecommendation(
   // Use install command from manifest if available (legacy)
   if (toolDef?.install?.[0]) {
     const installSpec = toolDef.install[0];
-    const args = Array.isArray(installSpec.args) ? installSpec.args.join(" ") : "";
+    const args = Array.isArray(installSpec.args)
+      ? installSpec.args.join(" ")
+      : "";
     const cmd = `${installSpec.command} ${args}`.trim();
     return `Install ${displayName}: ${cmd}`;
   }
@@ -262,7 +289,8 @@ async function getChecksumStatuses(): Promise<{
     const registryAgeMs = registryGeneratedAt
       ? now - new Date(registryGeneratedAt).getTime()
       : null;
-    const isStale = registryAgeMs !== null && registryAgeMs > STALE_CHECKSUM_THRESHOLD_MS;
+    const isStale =
+      registryAgeMs !== null && registryAgeMs > STALE_CHECKSUM_THRESHOLD_MS;
 
     const tools: ChecksumStatus[] = [];
 
@@ -270,7 +298,9 @@ async function getChecksumStatuses(): Promise<{
       const checksumInfo = await getChecksumAge(toolId);
       if (checksumInfo) {
         const toolGenAt = checksumInfo.registryGeneratedAt ?? null;
-        const toolAgeMs = toolGenAt ? now - new Date(toolGenAt).getTime() : null;
+        const toolAgeMs = toolGenAt
+          ? now - new Date(toolGenAt).getTime()
+          : null;
         tools.push({
           toolId,
           hasChecksums: checksumInfo.hasChecksums,
@@ -388,7 +418,9 @@ safety.get("/posture", async (c) => {
   // Check checksums
   if (!checksumsAvailable) {
     issues.push("No ACFS checksums available for tool verification");
-    recommendations.push("Ensure acfs.manifest.yaml is present and contains checksums");
+    recommendations.push(
+      "Ensure acfs.manifest.yaml is present and contains checksums",
+    );
   }
   if (checksumsStale) {
     issues.push(
@@ -505,7 +537,11 @@ safety.get("/tools", async (c) => {
   }
 
   // Return all tool statuses
-  const [dcg, slb, ubs] = await Promise.all([checkDcgStatus(), checkSlbStatus(), checkUbsStatus()]);
+  const [dcg, slb, ubs] = await Promise.all([
+    checkDcgStatus(),
+    checkSlbStatus(),
+    checkUbsStatus(),
+  ]);
 
   log.debug("All tool statuses checked");
   return sendResource(c, "tool_statuses", {
@@ -541,6 +577,218 @@ safety.get("/checksums", async (c) => {
     ...checksumStatuses,
     staleThresholdMs: STALE_CHECKSUM_THRESHOLD_MS,
   });
+});
+
+// ============================================================================
+// Human-in-the-Loop Approval Workflow Routes (approval.service.ts)
+// ============================================================================
+
+const CreateApprovalRequestSchema = z.object({
+  agentId: z.string().min(1),
+  sessionId: z.string().min(1),
+  workspaceId: z.string().min(1),
+  operation: z.object({
+    type: z.enum([
+      "filesystem",
+      "git",
+      "network",
+      "execution",
+      "resources",
+      "content",
+    ]),
+    command: z.string().optional(),
+    path: z.string().optional(),
+    description: z.string().min(1),
+    details: z.record(z.string(), z.unknown()).optional(),
+  }),
+  rule: z
+    .object({
+      id: z.string().default("rule_default_approval"),
+      name: z.string().default("Manual Approval Required"),
+      description: z.string().default("Requires operator approval"),
+      category: z
+        .enum([
+          "filesystem",
+          "git",
+          "network",
+          "execution",
+          "resources",
+          "content",
+        ])
+        .default("execution"),
+      conditions: z
+        .array(
+          z.object({
+            field: z.string(),
+            patternType: z.enum(["glob", "regex", "exact", "prefix", "suffix"]),
+            pattern: z.string(),
+            negate: z.boolean().optional(),
+          }),
+        )
+        .default([]),
+      conditionLogic: z.enum(["and", "or"]).default("and"),
+      action: z.enum(["allow", "deny", "warn", "approve"]).default("approve"),
+      severity: z.enum(["low", "medium", "high", "critical"]).default("high"),
+      message: z.string().default("Operator approval required"),
+      enabled: z.boolean().default(true),
+    })
+    .optional(),
+  timeoutMinutes: z.number().min(1).max(1440).optional(),
+  priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
+});
+
+const DecideApprovalSchema = z.object({
+  decision: z.enum(["approved", "denied"]),
+  decidedBy: z.string().min(1),
+  reason: z.string().optional(),
+});
+
+const CancelApprovalSchema = z.object({
+  cancelledBy: z.string().min(1).default("operator"),
+  reason: z.string().optional(),
+});
+
+safety.get("/approvals", async (c) => {
+  const status = c.req.query("status") as ApprovalStatus | undefined;
+  const workspaceId = c.req.query("workspaceId");
+  const agentId = c.req.query("agentId");
+  const items = await listApprovals({
+    ...(status !== undefined && { status }),
+    ...(workspaceId !== undefined && { workspaceId }),
+    ...(agentId !== undefined && { agentId }),
+  });
+  return sendList(c, items, { total: items.length });
+});
+
+safety.get("/approvals/stats", async (c) => {
+  const workspaceId = c.req.query("workspaceId");
+  const stats = await getApprovalStats(workspaceId);
+  return sendResource(c, "approval_stats", stats);
+});
+
+safety.post("/approvals", async (c) => {
+  try {
+    const body = await c.req.json();
+    const parsed = CreateApprovalRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return sendValidationError(c, transformZodError(parsed.error));
+    }
+    const data = parsed.data;
+    const rule: SafetyRule = {
+      id: data.rule?.id ?? "rule_default_approval",
+      name: data.rule?.name ?? "Manual Approval Required",
+      description: data.rule?.description ?? "Requires operator approval",
+      category: (data.rule?.category ?? data.operation.type) as SafetyCategory,
+      conditions: (data.rule?.conditions ?? []).map((cond) => ({
+        field: cond.field,
+        patternType: cond.patternType,
+        pattern: cond.pattern,
+        ...(cond.negate !== undefined && { negate: cond.negate }),
+      })),
+      conditionLogic: data.rule?.conditionLogic ?? "and",
+      action: data.rule?.action ?? "approve",
+      severity: data.rule?.severity ?? "high",
+      message: data.rule?.message ?? "Operator approval required",
+      enabled: data.rule?.enabled ?? true,
+    };
+
+    const created = await createApprovalRequest({
+      agentId: data.agentId,
+      sessionId: data.sessionId,
+      workspaceId: data.workspaceId,
+      operation: {
+        type: data.operation.type,
+        description: data.operation.description,
+        ...(data.operation.command !== undefined && {
+          command: data.operation.command,
+        }),
+        ...(data.operation.path !== undefined && { path: data.operation.path }),
+        ...(data.operation.details !== undefined && {
+          details: data.operation.details,
+        }),
+      },
+      rule,
+      ...(data.timeoutMinutes !== undefined && {
+        timeoutMinutes: data.timeoutMinutes,
+      }),
+      ...(data.priority !== undefined && { priority: data.priority }),
+    });
+    return sendCreated(
+      c,
+      "approval_request",
+      created,
+      `/safety/approvals/${created.id}`,
+    );
+  } catch (error) {
+    return sendError(
+      c,
+      "INVALID_REQUEST",
+      error instanceof Error ? error.message : "Failed to create approval",
+      400,
+    );
+  }
+});
+
+safety.get("/approvals/:id", async (c) => {
+  const id = c.req.param("id");
+  const item = await getApproval(id);
+  if (!item) {
+    return sendNotFound(c, "approval_request", id);
+  }
+  return sendResource(c, "approval_request", item);
+});
+
+safety.post("/approvals/:id/decide", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = DecideApprovalSchema.safeParse(body);
+  if (!parsed.success) {
+    return sendValidationError(c, transformZodError(parsed.error));
+  }
+  const result = await decideApproval({
+    requestId: id,
+    decision: parsed.data.decision,
+    decidedBy: parsed.data.decidedBy,
+    ...(parsed.data.reason !== undefined && { reason: parsed.data.reason }),
+  });
+  if (!result.success) {
+    if (result.error?.includes("not found")) {
+      return sendNotFound(c, "approval_request", id);
+    }
+    return sendError(
+      c,
+      "APPROVAL_CONFLICT",
+      result.error ?? "Cannot decide approval",
+      409,
+    );
+  }
+  return sendResource(c, "approval_decision", result);
+});
+
+safety.post("/approvals/:id/cancel", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = CancelApprovalSchema.safeParse(body);
+  if (!parsed.success) {
+    return sendValidationError(c, transformZodError(parsed.error));
+  }
+  const result = await cancelApproval(
+    id,
+    parsed.data.cancelledBy,
+    parsed.data.reason,
+  );
+  if (!result.success) {
+    if (result.error?.includes("not found")) {
+      return sendNotFound(c, "approval_request", id);
+    }
+    return sendError(
+      c,
+      "APPROVAL_CONFLICT",
+      result.error ?? "Cannot cancel approval",
+      409,
+    );
+  }
+  return sendResource(c, "approval_cancellation", result);
 });
 
 export { safety };

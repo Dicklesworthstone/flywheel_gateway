@@ -9,8 +9,18 @@ import { db } from "../db";
 import { accountPools } from "../db/schema";
 import { getLogger } from "../middleware/correlation";
 import { audit } from "../services/audit";
-import { activateProfile, getPool, getPoolProfiles, setCooldown } from "./account.service";
-import type { AccountProfile, ProviderId, RotationResult, RotationStrategy } from "./types";
+import {
+  activateProfile,
+  getPool,
+  getPoolProfiles,
+  setCooldown,
+} from "./account.service";
+import type {
+  AccountProfile,
+  ProviderId,
+  RotationResult,
+  RotationStrategy,
+} from "./types";
 import { RATE_LIMIT_SIGNATURES } from "./types";
 
 // ============================================================================
@@ -61,7 +71,10 @@ function selectRandom(profiles: AccountProfile[]): AccountProfile | null {
   const randomBytes = new Uint8Array(4);
   crypto.getRandomValues(randomBytes);
   const randomValue =
-    (randomBytes[0]! << 24) | (randomBytes[1]! << 16) | (randomBytes[2]! << 8) | randomBytes[3]!;
+    (randomBytes[0]! << 24) |
+    (randomBytes[1]! << 16) |
+    (randomBytes[2]! << 8) |
+    randomBytes[3]!;
   const index = Math.abs(randomValue) % available.length;
   return available[index]!;
 }
@@ -70,7 +83,10 @@ function selectRandom(profiles: AccountProfile[]): AccountProfile | null {
  * Select next profile using smart strategy.
  * Considers health score, cooldown status, and recent usage.
  */
-function selectSmart(profiles: AccountProfile[], currentProfileId?: string): AccountProfile | null {
+function selectSmart(
+  profiles: AccountProfile[],
+  currentProfileId?: string,
+): AccountProfile | null {
   const available = profiles.filter(isProfileAvailable);
   if (available.length === 0) return null;
 
@@ -94,7 +110,8 @@ function selectSmart(profiles: AccountProfile[], currentProfileId?: string): Acc
 
     // Verification recency (prefer recently verified)
     if (p.lastVerifiedAt) {
-      const daysSinceVerified = (Date.now() - p.lastVerifiedAt.getTime()) / (1000 * 60 * 60 * 24);
+      const daysSinceVerified =
+        (Date.now() - p.lastVerifiedAt.getTime()) / (1000 * 60 * 60 * 24);
       score += Math.max(0, 30 - daysSinceVerified); // Up to 30 points
     }
 
@@ -166,7 +183,11 @@ export async function rotate(
 
   // Select next profile based on strategy
   const currentProfileId = pool.activeProfileId;
-  const nextProfile = selectByStrategy(pool.rotationStrategy, profiles, currentProfileId);
+  const nextProfile = selectByStrategy(
+    pool.rotationStrategy,
+    profiles,
+    currentProfileId,
+  );
 
   if (!nextProfile) {
     const failResult: RotationResult = {
@@ -275,7 +296,10 @@ export async function handleRateLimit(
 /**
  * Check if an error message indicates a rate limit.
  */
-export function isRateLimitError(provider: ProviderId, errorMessage: string): boolean {
+export function isRateLimitError(
+  provider: ProviderId,
+  errorMessage: string,
+): boolean {
   const signatures = RATE_LIMIT_SIGNATURES[provider];
   const lowerMessage = errorMessage.toLowerCase();
   return signatures.some((sig) => lowerMessage.includes(sig.toLowerCase()));
@@ -295,7 +319,11 @@ export async function peekNextProfile(
   const profiles = await getPoolProfiles(pool.id);
   if (profiles.length === 0) return null;
 
-  return selectByStrategy(pool.rotationStrategy, profiles, pool.activeProfileId);
+  return selectByStrategy(
+    pool.rotationStrategy,
+    profiles,
+    pool.activeProfileId,
+  );
 }
 
 // ============================================================================

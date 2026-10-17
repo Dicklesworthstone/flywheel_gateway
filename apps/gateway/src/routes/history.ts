@@ -73,7 +73,14 @@ const PruneSchema = z.object({
 });
 
 const ExtractSchema = z.object({
-  type: z.enum(["code_blocks", "json", "file_paths", "urls", "errors", "custom"]),
+  type: z.enum([
+    "code_blocks",
+    "json",
+    "file_paths",
+    "urls",
+    "errors",
+    "custom",
+  ]),
   output: z.string().max(MAX_EXTRACT_OUTPUT_LENGTH),
   language: z.string().max(50).optional(),
   customPattern: z.string().max(MAX_CUSTOM_PATTERN_LENGTH).optional(),
@@ -130,8 +137,10 @@ history.get("/", async (c) => {
     }
     if (params.starred === "true") options.starred = true;
     else if (params.starred === "false") options.starred = false;
-    if (params.startDate !== undefined) options.startDate = new Date(params.startDate);
-    if (params.endDate !== undefined) options.endDate = new Date(params.endDate);
+    if (params.startDate !== undefined)
+      options.startDate = new Date(params.startDate);
+    if (params.endDate !== undefined)
+      options.endDate = new Date(params.endDate);
     if (params.search !== undefined) options.search = params.search;
     if (params.tags !== undefined) {
       options.tags = params.tags.split(",").slice(0, MAX_CSV_ITEMS);
@@ -292,13 +301,16 @@ history.post("/export", async (c) => {
     const exportOptions: ExportOptions = {
       format: validated.format,
     };
-    if (validated.agentId !== undefined) exportOptions.agentId = validated.agentId;
-    if (validated.startDate) exportOptions.startDate = new Date(validated.startDate);
+    if (validated.agentId !== undefined)
+      exportOptions.agentId = validated.agentId;
+    if (validated.startDate)
+      exportOptions.startDate = new Date(validated.startDate);
     if (validated.endDate) exportOptions.endDate = new Date(validated.endDate);
 
     const content = await exportHistory(exportOptions);
 
-    const contentType = validated.format === "json" ? "application/json" : "text/csv";
+    const contentType =
+      validated.format === "json" ? "application/json" : "text/csv";
     const filename = `history-export-${Date.now()}.${validated.format}`;
 
     return new Response(content, {
@@ -348,7 +360,8 @@ history.post("/extract", async (c) => {
 
     // Build options conditionally (for exactOptionalPropertyTypes)
     const extractOptions: Parameters<typeof extractFromOutput>[2] = {};
-    if (validated.language !== undefined) extractOptions.language = validated.language;
+    if (validated.language !== undefined)
+      extractOptions.language = validated.language;
     if (validated.customPattern !== undefined)
       extractOptions.customPattern = validated.customPattern;
 

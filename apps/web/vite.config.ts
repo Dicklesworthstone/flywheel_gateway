@@ -1,7 +1,13 @@
 import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig, loadEnv, type Plugin, type PluginOption, type UserConfig } from "vite";
+import {
+  defineConfig,
+  loadEnv,
+  type Plugin,
+  type PluginOption,
+  type UserConfig,
+} from "vite";
 
 type CompilerStats = {
   compiled: number;
@@ -35,7 +41,9 @@ const createCompilerLogger = (stats: CompilerStats) => ({
     if (kind === "Timing") stats.timing += 1;
 
     if (kind === "CompileSkip") {
-      const reason = filename?.includes("node_modules") ? "node_modules" : "unknown";
+      const reason = filename?.includes("node_modules")
+        ? "node_modules"
+        : "unknown";
       console.debug("[Compiler] Skipped", {
         filename,
         reason,
@@ -65,7 +73,10 @@ const createCompilerLogger = (stats: CompilerStats) => ({
   },
 });
 
-const compilerStatsPlugin = (stats: CompilerStats, enabled: boolean): Plugin => ({
+const compilerStatsPlugin = (
+  stats: CompilerStats,
+  enabled: boolean,
+): Plugin => ({
   name: "react-compiler-stats",
   apply: "build",
   closeBundle() {
@@ -203,7 +214,11 @@ export default defineConfig(({ mode }): UserConfig => {
           // Consistent chunk naming for caching
           chunkFileNames: (chunkInfo) => {
             const facadeModuleId = chunkInfo.facadeModuleId
-              ? chunkInfo.facadeModuleId.split("/").pop()?.replace(".tsx", "").replace(".ts", "")
+              ? chunkInfo.facadeModuleId
+                  .split("/")
+                  .pop()
+                  ?.replace(".tsx", "")
+                  .replace(".ts", "")
               : "chunk";
             return `assets/${facadeModuleId}-[hash].js`;
           },
@@ -263,7 +278,10 @@ export default defineConfig(({ mode }): UserConfig => {
     // Enable experimental features
     experimental: {
       // Render optimization
-      renderBuiltUrl(_filename, { hostId: _hostId, hostType: _hostType, type: _type }) {
+      renderBuiltUrl(
+        _filename,
+        { hostId: _hostId, hostType: _hostType, type: _type },
+      ) {
         // Use relative paths for assets
         return { relative: true };
       },

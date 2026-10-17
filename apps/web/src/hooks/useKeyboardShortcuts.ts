@@ -124,7 +124,10 @@ function useDefaultShortcuts(): ShortcutHandler[] {
  * @param additionalShortcuts - Additional shortcuts to register
  * @param enabled - Whether shortcuts are enabled
  */
-export function useKeyboardShortcuts(additionalShortcuts: ShortcutHandler[] = [], enabled = true) {
+export function useKeyboardShortcuts(
+  additionalShortcuts: ShortcutHandler[] = [],
+  enabled = true,
+) {
   const defaultShortcuts = useDefaultShortcuts();
   const allShortcuts = useMemo(
     () => [...defaultShortcuts, ...additionalShortcuts],
@@ -135,7 +138,11 @@ export function useKeyboardShortcuts(additionalShortcuts: ShortcutHandler[] = []
     (event: KeyboardEvent) => {
       // Ignore if typing in an input
       const target = event.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
         return;
       }
 
@@ -143,11 +150,16 @@ export function useKeyboardShortcuts(additionalShortcuts: ShortcutHandler[] = []
         const ctrlOrMeta = shortcut.ctrl || shortcut.meta;
         // Match modifiers exactly: if required, must be pressed; if not, must NOT be pressed
         const modifierMatch =
-          (ctrlOrMeta ? event.ctrlKey || event.metaKey : !event.ctrlKey && !event.metaKey) &&
+          (ctrlOrMeta
+            ? event.ctrlKey || event.metaKey
+            : !event.ctrlKey && !event.metaKey) &&
           (shortcut.shift ? event.shiftKey : !event.shiftKey) &&
           (shortcut.alt ? event.altKey : !event.altKey);
 
-        if (modifierMatch && event.key.toLowerCase() === shortcut.key.toLowerCase()) {
+        if (
+          modifierMatch &&
+          event.key.toLowerCase() === shortcut.key.toLowerCase()
+        ) {
           event.preventDefault();
           shortcut.handler();
           return;

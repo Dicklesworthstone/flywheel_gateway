@@ -3,7 +3,10 @@
  */
 
 import { afterAll, describe, expect, mock, test } from "bun:test";
-import { restoreBvService, restoreCassService } from "./test-utils/db-mock-restore";
+import {
+  restoreBvService,
+  restoreCassService,
+} from "./test-utils/db-mock-restore";
 
 // Mock BV service to avoid spawning external commands
 mock.module("../services/bv.service", () => ({

@@ -53,6 +53,17 @@ import {
   startAgentSweep,
 } from "../services/ru-sweep.service";
 import {
+  cancelSync,
+  getActiveSyncSessions,
+  getSyncHistory,
+  getSyncOperation,
+  getSyncStats,
+  type SyncOptions,
+  type SyncStatus,
+  startFleetSync,
+  syncSingleRepo,
+} from "../services/ru-sync.service";
+import {
   sendConflict,
   sendCreated,
   sendError,
@@ -71,7 +82,14 @@ ru.use("*", requireAdminMiddleware());
 // Validation Schemas
 // ============================================================================
 
-const RepoStatusSchema = z.enum(["healthy", "dirty", "behind", "ahead", "diverged", "unknown"]);
+const RepoStatusSchema = z.enum([
+  "healthy",
+  "dirty",
+  "behind",
+  "ahead",
+  "diverged",
+  "unknown",
+]);
 
 const AddRepoSchema = z.object({
   owner: z.string().min(1).max(100),
@@ -132,14 +150,20 @@ const StartSweepSchema = z.object({
 });
 
 const ListSweepsQuerySchema = z.object({
-  status: z.enum(["pending", "running", "paused", "completed", "failed", "cancelled"]).optional(),
+  status: z
+    .enum(["pending", "running", "paused", "completed", "failed", "cancelled"])
+    .optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });
 
 const ListPlansQuerySchema = z.object({
-  approvalStatus: z.enum(["pending", "approved", "rejected", "auto_approved"]).optional(),
-  executionStatus: z.enum(["pending", "running", "completed", "failed", "skipped"]).optional(),
+  approvalStatus: z
+    .enum(["pending", "approved", "rejected", "auto_approved"])
+    .optional(),
+  executionStatus: z
+    .enum(["pending", "running", "completed", "failed", "skipped"])
+    .optional(),
 });
 
 const ListLogsQuerySchema = z.object({
@@ -367,9 +391,11 @@ ru.post("/fleet", async (c) => {
     };
     if (validated.sshUrl !== undefined) params.sshUrl = validated.sshUrl;
     if (validated.group !== undefined) params.group = validated.group;
-    if (validated.description !== undefined) params.description = validated.description;
+    if (validated.description !== undefined)
+      params.description = validated.description;
     if (validated.language !== undefined) params.language = validated.language;
-    if (validated.isPrivate !== undefined) params.isPrivate = validated.isPrivate;
+    if (validated.isPrivate !== undefined)
+      params.isPrivate = validated.isPrivate;
 
     const repo = await addRepoToFleet(params);
 
@@ -407,31 +433,43 @@ ru.patch("/fleet/:id", async (c) => {
     const validated = UpdateRepoSchema.parse(body);
 
     const params: UpdateRepoParams = {};
-    if (validated.localPath !== undefined) params.localPath = validated.localPath;
+    if (validated.localPath !== undefined)
+      params.localPath = validated.localPath;
     if (validated.isCloned !== undefined) params.isCloned = validated.isCloned;
-    if (validated.currentBranch !== undefined) params.currentBranch = validated.currentBranch;
-    if (validated.defaultBranch !== undefined) params.defaultBranch = validated.defaultBranch;
-    if (validated.lastCommit !== undefined) params.lastCommit = validated.lastCommit;
-    if (validated.lastCommitDate !== undefined) params.lastCommitDate = validated.lastCommitDate;
+    if (validated.currentBranch !== undefined)
+      params.currentBranch = validated.currentBranch;
+    if (validated.defaultBranch !== undefined)
+      params.defaultBranch = validated.defaultBranch;
+    if (validated.lastCommit !== undefined)
+      params.lastCommit = validated.lastCommit;
+    if (validated.lastCommitDate !== undefined)
+      params.lastCommitDate = validated.lastCommitDate;
     if (validated.lastCommitAuthor !== undefined)
       params.lastCommitAuthor = validated.lastCommitAuthor;
-    if (validated.status !== undefined) params.status = validated.status as RepoStatus;
+    if (validated.status !== undefined)
+      params.status = validated.status as RepoStatus;
     if (validated.hasUncommittedChanges !== undefined)
       params.hasUncommittedChanges = validated.hasUncommittedChanges;
     if (validated.hasUnpushedCommits !== undefined)
       params.hasUnpushedCommits = validated.hasUnpushedCommits;
     if (validated.aheadBy !== undefined) params.aheadBy = validated.aheadBy;
     if (validated.behindBy !== undefined) params.behindBy = validated.behindBy;
-    if (validated.description !== undefined) params.description = validated.description;
+    if (validated.description !== undefined)
+      params.description = validated.description;
     if (validated.language !== undefined) params.language = validated.language;
     if (validated.stars !== undefined) params.stars = validated.stars;
-    if (validated.isPrivate !== undefined) params.isPrivate = validated.isPrivate;
-    if (validated.isArchived !== undefined) params.isArchived = validated.isArchived;
+    if (validated.isPrivate !== undefined)
+      params.isPrivate = validated.isPrivate;
+    if (validated.isArchived !== undefined)
+      params.isArchived = validated.isArchived;
     if (validated.ruGroup !== undefined) params.ruGroup = validated.ruGroup;
     if (validated.ruConfig !== undefined) params.ruConfig = validated.ruConfig;
-    if (validated.agentsmdPath !== undefined) params.agentsmdPath = validated.agentsmdPath;
-    if (validated.lastScanDate !== undefined) params.lastScanDate = validated.lastScanDate;
-    if (validated.lastSyncAt !== undefined) params.lastSyncAt = validated.lastSyncAt;
+    if (validated.agentsmdPath !== undefined)
+      params.agentsmdPath = validated.agentsmdPath;
+    if (validated.lastScanDate !== undefined)
+      params.lastScanDate = validated.lastScanDate;
+    if (validated.lastSyncAt !== undefined)
+      params.lastSyncAt = validated.lastSyncAt;
 
     const repo = await updateFleetRepo(id, params);
 
@@ -520,17 +558,23 @@ ru.post("/sweeps", async (c) => {
     const validated = StartSweepSchema.parse(body);
 
     // Get triggeredBy from header or body
-    const triggeredBy = c.req.header("X-Triggered-By") ?? body.triggeredBy ?? "api";
+    const triggeredBy =
+      c.req.header("X-Triggered-By") ?? body.triggeredBy ?? "api";
 
     const config: SweepConfig = {
       targetRepos: validated.targetRepos,
     };
-    if (validated.parallelism !== undefined) config.parallelism = validated.parallelism;
+    if (validated.parallelism !== undefined)
+      config.parallelism = validated.parallelism;
     if (validated.dryRun !== undefined) config.dryRun = validated.dryRun;
-    if (validated.autoApprove !== undefined) config.autoApprove = validated.autoApprove;
-    if (validated.phase1Timeout !== undefined) config.phase1Timeout = validated.phase1Timeout;
-    if (validated.phase2Timeout !== undefined) config.phase2Timeout = validated.phase2Timeout;
-    if (validated.phase3Timeout !== undefined) config.phase3Timeout = validated.phase3Timeout;
+    if (validated.autoApprove !== undefined)
+      config.autoApprove = validated.autoApprove;
+    if (validated.phase1Timeout !== undefined)
+      config.phase1Timeout = validated.phase1Timeout;
+    if (validated.phase2Timeout !== undefined)
+      config.phase2Timeout = validated.phase2Timeout;
+    if (validated.phase3Timeout !== undefined)
+      config.phase3Timeout = validated.phase3Timeout;
 
     const session = await startAgentSweep(triggeredBy, config);
 
@@ -569,9 +613,12 @@ ru.get("/sweeps/:id", async (c) => {
       repoCount: session.repoCount,
       parallelism: session.parallelism,
       currentPhase: session.currentPhase,
-      phase1CompletedAt: session.phase1CompletedAt?.toISOString?.() ?? session.phase1CompletedAt,
-      phase2CompletedAt: session.phase2CompletedAt?.toISOString?.() ?? session.phase2CompletedAt,
-      phase3CompletedAt: session.phase3CompletedAt?.toISOString?.() ?? session.phase3CompletedAt,
+      phase1CompletedAt:
+        session.phase1CompletedAt?.toISOString?.() ?? session.phase1CompletedAt,
+      phase2CompletedAt:
+        session.phase2CompletedAt?.toISOString?.() ?? session.phase2CompletedAt,
+      phase3CompletedAt:
+        session.phase3CompletedAt?.toISOString?.() ?? session.phase3CompletedAt,
       status: session.status,
       reposAnalyzed: session.reposAnalyzed,
       reposPlanned: session.reposPlanned,
@@ -583,7 +630,8 @@ ru.get("/sweeps/:id", async (c) => {
       totalDurationMs: session.totalDurationMs,
       slbApprovalRequired: session.slbApprovalRequired,
       slbApprovedBy: session.slbApprovedBy,
-      slbApprovedAt: session.slbApprovedAt?.toISOString?.() ?? session.slbApprovedAt,
+      slbApprovedAt:
+        session.slbApprovedAt?.toISOString?.() ?? session.slbApprovedAt,
       triggeredBy: session.triggeredBy,
       notes: session.notes,
       createdAt: session.createdAt?.toISOString?.() ?? session.createdAt,
@@ -924,6 +972,175 @@ ru.get("/sweeps/:id/dcg-summary", async (c) => {
         ...p,
         createdAt: p.createdAt.toISOString(),
       })),
+    });
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+// ============================================================================
+// FLEET SYNC ROUTES
+// ============================================================================
+
+const StartFleetSyncSchema = z.object({
+  triggeredBy: z.string().min(1).max(100).default("api-user"),
+  parallelism: z.number().int().min(1).max(20).optional(),
+  dryRun: z.boolean().optional(),
+  force: z.boolean().optional(),
+  filter: z
+    .object({
+      repos: z.array(z.string()).optional(),
+      group: z.string().optional(),
+      owner: z.string().optional(),
+    })
+    .optional(),
+});
+
+/**
+ * POST /ru/sync - Start a fleet sync session
+ */
+ru.post("/sync", async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const parsed = StartFleetSyncSchema.parse(body);
+    const options: SyncOptions = {};
+    if (parsed.parallelism !== undefined)
+      options.parallelism = parsed.parallelism;
+    if (parsed.dryRun !== undefined) options.dryRun = parsed.dryRun;
+    if (parsed.force !== undefined) options.force = parsed.force;
+    if (parsed.filter) {
+      const filter: NonNullable<SyncOptions["filter"]> = {};
+      if (parsed.filter.repos !== undefined) filter.repos = parsed.filter.repos;
+      if (parsed.filter.group !== undefined) filter.group = parsed.filter.group;
+      if (parsed.filter.owner !== undefined) filter.owner = parsed.filter.owner;
+      options.filter = filter;
+    }
+
+    const result = await startFleetSync(parsed.triggeredBy, options);
+    return sendCreated(
+      c,
+      "fleet_sync_session",
+      result,
+      `/ru/sync/history?sessionId=${result.sessionId}`,
+    );
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * POST /ru/sync/repo/:repoId - Sync a single fleet repository
+ */
+ru.post("/sync/repo/:repoId", async (c) => {
+  try {
+    const repoId = c.req.param("repoId");
+    const body = await c.req.json().catch(() => ({}));
+    const triggeredBy =
+      typeof body.triggeredBy === "string" ? body.triggeredBy : "api-user";
+    const options: { force?: boolean; dryRun?: boolean } = {};
+    if (typeof body.force === "boolean") options.force = body.force;
+    if (typeof body.dryRun === "boolean") options.dryRun = body.dryRun;
+
+    const result = await syncSingleRepo(repoId, triggeredBy, options);
+    return sendCreated(
+      c,
+      "fleet_sync_session",
+      result,
+      `/ru/sync/history?sessionId=${result.sessionId}`,
+    );
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * POST /ru/sync/:sessionId/cancel - Cancel an active fleet sync session
+ */
+ru.post("/sync/:sessionId/cancel", async (c) => {
+  try {
+    const sessionId = c.req.param("sessionId");
+    await cancelSync(sessionId);
+    return sendResource(c, "fleet_sync_cancel", {
+      sessionId,
+      cancelled: true,
+    });
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * GET /ru/sync/history - List fleet sync operation history
+ */
+ru.get("/sync/history", async (c) => {
+  try {
+    const repoId = c.req.query("repoId");
+    const sessionId = c.req.query("sessionId");
+    const status = c.req.query("status") as SyncStatus | undefined;
+    const limitParam = c.req.query("limit");
+    const offsetParam = c.req.query("offset");
+    const limit = limitParam ? parseInt(limitParam, 10) : 50;
+    const offset = offsetParam ? parseInt(offsetParam, 10) : 0;
+
+    const history = await getSyncHistory({
+      ...(repoId && { repoId }),
+      ...(sessionId && { sessionId }),
+      ...(status && { status }),
+      limit: Number.isNaN(limit) ? 50 : limit,
+      offset: Number.isNaN(offset) ? 0 : offset,
+    });
+
+    return sendList(
+      c,
+      history.operations.map((op) => ({
+        ...op,
+        startedAt: op.startedAt?.toISOString?.() ?? op.startedAt,
+        completedAt: op.completedAt?.toISOString?.() ?? op.completedAt,
+        createdAt: op.createdAt?.toISOString?.() ?? op.createdAt,
+      })),
+      { total: history.total },
+    );
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * GET /ru/sync/stats - Get fleet sync statistics and active sessions
+ */
+ru.get("/sync/stats", async (c) => {
+  try {
+    const sinceParam = c.req.query("since");
+    const since = sinceParam ? new Date(sinceParam) : undefined;
+    const stats = await getSyncStats(
+      since && !Number.isNaN(since.getTime()) ? since : undefined,
+    );
+    const activeSessions = getActiveSyncSessions();
+    return sendResource(c, "fleet_sync_stats", {
+      ...stats,
+      activeSessionCount: activeSessions.length,
+      activeSessions,
+    });
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * GET /ru/sync/operations/:opId - Get a specific fleet sync operation
+ */
+ru.get("/sync/operations/:opId", async (c) => {
+  try {
+    const opId = c.req.param("opId");
+    const op = await getSyncOperation(opId);
+    if (!op) {
+      return sendNotFound(c, "sync_operation", opId);
+    }
+    return sendResource(c, "sync_operation", {
+      ...op,
+      startedAt: op.startedAt?.toISOString?.() ?? op.startedAt,
+      completedAt: op.completedAt?.toISOString?.() ?? op.completedAt,
+      createdAt: op.createdAt?.toISOString?.() ?? op.createdAt,
     });
   } catch (error) {
     return handleError(error, c);

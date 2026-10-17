@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUiStore } from "../stores/ui";
+import { useAllowMockFallback } from "./useMockFallback";
 
 // ============================================================================
 // Types
@@ -17,7 +18,12 @@ export type AgentStatus = "active" | "idle" | "waiting" | "blocked";
 export type ConflictType = "deadlock" | "contention" | "timeout";
 export type ConflictSeverity = "warning" | "critical";
 export type ResourceType = "file" | "directory" | "lock";
-export type EdgeType = "message" | "handoff" | "dependency" | "reservation" | "waiting";
+export type EdgeType =
+  | "message"
+  | "handoff"
+  | "dependency"
+  | "reservation"
+  | "waiting";
 export type ViewMode = "agents" | "files" | "full";
 
 export interface AgentNode {
@@ -265,8 +271,12 @@ function buildMockEdges(): GraphEdge[] {
   // Message edges between agents
   for (const msg of mockRecentMessages) {
     if (msg.toAgentId !== "all") {
-      const fromIdx = mockAgentNodes.findIndex((a) => a.agentId === msg.fromAgentId);
-      const toIdx = mockAgentNodes.findIndex((a) => a.agentId === msg.toAgentId);
+      const fromIdx = mockAgentNodes.findIndex(
+        (a) => a.agentId === msg.fromAgentId,
+      );
+      const toIdx = mockAgentNodes.findIndex(
+        (a) => a.agentId === msg.toAgentId,
+      );
       // Skip edges with invalid agent references
       if (fromIdx < 0 || toIdx < 0) continue;
       edges.push({
@@ -282,7 +292,9 @@ function buildMockEdges(): GraphEdge[] {
 
   // Reservation edges (agent owns resource)
   for (const res of mockReservationNodes) {
-    const holderIdx = mockAgentNodes.findIndex((a) => a.agentId === res.holderId);
+    const holderIdx = mockAgentNodes.findIndex(
+      (a) => a.agentId === res.holderId,
+    );
     if (holderIdx >= 0) {
       edges.push({
         id: `edge-res-${res.id}`,
@@ -311,8 +323,12 @@ function buildMockEdges(): GraphEdge[] {
   // Conflict dependency edges
   for (const conflict of mockConflictNodes) {
     for (let i = 1; i < conflict.involvedAgents.length; i++) {
-      const srcIdx = mockAgentNodes.findIndex((a) => a.agentId === conflict.involvedAgents[0]);
-      const tgtIdx = mockAgentNodes.findIndex((a) => a.agentId === conflict.involvedAgents[i]);
+      const srcIdx = mockAgentNodes.findIndex(
+        (a) => a.agentId === conflict.involvedAgents[0],
+      );
+      const tgtIdx = mockAgentNodes.findIndex(
+        (a) => a.agentId === conflict.involvedAgents[i],
+      );
       if (srcIdx >= 0 && tgtIdx >= 0) {
         edges.push({
           id: `edge-dep-${conflict.id}-${i}`,
@@ -352,7 +368,10 @@ const mockGraphData: CollabGraphData = {
 
 const API_BASE = "/api/collaboration";
 
-async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
+async function fetchAPI<T>(
+  endpoint: string,
+  options?: RequestInit,
+): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
       "Content-Type": "application/json",
@@ -362,7 +381,9 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Request failed" }));
+    const error = await response
+      .json()
+      .catch(() => ({ message: "Request failed" }));
     throw new Error(error.message || `HTTP ${response.status}`);
   }
 
@@ -381,8 +402,13 @@ interface UseQueryResult<T> {
   refetch: () => void;
 }
 
-function useQuery<T>(endpoint: string, mockData: T, deps: unknown[] = []): UseQueryResult<T> {
+function useQuery<T>(
+  endpoint: string,
+  mockData: T,
+  deps: unknown[] = [],
+): UseQueryResult<T> {
   const mockMode = useUiStore((state) => state.mockMode);
+  const allowMockFallback = useAllowMockFallback();
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -409,11 +435,14 @@ function useQuery<T>(endpoint: string, mockData: T, deps: unknown[] = []): UseQu
       setData(result);
     } catch (e) {
       setError(e instanceof Error ? e : new Error("Unknown error"));
-      // Fall back to mock data on error
-      setData(mockDataRef.current);
+      if (allowMockFallback) {
+        setData(mockDataRef.current);
+      } else {
+        setData(null);
+      }
     }
     setIsLoading(false);
-  }, [endpoint, mockMode]);
+  }, [endpoint, mockMode, allowMockFallback]);
 
   useEffect(() => {
     fetch();
@@ -460,8 +489,14 @@ export function useCollabConflicts(): UseQueryResult<ConflictNode[]> {
 /**
  * Hook to fetch recent messages for message flow visualization.
  */
-export function useCollabMessages(limit: number = 20): UseQueryResult<MessageEvent[]> {
-  return useQuery(`/messages?limit=${limit}`, mockRecentMessages.slice(0, limit), [limit]);
+export function useCollabMessages(
+  limit: number = 20,
+): UseQueryResult<MessageEvent[]> {
+  return useQuery(
+    `/messages?limit=${limit}`,
+    mockRecentMessages.slice(0, limit),
+    [limit],
+  );
 }
 
 // ============================================================================
@@ -523,7 +558,9 @@ export function useGraphSubscription(
   const [eventCount, setEventCount] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const batchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const shouldReconnectRef = useRef(true);
   const eventQueueRef = useRef<GraphEvent[]>([]);
   const connectRef = useRef<() => void>(() => {});
@@ -552,7 +589,9 @@ export function useGraphSubscription(
           optionsRef.current.onAgentStatus?.(event.payload as AgentNode);
           break;
         case "reservation.acquired":
-          optionsRef.current.onReservationAcquired?.(event.payload as ReservationNode);
+          optionsRef.current.onReservationAcquired?.(
+            event.payload as ReservationNode,
+          );
           break;
         case "reservation.released":
           optionsRef.current.onReservationReleased?.(event.payload as string);
@@ -561,7 +600,9 @@ export function useGraphSubscription(
           optionsRef.current.onMessageSent?.(event.payload as MessageEvent);
           break;
         case "conflict.detected":
-          optionsRef.current.onConflictDetected?.(event.payload as ConflictNode);
+          optionsRef.current.onConflictDetected?.(
+            event.payload as ConflictNode,
+          );
           break;
         case "conflict.resolved":
           optionsRef.current.onConflictResolved?.(event.payload as string);
@@ -659,7 +700,10 @@ export function useGraphSubscription(
 
         if (message.type === "error") {
           // Subscription errors (e.g. auth) mean real-time updates are not active.
-          if (message.code === "WS_SUBSCRIPTION_DENIED" || message.code === "INVALID_CHANNEL") {
+          if (
+            message.code === "WS_SUBSCRIPTION_DENIED" ||
+            message.code === "INVALID_CHANNEL"
+          ) {
             setConnected(false);
           }
           return;
@@ -732,7 +776,10 @@ export function useGraphSubscription(
           });
         }
 
-        if (message.ackRequired === true && typeof message.message.id === "string") {
+        if (
+          message.ackRequired === true &&
+          typeof message.message.id === "string"
+        ) {
           ws.send(
             JSON.stringify({
               type: "ack",
@@ -755,7 +802,10 @@ export function useGraphSubscription(
 
       // Attempt reconnection after 3 seconds (but only if this wasn't a manual close)
       clearReconnectTimeout();
-      reconnectTimeoutRef.current = setTimeout(() => connectRef.current(), 3000);
+      reconnectTimeoutRef.current = setTimeout(
+        () => connectRef.current(),
+        3000,
+      );
     };
 
     ws.onerror = () => {
@@ -821,22 +871,30 @@ export function useGraphSubscription(
       switch (type) {
         case "agent.status":
           payload = {
-            ...mockAgentNodes[Math.floor(Math.random() * mockAgentNodes.length)]!,
+            ...mockAgentNodes[
+              Math.floor(Math.random() * mockAgentNodes.length)
+            ]!,
             lastActiveAt: new Date().toISOString(),
           };
           break;
         case "message.sent":
           payload = {
             id: `mock-msg-${Date.now()}`,
-            fromAgentId: mockAgentNodes[Math.floor(Math.random() * mockAgentNodes.length)]?.agentId,
-            toAgentId: mockAgentNodes[Math.floor(Math.random() * mockAgentNodes.length)]?.agentId,
+            fromAgentId:
+              mockAgentNodes[Math.floor(Math.random() * mockAgentNodes.length)]
+                ?.agentId,
+            toAgentId:
+              mockAgentNodes[Math.floor(Math.random() * mockAgentNodes.length)]
+                ?.agentId,
             subject: "Mock message",
             timestamp: new Date().toISOString(),
           };
           break;
         case "reservation.acquired":
           payload = {
-            ...mockReservationNodes[Math.floor(Math.random() * mockReservationNodes.length)]!,
+            ...mockReservationNodes[
+              Math.floor(Math.random() * mockReservationNodes.length)
+            ]!,
             acquiredAt: new Date().toISOString(),
           };
           break;
@@ -882,7 +940,10 @@ export function useFilteredGraph(
         return {
           nodes: data.agents,
           edges: data.edges.filter(
-            (e) => e.type === "message" || e.type === "handoff" || e.type === "dependency",
+            (e) =>
+              e.type === "message" ||
+              e.type === "handoff" ||
+              e.type === "dependency",
           ),
         };
 
@@ -890,7 +951,9 @@ export function useFilteredGraph(
         // Show agent nodes, reservation nodes, and ownership edges
         return {
           nodes: [...data.agents, ...data.reservations],
-          edges: data.edges.filter((e) => e.type === "reservation" || e.type === "waiting"),
+          edges: data.edges.filter(
+            (e) => e.type === "reservation" || e.type === "waiting",
+          ),
         };
 
       default:

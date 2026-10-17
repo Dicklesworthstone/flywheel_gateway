@@ -22,92 +22,42 @@
  * ```
  */
 
-import { Database } from "bun:sqlite";
 import { mock } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import * as flywheelClientsExports from "@flywheel/flywheel-clients";
 import * as drizzleOrmExports from "drizzle-orm";
-import { drizzle } from "drizzle-orm/bun-sqlite";
+import {
+  db as canonicalDb,
+  sqlite as canonicalSqlite,
+} from "../../db/connection";
 import * as schema from "../../db/schema";
-import * as agentDetectionServiceExports from "../../services/agent-detection.service";
-import * as bvServiceExports from "../../services/bv.service";
-import * as cassServiceExports from "../../services/cass.service";
-import * as toolRegistryServiceExports from "../../services/tool-registry.service";
 
-// Create a fresh connection to the real database
-// This is created at import time, before any mocks are applied
-// Default to an in-memory DB to avoid touching any on-disk dev database when a
-// test file is run without DB_FILE_NAME configured.
-const dbFile = process.env["DB_FILE_NAME"] ?? ":memory:";
+const AGENT_DETECTION_REAL = "../../services/agent-detection.service?real";
+const BV_SERVICE_REAL = "../../services/bv.service?real";
+const CASS_SERVICE_REAL = "../../services/cass.service?real";
+const CM_SERVICE_REAL = "../../services/cm.service?real";
+const TOOL_REGISTRY_REAL = "../../services/tool-registry.service?real";
 
-function runMigrations(sqliteDb: Database): void {
-  const migrationsFolder = join(import.meta.dir, "../../db/migrations");
-  const migrationFiles = readdirSync(migrationsFolder)
-    .filter((f) => f.endsWith(".sql"))
-    .sort();
-
-  sqliteDb.exec(`
-    CREATE TABLE IF NOT EXISTS "__drizzle_migrations" (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      hash TEXT NOT NULL,
-      created_at INTEGER
-    )
-  `);
-
-  const appliedMigrations = new Set(
-    (
-      sqliteDb.query(`SELECT hash FROM "__drizzle_migrations"`).all() as {
-        hash: string;
-      }[]
-    ).map((row) => row.hash),
-  );
-
-  for (const file of migrationFiles) {
-    if (appliedMigrations.has(file)) continue;
-
-    const raw = readFileSync(join(migrationsFolder, file), "utf-8");
-    const statements = raw
-      .split("--> statement-breakpoint")
-      .map((statement) => statement.trim())
-      .filter(Boolean);
-
-    for (const stmt of statements) {
-      sqliteDb.exec(stmt);
-    }
-
-    sqliteDb
-      .query(`INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES (?, ?)`)
-      .run(file, Date.now());
-  }
-}
+const agentDetectionServiceExports = await import(AGENT_DETECTION_REAL);
+const bvServiceExports = await import(BV_SERVICE_REAL);
+const cassServiceExports = await import(CASS_SERVICE_REAL);
+const cmServiceExports = await import(CM_SERVICE_REAL);
+const toolRegistryServiceExports = await import(TOOL_REGISTRY_REAL);
 
 /**
  * Restore the real db module after tests that mock it.
  * Call this in afterAll() for any test file that uses mock.module("../db", ...).
  */
 export function restoreRealDb(): void {
-  // Create a fresh database connection
-  const realSqlite = new Database(dbFile);
-  realSqlite.exec("PRAGMA journal_mode = WAL");
-  realSqlite.exec("PRAGMA synchronous = NORMAL");
-  realSqlite.exec("PRAGMA foreign_keys = ON");
-
-  runMigrations(realSqlite);
-
-  const realDb = drizzle(realSqlite, { schema });
-
-  // Re-mock with the real implementation to restore for other test files
+  // Re-mock with the canonical connection so all services and tests share the same in-memory DB
   mock.module("../../db", () => ({
-    db: realDb,
-    sqlite: realSqlite,
+    db: canonicalDb,
+    sqlite: canonicalSqlite,
     ...schema,
   }));
 
-  // Also restore the relative path that tests use
   mock.module("../db", () => ({
-    db: realDb,
-    sqlite: realSqlite,
+    db: canonicalDb,
+    sqlite: canonicalSqlite,
     ...schema,
   }));
 }
@@ -154,11 +104,23 @@ export function restoreCorrelation(): void {
  * Call this in afterAll() for any test file that uses mock.module("../services/tool-registry.service", ...).
  */
 export function restoreToolRegistryService(): void {
-  mock.module("../services/tool-registry.service", () => toolRegistryServiceExports);
-  mock.module("../../services/tool-registry.service", () => toolRegistryServiceExports);
+  mock.module(
+    "../services/tool-registry.service",
+    () => toolRegistryServiceExports,
+  );
+  mock.module(
+    "../../services/tool-registry.service",
+    () => toolRegistryServiceExports,
+  );
   mock.module("./tool-registry.service", () => toolRegistryServiceExports);
-  mock.module("../../services/tool-registry.service.ts", () => toolRegistryServiceExports);
-  mock.module("../services/tool-registry.service.ts", () => toolRegistryServiceExports);
+  mock.module(
+    "../../services/tool-registry.service.ts",
+    () => toolRegistryServiceExports,
+  );
+  mock.module(
+    "../services/tool-registry.service.ts",
+    () => toolRegistryServiceExports,
+  );
   mock.module("./tool-registry.service.ts", () => toolRegistryServiceExports);
 }
 
@@ -167,12 +129,27 @@ export function restoreToolRegistryService(): void {
  * Call this in afterAll() for any test file that uses mock.module("../services/agent-detection.service", ...).
  */
 export function restoreAgentDetectionService(): void {
-  mock.module("../services/agent-detection.service", () => agentDetectionServiceExports);
-  mock.module("../../services/agent-detection.service", () => agentDetectionServiceExports);
+  mock.module(
+    "../services/agent-detection.service",
+    () => agentDetectionServiceExports,
+  );
+  mock.module(
+    "../../services/agent-detection.service",
+    () => agentDetectionServiceExports,
+  );
   mock.module("./agent-detection.service", () => agentDetectionServiceExports);
-  mock.module("../../services/agent-detection.service.ts", () => agentDetectionServiceExports);
-  mock.module("../services/agent-detection.service.ts", () => agentDetectionServiceExports);
-  mock.module("./agent-detection.service.ts", () => agentDetectionServiceExports);
+  mock.module(
+    "../../services/agent-detection.service.ts",
+    () => agentDetectionServiceExports,
+  );
+  mock.module(
+    "../services/agent-detection.service.ts",
+    () => agentDetectionServiceExports,
+  );
+  mock.module(
+    "./agent-detection.service.ts",
+    () => agentDetectionServiceExports,
+  );
 }
 
 /**
@@ -199,4 +176,16 @@ export function restoreCassService(): void {
   mock.module("../services/cass.service.ts", () => cassServiceExports);
   mock.module("../../services/cass.service.ts", () => cassServiceExports);
   mock.module("./cass.service.ts", () => cassServiceExports);
+}
+
+/**
+ * Restore the real cm.service module after tests that mock it.
+ */
+export function restoreCmService(): void {
+  mock.module("../services/cm.service", () => cmServiceExports);
+  mock.module("../../services/cm.service", () => cmServiceExports);
+  mock.module("./cm.service", () => cmServiceExports);
+  mock.module("../services/cm.service.ts", () => cmServiceExports);
+  mock.module("../../services/cm.service.ts", () => cmServiceExports);
+  mock.module("./cm.service.ts", () => cmServiceExports);
 }

@@ -68,8 +68,12 @@ const UpdateChannelSchema = z.object({
 const RoutingConditionSchema = z.object({
   alertTypes: z.array(z.string()).optional(),
   categories: z.array(z.string()).optional(),
-  severities: z.array(z.enum(["critical", "error", "warning", "info", "low"])).optional(),
-  minSeverity: z.enum(["critical", "error", "warning", "info", "low"]).optional(),
+  severities: z
+    .array(z.enum(["critical", "error", "warning", "info", "low"]))
+    .optional(),
+  minSeverity: z
+    .enum(["critical", "error", "warning", "info", "low"])
+    .optional(),
   metadataMatch: z
     .array(
       z.object({
@@ -101,7 +105,9 @@ const TestAlertSchema = z.object({
   type: z.string().default("test"),
   title: z.string().min(1).max(200),
   body: z.string().min(1).max(2000),
-  severity: z.enum(["critical", "error", "warning", "info", "low"]).default("info"),
+  severity: z
+    .enum(["critical", "error", "warning", "info", "low"])
+    .default("info"),
   category: z.string().optional(),
   link: z.string().url().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
@@ -147,7 +153,9 @@ function serializeChannel(channel: ReturnType<typeof getChannel>) {
   };
 }
 
-function maskSensitiveConfig(config: Record<string, unknown>): Record<string, unknown> {
+function maskSensitiveConfig(
+  config: Record<string, unknown>,
+): Record<string, unknown> {
   const masked = { ...config };
 
   // Mask webhook URLs and secrets
@@ -172,8 +180,13 @@ function maskSensitiveConfig(config: Record<string, unknown>): Record<string, un
   }
   if (masked["headers"] && typeof masked["headers"] === "object") {
     const maskedHeaders: Record<string, string> = {};
-    for (const [key, value] of Object.entries(masked["headers"] as Record<string, string>)) {
-      if (key.toLowerCase().includes("auth") || key.toLowerCase().includes("token")) {
+    for (const [key, value] of Object.entries(
+      masked["headers"] as Record<string, string>,
+    )) {
+      if (
+        key.toLowerCase().includes("auth") ||
+        key.toLowerCase().includes("token")
+      ) {
         maskedHeaders[key] = "***";
       } else {
         maskedHeaders[key] = value;
@@ -223,9 +236,18 @@ function serializeHealth(health: ReturnType<typeof getChannelHealth>) {
  */
 alertChannels.get("/", (c) => {
   try {
-    const type = c.req.query("type") as "webhook" | "slack" | "discord" | undefined;
+    const type = c.req.query("type") as
+      | "webhook"
+      | "slack"
+      | "discord"
+      | undefined;
     const enabledParam = c.req.query("enabled");
-    const enabled = enabledParam === "true" ? true : enabledParam === "false" ? false : undefined;
+    const enabled =
+      enabledParam === "true"
+        ? true
+        : enabledParam === "false"
+          ? false
+          : undefined;
 
     const filter: { type?: string; enabled?: boolean } = {};
     if (type !== undefined) filter.type = type;
@@ -274,102 +296,6 @@ alertChannels.get("/health", (c) => {
   }
 });
 
-/**
- * GET /alert-channels/:id - Get a channel
- */
-alertChannels.get("/:id", (c) => {
-  try {
-    const id = c.req.param("id");
-    const channel = getChannel(id);
-
-    if (!channel) {
-      return sendNotFound(c, "alert_channel", id);
-    }
-
-    return sendResource(c, "alert_channel", serializeChannel(channel));
-  } catch (error) {
-    return handleError(error, c);
-  }
-});
-
-/**
- * PUT /alert-channels/:id - Update a channel
- */
-alertChannels.put("/:id", async (c) => {
-  try {
-    const id = c.req.param("id");
-    const body = await c.req.json();
-    const validated = UpdateChannelSchema.parse(body);
-
-    const channel = updateChannel(id, validated as UpdateChannelRequest);
-
-    if (!channel) {
-      return sendNotFound(c, "alert_channel", id);
-    }
-
-    return sendResource(c, "alert_channel", serializeChannel(channel));
-  } catch (error) {
-    return handleError(error, c);
-  }
-});
-
-/**
- * DELETE /alert-channels/:id - Delete a channel
- */
-alertChannels.delete("/:id", (c) => {
-  try {
-    const id = c.req.param("id");
-    const deleted = deleteChannel(id);
-
-    if (!deleted) {
-      return sendNotFound(c, "alert_channel", id);
-    }
-
-    return sendNoContent(c);
-  } catch (error) {
-    return handleError(error, c);
-  }
-});
-
-/**
- * POST /alert-channels/:id/test - Test a channel
- */
-alertChannels.post("/:id/test", async (c) => {
-  try {
-    const id = c.req.param("id");
-    const result = await testChannel(id);
-
-    return sendResource(c, "test_result", {
-      channelId: id,
-      success: result.success,
-      error: result.error,
-      errorCode: result.errorCode,
-      responseStatus: result.responseStatus,
-      durationMs: result.durationMs,
-    });
-  } catch (error) {
-    return handleError(error, c);
-  }
-});
-
-/**
- * GET /alert-channels/:id/health - Get health for a channel
- */
-alertChannels.get("/:id/health", (c) => {
-  try {
-    const id = c.req.param("id");
-    const health = getChannelHealth(id);
-
-    if (!health) {
-      return sendNotFound(c, "alert_channel", id);
-    }
-
-    return sendResource(c, "channel_health", serializeHealth(health));
-  } catch (error) {
-    return handleError(error, c);
-  }
-});
-
 // ============================================================================
 // Routing Rules Routes
 // ============================================================================
@@ -380,7 +306,12 @@ alertChannels.get("/:id/health", (c) => {
 alertChannels.get("/rules", (c) => {
   try {
     const enabledParam = c.req.query("enabled");
-    const enabled = enabledParam === "true" ? true : enabledParam === "false" ? false : undefined;
+    const enabled =
+      enabledParam === "true"
+        ? true
+        : enabledParam === "false"
+          ? false
+          : undefined;
 
     const filter: { enabled?: boolean } = {};
     if (enabled !== undefined) filter.enabled = enabled;
@@ -403,7 +334,12 @@ alertChannels.post("/rules", async (c) => {
 
     const rule = createRule(validated as CreateRuleRequest);
 
-    return sendCreated(c, "routing_rule", serializeRule(rule), `/alert-channels/rules/${rule.id}`);
+    return sendCreated(
+      c,
+      "routing_rule",
+      serializeRule(rule),
+      `/alert-channels/rules/${rule.id}`,
+    );
   } catch (error) {
     return handleError(error, c);
   }
@@ -439,7 +375,9 @@ alertChannels.put("/rules/:id", async (c) => {
     // Cast needed due to exactOptionalPropertyTypes - Zod parse returns T | undefined for optional fields
     const rule = updateRule(
       id,
-      stripUndefined(validated) as Partial<Omit<CreateRuleRequest, "channelIds">> & {
+      stripUndefined(validated) as Partial<
+        Omit<CreateRuleRequest, "channelIds">
+      > & {
         channelIds?: string[];
       },
     );
@@ -543,6 +481,106 @@ alertChannels.post("/test-alert", async (c) => {
       matchedChannels: deliveries.length,
       deliveries: deliveries.map(serializeDelivery),
     });
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+// ============================================================================
+// Channel Parameterized Routes
+// ============================================================================
+
+/**
+ * GET /alert-channels/:id - Get a channel
+ */
+alertChannels.get("/:id", (c) => {
+  try {
+    const id = c.req.param("id");
+    const channel = getChannel(id);
+
+    if (!channel) {
+      return sendNotFound(c, "alert_channel", id);
+    }
+
+    return sendResource(c, "alert_channel", serializeChannel(channel));
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * PUT /alert-channels/:id - Update a channel
+ */
+alertChannels.put("/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const body = await c.req.json();
+    const validated = UpdateChannelSchema.parse(body);
+
+    const channel = updateChannel(id, validated as UpdateChannelRequest);
+
+    if (!channel) {
+      return sendNotFound(c, "alert_channel", id);
+    }
+
+    return sendResource(c, "alert_channel", serializeChannel(channel));
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * DELETE /alert-channels/:id - Delete a channel
+ */
+alertChannels.delete("/:id", (c) => {
+  try {
+    const id = c.req.param("id");
+    const deleted = deleteChannel(id);
+
+    if (!deleted) {
+      return sendNotFound(c, "alert_channel", id);
+    }
+
+    return sendNoContent(c);
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * POST /alert-channels/:id/test - Test a channel
+ */
+alertChannels.post("/:id/test", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const result = await testChannel(id);
+
+    return sendResource(c, "test_result", {
+      channelId: id,
+      success: result.success,
+      error: result.error,
+      errorCode: result.errorCode,
+      responseStatus: result.responseStatus,
+      durationMs: result.durationMs,
+    });
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * GET /alert-channels/:id/health - Get health for a channel
+ */
+alertChannels.get("/:id/health", (c) => {
+  try {
+    const id = c.req.param("id");
+    const health = getChannelHealth(id);
+
+    if (!health) {
+      return sendNotFound(c, "alert_channel", id);
+    }
+
+    return sendResource(c, "channel_health", serializeHealth(health));
   } catch (error) {
     return handleError(error, c);
   }

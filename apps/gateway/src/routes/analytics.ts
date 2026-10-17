@@ -24,7 +24,12 @@ import {
   getTokenEfficiencyMetrics,
 } from "../services/agent-analytics.service";
 import { getLinkContext } from "../utils/links";
-import { sendInternalError, sendList, sendResource, sendValidationError } from "../utils/response";
+import {
+  sendInternalError,
+  sendList,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
 import { transformZodError } from "../utils/validation";
 
 const analytics = new Hono();

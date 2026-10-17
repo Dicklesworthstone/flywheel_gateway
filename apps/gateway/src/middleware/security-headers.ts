@@ -203,7 +203,9 @@ function buildPermissionsPolicy(policy: PermissionsPolicy): string {
     if (allowlist.length === 0) {
       directives.push(`${feature}=()`);
     } else {
-      const origins = allowlist.map((o: string) => (o === "self" ? "self" : `"${o}"`));
+      const origins = allowlist.map((o: string) =>
+        o === "self" ? "self" : `"${o}"`,
+      );
       directives.push(`${feature}=(${origins.join(" ")})`);
     }
   }
@@ -239,7 +241,9 @@ export function securityHeaders(
   const mergedConfig = {
     ...defaultConfig,
     ...config,
-    csp: config.csp ? { ...defaultConfig.csp, ...config.csp } : defaultConfig.csp,
+    csp: config.csp
+      ? { ...defaultConfig.csp, ...config.csp }
+      : defaultConfig.csp,
     permissionsPolicy: config.permissionsPolicy
       ? { ...defaultConfig.permissionsPolicy, ...config.permissionsPolicy }
       : defaultConfig.permissionsPolicy,
@@ -287,7 +291,10 @@ export function securityHeaders(
 
     // Permissions-Policy
     if (mergedConfig.permissionsPolicy) {
-      c.header("Permissions-Policy", buildPermissionsPolicy(mergedConfig.permissionsPolicy));
+      c.header(
+        "Permissions-Policy",
+        buildPermissionsPolicy(mergedConfig.permissionsPolicy),
+      );
     }
 
     // Cross-Origin-Opener-Policy
@@ -317,7 +324,10 @@ export function securityHeaders(
  * API-optimized security headers preset.
  * Less restrictive CSP for API servers that don't serve HTML.
  */
-export function apiSecurityHeaders(): (c: Context, next: Next) => Promise<Response | undefined> {
+export function apiSecurityHeaders(): (
+  c: Context,
+  next: Next,
+) => Promise<Response | undefined> {
   const apiPreset = securityHeaders({
     csp: {
       defaultSrc: ["'none'"],
@@ -379,8 +389,10 @@ export function apiSecurityHeaders(): (c: Context, next: Next) => Promise<Respon
 
   return async (c: Context, next: Next): Promise<Response | undefined> => {
     const path = c.req.path;
-    if (path === "/docs" || path.startsWith("/docs/")) return swaggerDocsPreset(c, next);
-    if (path === "/redoc" || path.startsWith("/redoc/")) return redocPreset(c, next);
+    if (path === "/docs" || path.startsWith("/docs/"))
+      return swaggerDocsPreset(c, next);
+    if (path === "/redoc" || path.startsWith("/redoc/"))
+      return redocPreset(c, next);
     return apiPreset(c, next);
   };
 }

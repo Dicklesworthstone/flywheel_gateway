@@ -10,6 +10,7 @@
 
 import { wrapError } from "@flywheel/shared";
 import type { Context, Next } from "hono";
+import { logger } from "../services/logger";
 import type { AuthContext } from "../ws/hub";
 import { getCorrelationId } from "./correlation";
 
@@ -81,7 +82,10 @@ export class InMemoryRateLimiter {
    */
   startCleanup(): void {
     if (this.cleanupTimer) return;
-    this.cleanupTimer = setInterval(() => this.cleanup(), this.cleanupIntervalMs);
+    this.cleanupTimer = setInterval(
+      () => this.cleanup(),
+      this.cleanupIntervalMs,
+    );
     if (this.cleanupTimer.unref) {
       this.cleanupTimer.unref();
     }
@@ -188,7 +192,10 @@ export class InMemoryRateLimiter {
    * Unlike the check() method which always increments, this method only increments
    * if the request is allowed, making it safe for use in rate limiting middleware.
    */
-  tryConsume(key: string, config: RateLimitConfig): { allowed: boolean; info: RateLimitInfo } {
+  tryConsume(
+    key: string,
+    config: RateLimitConfig,
+  ): { allowed: boolean; info: RateLimitInfo } {
     const now = Date.now();
     let entry = this.counters.get(key);
 
@@ -304,6 +311,12 @@ export class InMemoryRateLimiter {
  * Handles X-Forwarded-For for proxied requests.
  */
 export function byIP(c: Context): string {
+  // When TRUST_PROXY is explicitly disabled ("false"), do not trust spoofable
+  // client-supplied proxy headers (X-Forwarded-For / X-Real-IP).
+  if (process.env["TRUST_PROXY"] === "false") {
+    return "ip:direct";
+  }
+
   // Check for forwarded IP (when behind proxy/load balancer)
   const forwarded = c.req.header("X-Forwarded-For");
   if (forwarded) {
@@ -352,7 +365,8 @@ export function byWorkspace(c: Context): string {
   const workspaceId = c.get("workspaceId") as string | undefined;
   if (workspaceId) return `ws:${workspaceId}`;
   const auth = c.get("auth") as unknown;
-  const workspaceIds = (auth as { workspaceIds?: unknown } | undefined)?.workspaceIds;
+  const workspaceIds = (auth as { workspaceIds?: unknown } | undefined)
+    ?.workspaceIds;
   if (Array.isArray(workspaceIds) && workspaceIds.length === 1) {
     return `ws:${workspaceIds[0]}`;
   }
@@ -363,7 +377,9 @@ export function byWorkspace(c: Context): string {
  * Create a composite key generator that combines multiple dimensions.
  * Useful for per-endpoint-per-user limiting.
  */
-export function compositeKey(...generators: Array<(c: Context) => string>): (c: Context) => string {
+export function compositeKey(
+  ...generators: Array<(c: Context) => string>
+): (c: Context) => string {
   return (c: Context) => generators.map((gen) => gen(c)).join(":");
 }
 
@@ -371,7 +387,9 @@ export function compositeKey(...generators: Array<(c: Context) => string>): (c: 
  * Create a key generator that includes the request path.
  * Useful for per-endpoint rate limiting.
  */
-export function withPath(baseGenerator: (c: Context) => string): (c: Context) => string {
+export function withPath(
+  baseGenerator: (c: Context) => string,
+): (c: Context) => string {
   return (c: Context) => `${baseGenerator(c)}:${c.req.path}`;
 }
 
@@ -498,7 +516,11 @@ function setRateLimitHeaders(c: Context, info: RateLimitInfo): void {
 /**
  * Send a 429 rate limit exceeded response.
  */
-function sendRateLimitResponse(c: Context, info: RateLimitInfo, config: RateLimitConfig) {
+function sendRateLimitResponse(
+  c: Context,
+  info: RateLimitInfo,
+  config: RateLimitConfig,
+) {
   const requestId = getCorrelationId();
   const retryAfter = Math.max(0, info.reset - Math.ceil(Date.now() / 1000));
 
@@ -509,6 +531,18 @@ function sendRateLimitResponse(c: Context, info: RateLimitInfo, config: RateLimi
   c.header("Retry-After", String(retryAfter));
 
   const message = config.message ?? "Rate limit exceeded. Please slow down.";
+
+  logger.info(
+    {
+      requestId,
+      path: c.req.path,
+      method: c.req.method,
+      limit: info.limit,
+      windowMs: config.windowMs,
+      retryAfter,
+    },
+    "HTTP rate limit exceeded",
+  );
 
   return c.json(
     wrapError({
@@ -526,6 +560,122 @@ function sendRateLimitResponse(c: Context, info: RateLimitInfo, config: RateLimi
     }),
     429,
   );
+}
+
+// ============================================================================
+// Gateway Policy Middleware (Global + Per-Route Overrides)
+// ============================================================================
+
+export interface GatewayRateLimitPolicy {
+  enabled?: boolean;
+  windowMs?: number;
+  readLimit?: number;
+  mutatingLimit?: number;
+  strictLimit?: number;
+  excludePaths?: string[];
+  routeOverrides?: Record<string, number>;
+}
+
+const DEFAULT_EXCLUDED_PATHS = [
+  "/health",
+  "/metrics",
+  "/openapi.json",
+  "/docs",
+  "/redoc",
+];
+
+let gatewayPolicyOverride: GatewayRateLimitPolicy = {};
+
+export function configureGatewayRateLimits(
+  policy: GatewayRateLimitPolicy,
+): void {
+  gatewayPolicyOverride = { ...gatewayPolicyOverride, ...policy };
+}
+
+export function resetGatewayRateLimits(): void {
+  gatewayPolicyOverride = {};
+  globalRateLimiter.clear();
+}
+
+function isExcludedPath(path: string, excludePaths: string[]): boolean {
+  for (const excluded of excludePaths) {
+    if (path === excluded || path.startsWith(`${excluded}/`)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Global gateway rate limit middleware with read/mutating budgets,
+ * explicit path exemptions, and per-route overrides.
+ */
+export function gatewayRateLimitMiddleware(
+  limiter: InMemoryRateLimiter = globalRateLimiter,
+) {
+  return async (c: Context, next: Next) => {
+    const enabled =
+      gatewayPolicyOverride.enabled ??
+      process.env["RATE_LIMIT_ENABLED"] !== "false";
+    if (!enabled) {
+      await next();
+      return;
+    }
+
+    const excludePaths =
+      gatewayPolicyOverride.excludePaths ?? DEFAULT_EXCLUDED_PATHS;
+    if (isExcludedPath(c.req.path, excludePaths)) {
+      await next();
+      return;
+    }
+
+    const windowMs =
+      gatewayPolicyOverride.windowMs ??
+      Number(process.env["RATE_LIMIT_WINDOW_MS"] || 60_000);
+    const method = c.req.method.toUpperCase();
+    const isMutating =
+      method === "POST" ||
+      method === "PUT" ||
+      method === "PATCH" ||
+      method === "DELETE";
+
+    // Check per-route override (e.g., "POST /agents" or "/agents")
+    const routeOverrides = gatewayPolicyOverride.routeOverrides ?? {
+      "POST /agents": Number(
+        process.env["RATE_LIMIT_SPAWN_MAX"] ||
+          gatewayPolicyOverride.strictLimit ||
+          30,
+      ),
+    };
+    const methodPathKey = `${method} ${c.req.path}`;
+    const overrideLimit =
+      routeOverrides[methodPathKey] ?? routeOverrides[c.req.path];
+
+    const limit =
+      overrideLimit ??
+      (isMutating
+        ? (gatewayPolicyOverride.mutatingLimit ??
+          Number(process.env["RATE_LIMIT_PER_MINUTE"] || 300))
+        : (gatewayPolicyOverride.readLimit ??
+          Number(process.env["RATE_LIMIT_READ_PER_MINUTE"] || 1000)));
+
+    const bucketPrefix =
+      overrideLimit !== undefined
+        ? `route:${methodPathKey}`
+        : isMutating
+          ? "mutating"
+          : "read";
+    const key = `${bucketPrefix}:${byAPIKey(c)}`;
+    const config: RateLimitConfig = { limit, windowMs };
+
+    const { allowed, info } = limiter.tryConsume(key, config);
+    if (!allowed) {
+      return sendRateLimitResponse(c, info, config);
+    }
+
+    setRateLimitHeaders(c, info);
+    await next();
+  };
 }
 
 // ============================================================================

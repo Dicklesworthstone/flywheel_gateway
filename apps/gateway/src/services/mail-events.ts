@@ -151,10 +151,15 @@ export class MailEventsService {
     payload: ConflictDetectedPayload,
     metadata?: MessageMetadata,
   ): void {
-    this.hub.publish({ type: "workspace:conflicts", workspaceId }, "conflict.detected", payload, {
-      ...metadata,
-      workspaceId,
-    });
+    this.hub.publish(
+      { type: "workspace:conflicts", workspaceId },
+      "conflict.detected",
+      payload,
+      {
+        ...metadata,
+        workspaceId,
+      },
+    );
   }
 
   /**
@@ -168,10 +173,15 @@ export class MailEventsService {
     payload: ConflictResolvedPayload,
     metadata?: MessageMetadata,
   ): void {
-    this.hub.publish({ type: "workspace:conflicts", workspaceId }, "conflict.resolved", payload, {
-      ...metadata,
-      workspaceId,
-    });
+    this.hub.publish(
+      { type: "workspace:conflicts", workspaceId },
+      "conflict.resolved",
+      payload,
+      {
+        ...metadata,
+        workspaceId,
+      },
+    );
   }
 }
 

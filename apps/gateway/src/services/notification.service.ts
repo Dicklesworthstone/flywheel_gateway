@@ -5,7 +5,11 @@
  * user preferences, quiet hours, and actionable notifications.
  */
 
-import { createCursor, DEFAULT_PAGINATION, decodeCursor } from "@flywheel/shared/api/pagination";
+import {
+  createCursor,
+  DEFAULT_PAGINATION,
+  decodeCursor,
+} from "@flywheel/shared/api/pagination";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
   type CreateNotificationRequest,
@@ -25,6 +29,7 @@ import { isPrivateNetworkUrl } from "../utils/url-security";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
 import type { MessageType } from "../ws/messages";
+import { listRules, routeAlert } from "./alert-channel.service";
 import { logger } from "./logger";
 
 // ============================================================================
@@ -133,10 +138,14 @@ function resolveChannels(
   }
 
   // Use category-specific channels, or fall back to defaults
-  return categoryPref.channels.length > 0 ? categoryPref.channels : prefs.defaultChannels;
+  return categoryPref.channels.length > 0
+    ? categoryPref.channels
+    : prefs.defaultChannels;
 }
 
-function serializeNotification(notification: Notification): Record<string, unknown> {
+function serializeNotification(
+  notification: Notification,
+): Record<string, unknown> {
   return {
     ...notification,
     createdAt: notification.createdAt.toISOString(),
@@ -157,9 +166,14 @@ function publishNotificationEvent(notification: Notification): void {
     type: "user:notifications",
     userId: notification.recipientId,
   };
-  hub.publish(channel, "notification.created" as MessageType, serializeNotification(notification), {
-    userId: notification.recipientId,
-  });
+  hub.publish(
+    channel,
+    "notification.created" as MessageType,
+    serializeNotification(notification),
+    {
+      userId: notification.recipientId,
+    },
+  );
 }
 
 // ============================================================================
@@ -177,7 +191,10 @@ async function sendEmailNotification(
   const email = prefs.channelConfig?.email?.address;
 
   if (!email) {
-    log.debug({ notificationId: notification.id }, "[NOTIFY] Email channel: no email configured");
+    log.debug(
+      { notificationId: notification.id },
+      "[NOTIFY] Email channel: no email configured",
+    );
     return false;
   }
 
@@ -207,7 +224,10 @@ const WEBHOOK_TIMEOUT_MS = 10_000;
  * @see https://api.slack.com/reference/surfaces/formatting#escaping
  */
 function escapeSlackMrkdwn(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 /**
@@ -259,10 +279,15 @@ function buildSlackPayload(notification: Notification): {
   };
 
   const emoji = priorityEmoji[notification.priority];
-  const headerText = truncateText(`${emoji} ${notification.title}`, SLACK_HEADER_MAX_LENGTH);
+  const headerText = truncateText(
+    `${emoji} ${notification.title}`,
+    SLACK_HEADER_MAX_LENGTH,
+  );
   const fallbackText = `${emoji} ${notification.title}: ${notification.body}`;
   const sourceLabel =
-    notification.source.name ?? notification.source.id ?? notification.source.type;
+    notification.source.name ??
+    notification.source.id ??
+    notification.source.type;
 
   // Escape user-provided text for Slack mrkdwn to prevent injection
   const escapedBody = escapeSlackMrkdwn(notification.body);
@@ -344,7 +369,10 @@ async function sendSlackNotification(
   const webhookUrl = prefs.channelConfig?.slack?.webhookUrl;
 
   if (!webhookUrl) {
-    log.debug({ notificationId: notification.id }, "[NOTIFY] Slack channel: no webhook configured");
+    log.debug(
+      { notificationId: notification.id },
+      "[NOTIFY] Slack channel: no webhook configured",
+    );
     return false;
   }
 
@@ -413,7 +441,10 @@ async function sendSlackNotification(
 /**
  * Compute HMAC-SHA256 signature for webhook payload.
  */
-async function computeHmacSignature(payload: string, secret: string): Promise<string> {
+async function computeHmacSignature(
+  payload: string,
+  secret: string,
+): Promise<string> {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
@@ -422,7 +453,11 @@ async function computeHmacSignature(payload: string, secret: string): Promise<st
     false,
     ["sign"],
   );
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(payload),
+  );
   return Array.from(new Uint8Array(signature))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
@@ -440,7 +475,10 @@ async function sendWebhookNotification(
   const webhookUrl = webhookConfig?.url;
 
   if (!webhookUrl || !webhookConfig) {
-    log.debug({ notificationId: notification.id }, "[NOTIFY] Webhook channel: no URL configured");
+    log.debug(
+      { notificationId: notification.id },
+      "[NOTIFY] Webhook channel: no URL configured",
+    );
     return false;
   }
 
@@ -483,7 +521,10 @@ async function sendWebhookNotification(
     if (webhookConfig.secret) {
       const timestamp = Math.floor(Date.now() / 1000).toString();
       const signaturePayload = `${timestamp}.${payloadJson}`;
-      const signature = await computeHmacSignature(signaturePayload, webhookConfig.secret);
+      const signature = await computeHmacSignature(
+        signaturePayload,
+        webhookConfig.secret,
+      );
       headers["X-Flywheel-Timestamp"] = timestamp;
       headers["X-Flywheel-Signature"] = `sha256=${signature}`;
     }
@@ -544,10 +585,8 @@ async function deliverToChannels(
   prefs: NotificationPreferences,
 ): Promise<void> {
   const log = getLogger();
-  const channelStatus: Record<NotificationChannel, "sent" | "failed"> = {} as Record<
-    NotificationChannel,
-    "sent" | "failed"
-  >;
+  const channelStatus: Record<NotificationChannel, "sent" | "failed"> =
+    {} as Record<NotificationChannel, "sent" | "failed">;
 
   for (const channel of channels) {
     try {
@@ -664,7 +703,10 @@ export async function createNotification(
   // Deliver to channels (async, don't block)
   if (channels.length > 0) {
     deliverToChannels(notification, channels, prefs).catch((error) => {
-      log.error({ error, notificationId: notification.id }, "[NOTIFY] Delivery failed");
+      log.error(
+        { error, notificationId: notification.id },
+        "[NOTIFY] Delivery failed",
+      );
     });
   } else {
     notification.status = "sent"; // No channels, but recorded
@@ -675,8 +717,55 @@ export async function createNotification(
     try {
       listener(notification);
     } catch (error) {
-      logger.error({ error, notificationId: notification.id }, "[NOTIFY] Listener threw error");
+      logger.error(
+        { error, notificationId: notification.id },
+        "[NOTIFY] Listener threw error",
+      );
     }
+  }
+
+  // Trigger external alert channels if routing rules are configured
+  if (listRules({ enabled: true }).length > 0) {
+    const priorityToSeverity: Record<
+      NotificationPriority,
+      "critical" | "error" | "warning" | "info" | "low"
+    > = {
+      urgent: "critical",
+      high: "error",
+      normal: "info",
+      low: "low",
+    };
+
+    routeAlert({
+      id: notification.id,
+      type: notification.type,
+      title: notification.title,
+      body: notification.body,
+      severity: priorityToSeverity[notification.priority],
+      category: notification.category,
+      source: {
+        type: notification.source.type,
+        ...(notification.source.id !== undefined && {
+          id: notification.source.id,
+        }),
+        ...(notification.source.name !== undefined && {
+          name: notification.source.name,
+        }),
+      },
+      ...(notification.link !== undefined && { link: notification.link }),
+      ...(notification.metadata !== undefined && {
+        metadata: notification.metadata,
+      }),
+      timestamp: notification.createdAt.toISOString(),
+      ...(notification.correlationId !== undefined && {
+        correlationId: notification.correlationId,
+      }),
+    }).catch((error) => {
+      logger.error(
+        { error, notificationId: notification.id },
+        "[NOTIFY] External alert channel routing failed",
+      );
+    });
   }
 
   return notification;
@@ -685,7 +774,9 @@ export async function createNotification(
 /**
  * Get notifications for a user.
  */
-export function getNotifications(filter: NotificationFilter): NotificationListResponse {
+export function getNotifications(
+  filter: NotificationFilter,
+): NotificationListResponse {
   const recipientId = filter.recipientId;
   if (!recipientId) {
     return {
@@ -700,13 +791,19 @@ export function getNotifications(filter: NotificationFilter): NotificationListRe
 
   // Apply filters
   if (filter.category?.length) {
-    notifications = notifications.filter((n) => filter.category?.includes(n.category));
+    notifications = notifications.filter((n) =>
+      filter.category?.includes(n.category),
+    );
   }
   if (filter.priority?.length) {
-    notifications = notifications.filter((n) => filter.priority?.includes(n.priority));
+    notifications = notifications.filter((n) =>
+      filter.priority?.includes(n.priority),
+    );
   }
   if (filter.status?.length) {
-    notifications = notifications.filter((n) => filter.status?.includes(n.status));
+    notifications = notifications.filter((n) =>
+      filter.status?.includes(n.status),
+    );
   }
   if (filter.since) {
     notifications = notifications.filter((n) => n.createdAt >= filter.since!);
@@ -747,10 +844,15 @@ export function getNotifications(filter: NotificationFilter): NotificationListRe
     }
   }
 
-  const sliceEnd = isBackward && endIndex !== undefined ? endIndex : startIndex + limit + 1;
+  const sliceEnd =
+    isBackward && endIndex !== undefined ? endIndex : startIndex + limit + 1;
   const pageItems = notifications.slice(startIndex, sliceEnd);
   const hasMore = isBackward ? startIndex > 0 : pageItems.length > limit;
-  const resultItems = isBackward ? pageItems : hasMore ? pageItems.slice(0, limit) : pageItems;
+  const resultItems = isBackward
+    ? pageItems
+    : hasMore
+      ? pageItems.slice(0, limit)
+      : pageItems;
 
   const result: NotificationListResponse = {
     notifications: resultItems,
@@ -789,7 +891,10 @@ export function getNotification(
 /**
  * Mark a notification as read.
  */
-export function markAsRead(recipientId: string, notificationId: string): Notification | undefined {
+export function markAsRead(
+  recipientId: string,
+  notificationId: string,
+): Notification | undefined {
   const notification = getNotification(recipientId, notificationId);
   if (!notification) return undefined;
 
@@ -938,7 +1043,9 @@ export function updatePreferences(
     };
   }
   if (update.categories) {
-    for (const [category, categoryUpdate] of Object.entries(update.categories)) {
+    for (const [category, categoryUpdate] of Object.entries(
+      update.categories,
+    )) {
       const cat = category as NotificationCategory;
       if (prefs.categories[cat] && categoryUpdate) {
         prefs.categories[cat] = {

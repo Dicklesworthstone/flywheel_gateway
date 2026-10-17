@@ -42,7 +42,8 @@ class MockWebSocket {
   }
 }
 
-const createWebSocket = (url: string) => new MockWebSocket(url) as unknown as WebSocket;
+const createWebSocket = (url: string) =>
+  new MockWebSocket(url) as unknown as WebSocket;
 
 function SubscriptionProbe({ workspaceId }: { workspaceId?: string }) {
   const subscriptionOptions =
@@ -57,7 +58,11 @@ function SubscriptionProbe({ workspaceId }: { workspaceId?: string }) {
           __testCreateWebSocket: createWebSocket,
         };
   const { connected } = useGraphSubscription(subscriptionOptions);
-  return <div data-testid="connected">{connected ? "connected" : "disconnected"}</div>;
+  return (
+    <div data-testid="connected">
+      {connected ? "connected" : "disconnected"}
+    </div>
+  );
 }
 
 describe("useGraphSubscription", () => {

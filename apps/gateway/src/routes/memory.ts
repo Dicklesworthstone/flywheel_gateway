@@ -11,7 +11,11 @@
 
 import { CMClientError } from "@flywheel/flywheel-clients";
 import type { GatewayError } from "@flywheel/shared/errors";
-import { createGatewayError, serializeGatewayError, toGatewayError } from "@flywheel/shared/errors";
+import {
+  createGatewayError,
+  serializeGatewayError,
+  toGatewayError,
+} from "@flywheel/shared/errors";
 import { type Context, Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
@@ -27,7 +31,12 @@ import {
   recordOutcome,
   runDiagnostics,
 } from "../services/cm.service";
-import { sendError, sendList, sendResource, sendValidationError } from "../utils/response";
+import {
+  sendError,
+  sendList,
+  sendResource,
+  sendValidationError,
+} from "../utils/response";
 import { transformZodError } from "../utils/validation";
 
 const memory = new Hono();
@@ -40,10 +49,16 @@ memory.use("*", requireAdminMiddleware());
 function respondWithGatewayError(c: Context, error: GatewayError) {
   const timestamp = new Date().toISOString();
   const payload = serializeGatewayError(error);
-  return sendError(c, payload.code, payload.message, payload.httpStatus as ContentfulStatusCode, {
-    ...(payload.details && { details: payload.details }),
-    timestamp,
-  });
+  return sendError(
+    c,
+    payload.code,
+    payload.message,
+    payload.httpStatus as ContentfulStatusCode,
+    {
+      ...(payload.details && { details: payload.details }),
+      timestamp,
+    },
+  );
 }
 
 function handleError(error: unknown, c: Context) {
@@ -72,7 +87,11 @@ function handleError(error: unknown, c: Context) {
         );
         break;
       case "timeout":
-        gatewayError = createGatewayError("AGENT_TIMEOUT", "CM request timed out", errorOptions);
+        gatewayError = createGatewayError(
+          "AGENT_TIMEOUT",
+          "CM request timed out",
+          errorOptions,
+        );
         break;
       case "command_failed":
         gatewayError = createGatewayError(
@@ -232,12 +251,14 @@ memory.post("/context", async (c) => {
 
     // Build context options, only including defined values
     const contextOptions: Parameters<typeof getTaskContext>[1] = {};
-    if (options.workspace !== undefined) contextOptions.workspace = options.workspace;
+    if (options.workspace !== undefined)
+      contextOptions.workspace = options.workspace;
     if (options.top !== undefined) contextOptions.top = options.top;
     if (options.history !== undefined) contextOptions.history = options.history;
     if (options.days !== undefined) contextOptions.days = options.days;
     if (options.session !== undefined) contextOptions.session = options.session;
-    if (options.logContext !== undefined) contextOptions.logContext = options.logContext;
+    if (options.logContext !== undefined)
+      contextOptions.logContext = options.logContext;
 
     const result = await getTaskContext(task, contextOptions);
 
@@ -339,7 +360,8 @@ memory.get("/rules", async (c) => {
 
     // Build list options, only including defined values
     const listOptions: Parameters<typeof listPlaybookRules>[0] = {};
-    if (parsed.data.category !== undefined) listOptions.category = parsed.data.category;
+    if (parsed.data.category !== undefined)
+      listOptions.category = parsed.data.category;
     if (parsed.data.scope !== undefined) listOptions.scope = parsed.data.scope;
     if (parsed.data.state !== undefined) listOptions.state = parsed.data.state;
     if (parsed.data.kind !== undefined) listOptions.kind = parsed.data.kind;

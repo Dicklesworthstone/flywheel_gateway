@@ -1,5 +1,12 @@
 import { useRouterState } from "@tanstack/react-router";
-import { MoonStar, RefreshCw, Sun, ToggleLeft, Wifi, WifiOff } from "lucide-react";
+import {
+  MoonStar,
+  RefreshCw,
+  Sun,
+  ToggleLeft,
+  Wifi,
+  WifiOff,
+} from "lucide-react";
 
 import { useWebSocket, useWebSocketState } from "../../lib/websocket-context";
 import { useUiStore } from "../../stores/ui";
@@ -43,7 +50,9 @@ function ConnectionStatusIndicator() {
   const statusPill = (
     <StatusPill tone={tone} title={connectionHint}>
       {icon}
-      <span className="hidden sm:inline">{connected ? "Live" : connectionHint}</span>
+      <span className="hidden sm:inline">
+        {connected ? "Live" : connectionHint}
+      </span>
     </StatusPill>
   );
 
@@ -95,7 +104,9 @@ export function Topbar() {
   const title =
     location.pathname === "/"
       ? "Dashboard"
-      : location.pathname.replace("/", "").replace(/^\w/, (c) => c.toUpperCase());
+      : location.pathname
+          .replace("/", "")
+          .replace(/^\w/, (c) => c.toUpperCase());
 
   return (
     <header className="topbar">

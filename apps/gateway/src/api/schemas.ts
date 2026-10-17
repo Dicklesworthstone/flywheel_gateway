@@ -5,7 +5,10 @@
  * OpenAPI specification generation.
  */
 
-import { extendZodWithOpenApi, OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
+import {
+  extendZodWithOpenApi,
+  OpenAPIRegistry,
+} from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
 
 // Extend Zod with OpenAPI methods
@@ -83,7 +86,15 @@ registry.register("ApiErrorResponse", ApiErrorResponseSchema);
 // ============================================================================
 
 export const AgentStateSchema = z
-  .enum(["idle", "thinking", "working", "tool_calling", "waiting_input", "error", "stalled"])
+  .enum([
+    "idle",
+    "thinking",
+    "working",
+    "tool_calling",
+    "waiting_input",
+    "error",
+    "stalled",
+  ])
   .openapi({
     description: "Current activity state of the agent",
   });
@@ -316,9 +327,11 @@ export const NotificationCategorySchema = z
 
 registry.register("NotificationCategory", NotificationCategorySchema);
 
-export const NotificationPrioritySchema = z.enum(["urgent", "high", "normal", "low"]).openapi({
-  description: "Notification priority level",
-});
+export const NotificationPrioritySchema = z
+  .enum(["urgent", "high", "normal", "low"])
+  .openapi({
+    description: "Notification priority level",
+  });
 
 registry.register("NotificationPriority", NotificationPrioritySchema);
 
@@ -376,7 +389,15 @@ registry.register("Notification", NotificationSchema);
 // ============================================================================
 
 export const PipelineStepTypeSchema = z
-  .enum(["agent_task", "conditional", "parallel", "approval", "script", "loop", "wait"])
+  .enum([
+    "agent_task",
+    "conditional",
+    "parallel",
+    "approval",
+    "script",
+    "loop",
+    "wait",
+  ])
   .openapi({
     description: "Type of pipeline step",
   });
@@ -444,11 +465,24 @@ registry.register("Pipeline", PipelineSchema);
 export const PaginationQuerySchema = z
   .object({
     limit: z.coerce.number().min(1).max(100).optional().openapi({
-      description: "Maximum number of items to return",
+      description: "Maximum number of items to return (1-100)",
       default: 20,
     }),
     cursor: z.string().optional().openapi({
-      description: "Pagination cursor for next page",
+      description: "Opaque pagination cursor for fetching the next page",
+    }),
+    startingAfter: z.string().optional().openapi({
+      description: "Cursor for forward pagination (items after this cursor)",
+    }),
+    endingBefore: z.string().optional().openapi({
+      description: "Cursor for backward pagination (items before this cursor)",
+    }),
+    sort: z.string().optional().openapi({
+      description: "Sort field (endpoint-specific, e.g. createdAt, timestamp)",
+    }),
+    direction: z.enum(["asc", "desc"]).optional().openapi({
+      description: "Sort direction ('asc' or 'desc')",
+      default: "desc",
     }),
   })
   .openapi("PaginationQuery");
@@ -510,7 +544,10 @@ export function createApiResponseSchema<T extends z.ZodTypeAny>(
 /**
  * Create a typed API list response schema.
  */
-export function createApiListResponseSchema<T extends z.ZodTypeAny>(name: string, itemSchema: T) {
+export function createApiListResponseSchema<T extends z.ZodTypeAny>(
+  name: string,
+  itemSchema: T,
+) {
   const schema = z
     .object({
       object: z.literal("list").openapi({
@@ -539,7 +576,11 @@ export function createApiListResponseSchema<T extends z.ZodTypeAny>(name: string
 }
 
 // Register response wrappers for common types
-export const AgentResponseSchema = createApiResponseSchema("AgentResponse", AgentSchema, "agent");
+export const AgentResponseSchema = createApiResponseSchema(
+  "AgentResponse",
+  AgentSchema,
+  "agent",
+);
 
 export const AgentListResponseSchema = createApiListResponseSchema(
   "AgentListResponse",
@@ -616,10 +657,30 @@ export const WidgetPositionSchema = z
     y: z.number().int().min(0).openapi({ description: "Y position in grid" }),
     w: z.number().int().min(1).openapi({ description: "Width in grid units" }),
     h: z.number().int().min(1).openapi({ description: "Height in grid units" }),
-    minW: z.number().int().min(1).optional().openapi({ description: "Minimum width" }),
-    minH: z.number().int().min(1).optional().openapi({ description: "Minimum height" }),
-    maxW: z.number().int().min(1).optional().openapi({ description: "Maximum width" }),
-    maxH: z.number().int().min(1).optional().openapi({ description: "Maximum height" }),
+    minW: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .openapi({ description: "Minimum width" }),
+    minH: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .openapi({ description: "Minimum height" }),
+    maxW: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .openapi({ description: "Maximum width" }),
+    maxH: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .openapi({ description: "Maximum height" }),
   })
   .openapi("WidgetPosition");
 
@@ -690,9 +751,12 @@ export const DisplayConfigSchema = z
     showLabels: z.boolean().optional().openapi({
       description: "Whether to show data labels",
     }),
-    labelPosition: z.enum(["top", "bottom", "left", "right"]).optional().openapi({
-      description: "Position of labels",
-    }),
+    labelPosition: z
+      .enum(["top", "bottom", "left", "right"])
+      .optional()
+      .openapi({
+        description: "Position of labels",
+      }),
     animationEnabled: z.boolean().optional().openapi({
       description: "Whether animations are enabled",
     }),
@@ -765,9 +829,11 @@ export const CreateWidgetRequestSchema = WidgetSchema.omit({ id: true })
 
 registry.register("CreateWidgetRequest", CreateWidgetRequestSchema);
 
-export const DashboardVisibilitySchema = z.enum(["private", "team", "public"]).openapi({
-  description: "Dashboard visibility level",
-});
+export const DashboardVisibilitySchema = z
+  .enum(["private", "team", "public"])
+  .openapi({
+    description: "Dashboard visibility level",
+  });
 
 registry.register("DashboardVisibility", DashboardVisibilitySchema);
 
@@ -970,9 +1036,11 @@ export const PermissionResponseSchema = createApiResponseSchema(
 // Cost Analytics Schemas
 // ============================================================================
 
-export const ProviderIdSchema = z.enum(["anthropic", "openai", "google", "local"]).openapi({
-  description: "LLM provider identifier",
-});
+export const ProviderIdSchema = z
+  .enum(["anthropic", "openai", "google", "local"])
+  .openapi({
+    description: "LLM provider identifier",
+  });
 
 registry.register("ProviderId", ProviderIdSchema);
 
@@ -1010,9 +1078,12 @@ export const CostRecordInputSchema = z
     taskType: z.string().optional().openapi({
       description: "Type of task performed",
     }),
-    complexityTier: z.enum(["simple", "moderate", "complex"]).optional().openapi({
-      description: "Complexity tier for tiered pricing",
-    }),
+    complexityTier: z
+      .enum(["simple", "moderate", "complex"])
+      .optional()
+      .openapi({
+        description: "Complexity tier for tiered pricing",
+      }),
     success: z.boolean().openapi({
       description: "Whether the request succeeded",
     }),
@@ -1114,15 +1185,19 @@ export const CostTrendPointSchema = z
 
 registry.register("CostTrendPoint", CostTrendPointSchema);
 
-export const BudgetPeriodSchema = z.enum(["daily", "weekly", "monthly", "yearly"]).openapi({
-  description: "Budget period type",
-});
+export const BudgetPeriodSchema = z
+  .enum(["daily", "weekly", "monthly", "yearly"])
+  .openapi({
+    description: "Budget period type",
+  });
 
 registry.register("BudgetPeriod", BudgetPeriodSchema);
 
-export const BudgetActionSchema = z.enum(["alert", "throttle", "block"]).openapi({
-  description: "Action to take when budget is exceeded",
-});
+export const BudgetActionSchema = z
+  .enum(["alert", "throttle", "block"])
+  .openapi({
+    description: "Action to take when budget is exceeded",
+  });
 
 registry.register("BudgetAction", BudgetActionSchema);
 
@@ -1218,9 +1293,11 @@ export const BudgetAlertSchema = z
 
 registry.register("BudgetAlert", BudgetAlertSchema);
 
-export const ForecastMethodologySchema = z.enum(["linear", "exponential", "ensemble"]).openapi({
-  description: "Forecasting methodology",
-});
+export const ForecastMethodologySchema = z
+  .enum(["linear", "exponential", "ensemble"])
+  .openapi({
+    description: "Forecasting methodology",
+  });
 
 registry.register("ForecastMethodology", ForecastMethodologySchema);
 
@@ -1511,7 +1588,8 @@ export const BeadSchema = z
       example: "open",
     }),
     priority: z.number().optional().openapi({
-      description: "Priority level (0=critical, 1=high, 2=medium, 3=low, 4=backlog)",
+      description:
+        "Priority level (0=critical, 1=high, 2=medium, 3=low, 4=backlog)",
       example: 1,
     }),
     issue_type: z.string().optional().openapi({
@@ -1759,9 +1837,12 @@ export const ListBeadsQuerySchema = z
     limit: z.string().optional().openapi({
       description: "Max results (default: 50, 0 = unlimited)",
     }),
-    sort: z.enum(["priority", "created_at", "updated_at", "title"]).optional().openapi({
-      description: "Sort by field",
-    }),
+    sort: z
+      .enum(["priority", "created_at", "updated_at", "title"])
+      .optional()
+      .openapi({
+        description: "Sort by field",
+      }),
     reverse: z.enum(["true", "false"]).optional().openapi({
       description: "Reverse sort order",
     }),
@@ -1967,9 +2048,16 @@ export const BrSyncResultSchema = z
 registry.register("BrSyncResult", BrSyncResultSchema);
 
 // Beads response wrappers
-export const BeadResponseSchema = createApiResponseSchema("BeadResponse", BeadSchema, "bead");
+export const BeadResponseSchema = createApiResponseSchema(
+  "BeadResponse",
+  BeadSchema,
+  "bead",
+);
 
-export const BeadListResponseSchema = createApiListResponseSchema("BeadListResponse", BeadSchema);
+export const BeadListResponseSchema = createApiListResponseSchema(
+  "BeadListResponse",
+  BeadSchema,
+);
 
 export const BvTriageResponseSchema = createApiResponseSchema(
   "BvTriageResponse",
@@ -2515,7 +2603,10 @@ export const AgentMailReservationSnapshotSchema = z
   })
   .openapi("AgentMailReservationSnapshot");
 
-registry.register("AgentMailReservationSnapshot", AgentMailReservationSnapshotSchema);
+registry.register(
+  "AgentMailReservationSnapshot",
+  AgentMailReservationSnapshotSchema,
+);
 
 export const AgentMailMessageSummarySchema = z
   .object({
@@ -2734,7 +2825,10 @@ export const ToolChecksumStatusSnapshotSchema = z
   })
   .openapi("ToolChecksumStatusSnapshot");
 
-registry.register("ToolChecksumStatusSnapshot", ToolChecksumStatusSnapshotSchema);
+registry.register(
+  "ToolChecksumStatusSnapshot",
+  ToolChecksumStatusSnapshotSchema,
+);
 
 export const ToolHealthSnapshotSchema = z
   .object({

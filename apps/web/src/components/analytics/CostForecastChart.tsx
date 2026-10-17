@@ -86,7 +86,8 @@ export function CostForecastChart({
     const valueRange = chartMetrics.maxValue - chartMetrics.minValue || 1;
 
     const getY = (value: number) =>
-      padding + effectiveHeight * (1 - (value - chartMetrics.minValue) / valueRange);
+      padding +
+      effectiveHeight * (1 - (value - chartMetrics.minValue) / valueRange);
 
     // Predicted line path
     const predictedPoints = dailyForecasts.map((d, i) => {
@@ -121,7 +122,12 @@ export function CostForecastChart({
   };
 
   const getTrendLabel = () => {
-    const strength = trendStrength > 0.7 ? "Strong" : trendStrength > 0.3 ? "Moderate" : "Slight";
+    const strength =
+      trendStrength > 0.7
+        ? "Strong"
+        : trendStrength > 0.3
+          ? "Moderate"
+          : "Slight";
     return `${strength} ${trendDirection} trend`;
   };
 
@@ -169,7 +175,9 @@ export function CostForecastChart({
           <h3>30-Day Forecast</h3>
           <div className="cost-forecast__summary">
             <span className="cost-forecast__total">{formattedForecast}</span>
-            <span className={`cost-forecast__trend cost-forecast__trend--${trendDirection}`}>
+            <span
+              className={`cost-forecast__trend cost-forecast__trend--${trendDirection}`}
+            >
               {getTrendIcon()} {getTrendLabel()}
             </span>
           </div>
@@ -177,7 +185,9 @@ export function CostForecastChart({
         <div className="cost-forecast__meta">
           <span className="cost-forecast__methodology">{methodology}</span>
           {seasonalityDetected && (
-            <span className="cost-forecast__seasonality">Seasonality detected</span>
+            <span className="cost-forecast__seasonality">
+              Seasonality detected
+            </span>
           )}
         </div>
       </div>
@@ -186,7 +196,10 @@ export function CostForecastChart({
         <svg viewBox="0 0 100 150" preserveAspectRatio="none">
           <title>Cost forecast chart</title>
           {/* Confidence interval area */}
-          <path d={paths.confidence} className="cost-forecast__confidence-area" />
+          <path
+            d={paths.confidence}
+            className="cost-forecast__confidence-area"
+          />
           {/* Predicted line */}
           <path
             d={paths.predicted}
@@ -197,10 +210,16 @@ export function CostForecastChart({
           />
           {/* Data points */}
           {dailyForecasts.map((d, i) => {
-            const denominator = dailyForecasts.length > 1 ? dailyForecasts.length - 1 : 1;
+            const denominator =
+              dailyForecasts.length > 1 ? dailyForecasts.length - 1 : 1;
             const x = (i / denominator) * 100;
-            const valueRange = chartMetrics.maxValue - chartMetrics.minValue || 1;
-            const y = 5 + 140 * (1 - (d.predictedCostUnits - chartMetrics.minValue) / valueRange);
+            const valueRange =
+              chartMetrics.maxValue - chartMetrics.minValue || 1;
+            const y =
+              5 +
+              140 *
+                (1 -
+                  (d.predictedCostUnits - chartMetrics.minValue) / valueRange);
             return (
               // biome-ignore lint/a11y/noStaticElementInteractions: SVG circle with focus handlers is valid for chart accessibility
               <circle
@@ -229,7 +248,9 @@ export function CostForecastChart({
             }}
           >
             <span className="cost-forecast__tooltip-date">
-              {new Date(dailyForecasts[hoveredIndex]?.date).toLocaleDateString()}
+              {new Date(
+                dailyForecasts[hoveredIndex]?.date,
+              ).toLocaleDateString()}
             </span>
             <span className="cost-forecast__tooltip-predicted">
               {dailyForecasts[hoveredIndex]?.formattedPredicted}
@@ -254,7 +275,9 @@ export function CostForecastChart({
           </div>
         </div>
         {accuracyMetrics?.mape !== undefined && (
-          <div className="cost-forecast__accuracy">MAPE: {accuracyMetrics.mape.toFixed(1)}%</div>
+          <div className="cost-forecast__accuracy">
+            MAPE: {accuracyMetrics.mape.toFixed(1)}%
+          </div>
         )}
       </div>
     </div>

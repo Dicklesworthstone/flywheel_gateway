@@ -71,7 +71,11 @@ export interface XfGrokResult {
   score?: number;
 }
 
-export type XfSearchResult = XfTweetResult | XfLikeResult | XfDmResult | XfGrokResult;
+export type XfSearchResult =
+  | XfTweetResult
+  | XfLikeResult
+  | XfDmResult
+  | XfGrokResult;
 
 export interface XfSearchResponse {
   query: string;
@@ -104,7 +108,12 @@ async function executeXfCommand(
     index?: string;
   } = {},
 ): Promise<string> {
-  const { timeout = 30000, maxOutputSize = 5 * 1024 * 1024, db, index } = options;
+  const {
+    timeout = 30000,
+    maxOutputSize = 5 * 1024 * 1024,
+    db,
+    index,
+  } = options;
   const log = getLogger();
 
   try {
@@ -139,7 +148,9 @@ async function executeXfCommand(
       }
 
       // Truncate if needed
-      return stdout.length > maxOutputSize ? stdout.slice(0, maxOutputSize) : stdout;
+      return stdout.length > maxOutputSize
+        ? stdout.slice(0, maxOutputSize)
+        : stdout;
     })();
 
     try {
@@ -150,7 +161,9 @@ async function executeXfCommand(
       }
     }
   } catch (error) {
-    throw error instanceof Error ? error : new Error("Failed to execute xf command");
+    throw error instanceof Error
+      ? error
+      : new Error("Failed to execute xf command");
   }
 }
 
@@ -159,7 +172,10 @@ function parseJson<T>(output: string, context: string): T {
   try {
     return JSON.parse(output.trim()) as T;
   } catch {
-    log.error({ output: output.slice(0, 200) }, `Failed to parse xf ${context} output`);
+    log.error(
+      { output: output.slice(0, 200) },
+      `Failed to parse xf ${context} output`,
+    );
     throw new Error(`Failed to parse xf ${context} output as JSON`);
   }
 }
@@ -207,7 +223,9 @@ export async function getXfVersion(): Promise<string | null> {
 /**
  * Get archive statistics.
  */
-export async function getStats(options: { db?: string; index?: string } = {}): Promise<XfStats> {
+export async function getStats(
+  options: { db?: string; index?: string } = {},
+): Promise<XfStats> {
   const output = await executeXfCommand(["stats", "--format", "json"], options);
   return parseJson<XfStats>(output, "stats");
 }
@@ -215,9 +233,14 @@ export async function getStats(options: { db?: string; index?: string } = {}): P
 /**
  * Get overall status.
  */
-export async function getStatus(options: { db?: string; index?: string } = {}): Promise<XfStatus> {
+export async function getStatus(
+  options: { db?: string; index?: string } = {},
+): Promise<XfStatus> {
   try {
-    const [stats, version] = await Promise.all([getStats(options), getXfVersion()]);
+    const [stats, version] = await Promise.all([
+      getStats(options),
+      getXfVersion(),
+    ]);
 
     const status: XfStatus = {
       available: true,

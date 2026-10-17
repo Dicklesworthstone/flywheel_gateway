@@ -5,7 +5,13 @@
  * large lists of any item type.
  */
 
-import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 
 export interface VirtualizedListProps<T> {
   /** Array of items to display */
@@ -44,7 +50,7 @@ export interface VirtualizedListHandle {
 const DEFAULT_OVERSCAN = 5;
 const DEFAULT_SCROLL_THRESHOLD = 50;
 
-function VirtualizedListInner<T>(
+export const VirtualizedList = forwardRef(function VirtualizedListInner<T>(
   {
     items,
     height,
@@ -85,7 +91,8 @@ function VirtualizedListInner<T>(
 
       // Check if scrolled to bottom (scrolling down only)
       if (newScrollTop > prevScrollTop.current && onScrollToBottom) {
-        const distanceFromBottom = target.scrollHeight - newScrollTop - target.clientHeight;
+        const distanceFromBottom =
+          target.scrollHeight - newScrollTop - target.clientHeight;
         if (distanceFromBottom < scrollBottomThreshold) {
           onScrollToBottom();
         }
@@ -113,7 +120,10 @@ function VirtualizedListInner<T>(
   // Loading state
   if (loading) {
     return (
-      <div className={`flex items-center justify-center ${className}`} style={{ height }}>
+      <div
+        className={`flex items-center justify-center ${className}`}
+        style={{ height }}
+      >
         <div className="animate-spin w-8 h-8 border-2 border-gray-600 border-t-blue-500 rounded-full" />
       </div>
     );
@@ -177,10 +187,7 @@ function VirtualizedListInner<T>(
       )}
     </div>
   );
-}
-
-// Typed forwardRef wrapper
-export const VirtualizedList = forwardRef(VirtualizedListInner) as <T>(
+}) as <T>(
   props: VirtualizedListProps<T> & { ref?: React.Ref<VirtualizedListHandle> },
 ) => React.ReactElement;
 

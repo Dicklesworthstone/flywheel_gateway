@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useUiStore } from "../stores/ui";
+import { useAllowMockFallback } from "./useMockFallback";
 
 // ============================================================================
 // Types
@@ -253,14 +254,16 @@ const mockTrendAnalysis: TrendAnalysis = {
       id: "rec-002",
       type: "insight",
       title: "Strong Learning Curve",
-      description: "Agent ax7 shows 18% improvement rate. Consider having it mentor other agents.",
+      description:
+        "Agent ax7 shows 18% improvement rate. Consider having it mentor other agents.",
       impact: "medium",
     },
     {
       id: "rec-003",
       type: "warning",
       title: "Coordination Overhead Growing",
-      description: "Coordination overhead increased from 4.1% to 5.2%. Monitor for bottlenecks.",
+      description:
+        "Coordination overhead increased from 4.1% to 5.2%. Monitor for bottlenecks.",
       impact: "medium",
       stage: "coordinate",
     },
@@ -277,7 +280,11 @@ function generateMockHistory(): VelocityHistory {
     // Simulate gradual improvement with some noise
     score = Math.min(100, Math.max(0, score + (Math.random() - 0.4) * 5));
     const trend: VelocityTrend =
-      Math.random() > 0.7 ? "decelerating" : Math.random() > 0.4 ? "stable" : "accelerating";
+      Math.random() > 0.7
+        ? "decelerating"
+        : Math.random() > 0.4
+          ? "stable"
+          : "accelerating";
     points.push({ timestamp, score: Math.round(score), trend });
   }
 
@@ -305,7 +312,10 @@ const mockVelocityHistory = generateMockHistory();
 
 const API_BASE = "/api/velocity";
 
-async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
+async function fetchAPI<T>(
+  endpoint: string,
+  options?: RequestInit,
+): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
       "Content-Type": "application/json",
@@ -315,7 +325,9 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Request failed" }));
+    const error = await response
+      .json()
+      .catch(() => ({ message: "Request failed" }));
     throw new Error(error.message || `HTTP ${response.status}`);
   }
 
@@ -334,8 +346,13 @@ interface UseQueryResult<T> {
   refetch: () => void;
 }
 
-function useQuery<T>(endpoint: string, mockData: T, deps: unknown[] = []): UseQueryResult<T> {
+function useQuery<T>(
+  endpoint: string,
+  mockData: T,
+  deps: unknown[] = [],
+): UseQueryResult<T> {
   const mockMode = useUiStore((state) => state.mockMode);
+  const allowMockFallback = useAllowMockFallback();
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -357,12 +374,15 @@ function useQuery<T>(endpoint: string, mockData: T, deps: unknown[] = []): UseQu
       setData(result);
     } catch (e) {
       setError(e instanceof Error ? e : new Error("Unknown error"));
-      // Fall back to mock data on error
-      setData(mockData);
+      if (allowMockFallback) {
+        setData(mockData);
+      } else {
+        setData(null);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [endpoint, mockData, mockMode]);
+  }, [endpoint, mockData, mockMode, allowMockFallback]);
 
   useEffect(() => {
     fetch();
@@ -374,8 +394,12 @@ function useQuery<T>(endpoint: string, mockData: T, deps: unknown[] = []): UseQu
 /**
  * Hook to fetch the current velocity score.
  */
-export function useVelocityScore(period: VelocityPeriod = "24h"): UseQueryResult<VelocityScore> {
-  return useQuery(`/score?period=${period}`, { ...mockVelocityScore, period }, [period]);
+export function useVelocityScore(
+  period: VelocityPeriod = "24h",
+): UseQueryResult<VelocityScore> {
+  return useQuery(`/score?period=${period}`, { ...mockVelocityScore, period }, [
+    period,
+  ]);
 }
 
 /**

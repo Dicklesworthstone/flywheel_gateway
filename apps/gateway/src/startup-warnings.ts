@@ -4,7 +4,10 @@ function isLocalHost(host: string): boolean {
   return host === "localhost" || host === "127.0.0.1" || host === "::1";
 }
 
-export function enforceStartupSecurity(options: { host: string; port: number }): void {
+export function enforceStartupSecurity(options: {
+  host: string;
+  port: number;
+}): void {
   const hostIsLocal = isLocalHost(options.host);
 
   const adminKey = process.env["GATEWAY_ADMIN_KEY"]?.trim();
@@ -23,7 +26,11 @@ export function enforceStartupSecurity(options: { host: string; port: number }):
     );
   }
 
-  if (!hostIsLocal && process.env["ENABLE_SETUP_INSTALL_UNAUTH"] === "true" && !allowInsecure) {
+  if (
+    !hostIsLocal &&
+    process.env["ENABLE_SETUP_INSTALL_UNAUTH"] === "true" &&
+    !allowInsecure
+  ) {
     throw new Error(
       `Refusing to start: ENABLE_SETUP_INSTALL_UNAUTH=true is only allowed on local host (${options.host}:${options.port}). ` +
         `Disable it or bind to 127.0.0.1. ` +
@@ -32,7 +39,10 @@ export function enforceStartupSecurity(options: { host: string; port: number }):
   }
 }
 
-export function logStartupSecurityWarnings(options: { host: string; port: number }): void {
+export function logStartupSecurityWarnings(options: {
+  host: string;
+  port: number;
+}): void {
   const hostIsLocal = isLocalHost(options.host);
 
   if (process.env["ENABLE_SETUP_INSTALL_UNAUTH"] === "true") {

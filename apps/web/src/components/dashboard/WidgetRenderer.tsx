@@ -82,7 +82,11 @@ export function WidgetRenderer({
         return <IframeWidget widget={widget} data={widgetData} />;
 
       default:
-        return <div className="widget-placeholder">Unknown widget type: {widget.type}</div>;
+        return (
+          <div className="widget-placeholder">
+            Unknown widget type: {widget.type}
+          </div>
+        );
     }
   };
 

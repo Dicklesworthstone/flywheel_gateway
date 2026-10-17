@@ -108,7 +108,9 @@ function formatTimeRemaining(dateString: string): string {
   return `${diffMins}m ${diffSecs}s`;
 }
 
-function getSeverityTone(severity: string): "danger" | "warning" | "positive" | "muted" {
+function getSeverityTone(
+  severity: string,
+): "danger" | "warning" | "positive" | "muted" {
   switch (severity) {
     case "critical":
       return "danger";
@@ -135,7 +137,13 @@ interface QuickStatCardProps {
   variant?: "default" | "warning" | "danger";
 }
 
-function QuickStatCard({ title, value, icon, trend, variant = "default" }: QuickStatCardProps) {
+function QuickStatCard({
+  title,
+  value,
+  icon,
+  trend,
+  variant = "default",
+}: QuickStatCardProps) {
   const variantClass = variant !== "default" ? `card--${variant}` : "";
 
   return (
@@ -146,7 +154,10 @@ function QuickStatCard({ title, value, icon, trend, variant = "default" }: Quick
       </div>
       <div className="metric">{value}</div>
       {trend !== undefined && (
-        <p className="muted" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+        <p
+          className="muted"
+          style={{ display: "flex", alignItems: "center", gap: "4px" }}
+        >
           {trend > 0 ? (
             <ArrowUp size={14} style={{ color: "var(--danger)" }} />
           ) : (
@@ -209,11 +220,16 @@ function BlocksFeed({ blocks, onMarkFalsePositive }: BlocksFeedProps) {
         </div>
         {filteredBlocks.map((block) => (
           <div key={block.id} className="table__row">
-            <span className="mono" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+            <span
+              className="mono"
+              style={{ overflow: "hidden", textOverflow: "ellipsis" }}
+            >
               {block.command}
             </span>
             <span>
-              <StatusPill tone={getSeverityTone(block.severity)}>{block.severity}</StatusPill>
+              <StatusPill tone={getSeverityTone(block.severity)}>
+                {block.severity}
+              </StatusPill>
             </span>
             <span>{block.pack}</span>
             <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -228,7 +244,9 @@ function BlocksFeed({ blocks, onMarkFalsePositive }: BlocksFeedProps) {
                   <ShieldX size={14} />
                 </button>
               )}
-              {block.falsePositive && <StatusPill tone="warning">FP</StatusPill>}
+              {block.falsePositive && (
+                <StatusPill tone="warning">FP</StatusPill>
+              )}
             </span>
           </div>
         ))}
@@ -260,7 +278,13 @@ interface PendingListProps {
   isDenying: boolean;
 }
 
-function PendingList({ pending, onApprove, onDeny, isApproving, isDenying }: PendingListProps) {
+function PendingList({
+  pending,
+  onApprove,
+  onDeny,
+  isApproving,
+  isDenying,
+}: PendingListProps) {
   const pendingOnly = pending.filter((p) => p.status === "pending");
 
   return (
@@ -274,7 +298,10 @@ function PendingList({ pending, onApprove, onDeny, isApproving, isDenying }: Pen
 
       {pendingOnly.length === 0 ? (
         <div style={{ padding: "48px", textAlign: "center" }}>
-          <ShieldCheck size={48} style={{ color: "var(--positive)", marginBottom: "16px" }} />
+          <ShieldCheck
+            size={48}
+            style={{ color: "var(--positive)", marginBottom: "16px" }}
+          />
           <h4>No pending exceptions</h4>
           <p className="muted">All exception requests have been processed.</p>
         </div>
@@ -311,7 +338,10 @@ function PendingList({ pending, onApprove, onDeny, isApproving, isDenying }: Pen
                   {formatTimeRemaining(exception.expiresAt)}
                 </span>
               </div>
-              <div className="mono" style={{ marginBottom: "12px", wordBreak: "break-all" }}>
+              <div
+                className="mono"
+                style={{ marginBottom: "12px", wordBreak: "break-all" }}
+              >
                 {exception.command}
               </div>
               <div
@@ -373,7 +403,10 @@ interface StatsTabProps {
 function StatsTab({ stats }: StatsTabProps) {
   if (!stats) {
     return (
-      <div className="card card--wide" style={{ textAlign: "center", padding: "48px" }}>
+      <div
+        className="card card--wide"
+        style={{ textAlign: "center", padding: "48px" }}
+      >
         <div className="spinner spinner--lg" />
         <p className="muted" style={{ marginTop: "16px" }}>
           Loading statistics...
@@ -383,7 +416,9 @@ function StatsTab({ stats }: StatsTabProps) {
   }
 
   const severityEntries = Object.entries(stats.distributions.bySeverity);
-  const packEntries = Object.entries(stats.distributions.byPack).sort((a, b) => b[1] - a[1]);
+  const packEntries = Object.entries(stats.distributions.byPack).sort(
+    (a, b) => b[1] - a[1],
+  );
 
   return (
     <>
@@ -391,7 +426,10 @@ function StatsTab({ stats }: StatsTabProps) {
         <h3>Blocks by Severity</h3>
         <div style={{ marginTop: "16px" }}>
           {severityEntries.map(([severity, count]) => {
-            const total = Object.values(stats.distributions.bySeverity).reduce((a, b) => a + b, 0);
+            const total = Object.values(stats.distributions.bySeverity).reduce(
+              (a, b) => a + b,
+              0,
+            );
             const pct = total > 0 ? (count / total) * 100 : 0;
             return (
               <div key={severity} style={{ marginBottom: "12px" }}>
@@ -402,7 +440,9 @@ function StatsTab({ stats }: StatsTabProps) {
                     marginBottom: "4px",
                   }}
                 >
-                  <StatusPill tone={getSeverityTone(severity)}>{severity}</StatusPill>
+                  <StatusPill tone={getSeverityTone(severity)}>
+                    {severity}
+                  </StatusPill>
                   <span>{count}</span>
                 </div>
                 <div
@@ -472,7 +512,9 @@ function ConfigTab({ packs, onToggle, isToggling }: ConfigTabProps) {
     <div className="card card--wide">
       <div className="card__header">
         <h3>Rule Packs</h3>
-        <span className="muted">{packs.filter((p) => p.enabled).length} enabled</span>
+        <span className="muted">
+          {packs.filter((p) => p.enabled).length} enabled
+        </span>
       </div>
 
       <div className="table">
@@ -482,7 +524,9 @@ function ConfigTab({ packs, onToggle, isToggling }: ConfigTabProps) {
             className="card"
             style={{
               marginBottom: "12px",
-              background: pack.enabled ? "var(--surface)" : "var(--surface-muted)",
+              background: pack.enabled
+                ? "var(--surface)"
+                : "var(--surface-muted)",
               opacity: pack.enabled ? 1 : 0.7,
             }}
           >
@@ -499,7 +543,9 @@ function ConfigTab({ packs, onToggle, isToggling }: ConfigTabProps) {
                   {pack.description}
                 </p>
                 <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
-                  <StatusPill tone={getSeverityTone(pack.severity)}>{pack.severity}</StatusPill>
+                  <StatusPill tone={getSeverityTone(pack.severity)}>
+                    {pack.severity}
+                  </StatusPill>
                   <StatusPill tone="muted">{pack.ruleCount} rules</StatusPill>
                 </div>
               </div>
@@ -531,7 +577,13 @@ interface AllowlistTabProps {
   isAdding: boolean;
 }
 
-function AllowlistTab({ entries, onRemove, onAdd, isRemoving, isAdding }: AllowlistTabProps) {
+function AllowlistTab({
+  entries,
+  onRemove,
+  onAdd,
+  isRemoving,
+  isAdding,
+}: AllowlistTabProps) {
   const ruleIdInputId = "dcg-allowlist-rule-id";
   const patternInputId = "dcg-allowlist-pattern";
   const reasonInputId = "dcg-allowlist-reason";
@@ -565,7 +617,10 @@ function AllowlistTab({ entries, onRemove, onAdd, isRemoving, isAdding }: Allowl
       </div>
 
       {showAddForm && (
-        <div className="card" style={{ marginBottom: "16px", background: "var(--surface-muted)" }}>
+        <div
+          className="card"
+          style={{ marginBottom: "16px", background: "var(--surface-muted)" }}
+        >
           <div style={{ display: "grid", gap: "12px" }}>
             <div>
               <label className="eyebrow" htmlFor={ruleIdInputId}>
@@ -578,7 +633,9 @@ function AllowlistTab({ entries, onRemove, onAdd, isRemoving, isAdding }: Allowl
                 style={{ width: "100%", marginTop: "4px" }}
                 placeholder="allow-xxx"
                 value={newEntry.ruleId}
-                onChange={(e) => setNewEntry({ ...newEntry, ruleId: e.target.value })}
+                onChange={(e) =>
+                  setNewEntry({ ...newEntry, ruleId: e.target.value })
+                }
               />
             </div>
             <div>
@@ -592,7 +649,9 @@ function AllowlistTab({ entries, onRemove, onAdd, isRemoving, isAdding }: Allowl
                 style={{ width: "100%", marginTop: "4px" }}
                 placeholder="rm -rf ./node_modules"
                 value={newEntry.pattern}
-                onChange={(e) => setNewEntry({ ...newEntry, pattern: e.target.value })}
+                onChange={(e) =>
+                  setNewEntry({ ...newEntry, pattern: e.target.value })
+                }
               />
             </div>
             <div>
@@ -606,14 +665,21 @@ function AllowlistTab({ entries, onRemove, onAdd, isRemoving, isAdding }: Allowl
                 style={{ width: "100%", marginTop: "4px" }}
                 placeholder="Why this should be allowed"
                 value={newEntry.reason}
-                onChange={(e) => setNewEntry({ ...newEntry, reason: e.target.value })}
+                onChange={(e) =>
+                  setNewEntry({ ...newEntry, reason: e.target.value })
+                }
               />
             </div>
             <button
               type="button"
               className="btn btn--primary"
               onClick={handleAdd}
-              disabled={isAdding || !newEntry.ruleId || !newEntry.pattern || !newEntry.reason}
+              disabled={
+                isAdding ||
+                !newEntry.ruleId ||
+                !newEntry.pattern ||
+                !newEntry.reason
+              }
             >
               Add to Allowlist
             </button>
@@ -623,9 +689,14 @@ function AllowlistTab({ entries, onRemove, onAdd, isRemoving, isAdding }: Allowl
 
       {entries.length === 0 ? (
         <div style={{ padding: "48px", textAlign: "center" }}>
-          <Shield size={48} style={{ color: "var(--ink-muted)", marginBottom: "16px" }} />
+          <Shield
+            size={48}
+            style={{ color: "var(--ink-muted)", marginBottom: "16px" }}
+          />
           <h4>No allowlist entries</h4>
-          <p className="muted">Add patterns to bypass DCG checks for specific commands.</p>
+          <p className="muted">
+            Add patterns to bypass DCG checks for specific commands.
+          </p>
         </div>
       ) : (
         <div className="table">
@@ -655,9 +726,13 @@ function AllowlistTab({ entries, onRemove, onAdd, isRemoving, isAdding }: Allowl
                   <p className="muted" style={{ marginTop: "4px" }}>
                     {entry.reason}
                   </p>
-                  <div className="muted" style={{ marginTop: "8px", fontSize: "0.8rem" }}>
+                  <div
+                    className="muted"
+                    style={{ marginTop: "8px", fontSize: "0.8rem" }}
+                  >
                     Added by {entry.addedBy} {formatRelativeTime(entry.addedAt)}
-                    {entry.expiresAt && ` (expires ${formatFutureTime(entry.expiresAt)})`}
+                    {entry.expiresAt &&
+                      ` (expires ${formatFutureTime(entry.expiresAt)})`}
                   </div>
                 </div>
                 <button
@@ -767,7 +842,9 @@ function CommandTester({
           className="card"
           style={{
             marginTop: "16px",
-            background: testResult.blocked ? "rgba(196, 77, 65, 0.1)" : "rgba(42, 127, 98, 0.1)",
+            background: testResult.blocked
+              ? "rgba(196, 77, 65, 0.1)"
+              : "rgba(42, 127, 98, 0.1)",
           }}
         >
           <div
@@ -801,7 +878,10 @@ function CommandTester({
       )}
 
       {explainResult && (
-        <div className="card" style={{ marginTop: "16px", background: "var(--surface-muted)" }}>
+        <div
+          className="card"
+          style={{ marginTop: "16px", background: "var(--surface-muted)" }}
+        >
           <h4 style={{ marginBottom: "8px" }}>Analysis</h4>
           <p style={{ marginBottom: "16px" }}>{explainResult.analysis}</p>
 
@@ -818,8 +898,12 @@ function CommandTester({
                     borderRadius: "8px",
                   }}
                 >
-                  <div style={{ display: "flex", gap: "8px", marginBottom: "4px" }}>
-                    <StatusPill tone={getSeverityTone(rule.severity)}>{rule.severity}</StatusPill>
+                  <div
+                    style={{ display: "flex", gap: "8px", marginBottom: "4px" }}
+                  >
+                    <StatusPill tone={getSeverityTone(rule.severity)}>
+                      {rule.severity}
+                    </StatusPill>
                     <span className="mono">
                       {rule.pack}/{rule.rule}
                     </span>
@@ -873,8 +957,10 @@ export function DCGPage() {
   const { explain, isLoading: isExplaining } = useExplainCommand();
   const { toggle, isLoading: isToggling } = useTogglePack();
   const { mark: markFP } = useMarkFalsePositive();
-  const { add: addAllowlist, isLoading: isAddingAllowlist } = useAddAllowlistEntry();
-  const { remove: removeAllowlist, isLoading: isRemovingAllowlist } = useRemoveAllowlistEntry();
+  const { add: addAllowlist, isLoading: isAddingAllowlist } =
+    useAddAllowlistEntry();
+  const { remove: removeAllowlist, isLoading: isRemovingAllowlist } =
+    useRemoveAllowlistEntry();
 
   // Handler functions
   const handleApprove = async (shortCode: string) => {
@@ -909,7 +995,11 @@ export function DCGPage() {
     refetchBlocks();
   };
 
-  const handleAddAllowlist = async (entry: { ruleId: string; pattern: string; reason: string }) => {
+  const handleAddAllowlist = async (entry: {
+    ruleId: string;
+    pattern: string;
+    reason: string;
+  }) => {
     await addAllowlist(entry);
     refetchAllowlist();
   };
@@ -944,15 +1034,19 @@ export function DCGPage() {
           <Shield size={28} />
           Destructive Command Guard
         </h2>
-        {pending && pending.filter((p) => p.status === "pending").length > 0 && (
-          <StatusPill tone="warning">
-            {pending.filter((p) => p.status === "pending").length} pending
-          </StatusPill>
-        )}
+        {pending &&
+          pending.filter((p) => p.status === "pending").length > 0 && (
+            <StatusPill tone="warning">
+              {pending.filter((p) => p.status === "pending").length} pending
+            </StatusPill>
+          )}
       </div>
 
       {/* Quick Stats */}
-      <section className="grid grid--4" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+      <section
+        className="grid grid--4"
+        style={{ gridTemplateColumns: "repeat(4, 1fr)" }}
+      >
         <QuickStatCard
           title="Blocks (24h)"
           value={stats?.overview.blocksLast24h ?? "-"}
@@ -980,7 +1074,9 @@ export function DCGPage() {
           title="Pending"
           value={stats?.overview.pendingExceptionsCount ?? "-"}
           icon={<Clock size={18} />}
-          variant={stats?.overview.pendingExceptionsCount ? "warning" : "default"}
+          variant={
+            stats?.overview.pendingExceptionsCount ? "warning" : "default"
+          }
         />
       </section>
 
@@ -1005,7 +1101,10 @@ export function DCGPage() {
               <span
                 style={{
                   marginLeft: "6px",
-                  background: activeTab === tab.id ? "rgba(255,255,255,0.2)" : "var(--warning)",
+                  background:
+                    activeTab === tab.id
+                      ? "rgba(255,255,255,0.2)"
+                      : "var(--warning)",
                   color: activeTab === tab.id ? "inherit" : "#fff",
                   padding: "2px 6px",
                   borderRadius: "999px",
@@ -1038,7 +1137,11 @@ export function DCGPage() {
         {activeTab === "stats" && <StatsTab stats={stats} />}
 
         {activeTab === "config" && packs && (
-          <ConfigTab packs={packs} onToggle={handleTogglePack} isToggling={isToggling} />
+          <ConfigTab
+            packs={packs}
+            onToggle={handleTogglePack}
+            isToggling={isToggling}
+          />
         )}
 
         {activeTab === "allowlist" && allowlist && (

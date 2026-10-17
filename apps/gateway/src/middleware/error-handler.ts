@@ -8,7 +8,11 @@
 
 import type { Context } from "hono";
 import type { ZodError } from "zod";
-import { sendError, sendInternalError, sendValidationError } from "../utils/response";
+import {
+  sendError,
+  sendInternalError,
+  sendValidationError,
+} from "../utils/response";
 import { isZodError, transformZodError } from "../utils/validation";
 import { getCorrelationId, getLogger } from "./correlation";
 
@@ -45,7 +49,10 @@ export function globalErrorHandler(err: Error, c: Context): Response {
   }
 
   // Handle all other errors as internal errors
-  log.error({ correlationId, error: err, stack: err.stack }, "Unhandled error in route");
+  log.error(
+    { correlationId, error: err, stack: err.stack },
+    "Unhandled error in route",
+  );
   return sendInternalError(c);
 }
 

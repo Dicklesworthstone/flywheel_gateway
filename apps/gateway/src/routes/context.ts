@@ -17,6 +17,14 @@ import {
   RotationError,
   SummarizationError,
 } from "../services/context-health.service";
+import {
+  executeRotation,
+  getContextHealth,
+  getRotationConfig,
+  needsRotation,
+  type RotationStrategy,
+  setRotationConfig,
+} from "../services/context-rotation";
 import type { ContextPackRequest } from "../types/context.types";
 import type { RotationConfig } from "../types/context-health.types";
 import {
@@ -41,7 +49,9 @@ context.use("*", requireAdminMiddleware());
  * Remove undefined values from an object (for exactOptionalPropertyTypes compatibility).
  */
 function removeUndefined<T extends object>(obj: T): T {
-  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as T;
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined),
+  ) as T;
 }
 
 // ============================================================================
@@ -397,7 +407,8 @@ context.get("/:sessionId/context/history", async (c) => {
     const limitParam = c.req.query("limit");
 
     const sinceDate = sinceParam ? new Date(sinceParam) : undefined;
-    const since = sinceDate && !Number.isNaN(sinceDate.getTime()) ? sinceDate : undefined;
+    const since =
+      sinceDate && !Number.isNaN(sinceDate.getTime()) ? sinceDate : undefined;
     const parsedLimit = limitParam ? parseInt(limitParam, 10) : 100;
     const limit = Number.isNaN(parsedLimit) ? 100 : parsedLimit;
 
@@ -417,6 +428,176 @@ context.get("/:sessionId/context/history", async (c) => {
       })),
       { total: history.length },
     );
+  } catch (error) {
+    return handleContextError(error, c);
+  }
+});
+
+// ============================================================================
+// Agent Context Window Rotation Routes (context-rotation.ts)
+// ============================================================================
+
+const RotationConfigUpdateSchema = z.object({
+  strategy: z
+    .enum([
+      "summarize_and_continue",
+      "fresh_start",
+      "checkpoint_and_restart",
+      "graceful_handoff",
+    ])
+    .optional(),
+  thresholds: z
+    .object({
+      warning: z.number().min(1).max(100).optional(),
+      critical: z.number().min(1).max(100).optional(),
+      emergency: z.number().min(1).max(100).optional(),
+    })
+    .optional(),
+  autoRotate: z.boolean().optional(),
+  summarizationPrompt: z.string().optional(),
+});
+
+const RotationCheckRequestSchema = z.object({
+  totalTokens: z.number().min(0).default(0),
+  promptTokens: z.number().min(0).optional(),
+  completionTokens: z.number().min(0).optional(),
+  maxTokens: z.number().min(1).default(200000),
+  model: z.string().default("claude-sonnet-4-20250514"),
+  workingDirectory: z.string().default("/data/projects/flywheel_gateway"),
+  systemPrompt: z.string().optional(),
+  strategy: z
+    .enum([
+      "summarize_and_continue",
+      "fresh_start",
+      "checkpoint_and_restart",
+      "graceful_handoff",
+    ])
+    .optional(),
+});
+
+context.get("/:sessionId/context/rotation/config", (c) => {
+  const sessionId = c.req.param("sessionId");
+  const config = getRotationConfig(sessionId);
+  return sendResource(c, "context_rotation_config", {
+    sessionId,
+    ...config,
+  });
+});
+
+context.put("/:sessionId/context/rotation/config", async (c) => {
+  try {
+    const sessionId = c.req.param("sessionId");
+    const body = await c.req.json();
+    const validated = RotationConfigUpdateSchema.parse(body);
+    setRotationConfig(
+      sessionId,
+      removeUndefined(validated) as Parameters<typeof setRotationConfig>[1],
+    );
+    const updated = getRotationConfig(sessionId);
+    return sendResource(c, "context_rotation_config", {
+      sessionId,
+      ...updated,
+    });
+  } catch (error) {
+    return handleContextError(error, c);
+  }
+});
+
+context.post("/:sessionId/context/rotation/check", async (c) => {
+  try {
+    const sessionId = c.req.param("sessionId");
+    const body = await c.req.json().catch(() => ({}));
+    const validated = RotationCheckRequestSchema.parse(body);
+    const promptTokens =
+      validated.promptTokens ?? Math.floor(validated.totalTokens * 0.7);
+    const completionTokens =
+      validated.completionTokens ?? validated.totalTokens - promptTokens;
+
+    const syntheticAgent = {
+      id: sessionId,
+      config: {
+        id: sessionId,
+        provider: "claude" as const,
+        model: validated.model,
+        workingDirectory: validated.workingDirectory,
+        maxTokens: validated.maxTokens,
+        ...(validated.systemPrompt !== undefined && {
+          systemPrompt: validated.systemPrompt,
+        }),
+      },
+      driverId: "sdk",
+      driverType: "sdk" as const,
+      activityState: "idle" as const,
+      tokenUsage: {
+        promptTokens,
+        completionTokens,
+        totalTokens: validated.totalTokens,
+      },
+      contextHealth: "healthy" as const,
+      startedAt: new Date(),
+      lastActivityAt: new Date(),
+    };
+
+    const health = getContextHealth(syntheticAgent);
+    const rotationNeeded = needsRotation(syntheticAgent);
+
+    return sendResource(c, "context_rotation_check", {
+      ...health,
+      needsRotation: rotationNeeded,
+    });
+  } catch (error) {
+    return handleContextError(error, c);
+  }
+});
+
+context.post("/:sessionId/context/rotation/execute", async (c) => {
+  try {
+    const sessionId = c.req.param("sessionId");
+    const body = await c.req.json().catch(() => ({}));
+    const validated = RotationCheckRequestSchema.parse(body);
+    const promptTokens =
+      validated.promptTokens ?? Math.floor(validated.totalTokens * 0.7);
+    const completionTokens =
+      validated.completionTokens ?? validated.totalTokens - promptTokens;
+
+    const syntheticAgent = {
+      id: sessionId,
+      config: {
+        id: sessionId,
+        provider: "claude" as const,
+        model: validated.model,
+        workingDirectory: validated.workingDirectory,
+        maxTokens: validated.maxTokens,
+        ...(validated.systemPrompt !== undefined && {
+          systemPrompt: validated.systemPrompt,
+        }),
+      },
+      driverId: "sdk",
+      driverType: "sdk" as const,
+      activityState: "idle" as const,
+      tokenUsage: {
+        promptTokens,
+        completionTokens,
+        totalTokens: validated.totalTokens,
+      },
+      contextHealth: "healthy" as const,
+      startedAt: new Date(),
+      lastActivityAt: new Date(),
+    };
+
+    const result = await executeRotation(
+      syntheticAgent,
+      validated.strategy as RotationStrategy | undefined,
+      {
+        spawnAgent: async () => ({ agentId: `${sessionId}_rotated` }),
+        terminateAgent: async () => {},
+        sendMessage: async () => {},
+        getConversationHistory: async () => [],
+        getToolState: async () => ({ rotatedFrom: sessionId }),
+      },
+    );
+
+    return sendResource(c, "context_rotation_result", result);
   } catch (error) {
     return handleContextError(error, c);
   }

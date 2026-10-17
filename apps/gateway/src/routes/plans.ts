@@ -74,7 +74,10 @@ function handleError(error: unknown, c: Context) {
 
   if (error instanceof Error) {
     // Check for apr not installed error
-    if (error.message.includes("not installed") || error.message.includes("ENOENT")) {
+    if (
+      error.message.includes("not installed") ||
+      error.message.includes("ENOENT")
+    ) {
       return sendError(
         c,
         "APR_NOT_INSTALLED",
@@ -105,7 +108,10 @@ function handleError(error: unknown, c: Context) {
 plans.get("/status", async (c) => {
   try {
     const apr = getAprService();
-    const [available, version] = await Promise.all([apr.isAvailable(), apr.getVersion()]);
+    const [available, version] = await Promise.all([
+      apr.isAvailable(),
+      apr.getVersion(),
+    ]);
 
     if (!available) {
       return sendResource(c, "apr_status", {
@@ -216,7 +222,8 @@ plans.get("/rounds/:round", async (c) => {
 
     const options: { workflow?: string; includeImpl?: boolean } = {};
     if (validated.workflow !== undefined) options.workflow = validated.workflow;
-    if (validated.includeImpl !== undefined) options.includeImpl = validated.includeImpl;
+    if (validated.includeImpl !== undefined)
+      options.includeImpl = validated.includeImpl;
 
     const round = await apr.getRound(roundNum.round, options);
 
@@ -282,7 +289,8 @@ plans.get("/rounds/:round/integrate", async (c) => {
 
     const options: { workflow?: string; includeImpl?: boolean } = {};
     if (validated.workflow !== undefined) options.workflow = validated.workflow;
-    if (validated.includeImpl !== undefined) options.includeImpl = validated.includeImpl;
+    if (validated.includeImpl !== undefined)
+      options.includeImpl = validated.includeImpl;
 
     const integration = await apr.getIntegrationPrompt(roundNum.round, options);
 

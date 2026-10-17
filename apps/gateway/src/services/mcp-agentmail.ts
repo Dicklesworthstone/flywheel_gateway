@@ -1,6 +1,14 @@
-import { AgentMailClientError, type AgentMailToolCaller } from "@flywheel/flywheel-clients";
+import {
+  AgentMailClientError,
+  type AgentMailToolCaller,
+} from "@flywheel/flywheel-clients";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import {
+  recordFailure,
+  recordSuccess,
+  shouldCheck,
+} from "./circuit-breaker.service";
 import { createChildLogger } from "./logger";
 
 export interface McpAgentMailConfig {
@@ -8,6 +16,159 @@ export interface McpAgentMailConfig {
   args: string[];
   clientName: string;
   clientVersion: string;
+}
+
+export interface QueuedAgentMailMessage {
+  id: string;
+  input: Record<string, unknown>;
+  queuedAt: Date;
+}
+
+const MAX_OFFLINE_QUEUE_SIZE = 500;
+const offlineMessageQueue: QueuedAgentMailMessage[] = [];
+let flushingOfflineQueue = false;
+
+/**
+ * Get a snapshot of messages queued while the Agent Mail circuit breaker was OPEN.
+ */
+export function getAgentMailOfflineQueue(): QueuedAgentMailMessage[] {
+  return [...offlineMessageQueue];
+}
+
+/**
+ * Clear the Agent Mail offline message queue (used in tests).
+ */
+export function clearAgentMailOfflineQueue(): void {
+  offlineMessageQueue.length = 0;
+}
+
+/**
+ * Flush queued offline messages through the underlying AgentMailToolCaller.
+ * Returns the number of messages successfully flushed.
+ */
+export async function flushAgentMailOfflineQueue(
+  caller: AgentMailToolCaller,
+): Promise<number> {
+  if (flushingOfflineQueue || offlineMessageQueue.length === 0) {
+    return 0;
+  }
+
+  flushingOfflineQueue = true;
+  const log = createChildLogger({ component: "agentmail-offline-queue" });
+  let flushed = 0;
+
+  try {
+    while (offlineMessageQueue.length > 0) {
+      const next = offlineMessageQueue[0];
+      if (!next) break;
+      try {
+        await caller("send_message", next.input);
+        offlineMessageQueue.shift();
+        flushed++;
+        recordSuccess("agentmail");
+      } catch (err) {
+        log.warn(
+          { error: String(err), remaining: offlineMessageQueue.length },
+          "Failed to flush offline Agent Mail message; stopping flush",
+        );
+        break;
+      }
+    }
+    if (flushed > 0) {
+      log.info(
+        { flushed, remaining: offlineMessageQueue.length },
+        "Flushed queued Agent Mail messages after circuit recovery",
+      );
+    }
+  } finally {
+    flushingOfflineQueue = false;
+  }
+
+  return flushed;
+}
+
+/**
+ * Wrap an AgentMailToolCaller with the "agentmail" circuit breaker, offline
+ * message queue fallback when OPEN, and automatic queue flush upon recovery.
+ */
+export function withAgentMailCircuitBreaker(
+  rawCaller: AgentMailToolCaller,
+): AgentMailToolCaller {
+  const log = createChildLogger({ component: "agentmail-circuit-breaker" });
+
+  return async (toolName, input, options) => {
+    if (!shouldCheck("agentmail")) {
+      if (toolName === "send_message") {
+        if (offlineMessageQueue.length >= MAX_OFFLINE_QUEUE_SIZE) {
+          offlineMessageQueue.shift();
+        }
+        const entry: QueuedAgentMailMessage = {
+          id: `offline_${Date.now()}_${offlineMessageQueue.length + 1}`,
+          input: (input as Record<string, unknown>) ?? {},
+          queuedAt: new Date(),
+        };
+        offlineMessageQueue.push(entry);
+        log.warn(
+          { queueDepth: offlineMessageQueue.length, entryId: entry.id },
+          "Agent Mail circuit OPEN — queued send_message for delivery on recovery",
+        );
+        return {
+          deliveries: [],
+          count: 0,
+          queuedOffline: true,
+          queueId: entry.id,
+        };
+      }
+
+      if (toolName === "fetch_inbox") {
+        log.debug("Agent Mail circuit OPEN — returning empty inbox fallback");
+        return [];
+      }
+
+      throw new AgentMailClientError(
+        "transport",
+        "Agent Mail circuit breaker is OPEN (degraded mode)",
+        { tool: toolName },
+      );
+    }
+
+    try {
+      const result = await rawCaller(toolName, input, options);
+      recordSuccess("agentmail");
+
+      if (offlineMessageQueue.length > 0 && !flushingOfflineQueue) {
+        await flushAgentMailOfflineQueue(rawCaller);
+      }
+
+      return result;
+    } catch (error) {
+      recordFailure("agentmail");
+      // If this was a send_message call and the circuit just opened (or transport failed),
+      // queue it for later delivery if the caller opted into circuit breaker protection.
+      if (toolName === "send_message" && !shouldCheck("agentmail")) {
+        if (offlineMessageQueue.length >= MAX_OFFLINE_QUEUE_SIZE) {
+          offlineMessageQueue.shift();
+        }
+        const entry: QueuedAgentMailMessage = {
+          id: `offline_${Date.now()}_${offlineMessageQueue.length + 1}`,
+          input: (input as Record<string, unknown>) ?? {},
+          queuedAt: new Date(),
+        };
+        offlineMessageQueue.push(entry);
+        log.warn(
+          { queueDepth: offlineMessageQueue.length, entryId: entry.id },
+          "Agent Mail circuit opened on failure — queued send_message for recovery",
+        );
+        return {
+          deliveries: [],
+          count: 0,
+          queuedOffline: true,
+          queueId: entry.id,
+        };
+      }
+      throw error;
+    }
+  };
 }
 
 function parseArgs(value: string): string[] {
@@ -32,15 +193,19 @@ function parseArgs(value: string): string[] {
 
 function getAgentMailConfigFromEnv(): McpAgentMailConfig | undefined {
   const enabled =
-    process.env["AGENT_MAIL_MCP_ENABLED"] === "true" || process.env["AGENT_MAIL_MCP_COMMAND"];
+    process.env["AGENT_MAIL_MCP_ENABLED"] === "true" ||
+    process.env["AGENT_MAIL_MCP_COMMAND"];
 
   if (!enabled) return undefined;
 
   const command = process.env["AGENT_MAIL_MCP_COMMAND"] ?? "mcp-agent-mail";
   const args = parseArgs(process.env["AGENT_MAIL_MCP_ARGS"] ?? "serve");
-  const clientName = process.env["AGENT_MAIL_MCP_CLIENT_NAME"] ?? "flywheel-gateway";
+  const clientName =
+    process.env["AGENT_MAIL_MCP_CLIENT_NAME"] ?? "flywheel-gateway";
 
-  const envVersion = process.env["AGENT_MAIL_MCP_CLIENT_VERSION"] ?? process.env["GATEWAY_VERSION"];
+  const envVersion =
+    process.env["AGENT_MAIL_MCP_CLIENT_VERSION"] ??
+    process.env["GATEWAY_VERSION"];
 
   if (!envVersion) {
     const log = createChildLogger({ component: "agentmail-mcp-config" });
@@ -67,7 +232,9 @@ function normalizeToolResult(result: unknown): unknown {
     return result;
   }
 
-  const first = content[0] as { type?: string; text?: string; json?: unknown } | undefined;
+  const first = content[0] as
+    | { type?: string; text?: string; json?: unknown }
+    | undefined;
   if (!first) return result;
 
   if (first.type === "json" && "json" in first) {
@@ -93,9 +260,13 @@ function normalizeToolResult(result: unknown): unknown {
   return result;
 }
 
-export function createMcpAgentMailToolCaller(config: McpAgentMailConfig): AgentMailToolCaller {
+export function createMcpAgentMailToolCaller(
+  config: McpAgentMailConfig,
+): AgentMailToolCaller {
   if (!config.command || config.command.trim() === "") {
-    throw new Error("Invalid Agent Mail configuration: command must be a non-empty string");
+    throw new Error(
+      "Invalid Agent Mail configuration: command must be a non-empty string",
+    );
   }
 
   const log = createChildLogger({
@@ -127,7 +298,7 @@ export function createMcpAgentMailToolCaller(config: McpAgentMailConfig): AgentM
     return clientPromise;
   };
 
-  return async (toolName, input, options) => {
+  const rawCaller: AgentMailToolCaller = async (toolName, input, options) => {
     if (options?.signal?.aborted) {
       throw new AgentMailClientError("transport", "Tool call aborted", {
         tool: toolName,
@@ -147,22 +318,31 @@ export function createMcpAgentMailToolCaller(config: McpAgentMailConfig): AgentM
     const timeoutPromise =
       timeoutMs && timeoutMs > 0
         ? new Promise((_, reject) => {
-            timeoutId = setTimeout(() => reject(new Error("Tool call timed out")), timeoutMs);
+            timeoutId = setTimeout(
+              () => reject(new Error("Tool call timed out")),
+              timeoutMs,
+            );
           })
         : null;
 
     const abortPromise = options?.signal
       ? new Promise((_, reject) => {
-          options.signal?.addEventListener("abort", () => reject(new Error("Tool call aborted")), {
-            once: true,
-          });
+          options.signal?.addEventListener(
+            "abort",
+            () => reject(new Error("Tool call aborted")),
+            {
+              once: true,
+            },
+          );
         })
       : null;
 
     let result: unknown;
     try {
       result = (await Promise.race(
-        [callPromise, timeoutPromise, abortPromise].filter(Boolean) as Promise<unknown>[],
+        [callPromise, timeoutPromise, abortPromise].filter(
+          Boolean,
+        ) as Promise<unknown>[],
       )) as unknown;
     } catch (error) {
       // Invalidate client on error to force reconnection next time
@@ -188,6 +368,8 @@ export function createMcpAgentMailToolCaller(config: McpAgentMailConfig): AgentM
 
     return normalizeToolResult(result);
   };
+
+  return withAgentMailCircuitBreaker(rawCaller);
 }
 
 export function registerAgentMailToolCallerFromEnv(): boolean {
@@ -196,7 +378,10 @@ export function registerAgentMailToolCallerFromEnv(): boolean {
     return false;
   }
 
-  registerGlobalToolCaller("agentMailCallTool", createMcpAgentMailToolCaller(config));
+  registerGlobalToolCaller(
+    "agentMailCallTool",
+    createMcpAgentMailToolCaller(config),
+  );
 
   return true;
 }

@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useUiStore } from "../stores/ui";
+import { useAllowMockFallback } from "./useMockFallback";
 import { useMountedRef } from "./useMountedRef";
 
 // ============================================================================
@@ -14,8 +15,18 @@ import { useMountedRef } from "./useMountedRef";
 // ============================================================================
 
 export type ProviderId = "claude" | "codex" | "gemini";
-export type AuthMode = "oauth_browser" | "device_code" | "api_key" | "vertex_adc";
-export type ProfileStatus = "unlinked" | "linked" | "verified" | "expired" | "cooldown" | "error";
+export type AuthMode =
+  | "oauth_browser"
+  | "device_code"
+  | "api_key"
+  | "vertex_adc";
+export type ProfileStatus =
+  | "unlinked"
+  | "linked"
+  | "verified"
+  | "expired"
+  | "cooldown"
+  | "error";
 export type HealthStatus = "unknown" | "healthy" | "warning" | "critical";
 
 export interface AccountProfile {
@@ -220,7 +231,10 @@ const mockByoaStatus: ByoaStatus = {
 
 const API_BASE = "/api/accounts";
 
-async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
+async function fetchAPI<T>(
+  endpoint: string,
+  options?: RequestInit,
+): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
       "Content-Type": "application/json",
@@ -230,7 +244,9 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Request failed" }));
+    const error = await response
+      .json()
+      .catch(() => ({ message: "Request failed" }));
     throw new Error(error.message || `HTTP ${response.status}`);
   }
 
@@ -249,10 +265,15 @@ interface UseQueryResult<T> {
   refetch: () => void;
 }
 
-function useQuery<T>(endpoint: string, mockData: T, deps: unknown[] = []): UseQueryResult<T> {
+function useQuery<T>(
+  endpoint: string,
+  mockData: T,
+  deps: unknown[] = [],
+): UseQueryResult<T> {
   "use no memo";
 
   const mockMode = useUiStore((state) => state.mockMode);
+  const allowMockFallback = useAllowMockFallback();
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -273,11 +294,13 @@ function useQuery<T>(endpoint: string, mockData: T, deps: unknown[] = []): UseQu
       setData(result);
     } catch (e) {
       setError(e instanceof Error ? e : new Error("Unknown error"));
-      setData(mockData);
+      if (allowMockFallback) {
+        setData(mockData);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [endpoint, mockData, mockMode]);
+  }, [endpoint, mockData, mockMode, allowMockFallback]);
 
   useEffect(() => {
     fetch();
@@ -289,8 +312,12 @@ function useQuery<T>(endpoint: string, mockData: T, deps: unknown[] = []): UseQu
 /**
  * Hook to fetch BYOA status for a workspace.
  */
-export function useByoaStatus(workspaceId = "default"): UseQueryResult<ByoaStatus> {
-  return useQuery(`/byoa-status?workspaceId=${workspaceId}`, mockByoaStatus, [workspaceId]);
+export function useByoaStatus(
+  workspaceId = "default",
+): UseQueryResult<ByoaStatus> {
+  return useQuery(`/byoa-status?workspaceId=${workspaceId}`, mockByoaStatus, [
+    workspaceId,
+  ]);
 }
 
 /**
@@ -356,12 +383,16 @@ export function usePool(
     createdAt: new Date(Date.now() - 86400000 * 30).toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  const nextProfile = mockProfiles.find((p) => p.provider === provider && p.status === "verified");
+  const nextProfile = mockProfiles.find(
+    (p) => p.provider === provider && p.status === "verified",
+  );
   return useQuery(
     `/pools/${provider}?workspaceId=${workspaceId}`,
     {
       pool: mockPool,
-      nextProfile: nextProfile ? { id: nextProfile.id, name: nextProfile.name } : null,
+      nextProfile: nextProfile
+        ? { id: nextProfile.id, name: nextProfile.name }
+        : null,
     },
     [provider, workspaceId],
   );
@@ -453,10 +484,13 @@ export function useUpdateProfile() {
       }
 
       try {
-        const result = await fetchAPI<AccountProfile>(`/profiles/${profileId}`, {
-          method: "PATCH",
-          body: JSON.stringify(options),
-        });
+        const result = await fetchAPI<AccountProfile>(
+          `/profiles/${profileId}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(options),
+          },
+        );
         return result;
       } catch (e) {
         const err = e instanceof Error ? e : new Error("Unknown error");
@@ -673,7 +707,9 @@ export function useDeviceCodeFlow(): UseDeviceCodeFlowResult {
   const isMounted = useMountedRef();
 
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
   const providerRef = useRef<ProviderId | null>(null);
   const workspaceIdRef = useRef<string>("default");
 
@@ -681,7 +717,8 @@ export function useDeviceCodeFlow(): UseDeviceCodeFlowResult {
   useEffect(() => {
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      if (countdownIntervalRef.current)
+        clearInterval(countdownIntervalRef.current);
     };
   }, []);
 
@@ -947,7 +984,8 @@ export function useOnboardingGuidance(provider: ProviderId): {
   const onboarding = PROVIDER_ONBOARDING[provider];
   const hasProfile = profiles?.some((p) => p.provider === provider) ?? false;
   const hasVerified =
-    profiles?.some((p) => p.provider === provider && p.status === "verified") ?? false;
+    profiles?.some((p) => p.provider === provider && p.status === "verified") ??
+    false;
   const isActive = status?.verifiedProviders.includes(provider) ?? false;
 
   const steps: OnboardingStep[] = [
@@ -972,7 +1010,9 @@ export function useOnboardingGuidance(provider: ProviderId): {
   ];
 
   const completedCount = steps.filter((s) => s.completed).length;
-  const completionPercentage = Math.round((completedCount / steps.length) * 100);
+  const completionPercentage = Math.round(
+    (completedCount / steps.length) * 100,
+  );
 
   return {
     guidance: {

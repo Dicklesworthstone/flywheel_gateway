@@ -9,6 +9,7 @@
  * - Retry with exponential backoff
  */
 
+import { sqlite } from "../db";
 import { getLogger } from "../middleware/correlation";
 import {
   type AgentTaskConfig,
@@ -40,7 +41,11 @@ import { sendMessage, spawnAgent, terminateAgent } from "./agent";
 const UNSAFE_CONTEXT_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 
 export const TRANSFORM_MAP_ALLOWED_IDENTIFIERS = ["$item", "$index"] as const;
-export const TRANSFORM_REDUCE_ALLOWED_IDENTIFIERS = ["$acc", "$item", "$index"] as const;
+export const TRANSFORM_REDUCE_ALLOWED_IDENTIFIERS = [
+  "$acc",
+  "$item",
+  "$index",
+] as const;
 
 /**
  * Mask a URL for safe logging (show only host, hide path/query).
@@ -55,7 +60,7 @@ function maskUrlForLogging(url: string): string {
 }
 
 // ============================================================================
-// In-Memory Storage
+// In-Memory + SQLite Storage
 // ============================================================================
 
 /** Storage for pipelines */
@@ -65,10 +70,462 @@ const pipelines = new Map<string, Pipeline>();
 const runs = new Map<string, PipelineRun>();
 
 /** Pending approvals: runId -> stepId -> Promise resolver */
-const pendingApprovals = new Map<string, Map<string, (decision: ApprovalRecord) => void>>();
+const pendingApprovals = new Map<
+  string,
+  Map<string, (decision: ApprovalRecord) => void>
+>();
 
 /** Active run controllers for cancellation */
 const activeRunControllers = new Map<string, AbortController>();
+
+let pipelineTablesReady = false;
+let pipelinesHydrated = false;
+
+function ensurePipelineTables(): void {
+  if (pipelineTablesReady) return;
+  try {
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS pipelines (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        version INTEGER NOT NULL DEFAULT 1,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        trigger_type TEXT NOT NULL,
+        trigger_config BLOB NOT NULL,
+        trigger_enabled INTEGER NOT NULL DEFAULT 1,
+        next_trigger_at INTEGER,
+        last_triggered_at INTEGER,
+        steps BLOB NOT NULL,
+        context_defaults BLOB,
+        retry_policy BLOB,
+        tags BLOB,
+        owner_id TEXT,
+        total_runs INTEGER NOT NULL DEFAULT 0,
+        successful_runs INTEGER NOT NULL DEFAULT 0,
+        failed_runs INTEGER NOT NULL DEFAULT 0,
+        average_duration_ms INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        last_run_at INTEGER
+      );
+      CREATE TABLE IF NOT EXISTS pipeline_runs (
+        id TEXT PRIMARY KEY,
+        pipeline_id TEXT NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
+        pipeline_version INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        current_step_index INTEGER NOT NULL DEFAULT 0,
+        executed_step_ids BLOB NOT NULL,
+        context BLOB NOT NULL,
+        trigger_params BLOB,
+        triggered_by_type TEXT NOT NULL,
+        triggered_by_id TEXT,
+        started_at INTEGER NOT NULL,
+        completed_at INTEGER,
+        duration_ms INTEGER,
+        error_code TEXT,
+        error_message TEXT,
+        error_step_id TEXT,
+        correlation_id TEXT
+      );
+      CREATE TABLE IF NOT EXISTS pipeline_step_results (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL REFERENCES pipeline_runs(id) ON DELETE CASCADE,
+        step_id TEXT NOT NULL,
+        step_name TEXT NOT NULL,
+        step_type TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        success INTEGER,
+        output BLOB,
+        error_code TEXT,
+        error_message TEXT,
+        error_details BLOB,
+        retry_count INTEGER NOT NULL DEFAULT 0,
+        started_at INTEGER,
+        completed_at INTEGER,
+        duration_ms INTEGER
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS pipeline_step_results_run_step_idx ON pipeline_step_results(run_id, step_id);
+    `);
+    pipelineTablesReady = true;
+  } catch {
+    // Ignore if sqlite is mocked in unit tests
+  }
+}
+
+function parseJsonColumn<T>(val: unknown, fallback: T): T {
+  if (val === null || val === undefined) return fallback;
+  try {
+    if (typeof val === "string") return JSON.parse(val) as T;
+    if (val instanceof Uint8Array) {
+      return JSON.parse(new TextDecoder().decode(val)) as T;
+    }
+    if (typeof val === "object") return val as T;
+  } catch {
+    // Ignore parse error
+  }
+  return fallback;
+}
+
+function toEpochSeconds(date?: Date): number | null {
+  return date ? Math.floor(date.getTime()) : null;
+}
+
+function fromEpochTimestamp(ts: number | null | undefined): Date | undefined {
+  if (ts === null || ts === undefined) return undefined;
+  return new Date(ts);
+}
+
+function persistPipelineToDb(pipeline: Pipeline): void {
+  try {
+    ensurePipelineTables();
+    sqlite
+      .query(
+        `INSERT INTO pipelines (
+          id, name, description, version, enabled,
+          trigger_type, trigger_config, trigger_enabled, next_trigger_at, last_triggered_at,
+          steps, context_defaults, retry_policy, tags, owner_id,
+          total_runs, successful_runs, failed_runs, average_duration_ms,
+          created_at, updated_at, last_run_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          description = excluded.description,
+          version = excluded.version,
+          enabled = excluded.enabled,
+          trigger_type = excluded.trigger_type,
+          trigger_config = excluded.trigger_config,
+          trigger_enabled = excluded.trigger_enabled,
+          next_trigger_at = excluded.next_trigger_at,
+          last_triggered_at = excluded.last_triggered_at,
+          steps = excluded.steps,
+          context_defaults = excluded.context_defaults,
+          retry_policy = excluded.retry_policy,
+          tags = excluded.tags,
+          owner_id = excluded.owner_id,
+          total_runs = excluded.total_runs,
+          successful_runs = excluded.successful_runs,
+          failed_runs = excluded.failed_runs,
+          average_duration_ms = excluded.average_duration_ms,
+          updated_at = excluded.updated_at,
+          last_run_at = excluded.last_run_at`,
+      )
+      .run(
+        pipeline.id,
+        pipeline.name,
+        pipeline.description ?? null,
+        pipeline.version,
+        pipeline.enabled ? 1 : 0,
+        pipeline.trigger.type,
+        JSON.stringify(pipeline.trigger.config),
+        pipeline.trigger.enabled ? 1 : 0,
+        toEpochSeconds(pipeline.trigger.nextTriggerAt),
+        toEpochSeconds(pipeline.trigger.lastTriggeredAt),
+        JSON.stringify(pipeline.steps),
+        pipeline.contextDefaults
+          ? JSON.stringify(pipeline.contextDefaults)
+          : null,
+        pipeline.retryPolicy ? JSON.stringify(pipeline.retryPolicy) : null,
+        pipeline.tags ? JSON.stringify(pipeline.tags) : null,
+        pipeline.ownerId ?? null,
+        pipeline.stats.totalRuns,
+        pipeline.stats.successfulRuns,
+        pipeline.stats.failedRuns,
+        Math.round(pipeline.stats.averageDurationMs),
+        pipeline.createdAt.getTime(),
+        pipeline.updatedAt.getTime(),
+        toEpochSeconds(pipeline.lastRunAt),
+      );
+  } catch {
+    // Ignore if sqlite is mocked
+  }
+}
+
+function deletePipelineFromDb(id: string): void {
+  try {
+    ensurePipelineTables();
+    sqlite.query(`DELETE FROM pipelines WHERE id = ?`).run(id);
+  } catch {
+    // Ignore if sqlite is mocked
+  }
+}
+
+function persistRunToDb(run: PipelineRun, pipelineVersion = 1): void {
+  try {
+    ensurePipelineTables();
+    sqlite
+      .query(
+        `INSERT INTO pipeline_runs (
+          id, pipeline_id, pipeline_version, status, current_step_index,
+          executed_step_ids, context, trigger_params, triggered_by_type, triggered_by_id,
+          started_at, completed_at, duration_ms, error_code, error_message, error_step_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          status = excluded.status,
+          current_step_index = excluded.current_step_index,
+          executed_step_ids = excluded.executed_step_ids,
+          context = excluded.context,
+          completed_at = excluded.completed_at,
+          duration_ms = excluded.duration_ms,
+          error_code = excluded.error_code,
+          error_message = excluded.error_message,
+          error_step_id = excluded.error_step_id`,
+      )
+      .run(
+        run.id,
+        run.pipelineId,
+        pipelineVersion,
+        run.status,
+        run.currentStepIndex,
+        JSON.stringify(run.executedStepIds),
+        JSON.stringify(run.context),
+        run.triggerParams ? JSON.stringify(run.triggerParams) : null,
+        run.triggeredBy.type,
+        run.triggeredBy.id ?? null,
+        run.startedAt.getTime(),
+        toEpochSeconds(run.completedAt),
+        run.durationMs ?? null,
+        run.error?.code ?? null,
+        run.error?.message ?? null,
+        run.error?.stepId ?? null,
+      );
+
+    for (const step of run.steps) {
+      sqlite
+        .query(
+          `INSERT INTO pipeline_step_results (
+            id, run_id, step_id, step_name, step_type, status,
+            success, output, error_code, error_message, error_details,
+            retry_count, started_at, completed_at, duration_ms
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(run_id, step_id) DO UPDATE SET
+            status = excluded.status,
+            success = excluded.success,
+            output = excluded.output,
+            error_code = excluded.error_code,
+            error_message = excluded.error_message,
+            error_details = excluded.error_details,
+            retry_count = excluded.retry_count,
+            started_at = excluded.started_at,
+            completed_at = excluded.completed_at,
+            duration_ms = excluded.duration_ms`,
+        )
+        .run(
+          `${run.id}:${step.id}`,
+          run.id,
+          step.id,
+          step.name,
+          step.type,
+          step.status,
+          step.result ? (step.result.success ? 1 : 0) : null,
+          step.result?.output !== undefined
+            ? JSON.stringify(step.result.output)
+            : null,
+          step.result?.error?.code ?? null,
+          step.result?.error?.message ?? null,
+          step.result?.error?.details
+            ? JSON.stringify(step.result.error.details)
+            : null,
+          step.result?.retryCount ?? 0,
+          toEpochSeconds(step.startedAt),
+          toEpochSeconds(step.completedAt),
+          step.result?.durationMs ?? null,
+        );
+    }
+  } catch {
+    // Ignore if sqlite is mocked
+  }
+}
+
+function hydratePipelinesAndRunsFromDb(): void {
+  if (pipelinesHydrated) return;
+  pipelinesHydrated = true;
+  try {
+    ensurePipelineTables();
+    const pipelineRows = sqlite.query(`SELECT * FROM pipelines`).all() as Array<
+      Record<string, unknown>
+    >;
+
+    for (const row of pipelineRows) {
+      const id = String(row["id"]);
+      if (pipelines.has(id)) continue;
+      const nextTriggerAt = fromEpochTimestamp(
+        row["next_trigger_at"] as number | null,
+      );
+      const lastTriggeredAt = fromEpochTimestamp(
+        row["last_triggered_at"] as number | null,
+      );
+      const contextDefaults = parseJsonColumn<
+        Record<string, unknown> | undefined
+      >(row["context_defaults"], undefined);
+      const retryPolicy = parseJsonColumn<RetryPolicy | undefined>(
+        row["retry_policy"],
+        undefined,
+      );
+      const tags = parseJsonColumn<string[] | undefined>(
+        row["tags"],
+        undefined,
+      );
+      const lastRunAt = fromEpochTimestamp(row["last_run_at"] as number | null);
+      const pipeline: Pipeline = {
+        id,
+        name: String(row["name"]),
+        ...(typeof row["description"] === "string" && {
+          description: row["description"],
+        }),
+        version: Number(row["version"] ?? 1),
+        enabled: Boolean(row["enabled"]),
+        trigger: {
+          type: String(row["trigger_type"]) as Pipeline["trigger"]["type"],
+          config: parseJsonColumn(
+            row["trigger_config"],
+            {} as Pipeline["trigger"]["config"],
+          ),
+          enabled: Boolean(row["trigger_enabled"]),
+          ...(nextTriggerAt !== undefined && { nextTriggerAt }),
+          ...(lastTriggeredAt !== undefined && { lastTriggeredAt }),
+        },
+        steps: parseJsonColumn<PipelineStep[]>(row["steps"], []),
+        ...(contextDefaults !== undefined && { contextDefaults }),
+        ...(retryPolicy !== undefined && { retryPolicy }),
+        ...(tags !== undefined && { tags }),
+        ...(typeof row["owner_id"] === "string" && {
+          ownerId: row["owner_id"],
+        }),
+        createdAt: new Date(Number(row["created_at"])),
+        updatedAt: new Date(Number(row["updated_at"])),
+        ...(lastRunAt !== undefined && { lastRunAt }),
+        stats: {
+          totalRuns: Number(row["total_runs"] ?? 0),
+          successfulRuns: Number(row["successful_runs"] ?? 0),
+          failedRuns: Number(row["failed_runs"] ?? 0),
+          averageDurationMs: Number(row["average_duration_ms"] ?? 0),
+        },
+      };
+      pipelines.set(id, pipeline);
+    }
+
+    const runRows = sqlite.query(`SELECT * FROM pipeline_runs`).all() as Array<
+      Record<string, unknown>
+    >;
+    const stepRows = sqlite
+      .query(`SELECT * FROM pipeline_step_results`)
+      .all() as Array<Record<string, unknown>>;
+
+    const stepsByRunId = new Map<string, Array<Record<string, unknown>>>();
+    for (const sRow of stepRows) {
+      const rId = String(sRow["run_id"]);
+      const list = stepsByRunId.get(rId) ?? [];
+      list.push(sRow);
+      stepsByRunId.set(rId, list);
+    }
+
+    for (const row of runRows) {
+      const runId = String(row["id"]);
+      if (runs.has(runId)) continue;
+      const pipelineId = String(row["pipeline_id"]);
+      const parentPipeline = pipelines.get(pipelineId);
+      const savedSteps = stepsByRunId.get(runId) ?? [];
+      const savedStepMap = new Map(
+        savedSteps.map((s) => [String(s["step_id"]), s]),
+      );
+
+      const baseSteps: PipelineStep[] = parentPipeline
+        ? parentPipeline.steps.map((s) => ({ ...s }))
+        : savedSteps.map((s) => ({
+            id: String(s["step_id"]),
+            name: String(s["step_name"]),
+            type: String(s["step_type"]) as PipelineStep["type"],
+            config: {} as PipelineStep["config"],
+            status: "pending" as StepStatus,
+          }));
+
+      const hydratedSteps: PipelineStep[] = baseSteps.map((s) => {
+        const sr = savedStepMap.get(s.id);
+        if (!sr) return s;
+        const parsedOutput = parseJsonColumn<unknown>(sr["output"], undefined);
+        const parsedErrorDetails = parseJsonColumn<
+          Record<string, unknown> | undefined
+        >(sr["error_details"], undefined);
+        const stepResult: StepResult | undefined =
+          sr["success"] !== null && sr["success"] !== undefined
+            ? {
+                success: Boolean(sr["success"]),
+                ...(parsedOutput !== undefined && { output: parsedOutput }),
+                ...(typeof sr["error_code"] === "string" && {
+                  error: {
+                    code: sr["error_code"],
+                    message: String(sr["error_message"] ?? ""),
+                    ...(parsedErrorDetails !== undefined && {
+                      details: parsedErrorDetails,
+                    }),
+                  },
+                }),
+                durationMs: Number(sr["duration_ms"] ?? 0),
+                retryCount: Number(sr["retry_count"] ?? 0),
+              }
+            : undefined;
+        const startedAt = fromEpochTimestamp(sr["started_at"] as number | null);
+        const completedAt = fromEpochTimestamp(
+          sr["completed_at"] as number | null,
+        );
+        return {
+          ...s,
+          status: String(sr["status"] ?? "pending") as StepStatus,
+          ...(startedAt !== undefined && { startedAt }),
+          ...(completedAt !== undefined && { completedAt }),
+          ...(stepResult !== undefined && { result: stepResult }),
+        };
+      });
+
+      const triggerParams = parseJsonColumn<
+        Record<string, unknown> | undefined
+      >(row["trigger_params"], undefined);
+      const completedAt = fromEpochTimestamp(
+        row["completed_at"] as number | null,
+      );
+      const run: PipelineRun = {
+        id: runId,
+        pipelineId,
+        status: String(row["status"]) as PipelineRun["status"],
+        currentStepIndex: Number(row["current_step_index"] ?? 0),
+        executedStepIds: parseJsonColumn<string[]>(
+          row["executed_step_ids"],
+          [],
+        ),
+        context: parseJsonColumn<Record<string, unknown>>(row["context"], {}),
+        ...(triggerParams !== undefined && { triggerParams }),
+        triggeredBy: {
+          type: String(
+            row["triggered_by_type"] ?? "api",
+          ) as PipelineRun["triggeredBy"]["type"],
+          ...(typeof row["triggered_by_id"] === "string" && {
+            id: row["triggered_by_id"],
+          }),
+        },
+        startedAt: new Date(Number(row["started_at"])),
+        ...(completedAt !== undefined && { completedAt }),
+        ...(row["duration_ms"] !== null &&
+          row["duration_ms"] !== undefined && {
+            durationMs: Number(row["duration_ms"]),
+          }),
+        steps: hydratedSteps,
+        ...(typeof row["error_code"] === "string" && {
+          error: {
+            code: row["error_code"],
+            message: String(row["error_message"] ?? ""),
+            ...(typeof row["error_step_id"] === "string" && {
+              stepId: row["error_step_id"],
+            }),
+          },
+        }),
+      };
+      runs.set(runId, run);
+    }
+  } catch {
+    // Ignore if sqlite is mocked
+  }
+}
 
 // ============================================================================
 // ID Generation
@@ -102,7 +559,10 @@ function generateRunId(): string {
  * Substitute variables in a string using the context.
  * Supports ${context.variable} syntax.
  */
-function substituteVariables(template: string, context: Record<string, unknown>): string {
+function substituteVariables(
+  template: string,
+  context: Record<string, unknown>,
+): string {
   return template.replace(/\$\{context\.([^}]+)\}/g, (_, path) => {
     const parts = path.split(".");
     let value: unknown = context;
@@ -123,7 +583,10 @@ function substituteVariables(template: string, context: Record<string, unknown>)
  * Evaluate a simple condition expression.
  * Supports: ==, !=, >, <, >=, <=, &&, ||
  */
-function evaluateCondition(condition: string, context: Record<string, unknown>): boolean {
+function evaluateCondition(
+  condition: string,
+  context: Record<string, unknown>,
+): boolean {
   // Substitute variables first
   const substituted = substituteVariables(condition, context);
 
@@ -135,7 +598,9 @@ function evaluateCondition(condition: string, context: Record<string, unknown>):
     if (substituted === "false") return false;
 
     // Handle comparison operators
-    const comparisonMatch = substituted.match(/^(.+?)\s*(===?|!==?|>=?|<=?)\s*(.+)$/);
+    const comparisonMatch = substituted.match(
+      /^(.+?)\s*(===?|!==?|>=?|<=?)\s*(.+)$/,
+    );
     if (comparisonMatch) {
       const [, left, op, right] = comparisonMatch;
       const leftVal = left?.trim();
@@ -149,7 +614,10 @@ function evaluateCondition(condition: string, context: Record<string, unknown>):
         if (v === "null") return null;
         if (/^-?\d+(\.\d+)?$/.test(v)) return parseFloat(v);
         // Remove quotes for strings
-        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+        if (
+          (v.startsWith('"') && v.endsWith('"')) ||
+          (v.startsWith("'") && v.endsWith("'"))
+        ) {
           return v.slice(1, -1);
         }
         return v;
@@ -198,7 +666,10 @@ function sleep(ms: number): Promise<void> {
 /**
  * Calculate delay for retry with exponential backoff.
  */
-function calculateRetryDelay(attemptNumber: number, policy: RetryPolicy): number {
+function calculateRetryDelay(
+  attemptNumber: number,
+  policy: RetryPolicy,
+): number {
   const multiplier = policy.multiplier ?? 2;
   const delay = policy.initialDelay * multiplier ** attemptNumber;
   // Add jitter (10% random variation)
@@ -274,7 +745,9 @@ async function executeAgentTask(
   const log = getLogger();
   const prompt = substituteVariables(config.prompt, context);
   const workingDirectory =
-    config.workingDirectory ?? (context["workingDirectory"] as string) ?? "/tmp";
+    config.workingDirectory ??
+    (context["workingDirectory"] as string) ??
+    "/tmp";
 
   log.info(
     { workingDirectory, promptLength: prompt.length },
@@ -331,7 +804,10 @@ async function executeConditional(
   const log = getLogger();
   const result = evaluateCondition(config.condition, context);
 
-  log.info({ condition: config.condition, result }, "[PIPELINE] Evaluated conditional");
+  log.info(
+    { condition: config.condition, result },
+    "[PIPELINE] Evaluated conditional",
+  );
 
   if (result) {
     await executeSteps(config.thenSteps);
@@ -427,7 +903,10 @@ async function executeApproval(
   const log = getLogger();
   const approvals: ApprovalRecord[] = [];
 
-  log.info({ stepId, runId, approvers: config.approvers }, "[PIPELINE] Waiting for approval");
+  log.info(
+    { stepId, runId, approvers: config.approvers },
+    "[PIPELINE] Waiting for approval",
+  );
 
   // Create approval promise
   return new Promise((resolve, reject) => {
@@ -462,8 +941,12 @@ async function executeApproval(
       approvals.push(record);
 
       // Check if we have enough approvals
-      const approvedCount = approvals.filter((a) => a.decision === "approved").length;
-      const rejectedCount = approvals.filter((a) => a.decision === "rejected").length;
+      const approvedCount = approvals.filter(
+        (a) => a.decision === "approved",
+      ).length;
+      const rejectedCount = approvals.filter(
+        (a) => a.decision === "rejected",
+      ).length;
       const minApprovals = config.minApprovals ?? 1;
 
       if (approvedCount >= minApprovals) {
@@ -507,7 +990,9 @@ async function executeScript(
   // SECURITY: Do not substitute variables in inline scripts to prevent command injection.
   // Users should use environment variables (e.g., $PIPELINE_VAR) instead.
   // We only substitute for file paths to resolve locations.
-  const script = isPathScript ? substituteVariables(config.script, context) : config.script;
+  const script = isPathScript
+    ? substituteVariables(config.script, context)
+    : config.script;
 
   log.info(
     { isPath: config.isPath, workingDirectory: config.workingDirectory },
@@ -580,7 +1065,11 @@ async function executeScript(
   })();
 
   try {
-    const result = await Promise.race([resultPromise, timeoutPromise, abortPromise]);
+    const result = await Promise.race([
+      resultPromise,
+      timeoutPromise,
+      abortPromise,
+    ]);
     return result;
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
@@ -615,7 +1104,10 @@ async function executeLoop(
   const getIterator = (): IterableIterator<unknown> | undefined => {
     switch (config.mode) {
       case "for_each": {
-        const collectionPath = substituteVariables(config.collection ?? "", context);
+        const collectionPath = substituteVariables(
+          config.collection ?? "",
+          context,
+        );
         const collection = getValueByPath(context, collectionPath);
         if (Array.isArray(collection)) {
           return collection[Symbol.iterator]();
@@ -661,8 +1153,12 @@ async function executeLoop(
     isolated = false,
   ): Promise<unknown> => {
     // Set loop variables - for parallel execution, use unique keys per iteration
-    const itemKey = isolated ? `${config.itemVariable}_${index}` : config.itemVariable;
-    const indexKey = isolated ? `${config.indexVariable}_${index}` : config.indexVariable;
+    const itemKey = isolated
+      ? `${config.itemVariable}_${index}`
+      : config.itemVariable;
+    const indexKey = isolated
+      ? `${config.indexVariable}_${index}`
+      : config.indexVariable;
 
     setContextKey(context, itemKey, item);
     setContextKey(context, indexKey, index);
@@ -754,7 +1250,10 @@ async function executeWait(
   const log = getLogger();
   const startTime = Date.now();
 
-  log.info({ mode: config.mode, timeout: config.timeout }, "[PIPELINE] Starting wait step");
+  log.info(
+    { mode: config.mode, timeout: config.timeout },
+    "[PIPELINE] Starting wait step",
+  );
 
   switch (config.mode) {
     case "duration": {
@@ -764,7 +1263,11 @@ async function executeWait(
       await Promise.race([
         sleep(actualWait),
         new Promise<never>((_, reject) => {
-          signal?.addEventListener("abort", () => reject(new Error("Cancelled")), { once: true });
+          signal?.addEventListener(
+            "abort",
+            () => reject(new Error("Cancelled")),
+            { once: true },
+          );
         }),
       ]).catch((err) => {
         if (err.message !== "Cancelled") throw err;
@@ -787,7 +1290,11 @@ async function executeWait(
       await Promise.race([
         sleep(waitTime),
         new Promise<never>((_, reject) => {
-          signal?.addEventListener("abort", () => reject(new Error("Cancelled")), { once: true });
+          signal?.addEventListener(
+            "abort",
+            () => reject(new Error("Cancelled")),
+            { once: true },
+          );
         }),
       ]).catch((err) => {
         if (err.message !== "Cancelled") throw err;
@@ -802,12 +1309,18 @@ async function executeWait(
     case "webhook": {
       // For webhook mode, we'd normally wait for an external callback
       // This is a placeholder - in production, you'd register a callback handler
-      log.warn("[PIPELINE] Webhook wait mode not fully implemented - timing out");
+      log.warn(
+        "[PIPELINE] Webhook wait mode not fully implemented - timing out",
+      );
 
       await Promise.race([
         sleep(config.timeout),
         new Promise<never>((_, reject) => {
-          signal?.addEventListener("abort", () => reject(new Error("Cancelled")), { once: true });
+          signal?.addEventListener(
+            "abort",
+            () => reject(new Error("Cancelled")),
+            { once: true },
+          );
         }),
       ]).catch((err) => {
         if (err.message !== "Cancelled") throw err;
@@ -870,7 +1383,11 @@ type SafeExprToken =
   | { type: "punctuation"; value: string; pos: number }
   | { type: "eof"; pos: number };
 
-function formatSafeExpressionError(message: string, expression: string, pos: number): string {
+function formatSafeExpressionError(
+  message: string,
+  expression: string,
+  pos: number,
+): string {
   const prefix = expression.slice(0, pos);
   const line = expression;
   const caret = `${" ".repeat(prefix.length)}^`;
@@ -883,7 +1400,9 @@ function tokenizeSafeExpression(expression: string): SafeExprToken[] {
     throw new Error("Expression is empty");
   }
   if (trimmed.length > MAX_SAFE_TRANSFORM_EXPRESSION_LENGTH) {
-    throw new Error(`Expression too long (max ${MAX_SAFE_TRANSFORM_EXPRESSION_LENGTH} chars)`);
+    throw new Error(
+      `Expression too long (max ${MAX_SAFE_TRANSFORM_EXPRESSION_LENGTH} chars)`,
+    );
   }
 
   const tokens: SafeExprToken[] = [];
@@ -921,7 +1440,9 @@ function tokenizeSafeExpression(expression: string): SafeExprToken[] {
         if (c === "\\") {
           const next = consume();
           if (next === undefined) {
-            throw new Error(formatSafeExpressionError("Unterminated string", trimmed, start));
+            throw new Error(
+              formatSafeExpressionError("Unterminated string", trimmed, start),
+            );
           }
           switch (next) {
             case "n":
@@ -952,7 +1473,9 @@ function tokenizeSafeExpression(expression: string): SafeExprToken[] {
       }
 
       if (tokens.length === 0 || tokens[tokens.length - 1]?.pos !== start) {
-        throw new Error(formatSafeExpressionError("Unterminated string", trimmed, start));
+        throw new Error(
+          formatSafeExpressionError("Unterminated string", trimmed, start),
+        );
       }
       continue;
     }
@@ -978,7 +1501,9 @@ function tokenizeSafeExpression(expression: string): SafeExprToken[] {
 
       const parsed = Number(numStr);
       if (!Number.isFinite(parsed)) {
-        throw new Error(formatSafeExpressionError("Invalid number literal", trimmed, start));
+        throw new Error(
+          formatSafeExpressionError("Invalid number literal", trimmed, start),
+        );
       }
       tokens.push({ type: "number", value: parsed, pos: start });
       continue;
@@ -1003,12 +1528,20 @@ function tokenizeSafeExpression(expression: string): SafeExprToken[] {
     const rest = trimmed.slice(index);
     if (rest.startsWith("==") && !rest.startsWith("===")) {
       throw new Error(
-        formatSafeExpressionError('Use strict equality (===) instead of "=="', trimmed, start),
+        formatSafeExpressionError(
+          'Use strict equality (===) instead of "=="',
+          trimmed,
+          start,
+        ),
       );
     }
     if (rest.startsWith("!=") && !rest.startsWith("!==")) {
       throw new Error(
-        formatSafeExpressionError('Use strict inequality (!==) instead of "!="', trimmed, start),
+        formatSafeExpressionError(
+          'Use strict inequality (!==) instead of "!="',
+          trimmed,
+          start,
+        ),
       );
     }
     const multi = rest.startsWith("!==")
@@ -1058,12 +1591,20 @@ function tokenizeSafeExpression(expression: string): SafeExprToken[] {
         tokens.push({ type: "punctuation", value: ch, pos: start });
         continue;
       default:
-        throw new Error(formatSafeExpressionError(`Unexpected character "${ch}"`, trimmed, start));
+        throw new Error(
+          formatSafeExpressionError(
+            `Unexpected character "${ch}"`,
+            trimmed,
+            start,
+          ),
+        );
     }
   }
 
   if (tokens.length > MAX_SAFE_TRANSFORM_EXPRESSION_TOKENS) {
-    throw new Error(`Expression too complex (max ${MAX_SAFE_TRANSFORM_EXPRESSION_TOKENS} tokens)`);
+    throw new Error(
+      `Expression too complex (max ${MAX_SAFE_TRANSFORM_EXPRESSION_TOKENS} tokens)`,
+    );
   }
 
   tokens.push({ type: "eof", pos: trimmed.length });
@@ -1347,7 +1888,10 @@ class SafeExpressionParser {
   }
 }
 
-function validateIdentifiersInAst(node: SafeExprNode, allowed: ReadonlySet<string>): void {
+function validateIdentifiersInAst(
+  node: SafeExprNode,
+  allowed: ReadonlySet<string>,
+): void {
   switch (node.type) {
     case "literal":
       return;
@@ -1388,7 +1932,9 @@ function compileSafeTransformExpression(
   const ast = parser.parseExpression();
   if (!parser.isAtEnd()) {
     const tok = parser.currentToken();
-    throw new Error(formatSafeExpressionError("Unexpected token", expression, tok.pos));
+    throw new Error(
+      formatSafeExpressionError("Unexpected token", expression, tok.pos),
+    );
   }
   validateIdentifiersInAst(ast, new Set(allowedIdentifiers));
   return ast;
@@ -1425,7 +1971,8 @@ function evaluateSafeExpression(
     case "member": {
       const obj = evaluateSafeExpression(node.object, env, depth + 1);
       if (obj === null || obj === undefined) return undefined;
-      if (typeof obj !== "object" && typeof obj !== "function") return undefined;
+      if (typeof obj !== "object" && typeof obj !== "function")
+        return undefined;
       if (UNSAFE_CONTEXT_KEYS.has(node.property)) {
         throw new Error(`Property access is not allowed: ${node.property}`);
       }
@@ -1524,7 +2071,10 @@ async function executeTransform(
   const log = getLogger();
   let transformedCount = 0;
 
-  log.info({ operationsCount: config.operations.length }, "[PIPELINE] Starting transform step");
+  log.info(
+    { operationsCount: config.operations.length },
+    "[PIPELINE] Starting transform step",
+  );
 
   for (const operation of config.operations) {
     switch (operation.op) {
@@ -1543,7 +2093,10 @@ async function executeTransform(
       case "merge": {
         const sourceValue = getValueByPath(context, operation.source);
         const targetValue = getValueByPath(context, operation.target);
-        if (typeof sourceValue === "object" && typeof targetValue === "object") {
+        if (
+          typeof sourceValue === "object" &&
+          typeof targetValue === "object"
+        ) {
           setValueByPath(context, operation.target, {
             ...(targetValue as object),
             ...(sourceValue as object),
@@ -1577,7 +2130,9 @@ async function executeTransform(
             TRANSFORM_MAP_ALLOWED_IDENTIFIERS,
           );
           const filtered = filterSource.filter((item, index) =>
-            Boolean(evaluateSafeExpression(ast, { $item: item, $index: index })),
+            Boolean(
+              evaluateSafeExpression(ast, { $item: item, $index: index }),
+            ),
           );
           setValueByPath(context, operation.target, filtered);
           transformedCount++;
@@ -1651,7 +2206,10 @@ async function executeWebhook(
     );
   }
 
-  log.info({ method: config.method, url: maskedUrl }, "[PIPELINE] Starting webhook step");
+  log.info(
+    { method: config.method, url: maskedUrl },
+    "[PIPELINE] Starting webhook step",
+  );
 
   // Build headers
   const headers: Record<string, string> = {};
@@ -1665,8 +2223,14 @@ async function executeWebhook(
   if (config.auth) {
     switch (config.auth.type) {
       case "basic": {
-        const username = substituteVariables(config.auth.username ?? "", context);
-        const password = substituteVariables(config.auth.password ?? "", context);
+        const username = substituteVariables(
+          config.auth.username ?? "",
+          context,
+        );
+        const password = substituteVariables(
+          config.auth.password ?? "",
+          context,
+        );
         headers["Authorization"] = `Basic ${btoa(`${username}:${password}`)}`;
         break;
       }
@@ -1742,7 +2306,9 @@ async function executeWebhook(
     };
 
     if (config.extractFields) {
-      for (const [targetKey, jsonPath] of Object.entries(config.extractFields)) {
+      for (const [targetKey, jsonPath] of Object.entries(
+        config.extractFields,
+      )) {
         result[targetKey] = getValueByPath(
           { data: responseData } as Record<string, unknown>,
           jsonPath.replace(/^\$\.?data\.?/, "data."),
@@ -1905,7 +2471,11 @@ function assertSafePipelineContextPath(path: string, purpose: string): void {
   }
 }
 
-function setContextKey(context: Record<string, unknown>, key: string, value: unknown): void {
+function setContextKey(
+  context: Record<string, unknown>,
+  key: string,
+  value: unknown,
+): void {
   assertSafePipelineContextKey(key, "context key");
   context[key] = value;
 }
@@ -1935,7 +2505,11 @@ function getValueByPath(obj: Record<string, unknown>, path: string): unknown {
 /**
  * Set a value in context by dot-notation path.
  */
-function setValueByPath(obj: Record<string, unknown>, path: string, value: unknown): void {
+function setValueByPath(
+  obj: Record<string, unknown>,
+  path: string,
+  value: unknown,
+): void {
   assertSafePipelineContextPath(path, "path");
   const parts = path.split(".");
   let current: Record<string, unknown> = obj;
@@ -1944,7 +2518,11 @@ function setValueByPath(obj: Record<string, unknown>, path: string, value: unkno
     const part = parts[i];
     if (!part) continue;
     // Note: typeof null === "object" in JS, so we need an explicit null check
-    if (!(part in current) || current[part] === null || typeof current[part] !== "object") {
+    if (
+      !(part in current) ||
+      current[part] === null ||
+      typeof current[part] !== "object"
+    ) {
       current[part] = {};
     }
     current = current[part] as Record<string, unknown>;
@@ -1968,7 +2546,11 @@ function deleteValueByPath(obj: Record<string, unknown>, path: string): void {
     const part = parts[i];
     if (!part) continue;
     // Note: typeof null === "object" in JS, so we need an explicit null check
-    if (!(part in current) || current[part] === null || typeof current[part] !== "object") {
+    if (
+      !(part in current) ||
+      current[part] === null ||
+      typeof current[part] !== "object"
+    ) {
       return; // Path doesn't exist or is not traversable
     }
     current = current[part] as Record<string, unknown>;
@@ -2025,13 +2607,16 @@ async function executeStep(
   }
 
   // Get retry policy
-  const retryPolicy = step.retryPolicy ?? pipeline.retryPolicy ?? DEFAULT_RETRY_POLICY;
+  const retryPolicy =
+    step.retryPolicy ?? pipeline.retryPolicy ?? DEFAULT_RETRY_POLICY;
 
   // Determine if error is retryable
   const isRetryable = (error: unknown): boolean => {
     if (retryPolicy.retryableErrors?.length) {
       const errorCode =
-        error instanceof Error ? (error as Error & { code?: string }).code : undefined;
+        error instanceof Error
+          ? (error as Error & { code?: string }).code
+          : undefined;
       return retryPolicy.retryableErrors.includes(errorCode ?? "UNKNOWN");
     }
     // Default: retry on transient errors
@@ -2054,7 +2639,11 @@ async function executeStep(
               type: "conditional";
               config: ConditionalConfig;
             };
-            return executeConditional(config.config, run.context, executeStepsById);
+            return executeConditional(
+              config.config,
+              run.context,
+              executeStepsById,
+            );
           }
           case "parallel": {
             const config = step.config as {
@@ -2075,15 +2664,26 @@ async function executeStep(
               type: "script";
               config: ScriptConfig;
             };
-            const result = await executeScript(config.config, run.context, signal);
+            const result = await executeScript(
+              config.config,
+              run.context,
+              signal,
+            );
             if (result.exitCode !== 0) {
-              throw new Error(`Script failed with exit code ${result.exitCode}: ${result.stderr}`);
+              throw new Error(
+                `Script failed with exit code ${result.exitCode}: ${result.stderr}`,
+              );
             }
             return result;
           }
           case "loop": {
             const config = step.config as { type: "loop"; config: LoopConfig };
-            return executeLoop(config.config, run.context, executeStepsById, signal);
+            return executeLoop(
+              config.config,
+              run.context,
+              executeStepsById,
+              signal,
+            );
           }
           case "wait": {
             const config = step.config as { type: "wait"; config: WaitConfig };
@@ -2144,16 +2744,21 @@ async function executeStep(
 
     // Extract retry count and original error from RetryError
     const actualRetryCount = error instanceof RetryError ? error.retryCount : 0;
-    const originalError = error instanceof RetryError ? error.originalCause : error;
+    const originalError =
+      error instanceof RetryError ? error.originalCause : error;
 
     return {
       success: false,
       error: {
         code:
           originalError instanceof Error
-            ? ((originalError as Error & { code?: string }).code ?? "STEP_FAILED")
+            ? ((originalError as Error & { code?: string }).code ??
+              "STEP_FAILED")
             : "STEP_FAILED",
-        message: originalError instanceof Error ? originalError.message : String(originalError),
+        message:
+          originalError instanceof Error
+            ? originalError.message
+            : String(originalError),
       },
       durationMs: Date.now() - startTime,
       retryCount: actualRetryCount,
@@ -2171,7 +2776,10 @@ async function executePipeline(
 ): Promise<void> {
   const log = getLogger();
 
-  log.info({ pipelineId: pipeline.id, runId: run.id }, "[PIPELINE] Starting pipeline execution");
+  log.info(
+    { pipelineId: pipeline.id, runId: run.id },
+    "[PIPELINE] Starting pipeline execution",
+  );
 
   // Build step lookup from the run's copy of steps
   const stepMap = new Map(run.steps.map((s) => [s.id, s]));
@@ -2197,9 +2805,13 @@ async function executePipeline(
 
       // Check dependencies
       if (step.dependsOn?.length) {
-        const unmetDeps = step.dependsOn.filter((depId) => !run.executedStepIds.includes(depId));
+        const unmetDeps = step.dependsOn.filter(
+          (depId) => !run.executedStepIds.includes(depId),
+        );
         if (unmetDeps.length > 0) {
-          throw new Error(`Step ${stepId} has unmet dependencies: ${unmetDeps.join(", ")}`);
+          throw new Error(
+            `Step ${stepId} has unmet dependencies: ${unmetDeps.join(", ")}`,
+          );
         }
       }
 
@@ -2208,7 +2820,13 @@ async function executePipeline(
       step.startedAt = new Date();
 
       // Execute the step
-      const result = await executeStep(step, run, pipeline, executeStepsById, signal);
+      const result = await executeStep(
+        step,
+        run,
+        pipeline,
+        executeStepsById,
+        signal,
+      );
 
       // Update step with result
       step.status = result.success ? "completed" : "failed";
@@ -2246,7 +2864,8 @@ async function executePipeline(
     pipeline.stats.totalRuns++;
     pipeline.stats.successfulRuns++;
     pipeline.stats.averageDurationMs =
-      (pipeline.stats.averageDurationMs * (pipeline.stats.totalRuns - 1) + run.durationMs) /
+      (pipeline.stats.averageDurationMs * (pipeline.stats.totalRuns - 1) +
+        run.durationMs) /
       pipeline.stats.totalRuns;
     pipeline.lastRunAt = new Date();
 
@@ -2270,13 +2889,23 @@ async function executePipeline(
       pipeline.stats.failedRuns++;
       pipeline.lastRunAt = new Date();
 
-      log.error({ error, pipelineId: pipeline.id, runId: run.id }, "[PIPELINE] Pipeline failed");
+      log.error(
+        { error, pipelineId: pipeline.id, runId: run.id },
+        "[PIPELINE] Pipeline failed",
+      );
     } else {
-      log.info({ pipelineId: pipeline.id, runId: run.id }, "[PIPELINE] Pipeline paused");
+      log.info(
+        { pipelineId: pipeline.id, runId: run.id },
+        "[PIPELINE] Pipeline paused",
+      );
     }
 
     throw error;
   } finally {
+    // Persist final run and pipeline stats to SQLite
+    persistPipelineToDb(pipeline);
+    persistRunToDb(run, pipeline.version);
+
     // Clean up
     activeRunControllers.delete(run.id);
     pendingApprovals.delete(run.id);
@@ -2291,6 +2920,7 @@ async function executePipeline(
  * Create a new pipeline.
  */
 export function createPipeline(input: CreatePipelineInput): Pipeline {
+  hydratePipelinesAndRunsFromDb();
   const log = getLogger();
   const id = generatePipelineId();
 
@@ -2333,6 +2963,7 @@ export function createPipeline(input: CreatePipelineInput): Pipeline {
   };
 
   pipelines.set(id, pipeline);
+  persistPipelineToDb(pipeline);
 
   log.info({ pipelineId: id, name: input.name }, "[PIPELINE] Created pipeline");
 
@@ -2343,13 +2974,18 @@ export function createPipeline(input: CreatePipelineInput): Pipeline {
  * Get a pipeline by ID.
  */
 export function getPipeline(id: string): Pipeline | undefined {
+  hydratePipelinesAndRunsFromDb();
   return pipelines.get(id);
 }
 
 /**
  * Update a pipeline.
  */
-export function updatePipeline(id: string, input: UpdatePipelineInput): Pipeline | undefined {
+export function updatePipeline(
+  id: string,
+  input: UpdatePipelineInput,
+): Pipeline | undefined {
+  hydratePipelinesAndRunsFromDb();
   const pipeline = pipelines.get(id);
   if (!pipeline) {
     return undefined;
@@ -2359,15 +2995,19 @@ export function updatePipeline(id: string, input: UpdatePipelineInput): Pipeline
   if (input.name !== undefined) pipeline.name = input.name;
   if (input.description !== undefined) pipeline.description = input.description;
   if (input.enabled !== undefined) pipeline.enabled = input.enabled;
-  if (input.contextDefaults !== undefined) pipeline.contextDefaults = input.contextDefaults;
+  if (input.contextDefaults !== undefined)
+    pipeline.contextDefaults = input.contextDefaults;
   if (input.retryPolicy !== undefined) pipeline.retryPolicy = input.retryPolicy;
   if (input.tags !== undefined) pipeline.tags = input.tags;
 
   // Update trigger
   if (input.trigger) {
-    if (input.trigger.type !== undefined) pipeline.trigger.type = input.trigger.type;
-    if (input.trigger.config !== undefined) pipeline.trigger.config = input.trigger.config;
-    if (input.trigger.enabled !== undefined) pipeline.trigger.enabled = input.trigger.enabled;
+    if (input.trigger.type !== undefined)
+      pipeline.trigger.type = input.trigger.type;
+    if (input.trigger.config !== undefined)
+      pipeline.trigger.config = input.trigger.config;
+    if (input.trigger.enabled !== undefined)
+      pipeline.trigger.enabled = input.trigger.enabled;
   }
 
   // Update steps (replace all)
@@ -2389,6 +3029,7 @@ export function updatePipeline(id: string, input: UpdatePipelineInput): Pipeline
 
   pipeline.version++;
   pipeline.updatedAt = new Date();
+  persistPipelineToDb(pipeline);
 
   const log = getLogger();
   log.info({ pipelineId: id }, "[PIPELINE] Updated pipeline");
@@ -2400,9 +3041,16 @@ export function updatePipeline(id: string, input: UpdatePipelineInput): Pipeline
  * Delete a pipeline.
  */
 export function deletePipeline(id: string): boolean {
+  hydratePipelinesAndRunsFromDb();
   const log = getLogger();
   const deleted = pipelines.delete(id);
   if (deleted) {
+    deletePipelineFromDb(id);
+    for (const [runId, r] of runs.entries()) {
+      if (r.pipelineId === id) {
+        runs.delete(runId);
+      }
+    }
     log.info({ pipelineId: id }, "[PIPELINE] Deleted pipeline");
   }
   return deleted;
@@ -2417,6 +3065,7 @@ export function listPipelines(filter: PipelineFilter = {}): {
   hasMore: boolean;
   nextCursor?: string;
 } {
+  hydratePipelinesAndRunsFromDb();
   let result = Array.from(pipelines.values());
 
   // Apply filters
@@ -2429,13 +3078,17 @@ export function listPipelines(filter: PipelineFilter = {}): {
   }
 
   if (filter.tags?.length) {
-    result = result.filter((p) => filter.tags?.some((tag) => p.tags?.includes(tag)));
+    result = result.filter((p) =>
+      filter.tags?.some((tag) => p.tags?.includes(tag)),
+    );
   }
 
   if (filter.search) {
     const search = filter.search.toLowerCase();
     result = result.filter(
-      (p) => p.name.toLowerCase().includes(search) || p.description?.toLowerCase().includes(search),
+      (p) =>
+        p.name.toLowerCase().includes(search) ||
+        p.description?.toLowerCase().includes(search),
     );
   }
 
@@ -2456,7 +3109,9 @@ export function listPipelines(filter: PipelineFilter = {}): {
   const limit = filter.limit ?? 50;
   const paginatedResult = result.slice(startIndex, startIndex + limit);
   const hasMore = startIndex + limit < total;
-  const nextCursor = hasMore ? paginatedResult[paginatedResult.length - 1]?.id : undefined;
+  const nextCursor = hasMore
+    ? paginatedResult[paginatedResult.length - 1]?.id
+    : undefined;
 
   return {
     pipelines: paginatedResult,
@@ -2483,6 +3138,7 @@ export async function runPipeline(
     params?: Record<string, unknown>;
   } = {},
 ): Promise<PipelineRun> {
+  hydratePipelinesAndRunsFromDb();
   const log = getLogger();
   const pipeline = pipelines.get(id);
 
@@ -2522,9 +3178,13 @@ export async function runPipeline(
   };
 
   runs.set(runId, run);
+  persistRunToDb(run, pipeline.version);
   activeRunControllers.set(runId, abortController);
 
-  log.info({ pipelineId: id, runId, triggeredBy: run.triggeredBy }, "[PIPELINE] Starting run");
+  log.info(
+    { pipelineId: id, runId, triggeredBy: run.triggeredBy },
+    "[PIPELINE] Starting run",
+  );
 
   // Execute pipeline in background
   executePipeline(pipeline, run, abortController.signal).catch(() => {
@@ -2538,6 +3198,7 @@ export async function runPipeline(
  * Pause a pipeline run.
  */
 export function pauseRun(runId: string): PipelineRun | undefined {
+  hydratePipelinesAndRunsFromDb();
   const run = runs.get(runId);
   if (!run || run.status !== "running") {
     return undefined;
@@ -2545,6 +3206,7 @@ export function pauseRun(runId: string): PipelineRun | undefined {
 
   // Set status first, then abort (executePipeline checks status before overwriting)
   run.status = "paused";
+  persistRunToDb(run, pipelines.get(run.pipelineId)?.version ?? 1);
 
   // Abort the current execution - resume will restart from checkpoint
   const controller = activeRunControllers.get(runId);
@@ -2561,7 +3223,10 @@ export function pauseRun(runId: string): PipelineRun | undefined {
 /**
  * Resume a paused pipeline run.
  */
-export async function resumeRun(runId: string): Promise<PipelineRun | undefined> {
+export async function resumeRun(
+  runId: string,
+): Promise<PipelineRun | undefined> {
+  hydratePipelinesAndRunsFromDb();
   const log = getLogger();
   const run = runs.get(runId);
 
@@ -2575,6 +3240,7 @@ export async function resumeRun(runId: string): Promise<PipelineRun | undefined>
   }
 
   run.status = "running";
+  persistRunToDb(run, pipeline.version);
   const abortController = new AbortController();
   activeRunControllers.set(runId, abortController);
 
@@ -2592,6 +3258,7 @@ export async function resumeRun(runId: string): Promise<PipelineRun | undefined>
  * Cancel a pipeline run.
  */
 export function cancelRun(runId: string): PipelineRun | undefined {
+  hydratePipelinesAndRunsFromDb();
   const log = getLogger();
   const run = runs.get(runId);
 
@@ -2608,6 +3275,7 @@ export function cancelRun(runId: string): PipelineRun | undefined {
   run.status = "cancelled";
   run.completedAt = new Date();
   run.durationMs = run.completedAt.getTime() - run.startedAt.getTime();
+  persistRunToDb(run, pipelines.get(run.pipelineId)?.version ?? 1);
 
   log.info({ runId }, "[PIPELINE] Run cancelled");
 
@@ -2618,6 +3286,7 @@ export function cancelRun(runId: string): PipelineRun | undefined {
  * Get a pipeline run by ID.
  */
 export function getRun(runId: string): PipelineRun | undefined {
+  hydratePipelinesAndRunsFromDb();
   return runs.get(runId);
 }
 
@@ -2633,7 +3302,10 @@ export function listRuns(
   hasMore: boolean;
   nextCursor?: string;
 } {
-  let result = Array.from(runs.values()).filter((r) => r.pipelineId === pipelineId);
+  hydratePipelinesAndRunsFromDb();
+  let result = Array.from(runs.values()).filter(
+    (r) => r.pipelineId === pipelineId,
+  );
 
   // Apply filters
   if (filter.status?.length) {
@@ -2665,7 +3337,9 @@ export function listRuns(
   const limit = filter.limit ?? 50;
   const paginatedResult = result.slice(startIndex, startIndex + limit);
   const hasMore = startIndex + limit < total;
-  const nextCursor = hasMore ? paginatedResult[paginatedResult.length - 1]?.id : undefined;
+  const nextCursor = hasMore
+    ? paginatedResult[paginatedResult.length - 1]?.id
+    : undefined;
 
   return {
     runs: paginatedResult,
@@ -2678,7 +3352,11 @@ export function listRuns(
 /**
  * Submit an approval decision.
  */
-export function submitApproval(runId: string, stepId: string, decision: ApprovalRecord): boolean {
+export function submitApproval(
+  runId: string,
+  stepId: string,
+  decision: ApprovalRecord,
+): boolean {
   const runApprovals = pendingApprovals.get(runId);
   if (!runApprovals) {
     return false;
@@ -2708,4 +3386,22 @@ export function clearAll(): void {
     controller.abort();
   }
   activeRunControllers.clear();
+  pipelinesHydrated = true;
+  try {
+    ensurePipelineTables();
+    sqlite.query(`DELETE FROM pipeline_step_results`).run();
+    sqlite.query(`DELETE FROM pipeline_runs`).run();
+    sqlite.query(`DELETE FROM pipelines`).run();
+  } catch {
+    // Ignore if sqlite is mocked
+  }
+}
+
+/**
+ * Evict only in-memory pipeline/run cache to test SQLite hydration on restart.
+ */
+export function _evictPipelineCacheForTesting(): void {
+  pipelines.clear();
+  runs.clear();
+  pipelinesHydrated = false;
 }

@@ -5,7 +5,11 @@
  */
 
 import type { NtmIsWorkingOutput } from "@flywheel/flywheel-clients";
-import { createCursor, DEFAULT_PAGINATION, decodeCursor } from "@flywheel/shared/api/pagination";
+import {
+  createCursor,
+  DEFAULT_PAGINATION,
+  decodeCursor,
+} from "@flywheel/shared/api/pagination";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import {
   type Alert,
@@ -20,6 +24,7 @@ import {
   type SafetyPostureContext,
   SEVERITY_ORDER,
 } from "../models/alert";
+import { routeAlert } from "./alert-channel.service";
 import * as dcgService from "./dcg.service";
 import { logger } from "./logger";
 import { getMetricsSnapshot } from "./metrics";
@@ -94,9 +99,13 @@ function mapIsWorkingContext(snapshot: {
         totalAgents: Object.keys(agents).length,
         workingCount: Object.values(agents).filter((a) => a.isWorking).length,
         idleCount: Object.values(agents).filter((a) => a.isIdle).length,
-        rateLimitedCount: Object.values(agents).filter((a) => a.isRateLimited).length,
-        contextLowCount: Object.values(agents).filter((a) => a.isContextLow).length,
-        errorCount: Object.values(agents).filter((a) => a.recommendation === "INVESTIGATE").length,
+        rateLimitedCount: Object.values(agents).filter((a) => a.isRateLimited)
+          .length,
+        contextLowCount: Object.values(agents).filter((a) => a.isContextLow)
+          .length,
+        errorCount: Object.values(agents).filter(
+          (a) => a.recommendation === "INVESTIGATE",
+        ).length,
       };
 
   return {
@@ -203,8 +212,11 @@ async function buildSafetyContext(): Promise<SafetyPostureContext | undefined> {
 
       const now = Date.now();
       registryGeneratedAt = registry.generatedAt ?? null;
-      registryAgeMs = registryGeneratedAt ? now - new Date(registryGeneratedAt).getTime() : null;
-      checksumsStale = registryAgeMs !== null && registryAgeMs > STALE_CHECKSUM_THRESHOLD_MS;
+      registryAgeMs = registryGeneratedAt
+        ? now - new Date(registryGeneratedAt).getTime()
+        : null;
+      checksumsStale =
+        registryAgeMs !== null && registryAgeMs > STALE_CHECKSUM_THRESHOLD_MS;
     } catch {
       // Registry not available
     }
@@ -295,13 +307,19 @@ function generateAlertId(): string {
  */
 export function registerAlertRule(rule: AlertRule): void {
   alertRules.set(rule.id, rule);
-  logger.debug({ ruleId: rule.id, ruleName: rule.name }, "Alert rule registered");
+  logger.debug(
+    { ruleId: rule.id, ruleName: rule.name },
+    "Alert rule registered",
+  );
 }
 
 /**
  * Update an alert rule.
  */
-export function updateAlertRule(ruleId: string, update: AlertRuleUpdate): AlertRule | undefined {
+export function updateAlertRule(
+  ruleId: string,
+  update: AlertRuleUpdate,
+): AlertRule | undefined {
   const rule = alertRules.get(ruleId);
   if (!rule) return undefined;
 
@@ -414,8 +432,10 @@ export function fireAlert(rule: AlertRule, context: AlertContext): Alert {
   const correlationId = context.correlationId;
   const log = getLogger();
 
-  const title = typeof rule.title === "function" ? rule.title(context) : rule.title;
-  const message = typeof rule.message === "function" ? rule.message(context) : rule.message;
+  const title =
+    typeof rule.title === "function" ? rule.title(context) : rule.title;
+  const message =
+    typeof rule.message === "function" ? rule.message(context) : rule.message;
 
   // Build alert conditionally (for exactOptionalPropertyTypes)
   const alert: Alert = {
@@ -467,6 +487,31 @@ export function fireAlert(rule: AlertRule, context: AlertContext): Alert {
     }
   }
 
+  // Route to external alert channels (webhook, Slack, Discord) asynchronously
+  routeAlert({
+    id: alert.id,
+    type: alert.type,
+    title: alert.title,
+    body: alert.message,
+    severity: alert.severity,
+    category: alert.type.split("_")[0] ?? "system",
+    source: {
+      type: "alert_rule",
+      id: alert.source,
+      name: alert.source,
+    },
+    ...(alert.metadata !== undefined && { metadata: alert.metadata }),
+    timestamp: alert.createdAt.toISOString(),
+    ...(alert.correlationId !== undefined && {
+      correlationId: alert.correlationId,
+    }),
+  }).catch((error) => {
+    logger.error(
+      { error, alertId: alert.id },
+      "External alert channel routing failed",
+    );
+  });
+
   return alert;
 }
 
@@ -500,7 +545,10 @@ export async function evaluateAlertRules(): Promise<Alert[]> {
         firedAlerts.push(alert);
       }
     } catch (error) {
-      logger.error({ error, ruleId: rule.id, ruleName: rule.name }, "Alert rule evaluation failed");
+      logger.error(
+        { error, ruleId: rule.id, ruleName: rule.name },
+        "Alert rule evaluation failed",
+      );
     }
   }
 
@@ -532,7 +580,8 @@ export function getActiveAlerts(filter?: AlertFilter): AlertListResponse {
 
   // Sort by severity (most severe first), then by time (most recent first)
   alerts.sort((a, b) => {
-    const severityDiff = SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity];
+    const severityDiff =
+      SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity];
     if (severityDiff !== 0) return severityDiff;
     return b.createdAt.getTime() - a.createdAt.getTime();
   });
@@ -564,10 +613,15 @@ export function getActiveAlerts(filter?: AlertFilter): AlertListResponse {
     }
   }
 
-  const sliceEnd = isBackward && endIndex !== undefined ? endIndex : startIndex + limit + 1;
+  const sliceEnd =
+    isBackward && endIndex !== undefined ? endIndex : startIndex + limit + 1;
   const pageItems = alerts.slice(startIndex, sliceEnd);
   const hasMore = isBackward ? startIndex > 0 : pageItems.length > limit;
-  const resultItems = isBackward ? pageItems : hasMore ? pageItems.slice(0, limit) : pageItems;
+  const resultItems = isBackward
+    ? pageItems
+    : hasMore
+      ? pageItems.slice(0, limit)
+      : pageItems;
 
   const result: AlertListResponse = {
     alerts: resultItems,
@@ -638,10 +692,15 @@ export function getAlertHistory(filter?: AlertFilter): AlertListResponse {
     }
   }
 
-  const sliceEnd = isBackward && endIndex !== undefined ? endIndex : startIndex + limit + 1;
+  const sliceEnd =
+    isBackward && endIndex !== undefined ? endIndex : startIndex + limit + 1;
   const pageItems = alerts.slice(startIndex, sliceEnd);
   const hasMore = isBackward ? startIndex > 0 : pageItems.length > limit;
-  const resultItems = isBackward ? pageItems : hasMore ? pageItems.slice(0, limit) : pageItems;
+  const resultItems = isBackward
+    ? pageItems
+    : hasMore
+      ? pageItems.slice(0, limit)
+      : pageItems;
 
   const result: AlertListResponse = {
     alerts: resultItems,
@@ -669,13 +728,18 @@ export function getAlertHistory(filter?: AlertFilter): AlertListResponse {
  * Get an alert by ID.
  */
 export function getAlert(alertId: string): Alert | undefined {
-  return activeAlerts.get(alertId) ?? alertHistory.find((a) => a.id === alertId);
+  return (
+    activeAlerts.get(alertId) ?? alertHistory.find((a) => a.id === alertId)
+  );
 }
 
 /**
  * Acknowledge an alert.
  */
-export function acknowledgeAlert(alertId: string, acknowledgedBy?: string): Alert | undefined {
+export function acknowledgeAlert(
+  alertId: string,
+  acknowledgedBy?: string,
+): Alert | undefined {
   const alert = activeAlerts.get(alertId);
   if (!alert) return undefined;
 
@@ -697,7 +761,10 @@ export function acknowledgeAlert(alertId: string, acknowledgedBy?: string): Aler
 /**
  * Dismiss an alert (removes from active).
  */
-export function dismissAlert(alertId: string, dismissedBy?: string): Alert | undefined {
+export function dismissAlert(
+  alertId: string,
+  dismissedBy?: string,
+): Alert | undefined {
   const alert = activeAlerts.get(alertId);
   if (!alert) return undefined;
 
@@ -757,7 +824,9 @@ export function initializeDefaultAlertRules(): void {
     const isWorking = ctx.ntm?.isWorking;
     if (!isWorking) return [];
     return Object.entries(isWorking.agents)
-      .filter(([, status]) => ["RESTART", "INVESTIGATE"].includes(status.recommendation))
+      .filter(([, status]) =>
+        ["RESTART", "INVESTIGATE"].includes(status.recommendation),
+      )
       .map(([agentId, status]) => ({
         agentId,
         recommendation: status.recommendation,
@@ -782,7 +851,9 @@ export function initializeDefaultAlertRules(): void {
     condition: (ctx) => getStalledAgents(ctx).length > 0,
     title: (ctx) => {
       const stalled = getStalledAgents(ctx);
-      return stalled.length === 1 ? "Agent may be stalled" : "Multiple agents may be stalled";
+      return stalled.length === 1
+        ? "Agent may be stalled"
+        : "Multiple agents may be stalled";
     },
     message: (ctx) => {
       const stalled = getStalledAgents(ctx);
@@ -819,7 +890,8 @@ export function initializeDefaultAlertRules(): void {
     cooldown: 60 * 60 * 1000, // 1 hour
     condition: (ctx) => ctx.metrics.tokens.quotaUsedPercent >= 80,
     title: "API quota reaching limit",
-    message: (ctx) => `API quota is at ${ctx.metrics.tokens.quotaUsedPercent.toFixed(1)}% usage`,
+    message: (ctx) =>
+      `API quota is at ${ctx.metrics.tokens.quotaUsedPercent.toFixed(1)}% usage`,
     source: "quota_monitor",
   });
 
@@ -850,7 +922,8 @@ export function initializeDefaultAlertRules(): void {
     cooldown: 5 * 60 * 1000, // 5 minutes
     condition: (ctx) => ctx.metrics.performance.successRate < 90,
     title: "High API error rate detected",
-    message: (ctx) => `API success rate is ${ctx.metrics.performance.successRate.toFixed(1)}%`,
+    message: (ctx) =>
+      `API success rate is ${ctx.metrics.performance.successRate.toFixed(1)}%`,
     source: "api_monitor",
   });
 
@@ -901,7 +974,9 @@ export function initializeDefaultAlertRules(): void {
     condition: (ctx) => {
       const health = ctx.ntm?.health;
       if (!health) return false;
-      return health.summary.degradedCount > 0 || health.summary.unhealthyCount > 0;
+      return (
+        health.summary.degradedCount > 0 || health.summary.unhealthyCount > 0
+      );
     },
     title: (ctx) => {
       const health = ctx.ntm?.health;
@@ -909,7 +984,9 @@ export function initializeDefaultAlertRules(): void {
       const unhealthy = health.summary.unhealthyCount;
       const degraded = health.summary.degradedCount;
       if (unhealthy > 0) {
-        return unhealthy === 1 ? "NTM agent unhealthy" : `${unhealthy} NTM agents unhealthy`;
+        return unhealthy === 1
+          ? "NTM agent unhealthy"
+          : `${unhealthy} NTM agents unhealthy`;
       }
       return degraded === 1
         ? "NTM agent health degraded"
@@ -967,7 +1044,9 @@ export function initializeDefaultAlertRules(): void {
     },
     title: (ctx) => {
       const count = ctx.ntm?.isWorking?.summary?.rateLimitedCount ?? 0;
-      return count === 1 ? "NTM agent rate limited" : `${count} NTM agents rate limited`;
+      return count === 1
+        ? "NTM agent rate limited"
+        : `${count} NTM agents rate limited`;
     },
     message: (ctx) => {
       const agents = ctx.ntm?.isWorking?.agents;
@@ -1012,7 +1091,9 @@ export function initializeDefaultAlertRules(): void {
     },
     title: (ctx) => {
       const count = ctx.ntm?.isWorking?.summary?.contextLowCount ?? 0;
-      return count === 1 ? "NTM agent context low" : `${count} NTM agents context low`;
+      return count === 1
+        ? "NTM agent context low"
+        : `${count} NTM agents context low`;
     },
     message: (ctx) => {
       const agents = ctx.ntm?.isWorking?.agents;
@@ -1086,7 +1167,8 @@ export function initializeDefaultAlertRules(): void {
     id: "safety_dcg_missing",
     name: "DCG Not Installed",
     enabled: true,
-    description: "Fires when DCG (Destructive Command Guard) is not installed or unavailable",
+    description:
+      "Fires when DCG (Destructive Command Guard) is not installed or unavailable",
     type: "safety_dcg_missing",
     severity: "error",
     cooldown: 60 * 60 * 1000, // 1 hour (tool installation is a manual process)
@@ -1115,7 +1197,8 @@ export function initializeDefaultAlertRules(): void {
     id: "safety_slb_missing",
     name: "SLB Not Installed",
     enabled: true,
-    description: "Fires when SLB (Simultaneous Launch Button) is not installed or unavailable",
+    description:
+      "Fires when SLB (Simultaneous Launch Button) is not installed or unavailable",
     type: "safety_slb_missing",
     severity: "warning",
     cooldown: 60 * 60 * 1000, // 1 hour
@@ -1144,7 +1227,8 @@ export function initializeDefaultAlertRules(): void {
     id: "safety_ubs_missing",
     name: "UBS Not Installed",
     enabled: true,
-    description: "Fires when UBS (Ultimate Bug Scanner) is not installed or unavailable",
+    description:
+      "Fires when UBS (Ultimate Bug Scanner) is not installed or unavailable",
     type: "safety_ubs_missing",
     severity: "warning",
     cooldown: 60 * 60 * 1000, // 1 hour
@@ -1206,7 +1290,10 @@ export function initializeDefaultAlertRules(): void {
     ],
   });
 
-  logger.info({ ruleCount: alertRules.size }, "Default alert rules initialized");
+  logger.info(
+    { ruleCount: alertRules.size },
+    "Default alert rules initialized",
+  );
 }
 
 // Initialize rules on module load

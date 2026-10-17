@@ -5,7 +5,15 @@
  * from other test files that mock "../db".
  */
 
-import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  test,
+} from "bun:test";
 import { restoreRealDb } from "./test-utils/db-mock-restore";
 
 // Mock the logger with child method - must be before imports
@@ -21,21 +29,14 @@ mock.module("../services/logger", () => ({
   logger: mockLogger,
 }));
 
-// Ensure we use the real db by re-mocking with the real implementation
-// This prevents other test files' db mocks from affecting these tests
-import { Database } from "bun:sqlite";
-import { drizzle } from "drizzle-orm/bun-sqlite";
+// Ensure we use the canonical real db from ../db/connection
+import { db as realDb, sqlite } from "../db/connection";
 import * as schema from "../db/schema";
-
-// Default to an in-memory DB to avoid touching any on-disk dev database when a
-// test file is run without DB_FILE_NAME configured.
-const dbFile = process.env["DB_FILE_NAME"] ?? ":memory:";
-const realSqlite = new Database(dbFile);
-const realDb = drizzle(realSqlite, { schema });
 
 mock.module("../db", () => ({
   db: realDb,
-  sqlite: realSqlite,
+  sqlite,
+  ...schema,
 }));
 
 afterAll(() => {
@@ -45,7 +46,6 @@ afterAll(() => {
 });
 
 import { Hono } from "hono";
-import { sqlite } from "../db/connection";
 import { dcg } from "../routes/dcg";
 import {
   approvePendingException,
@@ -148,7 +148,9 @@ describe("DCG Pending Exceptions Service", () => {
       const actualExpiry = exception.expiresAt;
 
       // Allow 2 second tolerance
-      expect(Math.abs(actualExpiry.getTime() - expectedExpiry.getTime())).toBeLessThan(2000);
+      expect(
+        Math.abs(actualExpiry.getTime() - expectedExpiry.getTime()),
+      ).toBeLessThan(2000);
     });
 
     test("includes agent and block event references", async () => {
@@ -224,9 +226,13 @@ describe("DCG Pending Exceptions Service", () => {
         status: "approved",
       });
 
-      expect(pendingResult.exceptions.every((e) => e.status === "pending")).toBe(true);
       expect(
-        approvedResult.exceptions.some((e) => e.id === exc.id && e.status === "approved"),
+        pendingResult.exceptions.every((e) => e.status === "pending"),
+      ).toBe(true);
+      expect(
+        approvedResult.exceptions.some(
+          (e) => e.id === exc.id && e.status === "approved",
+        ),
       ).toBe(true);
     });
 
@@ -249,7 +255,9 @@ describe("DCG Pending Exceptions Service", () => {
       });
 
       const result = await listPendingExceptions({ agentId: "agent-1" });
-      expect(result.exceptions.every((e) => e.agentId === "agent-1")).toBe(true);
+      expect(result.exceptions.every((e) => e.agentId === "agent-1")).toBe(
+        true,
+      );
     });
   });
 
@@ -263,7 +271,10 @@ describe("DCG Pending Exceptions Service", () => {
         severity: "low",
       });
 
-      const approved = await approvePendingException(exc.shortCode, "test-user");
+      const approved = await approvePendingException(
+        exc.shortCode,
+        "test-user",
+      );
 
       expect(approved.status).toBe("approved");
       expect(approved.approvedBy).toBe("test-user");
@@ -271,9 +282,9 @@ describe("DCG Pending Exceptions Service", () => {
     });
 
     test("throws NotFoundError for unknown short code", async () => {
-      await expect(approvePendingException("invalid", "test-user")).rejects.toThrow(
-        PendingExceptionNotFoundError,
-      );
+      await expect(
+        approvePendingException("invalid", "test-user"),
+      ).rejects.toThrow(PendingExceptionNotFoundError);
     });
 
     test("throws ConflictError for already approved exception", async () => {
@@ -287,9 +298,9 @@ describe("DCG Pending Exceptions Service", () => {
 
       await approvePendingException(exc.shortCode, "user1");
 
-      await expect(approvePendingException(exc.shortCode, "user2")).rejects.toThrow(
-        PendingExceptionConflictError,
-      );
+      await expect(
+        approvePendingException(exc.shortCode, "user2"),
+      ).rejects.toThrow(PendingExceptionConflictError);
     });
 
     test("throws ExpiredError for expired exception", async () => {
@@ -305,9 +316,9 @@ describe("DCG Pending Exceptions Service", () => {
       // Wait a bit for expiration
       await new Promise((r) => setTimeout(r, 100));
 
-      await expect(approvePendingException(exc.shortCode, "test-user")).rejects.toThrow(
-        PendingExceptionExpiredError,
-      );
+      await expect(
+        approvePendingException(exc.shortCode, "test-user"),
+      ).rejects.toThrow(PendingExceptionExpiredError);
     });
   });
 
@@ -321,7 +332,11 @@ describe("DCG Pending Exceptions Service", () => {
         severity: "low",
       });
 
-      const denied = await denyPendingException(exc.shortCode, "test-user", "Too risky");
+      const denied = await denyPendingException(
+        exc.shortCode,
+        "test-user",
+        "Too risky",
+      );
 
       expect(denied.status).toBe("denied");
       expect(denied.deniedBy).toBe("test-user");
@@ -329,9 +344,9 @@ describe("DCG Pending Exceptions Service", () => {
     });
 
     test("throws NotFoundError for unknown short code", async () => {
-      await expect(denyPendingException("invalid", "test-user")).rejects.toThrow(
-        PendingExceptionNotFoundError,
-      );
+      await expect(
+        denyPendingException("invalid", "test-user"),
+      ).rejects.toThrow(PendingExceptionNotFoundError);
     });
 
     test("throws ConflictError for already approved exception", async () => {
@@ -345,9 +360,9 @@ describe("DCG Pending Exceptions Service", () => {
 
       await approvePendingException(exc.shortCode, "user1");
 
-      await expect(denyPendingException(exc.shortCode, "user2")).rejects.toThrow(
-        PendingExceptionConflictError,
-      );
+      await expect(
+        denyPendingException(exc.shortCode, "user2"),
+      ).rejects.toThrow(PendingExceptionConflictError);
     });
   });
 
@@ -465,7 +480,9 @@ describe("DCG Pending Exceptions Routes", () => {
       expect(res.status).toBe(200);
 
       const body = await res.json();
-      expect(body.data.every((e: { status: string }) => e.status === "approved")).toBe(true);
+      expect(
+        body.data.every((e: { status: string }) => e.status === "approved"),
+      ).toBe(true);
     });
   });
 

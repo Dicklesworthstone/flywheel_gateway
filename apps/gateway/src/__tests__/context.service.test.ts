@@ -2,52 +2,78 @@
  * Context Pack Builder Tests
  */
 
-import { afterAll, describe, expect, it, mock } from "bun:test";
-import { restoreBvService, restoreCassService } from "./test-utils/db-mock-restore";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+} from "bun:test";
+import type { CMClient } from "@flywheel/flywheel-clients";
+import { eq } from "drizzle-orm";
+import { agents, db, history } from "../db";
+import { setCMClientForTesting } from "../services/cm.service";
+import {
+  completeHistoryEntry,
+  createHistoryEntry,
+} from "../services/history.service";
+import {
+  restoreBvService,
+  restoreCassService,
+} from "./test-utils/db-mock-restore";
 
-// Mock BV service to avoid spawning external commands
-mock.module("../services/bv.service", () => ({
-  getBvTriage: async () => ({
-    triage: {
-      recommendations: [
-        {
-          id: "test-bead-1",
-          type: "task",
-          title: "Test Task 1",
-          description: "A test task description",
-          score: 0.9,
-          reasons: ["High priority"],
-        },
-        {
-          id: "test-bead-2",
-          type: "bug",
-          title: "Test Bug 1",
-          description: "A test bug description",
-          score: 0.7,
-          reasons: ["Urgent fix needed"],
-        },
-      ],
-    },
-    data_hash: "mock-hash-123",
-  }),
-  getBvClient: () => ({
-    getTriage: async () => ({ triage: { recommendations: [] }, data_hash: "" }),
-    getInsights: async () => ({ insights: {}, data_hash: "" }),
-    getPlan: async () => ({ plan: {}, data_hash: "" }),
-  }),
-  getBvProjectRoot: () => "/mock/project/root",
-  clearBvCache: () => {},
-}));
+function installContextServiceMocks() {
+  // Mock BV service to avoid spawning external commands
+  mock.module("../services/bv.service", () => ({
+    getBvTriage: async () => ({
+      triage: {
+        recommendations: [
+          {
+            id: "test-bead-1",
+            type: "task",
+            title: "Test Task 1",
+            description: "A test task description",
+            score: 0.9,
+            reasons: ["High priority"],
+          },
+          {
+            id: "test-bead-2",
+            type: "bug",
+            title: "Test Bug 1",
+            description: "A test bug description",
+            score: 0.7,
+            reasons: ["Urgent fix needed"],
+          },
+        ],
+      },
+      data_hash: "mock-hash-123",
+    }),
+    getBvClient: () => ({
+      getTriage: async () => ({
+        triage: { recommendations: [] },
+        data_hash: "",
+      }),
+      getInsights: async () => ({ insights: {}, data_hash: "" }),
+      getPlan: async () => ({ plan: {}, data_hash: "" }),
+    }),
+    getBvProjectRoot: () => "/mock/project/root",
+    clearBvCache: () => {},
+  }));
 
-// Mock CASS service to avoid external calls
-mock.module("../services/cass.service", () => ({
-  isCassAvailable: async () => false,
-  searchWithTokenBudget: async () => ({
-    hits: [],
-    total_matches: 0,
-    query: "",
-  }),
-}));
+  // Mock CASS service to avoid external calls
+  mock.module("../services/cass.service", () => ({
+    isCassAvailable: async () => false,
+    searchWithTokenBudget: async () => ({
+      hits: [],
+      total_matches: 0,
+      query: "",
+    }),
+  }));
+}
+
+installContextServiceMocks();
 
 import {
   buildContextPack,
@@ -77,7 +103,21 @@ import {
   DEFAULT_CONTEXT_BUILDER_CONFIG,
 } from "../types/context.types";
 
+restoreBvService();
+restoreCassService();
+
+beforeEach(() => {
+  installContextServiceMocks();
+});
+
+afterEach(() => {
+  setCMClientForTesting(null);
+  restoreBvService();
+  restoreCassService();
+});
+
 afterAll(() => {
+  setCMClientForTesting(null);
   restoreBvService();
   restoreCassService();
 });
@@ -105,10 +145,18 @@ describe("Token Budget Allocation", () => {
       const totalTokens = 100000;
       const breakdown = allocateBudget(totalTokens, DEFAULT_BUDGET_STRATEGY);
 
-      expect(breakdown.triage).toBeGreaterThanOrEqual(DEFAULT_BUDGET_STRATEGY.minimums.triage);
-      expect(breakdown.memory).toBeGreaterThanOrEqual(DEFAULT_BUDGET_STRATEGY.minimums.memory);
-      expect(breakdown.search).toBeGreaterThanOrEqual(DEFAULT_BUDGET_STRATEGY.minimums.search);
-      expect(breakdown.history).toBeGreaterThanOrEqual(DEFAULT_BUDGET_STRATEGY.minimums.history);
+      expect(breakdown.triage).toBeGreaterThanOrEqual(
+        DEFAULT_BUDGET_STRATEGY.minimums.triage,
+      );
+      expect(breakdown.memory).toBeGreaterThanOrEqual(
+        DEFAULT_BUDGET_STRATEGY.minimums.memory,
+      );
+      expect(breakdown.search).toBeGreaterThanOrEqual(
+        DEFAULT_BUDGET_STRATEGY.minimums.search,
+      );
+      expect(breakdown.history).toBeGreaterThanOrEqual(
+        DEFAULT_BUDGET_STRATEGY.minimums.history,
+      );
     });
 
     it("should never exceed total budget", () => {
@@ -454,6 +502,236 @@ describe("Context Pack Builder", () => {
       expect(summary.sessionId).toBe("test-session");
       expect(summary.tokensUsed).toBe(pack.budget.used);
       expect(summary.sectionCounts).toBeTruthy();
+    });
+  });
+
+  describe("Memory Section (CM Integration)", () => {
+    it("populates memory rules and anti-patterns from CM task context", async () => {
+      const mockCmClient: CMClient = {
+        isAvailable: async () => true,
+        context: async (task: string) => ({
+          success: true,
+          task,
+          relevantBullets: [
+            {
+              id: "rule-1",
+              text: "Always run bun typecheck before closing a bead.",
+              category: "verification",
+              kind: "rule",
+              confidence: 0.95,
+              score: 0.92,
+            },
+          ],
+          antiPatterns: [
+            {
+              id: "anti-1",
+              text: "Never use global mock.module without restoring in afterEach.",
+              category: "testing",
+              kind: "anti-pattern",
+              confidence: 0.99,
+              score: 0.98,
+            },
+          ],
+          historySnippets: [],
+        }),
+        quickstart: async () => ({
+          success: true,
+          summary: "",
+          oneCommand: "",
+          expectations: {},
+          whatItReturns: [],
+          doNotDo: [],
+          protocol: {},
+          examples: [],
+        }),
+        stats: async () => ({
+          success: true,
+          total: 2,
+          byScope: {},
+          byState: {},
+          byKind: {},
+          scoreDistribution: { excellent: 2, good: 0, neutral: 0, atRisk: 0 },
+          topPerformers: [],
+          mostHelpful: [],
+          atRiskCount: 0,
+          staleCount: 0,
+        }),
+        listPlaybook: async () => ({
+          success: true,
+          bullets: [],
+        }),
+        doctor: async () => ({
+          success: true,
+          overallStatus: "healthy",
+          checks: [],
+        }),
+        outcome: async () => ({
+          success: true,
+          recorded: 1,
+        }),
+      };
+
+      setCMClientForTesting(mockCmClient);
+
+      const pack = await buildContextPack({
+        sessionId: "cm-test-session",
+        taskContext: "Fix test isolation in gateway",
+        maxTokens: 50000,
+      });
+
+      expect(pack.sections.memory.rules).toHaveLength(2);
+      expect(pack.sections.memory.rules[0]?.id).toBe("rule-1");
+      expect(pack.sections.memory.rules[0]?.category).toBe("verification");
+      expect(pack.sections.memory.rules[1]?.id).toBe("anti-1");
+      expect(pack.sections.memory.rules[1]?.content).toContain(
+        "[ANTI-PATTERN]",
+      );
+      expect(pack.sections.memory.categories).toEqual([
+        "verification",
+        "testing",
+      ]);
+      expect(pack.sections.memory.metadata.totalRulesMatched).toBe(2);
+      expect(pack.sections.memory.metadata.rulesIncluded).toBe(2);
+
+      const rendered = renderContextPack(pack);
+      expect(rendered).toContain("### Project Guidelines (Memory)");
+      expect(rendered).toContain(
+        "- [verification] Always run bun typecheck before closing a bead.",
+      );
+      expect(rendered).toContain(
+        "- [testing] [ANTI-PATTERN] Never use global mock.module without restoring in afterEach.",
+      );
+    });
+
+    it("falls back to listPlaybookRules when taskContext is omitted", async () => {
+      const mockCmClient: CMClient = {
+        isAvailable: async () => true,
+        context: async (task: string) => ({
+          success: true,
+          task,
+          relevantBullets: [],
+          antiPatterns: [],
+          historySnippets: [],
+        }),
+        quickstart: async () => ({
+          success: true,
+          summary: "",
+          oneCommand: "",
+          expectations: {},
+          whatItReturns: [],
+          doNotDo: [],
+          protocol: {},
+          examples: [],
+        }),
+        stats: async () => ({
+          success: true,
+          total: 1,
+          byScope: {},
+          byState: {},
+          byKind: {},
+          scoreDistribution: { excellent: 1, good: 0, neutral: 0, atRisk: 0 },
+          topPerformers: [],
+          mostHelpful: [],
+          atRiskCount: 0,
+          staleCount: 0,
+        }),
+        listPlaybook: async () => ({
+          success: true,
+          bullets: [
+            {
+              id: "rule-general-1",
+              text: "Preserve existing comments and docstrings.",
+              category: "style",
+              state: "active",
+              confidence: 0.85,
+            },
+          ],
+        }),
+        doctor: async () => ({
+          success: true,
+          overallStatus: "healthy",
+          checks: [],
+        }),
+        outcome: async () => ({
+          success: true,
+          recorded: 1,
+        }),
+      };
+
+      setCMClientForTesting(mockCmClient);
+
+      const pack = await buildContextPack({
+        sessionId: "cm-playbook-session",
+        maxTokens: 50000,
+      });
+
+      expect(pack.sections.memory.rules).toHaveLength(1);
+      expect(pack.sections.memory.rules[0]?.id).toBe("rule-general-1");
+      expect(pack.sections.memory.rules[0]?.category).toBe("style");
+    });
+  });
+
+  describe("History Section (History Service Integration)", () => {
+    it("populates conversation history from history.service in chronological order", async () => {
+      const sessionId = `ctx-hist-agent-${Date.now()}`;
+      await db.insert(agents).values({
+        id: sessionId,
+        repoUrl: "/data/projects/flywheel_gateway",
+        task: "context history test",
+        status: "idle",
+        model: "claude-sonnet-4-20250514",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      try {
+        const entry1 = await createHistoryEntry(sessionId, {
+          prompt: "First user prompt: inspect context service",
+        });
+        await completeHistoryEntry(
+          entry1.id,
+          {
+            responseSummary: "First assistant response: found stubbed sections",
+            outcome: "success",
+          },
+          120,
+        );
+
+        const pack = await buildContextPack({
+          sessionId,
+          maxTokens: 50000,
+          historyOptions: { maxEntries: 10 },
+        });
+
+        expect(pack.sections.history.entries.length).toBeGreaterThanOrEqual(2);
+        expect(pack.sections.history.entries[0]?.role).toBe("user");
+        expect(pack.sections.history.entries[0]?.content).toContain(
+          "First user prompt: inspect context service",
+        );
+        expect(pack.sections.history.entries[1]?.role).toBe("assistant");
+        expect(pack.sections.history.entries[1]?.content).toContain(
+          "First assistant response: found stubbed sections",
+        );
+        expect(pack.sections.history.metadata.includedEntries).toBe(2);
+        expect(pack.sections.history.metadata.oldestIncluded).toBeInstanceOf(
+          Date,
+        );
+        expect(pack.sections.history.metadata.newestIncluded).toBeInstanceOf(
+          Date,
+        );
+
+        const rendered = renderContextPack(pack);
+        expect(rendered).toContain("### Recent Conversation");
+        expect(rendered).toContain(
+          "**User**: First user prompt: inspect context service",
+        );
+        expect(rendered).toContain(
+          "**Assistant**: First assistant response: found stubbed sections",
+        );
+      } finally {
+        await db.delete(history).where(eq(history.agentId, sessionId));
+        await db.delete(agents).where(eq(agents.id, sessionId));
+      }
     });
   });
 });

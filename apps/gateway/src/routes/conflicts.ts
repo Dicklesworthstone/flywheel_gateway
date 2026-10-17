@@ -39,6 +39,39 @@ import {
   updateAutoResolutionCriteria,
 } from "../services/conflict-resolution.service";
 import {
+  assignBranch,
+  coordinateSync,
+  getAssignment,
+  getBranchAssignments,
+  getGitGraph,
+  getGitStats,
+  getOverlappingFiles,
+  predictConflicts,
+  releaseBranch,
+  renewAssignment,
+} from "../services/git.service";
+import {
+  analyzeRepositoryConflicts,
+  getAnalysisHistory,
+  getBranchChanges,
+  getConflictPatterns,
+  getConflictStats as getGitConflictPredictionStats,
+  registerBranchChanges,
+} from "../services/git-conflict.service";
+import {
+  cancelSyncOperation,
+  completeSyncOperation,
+  failSyncOperation,
+  getSyncStats as getGitSyncStats,
+  getOperation,
+  getOperationHistory,
+  getQueuedOperations,
+  getQueueStats,
+  queueSyncOperation,
+} from "../services/git-sync.service";
+import {
+  sendConflict,
+  sendCreated,
   sendError,
   sendList,
   sendNotFound,
@@ -65,7 +98,9 @@ const _ConflictFilterSchema = z.object({
       ]),
     )
     .optional(),
-  severity: z.array(z.enum(["info", "warning", "error", "critical"])).optional(),
+  severity: z
+    .array(z.enum(["info", "warning", "error", "critical"]))
+    .optional(),
   projectId: z.string().optional(),
   agentId: z.string().optional(),
 });
@@ -386,6 +421,505 @@ conflicts.patch("/resolution/config", async (c) => {
     log.error({ error }, "Error updating auto-resolution criteria");
     throw error;
   }
+});
+
+// ============================================================================
+// Git Coordination, Sync Queue, and Predictive Conflict Analysis Routes
+// ============================================================================
+
+const AssignBranchBodySchema = z.object({
+  repositoryId: z.string().min(1),
+  agentId: z.string().min(1),
+  branchName: z.string().min(1),
+  baseBranch: z.string().optional(),
+  ttlMs: z.number().int().positive().optional(),
+  taskId: z.string().optional(),
+  taskDescription: z.string().optional(),
+  reservedPatterns: z.array(z.string()).optional(),
+});
+
+const ReleaseBranchBodySchema = z.object({
+  repositoryId: z.string().min(1),
+  agentId: z.string().min(1),
+  branchName: z.string().optional(),
+});
+
+const RenewBranchBodySchema = z.object({
+  agentId: z.string().min(1),
+  additionalTtlMs: z.number().int().positive().optional(),
+});
+
+const PredictGitConflictsSchema = z.object({
+  repositoryId: z.string().min(1),
+  branchA: z.string().min(1),
+  branchB: z.string().min(1),
+});
+
+const QueueGitSyncSchema = z.object({
+  repositoryId: z.string().min(1),
+  agentId: z.string().min(1),
+  operation: z.enum(["pull", "push", "fetch", "rebase", "merge"]),
+  branch: z.string().min(1),
+  targetBranch: z.string().optional(),
+  remote: z.string().optional(),
+  force: z.boolean().optional(),
+  priority: z.number().int().optional(),
+});
+
+const CompleteGitSyncSchema = z.object({
+  success: z.boolean().default(true),
+  fromCommit: z.string().optional(),
+  toCommit: z.string().optional(),
+  filesChanged: z.number().int().min(0).optional(),
+  insertions: z.number().int().min(0).optional(),
+  deletions: z.number().int().min(0).optional(),
+  conflictsDetected: z.boolean().optional(),
+  conflictFiles: z.array(z.string()).optional(),
+  mergeCommit: z.string().optional(),
+});
+
+const RegisterBranchChangesSchema = z.object({
+  repositoryId: z.string().min(1),
+  branchName: z.string().min(1),
+  baseBranch: z.string().default("main"),
+  commitCount: z.number().int().min(0).default(1),
+  files: z.array(
+    z.object({
+      path: z.string().min(1),
+      changeType: z.enum(["added", "modified", "deleted", "renamed"]),
+      oldPath: z.string().optional(),
+      linesAdded: z.number().int().min(0).default(0),
+      linesDeleted: z.number().int().min(0).default(0),
+      isBinary: z.boolean().default(false),
+    }),
+  ),
+});
+
+/**
+ * POST /conflicts/git/branches - Assign a git branch to an agent
+ */
+conflicts.post("/git/branches", async (c) => {
+  try {
+    const body = await c.req.json();
+    const parsed = AssignBranchBodySchema.parse(body);
+    const result = await assignBranch(
+      parsed as Parameters<typeof assignBranch>[0],
+    );
+    if (!result.granted || !result.assignment) {
+      return sendConflict(
+        c,
+        "BRANCH_ALREADY_ASSIGNED",
+        result.error ?? "Branch could not be assigned",
+        result.existingAssignment
+          ? { details: { existingAssignmentId: result.existingAssignment.id } }
+          : undefined,
+      );
+    }
+    return sendCreated(
+      c,
+      "branch_assignment",
+      {
+        ...result.assignment,
+        assignedAt: result.assignment.assignedAt.toISOString(),
+        expiresAt: result.assignment.expiresAt.toISOString(),
+        lastActivityAt: result.assignment.lastActivityAt.toISOString(),
+      },
+      `/conflicts/git/branches/assignment/${result.assignment.id}`,
+    );
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendValidationError(c, transformZodError(error));
+    }
+    throw error;
+  }
+});
+
+/**
+ * GET /conflicts/git/branches/assignment/:assignmentId - Get single branch assignment
+ */
+conflicts.get("/git/branches/assignment/:assignmentId", async (c) => {
+  const assignmentId = c.req.param("assignmentId");
+  const assignment = await getAssignment(assignmentId);
+  if (!assignment) {
+    return sendNotFound(c, "branch_assignment", assignmentId);
+  }
+  return sendResource(c, "branch_assignment", {
+    ...assignment,
+    assignedAt: assignment.assignedAt.toISOString(),
+    expiresAt: assignment.expiresAt.toISOString(),
+    lastActivityAt: assignment.lastActivityAt.toISOString(),
+  });
+});
+
+/**
+ * POST /conflicts/git/branches/assignment/:assignmentId/renew - Renew branch assignment TTL
+ */
+conflicts.post("/git/branches/assignment/:assignmentId/renew", async (c) => {
+  try {
+    const assignmentId = c.req.param("assignmentId");
+    const body = await c.req.json();
+    const parsed = RenewBranchBodySchema.parse(body);
+    const result = await renewAssignment({
+      assignmentId,
+      agentId: parsed.agentId,
+      ...(parsed.additionalTtlMs !== undefined && {
+        additionalTtlMs: parsed.additionalTtlMs,
+      }),
+    });
+    if (!result.renewed) {
+      return sendError(
+        c,
+        "RENEWAL_FAILED",
+        result.error ?? "Failed to renew assignment",
+        400,
+      );
+    }
+    return sendResource(c, "branch_assignment_renewal", {
+      assignmentId,
+      renewed: true,
+      newExpiresAt: result.newExpiresAt?.toISOString(),
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendValidationError(c, transformZodError(error));
+    }
+    throw error;
+  }
+});
+
+/**
+ * POST /conflicts/git/branches/release - Release branch assignment(s)
+ */
+conflicts.post("/git/branches/release", async (c) => {
+  try {
+    const body = await c.req.json();
+    const parsed = ReleaseBranchBodySchema.parse(body);
+    const result = await releaseBranch(
+      parsed as Parameters<typeof releaseBranch>[0],
+    );
+    return sendResource(c, "branch_release_result", result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendValidationError(c, transformZodError(error));
+    }
+    throw error;
+  }
+});
+
+/**
+ * GET /conflicts/git/branches/:repositoryId - List branch assignments for a repository
+ */
+conflicts.get("/git/branches/:repositoryId", async (c) => {
+  const repositoryId = c.req.param("repositoryId");
+  const includeExpired = c.req.query("includeExpired") === "true";
+  const agentId = c.req.query("agentId");
+  const assignments = await getBranchAssignments(repositoryId, {
+    includeExpired,
+    ...(agentId && { agentId }),
+  });
+  return sendList(
+    c,
+    assignments.map((a) => ({
+      ...a,
+      assignedAt: a.assignedAt.toISOString(),
+      expiresAt: a.expiresAt.toISOString(),
+      lastActivityAt: a.lastActivityAt.toISOString(),
+    })),
+    { total: assignments.length },
+  );
+});
+
+/**
+ * POST /conflicts/git/predict - Predict conflicts between two branches
+ */
+conflicts.post("/git/predict", async (c) => {
+  try {
+    const body = await c.req.json();
+    const parsed = PredictGitConflictsSchema.parse(body);
+    const prediction = await predictConflicts(parsed);
+    const overlapReport = await getOverlappingFiles({
+      repositoryId: parsed.repositoryId,
+      branches: [parsed.branchA, parsed.branchB],
+    });
+    return sendResource(c, "git_conflict_prediction", {
+      ...prediction,
+      predictedAt: prediction.predictedAt.toISOString(),
+      overlappingFilesReport: {
+        ...overlapReport,
+        generatedAt: overlapReport.generatedAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendValidationError(c, transformZodError(error));
+    }
+    throw error;
+  }
+});
+
+/**
+ * GET /conflicts/git/graph/:repositoryId - Get git graph data for visualization
+ */
+conflicts.get("/git/graph/:repositoryId", async (c) => {
+  const repositoryId = c.req.param("repositoryId");
+  const maxCommitsParam = c.req.query("maxCommits");
+  const maxCommits = maxCommitsParam ? parseInt(maxCommitsParam, 10) : 50;
+  const graph = await getGitGraph(repositoryId, {
+    maxCommits: Number.isNaN(maxCommits) ? 50 : maxCommits,
+  });
+  return sendResource(c, "git_graph", {
+    ...graph,
+    nodes: graph.nodes.map((n) => ({
+      ...n,
+      date: n.date.toISOString(),
+    })),
+  });
+});
+
+/**
+ * POST /conflicts/git/sync - Coordinate and queue a git sync operation
+ */
+conflicts.post("/git/sync", async (c) => {
+  try {
+    const body = await c.req.json();
+    const parsed = QueueGitSyncSchema.parse(body);
+    if (parsed.operation !== "merge") {
+      const coordination = await coordinateSync(
+        parsed.repositoryId,
+        parsed.agentId,
+        {
+          type: parsed.operation,
+          branch: parsed.branch,
+          ...(parsed.remote !== undefined && { remote: parsed.remote }),
+          ...(parsed.force !== undefined && { force: parsed.force }),
+        },
+      );
+      if (!coordination.approved) {
+        return sendConflict(
+          c,
+          "SYNC_NOT_APPROVED",
+          coordination.error ?? "Sync operation not approved",
+          {
+            details: {
+              warnings: coordination.warnings,
+              recommendations: coordination.recommendations,
+            },
+          },
+        );
+      }
+    }
+    const op = await queueSyncOperation(
+      parsed as Parameters<typeof queueSyncOperation>[0],
+    );
+    return sendCreated(
+      c,
+      "git_sync_operation",
+      {
+        ...op,
+        queuedAt: op.queuedAt.toISOString(),
+        startedAt: op.startedAt?.toISOString(),
+        completedAt: op.completedAt?.toISOString(),
+      },
+      `/conflicts/git/sync/${op.id}`,
+    );
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendValidationError(c, transformZodError(error));
+    }
+    throw error;
+  }
+});
+
+/**
+ * GET /conflicts/git/sync-stats - Get global and repository git sync & conflict stats
+ */
+conflicts.get("/git/sync-stats", async (c) => {
+  const repositoryId = c.req.query("repositoryId");
+  const syncStats = getGitSyncStats();
+  const gitStats = getGitStats();
+  const predictionStats = getGitConflictPredictionStats();
+  const repoQueueStats = repositoryId
+    ? await getQueueStats(repositoryId)
+    : undefined;
+  const repoQueued = repositoryId
+    ? await getQueuedOperations(repositoryId)
+    : undefined;
+  const repoHistory = repositoryId
+    ? await getOperationHistory(repositoryId, { limit: 20 })
+    : undefined;
+
+  return sendResource(c, "git_sync_stats", {
+    syncStats,
+    gitStats,
+    predictionStats,
+    ...(repoQueueStats !== undefined && { repoQueueStats }),
+    ...(repoQueued !== undefined && { repoQueuedCount: repoQueued.length }),
+    ...(repoHistory !== undefined && { repoHistoryCount: repoHistory.length }),
+  });
+});
+
+/**
+ * GET /conflicts/git/sync/:operationId - Get a queued or completed git sync operation
+ */
+conflicts.get("/git/sync/:operationId", async (c) => {
+  const operationId = c.req.param("operationId");
+  const op = await getOperation(operationId);
+  if (!op) {
+    return sendNotFound(c, "git_sync_operation", operationId);
+  }
+  return sendResource(c, "git_sync_operation", {
+    ...op,
+    queuedAt: op.queuedAt.toISOString(),
+    startedAt: op.startedAt?.toISOString(),
+    completedAt: op.completedAt?.toISOString(),
+  });
+});
+
+/**
+ * POST /conflicts/git/sync/:operationId/complete - Mark a git sync operation completed
+ */
+conflicts.post("/git/sync/:operationId/complete", async (c) => {
+  try {
+    const operationId = c.req.param("operationId");
+    const existing = await getOperation(operationId);
+    if (!existing) {
+      return sendNotFound(c, "git_sync_operation", operationId);
+    }
+    const body = await c.req.json().catch(() => ({}));
+    const parsed = CompleteGitSyncSchema.parse(body);
+    await completeSyncOperation(
+      operationId,
+      parsed as Parameters<typeof completeSyncOperation>[1],
+    );
+    const updated = await getOperation(operationId);
+    return sendResource(c, "git_sync_operation", {
+      ...(updated ?? existing),
+      queuedAt: (updated ?? existing).queuedAt.toISOString(),
+      startedAt: (updated ?? existing).startedAt?.toISOString(),
+      completedAt: (updated ?? existing).completedAt?.toISOString(),
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendValidationError(c, transformZodError(error));
+    }
+    throw error;
+  }
+});
+
+/**
+ * POST /conflicts/git/sync/:operationId/fail - Mark a git sync operation failed
+ */
+conflicts.post("/git/sync/:operationId/fail", async (c) => {
+  const operationId = c.req.param("operationId");
+  const existing = await getOperation(operationId);
+  if (!existing) {
+    return sendNotFound(c, "git_sync_operation", operationId);
+  }
+  const body = await c.req.json().catch(() => ({}));
+  const errorOutput =
+    typeof body.error === "string" ? body.error : "Sync operation failed";
+  const retryInfo = await failSyncOperation(operationId, errorOutput);
+  return sendResource(c, "git_sync_failure", {
+    operationId,
+    willRetry: retryInfo.willRetry,
+    nextAttemptAt: retryInfo.nextAttemptAt?.toISOString(),
+  });
+});
+
+/**
+ * POST /conflicts/git/sync/:operationId/cancel - Cancel a git sync operation
+ */
+conflicts.post("/git/sync/:operationId/cancel", async (c) => {
+  const operationId = c.req.param("operationId");
+  const body = await c.req.json().catch(() => ({}));
+  const agentId = typeof body.agentId === "string" ? body.agentId : "";
+  if (!agentId) {
+    return sendError(c, "INVALID_REQUEST", "agentId is required", 400);
+  }
+  const cancelled = await cancelSyncOperation(operationId, agentId);
+  if (!cancelled) {
+    return sendNotFound(c, "git_sync_operation", operationId);
+  }
+  return sendResource(c, "git_sync_cancelled", {
+    operationId,
+    cancelled: true,
+  });
+});
+
+/**
+ * POST /conflicts/git/branch-changes - Register file changes on a branch for conflict prediction
+ */
+conflicts.post("/git/branch-changes", async (c) => {
+  try {
+    const body = await c.req.json();
+    const parsed = RegisterBranchChangesSchema.parse(body);
+    const changes = {
+      branchName: parsed.branchName,
+      baseBranch: parsed.baseBranch,
+      commitCount: parsed.commitCount,
+      files: parsed.files,
+      lastUpdated: new Date(),
+    };
+    await registerBranchChanges(
+      parsed.repositoryId,
+      changes as Parameters<typeof registerBranchChanges>[1],
+    );
+    const stored = await getBranchChanges(
+      parsed.repositoryId,
+      parsed.branchName,
+    );
+    return sendCreated(
+      c,
+      "branch_changes",
+      {
+        repositoryId: parsed.repositoryId,
+        ...(stored ?? changes),
+        lastUpdated: (stored ?? changes).lastUpdated.toISOString(),
+      },
+      `/conflicts/git/analyze/${parsed.repositoryId}`,
+    );
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return sendValidationError(c, transformZodError(error));
+    }
+    throw error;
+  }
+});
+
+/**
+ * POST /conflicts/git/analyze/:repositoryId - Analyze predictive conflicts across repository branches
+ */
+conflicts.post("/git/analyze/:repositoryId", async (c) => {
+  const repositoryId = c.req.param("repositoryId");
+  const body = await c.req.json().catch(() => ({}));
+  const branches = Array.isArray(body.branches)
+    ? body.branches.filter((b: unknown): b is string => typeof b === "string")
+    : undefined;
+  const analysis = await analyzeRepositoryConflicts(repositoryId, branches);
+  return sendResource(c, "git_conflict_analysis", {
+    ...analysis,
+    analyzedAt: analysis.analyzedAt.toISOString(),
+  });
+});
+
+/**
+ * GET /conflicts/git/patterns/:repositoryId - Get historical conflict patterns and analysis history
+ */
+conflicts.get("/git/patterns/:repositoryId", async (c) => {
+  const repositoryId = c.req.param("repositoryId");
+  const patterns = await getConflictPatterns(repositoryId);
+  const history = await getAnalysisHistory(repositoryId, 10);
+  return sendResource(c, "git_conflict_patterns", {
+    repositoryId,
+    patterns: patterns.map((p) => ({
+      ...p,
+      lastSeen: p.lastSeen.toISOString(),
+    })),
+    recentAnalyses: history.map((h) => ({
+      ...h,
+      analyzedAt: h.analyzedAt.toISOString(),
+    })),
+  });
 });
 
 /**

@@ -297,7 +297,10 @@ const mockDCGAllowlist: DCGAllowlistEntry[] = [
 
 const API_BASE = "/api/dcg";
 
-async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
+async function fetchAPI<T>(
+  endpoint: string,
+  options?: RequestInit,
+): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
       "Content-Type": "application/json",
@@ -307,7 +310,9 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Request failed" }));
+    const error = await response
+      .json()
+      .catch(() => ({ message: "Request failed" }));
     throw new Error(error.message || `HTTP ${response.status}`);
   }
 
@@ -328,7 +333,11 @@ interface UseQueryResult<T> {
   refetch: () => void;
 }
 
-function useQuery<T>(endpoint: string, mockData: T, deps: unknown[] = []): UseQueryResult<T> {
+function useQuery<T>(
+  endpoint: string,
+  mockData: T,
+  deps: unknown[] = [],
+): UseQueryResult<T> {
   const mockMode = useUiStore((state) => state.mockMode);
   const allowMockFallback = useAllowMockFallback();
   const toastStateRef = useRef<"none" | "mock" | "error">("none");
@@ -476,9 +485,12 @@ export function useApprovePending() {
       }
 
       try {
-        const result = await fetchAPI<DCGPendingException>(`/pending/${shortCode}/approve`, {
-          method: "POST",
-        });
+        const result = await fetchAPI<DCGPendingException>(
+          `/pending/${shortCode}/approve`,
+          {
+            method: "POST",
+          },
+        );
         return result;
       } catch (e) {
         const err = e instanceof Error ? e : new Error("Unknown error");
@@ -503,7 +515,10 @@ export function useDenyPending() {
   const mockMode = useUiStore((state) => state.mockMode);
 
   const deny = useCallback(
-    async (shortCode: string, reason?: string): Promise<DCGPendingException> => {
+    async (
+      shortCode: string,
+      reason?: string,
+    ): Promise<DCGPendingException> => {
       setIsLoading(true);
       setError(null);
 
@@ -523,10 +538,13 @@ export function useDenyPending() {
       }
 
       try {
-        const result = await fetchAPI<DCGPendingException>(`/pending/${shortCode}/deny`, {
-          method: "POST",
-          ...(reason && { body: JSON.stringify({ reason }) }),
-        });
+        const result = await fetchAPI<DCGPendingException>(
+          `/pending/${shortCode}/deny`,
+          {
+            method: "POST",
+            ...(reason && { body: JSON.stringify({ reason }) }),
+          },
+        );
         return result;
       } catch (e) {
         const err = e instanceof Error ? e : new Error("Unknown error");
@@ -666,7 +684,10 @@ export function useTogglePack() {
   const mockMode = useUiStore((state) => state.mockMode);
 
   const toggle = useCallback(
-    async (packId: string, enable: boolean): Promise<{ packId: string; enabled: boolean }> => {
+    async (
+      packId: string,
+      enable: boolean,
+    ): Promise<{ packId: string; enabled: boolean }> => {
       setIsLoading(true);
       setError(null);
 
@@ -677,10 +698,15 @@ export function useTogglePack() {
       }
 
       try {
-        const endpoint = enable ? `/cli/packs/${packId}/enable` : `/cli/packs/${packId}/disable`;
-        const result = await fetchAPI<{ packId: string; enabled: boolean }>(endpoint, {
-          method: "POST",
-        });
+        const endpoint = enable
+          ? `/cli/packs/${packId}/enable`
+          : `/cli/packs/${packId}/disable`;
+        const result = await fetchAPI<{ packId: string; enabled: boolean }>(
+          endpoint,
+          {
+            method: "POST",
+          },
+        );
         return result;
       } catch (e) {
         const err = e instanceof Error ? e : new Error("Unknown error");
@@ -720,9 +746,12 @@ export function useMarkFalsePositive() {
       }
 
       try {
-        const result = await fetchAPI<DCGBlock>(`/blocks/${blockId}/false-positive`, {
-          method: "POST",
-        });
+        const result = await fetchAPI<DCGBlock>(
+          `/blocks/${blockId}/false-positive`,
+          {
+            method: "POST",
+          },
+        );
         return result;
       } catch (e) {
         const err = e instanceof Error ? e : new Error("Unknown error");

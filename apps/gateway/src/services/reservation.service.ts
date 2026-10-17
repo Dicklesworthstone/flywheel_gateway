@@ -9,7 +9,12 @@
  * Builds on the ReservationConflictEngine for conflict detection.
  */
 
-import { createCursor, DEFAULT_PAGINATION, decodeCursor } from "@flywheel/shared/api/pagination";
+import {
+  createCursor,
+  DEFAULT_PAGINATION,
+  decodeCursor,
+} from "@flywheel/shared/api/pagination";
+import { sqlite } from "../db";
 import { getCorrelationId } from "../middleware/correlation";
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
@@ -197,6 +202,35 @@ let cleanupInterval: Timer | null = null;
 /** Track which reservations have been warned about expiring (to avoid spam) */
 const warnedExpiringReservations: Set<string> = new Set();
 
+let reservationTableReady = false;
+let reservationsHydrated = false;
+
+function ensureReservationTable(): void {
+  if (reservationTableReady) return;
+  try {
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS file_reservations (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        agent_id TEXT NOT NULL,
+        patterns TEXT NOT NULL,
+        mode TEXT NOT NULL DEFAULT 'exclusive',
+        ttl INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        renew_count INTEGER NOT NULL DEFAULT 0,
+        metadata TEXT
+      );
+      CREATE INDEX IF NOT EXISTS file_reservations_project_idx ON file_reservations(project_id);
+      CREATE INDEX IF NOT EXISTS file_reservations_agent_idx ON file_reservations(agent_id);
+      CREATE INDEX IF NOT EXISTS file_reservations_expires_idx ON file_reservations(expires_at);
+    `);
+    reservationTableReady = true;
+  } catch {
+    // Ignore if sqlite is mocked in unit tests
+  }
+}
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -229,6 +263,100 @@ function toConflictReservation(res: FileReservation): Reservation {
     createdAt: res.createdAt,
     expiresAt: res.expiresAt,
   };
+}
+
+function persistReservationToDb(res: FileReservation): void {
+  try {
+    ensureReservationTable();
+    sqlite
+      .query(
+        `INSERT OR REPLACE INTO file_reservations (
+          id, project_id, agent_id, patterns, mode, ttl, created_at, expires_at, renew_count, metadata
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        res.id,
+        res.projectId,
+        res.agentId,
+        JSON.stringify(res.patterns),
+        res.mode,
+        res.ttl,
+        res.createdAt.getTime(),
+        res.expiresAt.getTime(),
+        res.renewCount,
+        JSON.stringify(res.metadata ?? {}),
+      );
+  } catch {
+    // Ignore if sqlite is mocked in unit tests
+  }
+}
+
+function deleteReservationFromDb(reservationId: string): void {
+  try {
+    ensureReservationTable();
+    sqlite
+      .query(`DELETE FROM file_reservations WHERE id = ?`)
+      .run(reservationId);
+  } catch {
+    // Ignore if sqlite is mocked
+  }
+}
+
+function hydrateReservationsFromDb(): void {
+  if (reservationsHydrated) return;
+  reservationsHydrated = true;
+  try {
+    ensureReservationTable();
+    const nowMs = Date.now();
+    const rows = sqlite
+      .query(`SELECT * FROM file_reservations WHERE expires_at > ?`)
+      .all(nowMs) as Array<{
+      id: string;
+      project_id: string;
+      agent_id: string;
+      patterns: string;
+      mode: string;
+      ttl: number;
+      created_at: number;
+      expires_at: number;
+      renew_count: number;
+      metadata: string | null;
+    }>;
+
+    for (const row of rows) {
+      if (reservationStore.has(row.id)) continue;
+      let patterns: string[] = [];
+      try {
+        patterns = JSON.parse(row.patterns);
+      } catch {
+        patterns = [];
+      }
+      let metadata: { reason?: string; taskId?: string } = {};
+      if (row.metadata) {
+        try {
+          metadata = JSON.parse(row.metadata);
+        } catch {
+          metadata = {};
+        }
+      }
+      const res: FileReservation = {
+        id: row.id,
+        projectId: row.project_id,
+        agentId: row.agent_id,
+        patterns,
+        mode: row.mode === "shared" ? "shared" : "exclusive",
+        ttl: row.ttl,
+        createdAt: new Date(row.created_at),
+        expiresAt: new Date(row.expires_at),
+        renewCount: row.renew_count,
+        metadata,
+      };
+      reservationStore.set(res.id, res);
+      conflictEngine.registerReservation(toConflictReservation(res));
+    }
+  } catch {
+    // Ignore if sqlite is mocked
+  }
 }
 
 /**
@@ -336,7 +464,9 @@ function fileMatchesPatterns(filePath: string, patterns: string[]): boolean {
   return false;
 }
 
-function normalizeCursorSortValue(sortValue: string | number | undefined): number {
+function normalizeCursorSortValue(
+  sortValue: string | number | undefined,
+): number {
   if (typeof sortValue === "number") return sortValue;
   if (typeof sortValue === "string") {
     const parsed = Number(sortValue);
@@ -358,6 +488,7 @@ function normalizeCursorSortValue(sortValue: string | number | undefined): numbe
 export async function createReservation(
   params: CreateReservationParams,
 ): Promise<CreateReservationResult> {
+  hydrateReservationsFromDb();
   const correlationId = getCorrelationId();
   const log = logger.child({
     correlationId,
@@ -378,7 +509,10 @@ export async function createReservation(
   // Validate and cap TTL
   let ttl = params.ttl ?? DEFAULT_TTL_SECONDS;
   if (ttl > MAX_TTL_SECONDS) {
-    log.debug({ requestedTtl: ttl, maxTtl: MAX_TTL_SECONDS }, "TTL capped to maximum");
+    log.debug(
+      { requestedTtl: ttl, maxTtl: MAX_TTL_SECONDS },
+      "TTL capped to maximum",
+    );
     ttl = MAX_TTL_SECONDS;
   }
   if (ttl <= 0) {
@@ -449,9 +583,10 @@ export async function createReservation(
     },
   };
 
-  // Store in both places
+  // Store in memory, conflict engine, and SQLite
   reservationStore.set(reservation.id, reservation);
   conflictEngine.registerReservation(toConflictReservation(reservation));
+  persistReservationToDb(reservation);
 
   log.info(
     {
@@ -491,6 +626,7 @@ export async function createReservation(
 export async function checkReservation(
   params: CheckReservationParams,
 ): Promise<CheckReservationResult> {
+  hydrateReservationsFromDb();
   const now = new Date();
 
   // Get all active reservations for the project
@@ -537,7 +673,8 @@ export async function checkReservation(
   // If we have holders (shared or self), return info about the 'best' one (e.g. self or first shared)
   // Prefer showing self-reservation if exists
   const relevantReservation =
-    holdingReservations.find((r) => r.agentId === params.agentId) || holdingReservations[0];
+    holdingReservations.find((r) => r.agentId === params.agentId) ||
+    holdingReservations[0];
 
   if (relevantReservation) {
     return {
@@ -564,6 +701,7 @@ export async function checkReservation(
 export async function releaseReservation(
   params: ReleaseReservationParams,
 ): Promise<ReleaseReservationResult> {
+  hydrateReservationsFromDb();
   const correlationId = getCorrelationId();
   const log = logger.child({
     correlationId,
@@ -582,15 +720,19 @@ export async function releaseReservation(
   }
 
   if (reservation.agentId !== params.agentId) {
-    log.warn({ holderId: reservation.agentId }, "Attempt to release reservation by non-holder");
+    log.warn(
+      { holderId: reservation.agentId },
+      "Attempt to release reservation by non-holder",
+    );
     return {
       released: false,
       error: "Agent does not hold this reservation",
     };
   }
 
-  // Remove from both stores
+  // Remove from stores and SQLite
   reservationStore.delete(params.reservationId);
+  deleteReservationFromDb(params.reservationId);
   warnedExpiringReservations.delete(params.reservationId);
   conflictEngine.removeReservation(reservation.projectId, params.reservationId);
   resolveConflictsForReservation(
@@ -628,6 +770,7 @@ export async function releaseReservation(
 export async function renewReservation(
   params: RenewReservationParams,
 ): Promise<RenewReservationResult> {
+  hydrateReservationsFromDb();
   const correlationId = getCorrelationId();
   const log = logger.child({
     correlationId,
@@ -646,7 +789,10 @@ export async function renewReservation(
   }
 
   if (reservation.agentId !== params.agentId) {
-    log.warn({ holderId: reservation.agentId }, "Attempt to renew reservation by non-holder");
+    log.warn(
+      { holderId: reservation.agentId },
+      "Attempt to renew reservation by non-holder",
+    );
     return {
       renewed: false,
       error: "Agent does not hold this reservation",
@@ -675,6 +821,7 @@ export async function renewReservation(
   // Update reservation
   reservation.expiresAt = newExpiresAt;
   reservation.renewCount++;
+  persistReservationToDb(reservation);
 
   // Reset warning flag so we warn again when next expiration approaches
   warnedExpiringReservations.delete(reservation.id);
@@ -717,6 +864,7 @@ export async function renewReservation(
 export async function listReservations(
   params: ListReservationsParams,
 ): Promise<ListReservationsResult> {
+  hydrateReservationsFromDb();
   const now = new Date();
 
   let reservations = Array.from(reservationStore.values()).filter(
@@ -730,12 +878,15 @@ export async function listReservations(
 
   // Filter by file path if specified
   if (params.filePath) {
-    reservations = reservations.filter((r) => fileMatchesPatterns(params.filePath!, r.patterns));
+    reservations = reservations.filter((r) =>
+      fileMatchesPatterns(params.filePath!, r.patterns),
+    );
   }
 
   // Sort by creation time (newest first)
   reservations.sort(
-    (a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id.localeCompare(a.id),
+    (a, b) =>
+      b.createdAt.getTime() - a.createdAt.getTime() || b.id.localeCompare(a.id),
   );
 
   const limit = Math.min(
@@ -785,7 +936,8 @@ export async function listReservations(
       hasMore = reservations.some(
         (r) =>
           r.createdAt.getTime() < lastItem.createdAt.getTime() ||
-          (r.createdAt.getTime() === lastItem.createdAt.getTime() && r.id < lastItem.id),
+          (r.createdAt.getTime() === lastItem.createdAt.getTime() &&
+            r.id < lastItem.id),
       );
     } else {
       hasMore = false;
@@ -800,22 +952,35 @@ export async function listReservations(
 
     if (direction === "forward") {
       if (hasMore) {
-        result.nextCursor = createCursor(lastItem.id, lastItem.createdAt.getTime());
+        result.nextCursor = createCursor(
+          lastItem.id,
+          lastItem.createdAt.getTime(),
+        );
       }
       if (params.startingAfter) {
-        result.prevCursor = createCursor(firstItem.id, firstItem.createdAt.getTime());
+        result.prevCursor = createCursor(
+          firstItem.id,
+          firstItem.createdAt.getTime(),
+        );
       }
     } else {
       const hasPrev = reservations.some(
         (r) =>
           r.createdAt.getTime() > firstItem.createdAt.getTime() ||
-          (r.createdAt.getTime() === firstItem.createdAt.getTime() && r.id > firstItem.id),
+          (r.createdAt.getTime() === firstItem.createdAt.getTime() &&
+            r.id > firstItem.id),
       );
       if (hasPrev) {
-        result.prevCursor = createCursor(firstItem.id, firstItem.createdAt.getTime());
+        result.prevCursor = createCursor(
+          firstItem.id,
+          firstItem.createdAt.getTime(),
+        );
       }
       if (hasMore) {
-        result.nextCursor = createCursor(lastItem.id, lastItem.createdAt.getTime());
+        result.nextCursor = createCursor(
+          lastItem.id,
+          lastItem.createdAt.getTime(),
+        );
       }
     }
   }
@@ -826,7 +991,9 @@ export async function listReservations(
 /**
  * List conflicts for a project with optional status filter and pagination.
  */
-export async function listConflicts(params: ListConflictsParams): Promise<ListConflictsResult> {
+export async function listConflicts(
+  params: ListConflictsParams,
+): Promise<ListConflictsResult> {
   const limit = Math.min(
     Math.max(1, params.limit ?? DEFAULT_PAGINATION.limit),
     DEFAULT_PAGINATION.maxLimit,
@@ -841,7 +1008,8 @@ export async function listConflicts(params: ListConflictsParams): Promise<ListCo
   // Sort by detection time (newest first)
   conflicts.sort(
     (a, b) =>
-      b.detectedAt.getTime() - a.detectedAt.getTime() || b.conflictId.localeCompare(a.conflictId),
+      b.detectedAt.getTime() - a.detectedAt.getTime() ||
+      b.conflictId.localeCompare(a.conflictId),
   );
 
   const direction = params.endingBefore ? "backward" : "forward";
@@ -902,10 +1070,16 @@ export async function listConflicts(params: ListConflictsParams): Promise<ListCo
 
     if (direction === "forward") {
       if (hasMore) {
-        result.nextCursor = createCursor(lastItem.conflictId, lastItem.detectedAt.getTime());
+        result.nextCursor = createCursor(
+          lastItem.conflictId,
+          lastItem.detectedAt.getTime(),
+        );
       }
       if (params.startingAfter) {
-        result.prevCursor = createCursor(firstItem.conflictId, firstItem.detectedAt.getTime());
+        result.prevCursor = createCursor(
+          firstItem.conflictId,
+          firstItem.detectedAt.getTime(),
+        );
       }
     } else {
       const hasPrev = conflicts.some(
@@ -915,10 +1089,16 @@ export async function listConflicts(params: ListConflictsParams): Promise<ListCo
             c.conflictId > firstItem.conflictId),
       );
       if (hasPrev) {
-        result.prevCursor = createCursor(firstItem.conflictId, firstItem.detectedAt.getTime());
+        result.prevCursor = createCursor(
+          firstItem.conflictId,
+          firstItem.detectedAt.getTime(),
+        );
       }
       if (hasMore) {
-        result.nextCursor = createCursor(lastItem.conflictId, lastItem.detectedAt.getTime());
+        result.nextCursor = createCursor(
+          lastItem.conflictId,
+          lastItem.detectedAt.getTime(),
+        );
       }
     }
   }
@@ -967,7 +1147,10 @@ export async function resolveConflict(
  * @param reservationId - The reservation ID
  * @returns The reservation or null if not found
  */
-export async function getReservation(reservationId: string): Promise<FileReservation | null> {
+export async function getReservation(
+  reservationId: string,
+): Promise<FileReservation | null> {
+  hydrateReservationsFromDb();
   const reservation = reservationStore.get(reservationId);
   if (!reservation) {
     return null;
@@ -990,6 +1173,7 @@ export async function getReservation(reservationId: string): Promise<FileReserva
  * Called periodically by the background job.
  */
 async function cleanupExpiredReservations(): Promise<number> {
+  hydrateReservationsFromDb();
   const now = new Date();
   const warningThreshold = new Date(now.getTime() + EXPIRATION_WARNING_MS);
   let cleanedCount = 0;
@@ -998,6 +1182,7 @@ async function cleanupExpiredReservations(): Promise<number> {
     if (reservation.expiresAt <= now) {
       // Expired - remove it
       reservationStore.delete(id);
+      deleteReservationFromDb(id);
       conflictEngine.removeReservation(reservation.projectId, id);
       cleanedCount++;
 
@@ -1019,11 +1204,18 @@ async function cleanupExpiredReservations(): Promise<number> {
         expiredAt: now.toISOString(),
       });
 
-      resolveConflictsForReservation(reservation.projectId, id, "reservation_expired");
+      resolveConflictsForReservation(
+        reservation.projectId,
+        id,
+        "reservation_expired",
+      );
 
       // Remove from warned set
       warnedExpiringReservations.delete(id);
-    } else if (reservation.expiresAt <= warningThreshold && !warnedExpiringReservations.has(id)) {
+    } else if (
+      reservation.expiresAt <= warningThreshold &&
+      !warnedExpiringReservations.has(id)
+    ) {
       // About to expire - publish warning
       publishReservationEvent(reservation.projectId, "reservation.expiring", {
         reservationId: id,
@@ -1088,7 +1280,10 @@ export function startCleanupJob(): void {
     cleanupInterval.unref();
   }
 
-  logger.info({ intervalMs: CLEANUP_INTERVAL_MS }, "Reservation cleanup job started");
+  logger.info(
+    { intervalMs: CLEANUP_INTERVAL_MS },
+    "Reservation cleanup job started",
+  );
 }
 
 /**
@@ -1115,15 +1310,19 @@ export function getReservationStats(): {
   byMode: Record<ReservationMode, number>;
   averageRenewCount: number;
 } {
+  hydrateReservationsFromDb();
   const now = new Date();
-  const active = Array.from(reservationStore.values()).filter((r) => r.expiresAt > now);
+  const active = Array.from(reservationStore.values()).filter(
+    (r) => r.expiresAt > now,
+  );
 
   const byProject: Record<string, number> = {};
   const byMode: Record<ReservationMode, number> = { exclusive: 0, shared: 0 };
   let totalRenewCount = 0;
 
   for (const reservation of active) {
-    byProject[reservation.projectId] = (byProject[reservation.projectId] ?? 0) + 1;
+    byProject[reservation.projectId] =
+      (byProject[reservation.projectId] ?? 0) + 1;
     byMode[reservation.mode]++;
     totalRenewCount += reservation.renewCount;
   }
@@ -1150,13 +1349,16 @@ export function getAgentConflictStats(agentId: string): {
   conflictsResolved: number;
   conflictRate: number;
 } {
+  hydrateReservationsFromDb();
   const now = new Date();
 
   // Count reservations for this agent
   const agentReservations = Array.from(reservationStore.values()).filter(
     (r) => r.agentId === agentId,
   );
-  const activeReservations = agentReservations.filter((r) => r.expiresAt > now).length;
+  const activeReservations = agentReservations.filter(
+    (r) => r.expiresAt > now,
+  ).length;
 
   // Count conflicts caused by this agent (they requested and conflicted)
   const conflictsCaused = Array.from(conflictStore.values()).filter(
@@ -1222,7 +1424,7 @@ export function getActiveReservationConflictCount(agentId: string): number {
 // ============================================================================
 
 /**
- * Clear all reservations. Only for testing.
+ * Clear all reservations (both in-memory and SQLite). Only for testing.
  */
 export function _clearAllReservations(): void {
   // Remove all reservations from conflict engine first
@@ -1232,6 +1434,25 @@ export function _clearAllReservations(): void {
   reservationStore.clear();
   warnedExpiringReservations.clear();
   conflictStore.clear();
+  reservationsHydrated = true;
+  try {
+    ensureReservationTable();
+    sqlite.query(`DELETE FROM file_reservations`).run();
+  } catch {
+    // Ignore if sqlite is mocked
+  }
+}
+
+/**
+ * Evict only in-memory reservation cache to test SQLite hydration on restart.
+ */
+export function _evictReservationCacheForTesting(): void {
+  for (const [id, reservation] of reservationStore) {
+    conflictEngine.removeReservation(reservation.projectId, id);
+  }
+  reservationStore.clear();
+  warnedExpiringReservations.clear();
+  reservationsHydrated = false;
 }
 
 /**

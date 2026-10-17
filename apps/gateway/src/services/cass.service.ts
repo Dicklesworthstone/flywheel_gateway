@@ -160,8 +160,12 @@ export async function getCassStatus(): Promise<CassServiceStatus> {
         error: `CASS health check timed out after ${error.timeoutMs}ms`,
       };
     }
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    log.warn({ correlationId, error: errorMessage }, "CASS health check failed");
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    log.warn(
+      { correlationId, error: errorMessage },
+      "CASS health check failed",
+    );
     return {
       available: false,
       healthy: false,
@@ -178,7 +182,11 @@ export async function isCassAvailable(): Promise<boolean> {
     return false;
   }
   const cass = _cassClient;
-  const { result } = await withCircuitBreaker("cass", () => cass.isAvailable(), false);
+  const { result } = await withCircuitBreaker(
+    "cass",
+    () => cass.isAvailable(),
+    false,
+  );
   return result;
 }
 
@@ -199,7 +207,9 @@ export async function searchSessions(
   const cass = _cassClient;
 
   try {
-    const result = await runThroughCircuitBreaker("cass", () => cass.search(query, options));
+    const result = await runThroughCircuitBreaker("cass", () =>
+      cass.search(query, options),
+    );
 
     log.info(
       {
@@ -215,7 +225,10 @@ export async function searchSessions(
     return result;
   } catch (error) {
     if (error instanceof CircuitBreakerOpenError) {
-      log.debug({ correlationId, query }, "CASS search short-circuited (circuit breaker open)");
+      log.debug(
+        { correlationId, query },
+        "CASS search short-circuited (circuit breaker open)",
+      );
       throw new CassClientError("unavailable", "CASS circuit breaker open", {
         operation: "search",
       });
@@ -255,8 +268,13 @@ export async function viewSessionLine(
   const cass = _cassClient;
 
   try {
-    const result = await runThroughCircuitBreaker("cass", () => cass.view(path, options));
-    log.debug({ correlationId, path, line: options.line }, "CASS view completed");
+    const result = await runThroughCircuitBreaker("cass", () =>
+      cass.view(path, options),
+    );
+    log.debug(
+      { correlationId, path, line: options.line },
+      "CASS view completed",
+    );
     return result;
   } catch (error) {
     if (error instanceof CircuitBreakerOpenError) {
@@ -299,8 +317,13 @@ export async function expandSessionContext(
   const cass = _cassClient;
 
   try {
-    const result = await runThroughCircuitBreaker("cass", () => cass.expand(path, options));
-    log.debug({ correlationId, path, line: options.line }, "CASS expand completed");
+    const result = await runThroughCircuitBreaker("cass", () =>
+      cass.expand(path, options),
+    );
+    log.debug(
+      { correlationId, path, line: options.line },
+      "CASS expand completed",
+    );
     return result;
   } catch (error) {
     if (error instanceof CircuitBreakerOpenError) {

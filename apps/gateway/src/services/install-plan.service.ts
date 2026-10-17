@@ -11,7 +11,11 @@ import type { ToolDefinition } from "@flywheel/shared/types/tool-registry.types"
 // Types
 // ============================================================================
 
-export type ToolInstallStatus = "installed" | "missing" | "optional_missing" | "error";
+export type ToolInstallStatus =
+  | "installed"
+  | "missing"
+  | "optional_missing"
+  | "error";
 
 export interface ToolPlanEntry {
   id: string;
@@ -82,7 +86,10 @@ function getInstallCommand(tool: ToolDefinition): string | undefined {
 // Remediation
 // ============================================================================
 
-function buildRemediation(tool: ToolDefinition, installCmd: string | undefined): string[] {
+function buildRemediation(
+  tool: ToolDefinition,
+  installCmd: string | undefined,
+): string[] {
   const steps: string[] = [];
 
   if (installCmd) {
@@ -159,7 +166,8 @@ export function computeInstallPlan(
       missingOptional++;
     }
 
-    const remediation = status === "installed" ? [] : buildRemediation(tool, installCmd);
+    const remediation =
+      status === "installed" ? [] : buildRemediation(tool, installCmd);
 
     entries.push({
       id: tool.id,
@@ -176,7 +184,9 @@ export function computeInstallPlan(
 
     // Build install script for missing required tools
     if (status === "missing" && required && installCmd) {
-      installScript.push(`# ${tool.displayName ?? tool.name} (phase ${tool.phase ?? "?"})`);
+      installScript.push(
+        `# ${tool.displayName ?? tool.name} (phase ${tool.phase ?? "?"})`,
+      );
       installScript.push(installCmd);
     }
   }
