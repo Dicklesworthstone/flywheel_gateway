@@ -12,7 +12,7 @@
  *   1 - Validation errors found
  */
 
-import { agentCommands } from "../packages/shared/src/commands/commands/agent";
+import { allCommands } from "../packages/shared/src/commands/commands";
 import {
   formatReport,
   formatReportJSON,
@@ -26,7 +26,7 @@ const jsonOutput = args.includes("--json");
 const robot = args.includes("--robot");
 
 // Build the command registry
-const registry = createCommandRegistry([...agentCommands]);
+const registry = createCommandRegistry([...allCommands]);
 
 // Run parity checks
 const report = runParityCheck(registry);
