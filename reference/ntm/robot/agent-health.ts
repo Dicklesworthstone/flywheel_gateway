@@ -44,7 +44,9 @@ export interface AgentHealthOptions {
 /**
  * Default options for agent health check.
  */
-export const defaultAgentHealthOptions: Required<Omit<AgentHealthOptions, "agentId">> = {
+export const defaultAgentHealthOptions: Required<
+  Omit<AgentHealthOptions, "agentId">
+> = {
   linesCaptured: 100,
   includeProviderUsage: true,
   providerTimeout: 10000,
