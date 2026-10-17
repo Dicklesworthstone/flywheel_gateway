@@ -35,7 +35,9 @@ if (isPlaywright) {
     });
 
     test("should display WebSocket latency metric", async ({ page }) => {
-      const card = page.locator(".card--compact").filter({ hasText: "WebSocket" });
+      const card = page
+        .locator(".card--compact")
+        .filter({ hasText: "WebSocket" });
       await expect(card).toBeVisible();
 
       // Should show latency in ms
@@ -48,7 +50,9 @@ if (isPlaywright) {
     });
 
     test("should display coverage metric", async ({ page }) => {
-      const card = page.locator(".card--compact").filter({ hasText: "Coverage" });
+      const card = page
+        .locator(".card--compact")
+        .filter({ hasText: "Coverage" });
       await expect(card).toBeVisible();
       await expect(card.locator("h4")).toHaveText("Mock-first");
     });

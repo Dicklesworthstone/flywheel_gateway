@@ -17,7 +17,9 @@ const GATEWAY_URL = process.env["E2E_GATEWAY_URL"] ?? "http://localhost:3456";
 // ============================================================================
 
 test.describe("Tool Detection API", () => {
-  test("detected CLIs endpoint returns structured detection results", async ({ loggedPage }) => {
+  test("detected CLIs endpoint returns structured detection results", async ({
+    loggedPage,
+  }) => {
     const res = await fetch(`${GATEWAY_URL}/agents/detected`);
     expect(res.status).toBe(200);
 
@@ -69,7 +71,9 @@ test.describe("Tool Detection API", () => {
 });
 
 test.describe("Health Readiness API", () => {
-  test("readiness probe returns build and capability info", async ({ loggedPage }) => {
+  test("readiness probe returns build and capability info", async ({
+    loggedPage,
+  }) => {
     const res = await fetch(`${GATEWAY_URL}/health/ready`);
     expect([200, 503]).toContain(res.status);
 
@@ -77,7 +81,9 @@ test.describe("Health Readiness API", () => {
     const data = (body["data"] ?? body) as Record<string, unknown>;
 
     // Should have status
-    expect(["ready", "degraded", "unhealthy"]).toContain(data["status"] as string);
+    expect(["ready", "degraded", "unhealthy"]).toContain(
+      data["status"] as string,
+    );
 
     // Should have build info
     const build = data["build"] as Record<string, unknown> | undefined;
@@ -105,7 +111,9 @@ test.describe("Health Readiness API", () => {
 
     // Database check
     const db = components["database"] as Record<string, unknown>;
-    expect(["healthy", "degraded", "unhealthy"]).toContain(db["status"] as string);
+    expect(["healthy", "degraded", "unhealthy"]).toContain(
+      db["status"] as string,
+    );
     expect(typeof db["latencyMs"]).toBe("number");
 
     // Agent CLIs check
@@ -118,7 +126,9 @@ test.describe("Health Readiness API", () => {
     expect(typeof summary["passed"]).toBe("number");
 
     // Diagnostics (from tool-health-diagnostics)
-    const diagnostics = data["diagnostics"] as Record<string, unknown> | undefined;
+    const diagnostics = data["diagnostics"] as
+      | Record<string, unknown>
+      | undefined;
     if (diagnostics) {
       const tools = diagnostics["tools"] as unknown[];
       expect(Array.isArray(tools)).toBe(true);
@@ -147,7 +157,9 @@ test.describe("Setup Page E2E", () => {
     await expect(cards.first()).toBeVisible();
   });
 
-  test("setup page shows progress or readiness indicator", async ({ loggedPage }) => {
+  test("setup page shows progress or readiness indicator", async ({
+    loggedPage,
+  }) => {
     await loggedPage.goto("/setup");
 
     // Look for step indicators or progress markers
@@ -161,7 +173,10 @@ test.describe("Setup Page E2E", () => {
     expect(hasSteps).toBe(true);
   });
 
-  test("setup page loads without console errors", async ({ loggedPage, testLogger }) => {
+  test("setup page loads without console errors", async ({
+    loggedPage,
+    testLogger,
+  }) => {
     await loggedPage.goto("/setup");
     await loggedPage.waitForLoadState("networkidle");
 
@@ -170,7 +185,10 @@ test.describe("Setup Page E2E", () => {
     expect(summary.consoleErrors).toBe(0);
   });
 
-  test("setup page makes API calls for tool status", async ({ loggedPage, testLogger }) => {
+  test("setup page makes API calls for tool status", async ({
+    loggedPage,
+    testLogger,
+  }) => {
     await loggedPage.goto("/setup");
     await loggedPage.waitForLoadState("networkidle");
 
@@ -190,7 +208,9 @@ test.describe("Dashboard Tool Health", () => {
     await expect(loggedPage.locator(".page")).toBeVisible();
 
     // Live agents card
-    const liveAgents = loggedPage.locator(".card").filter({ hasText: "Live agents" });
+    const liveAgents = loggedPage
+      .locator(".card")
+      .filter({ hasText: "Live agents" });
     await expect(liveAgents).toBeVisible();
   });
 

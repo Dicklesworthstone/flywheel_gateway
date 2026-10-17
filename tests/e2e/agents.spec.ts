@@ -13,7 +13,9 @@ if (isPlaywright) {
     });
 
     test("should display agents header with count", async ({ page }) => {
-      await expect(page.locator("h3").filter({ hasText: "Agents" })).toBeVisible();
+      await expect(
+        page.locator("h3").filter({ hasText: "Agents" }),
+      ).toBeVisible();
 
       // Should show total count in status pill
       const pill = page.locator(".card__header .pill");
@@ -73,7 +75,9 @@ if (isPlaywright) {
       await page.goto("/agents");
 
       await expect(page.locator(".table")).toBeVisible();
-      await expect(page.locator("h3").filter({ hasText: "Agents" })).toBeVisible();
+      await expect(
+        page.locator("h3").filter({ hasText: "Agents" }),
+      ).toBeVisible();
     });
 
     test("should display correctly on mobile viewport", async ({ page }) => {

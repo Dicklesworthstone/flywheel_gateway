@@ -59,7 +59,10 @@ export const test = base.extend<TestFixtures>({
 
   // Helper to log custom events
   logEvent: async ({ testLogger: _testLogger }, use) => {
-    const logFn = (message: string, level: "info" | "warn" | "error" = "info") => {
+    const logFn = (
+      message: string,
+      level: "info" | "warn" | "error" = "info",
+    ) => {
       // Add to internal console array via page evaluation won't work here
       // So we store custom events separately
       console.log(`[Test Event - ${level.toUpperCase()}] ${message}`);
@@ -110,7 +113,9 @@ export const testWithScreenshots = test.extend({
       // Auto-screenshot after navigation
       if (testInfo.config.preserveOutput === "always") {
         await page.screenshot({
-          path: testInfo.outputPath(`checkpoint-${++screenshotIndex}-navigation.png`),
+          path: testInfo.outputPath(
+            `checkpoint-${++screenshotIndex}-navigation.png`,
+          ),
         });
       }
       return result;
@@ -148,7 +153,10 @@ export function describeWithLogging(name: string, fn: () => void): void {
  */
 export async function waitForNetworkIdleWithLogging(
   page: {
-    waitForLoadState: (state: string, options?: { timeout?: number }) => Promise<void>;
+    waitForLoadState: (
+      state: string,
+      options?: { timeout?: number },
+    ) => Promise<void>;
     waitForTimeout: (ms: number) => Promise<void>;
   },
   options?: { timeout?: number; idleTime?: number },
