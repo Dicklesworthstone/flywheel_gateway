@@ -48,6 +48,9 @@ last-touched
 # .beads.db.schema-migration-<ts>-<pid>-0.vacuum-fsqlite-ns-{gate,use}.
 *-fsqlite-ns-gate
 *-fsqlite-ns-use
+*.db-wal-cert
+*.fsqlite-migration-state
+.br_recovery/
 
 # br concurrent-writer locks (`.write.lock`, `.br-db-write-*.lock`)
 *.lock
