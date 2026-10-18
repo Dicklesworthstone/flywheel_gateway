@@ -18,8 +18,10 @@ import {
   PROVIDER_INFO,
   type ProviderId,
   useByoaStatus,
+  usePool,
   useProfiles,
   useRotatePool,
+  useUpdateProfile,
 } from "../hooks/useCAAM";
 
 // ============================================================================
@@ -172,7 +174,10 @@ export function AccountsPage() {
   // Data hooks
   const { data: byoaStatus, refetch: refetchStatus } = useByoaStatus();
   const { data: profiles, refetch: refetchProfiles } = useProfiles();
+  const { data: claudePool } = usePool("claude");
   const { rotate, isLoading: isRotating } = useRotatePool();
+  const { update: updateProfile, isLoading: isUpdatingProfile } =
+    useUpdateProfile();
 
   // Group profiles by provider
   const profilesByProvider = profiles?.reduce(
@@ -207,6 +212,15 @@ export function AccountsPage() {
     setShowOnboarding(true);
   };
 
+  const handleTagPrimaryProfile = async () => {
+    const first = profiles?.[0];
+    if (!first) return;
+    await updateProfile(first.id, {
+      labels: Array.from(new Set([...(first.labels ?? []), "primary"])),
+    });
+    refetchProfiles();
+  };
+
   // Count stats
   const totalProfiles = profiles?.length ?? 0;
   const verifiedProfiles =
@@ -225,14 +239,31 @@ export function AccountsPage() {
           <Key size={28} />
           Account Management
         </h2>
-        <button
-          type="button"
-          className="btn btn--primary"
-          onClick={() => handleAddProfile()}
-        >
-          <Plus size={16} />
-          Add Account
-        </button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {claudePool?.pool && (
+            <StatusPill tone="info">
+              Pool: {claudePool.pool.rotationStrategy}
+            </StatusPill>
+          )}
+          {profiles && profiles.length > 0 && (
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              disabled={isUpdatingProfile}
+              onClick={() => void handleTagPrimaryProfile()}
+            >
+              {isUpdatingProfile ? "Tagging..." : "Tag Primary"}
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={() => handleAddProfile()}
+          >
+            <Plus size={16} />
+            Add Account
+          </button>
+        </div>
       </div>
 
       {/* Description */}

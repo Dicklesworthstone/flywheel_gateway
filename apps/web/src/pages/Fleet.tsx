@@ -40,6 +40,7 @@ import {
   useFleetStats,
   useRejectPlan,
   useRemoveRepo,
+  useReposNeedingSync,
   useStartSweep,
   useSweepPlans,
   useSweepSessions,
@@ -1015,6 +1016,7 @@ export function FleetPage() {
   // Data hooks
   const { data: stats } = useFleetStats();
   const { data: repos, refetch: refetchRepos } = useFleetRepos();
+  const { data: reposNeedingSync } = useReposNeedingSync();
   const { data: groups } = useFleetGroups();
   const { data: sessions, refetch: refetchSessions } = useSweepSessions();
 
@@ -1119,6 +1121,11 @@ export function FleetPage() {
           Fleet Dashboard
         </h2>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {reposNeedingSync && reposNeedingSync.length > 0 && (
+            <StatusPill tone="warning">
+              {reposNeedingSync.length} need sync
+            </StatusPill>
+          )}
           {syncStats && (
             <StatusPill
               tone={(syncStats.conflictCount ?? 0) > 0 ? "warning" : "positive"}

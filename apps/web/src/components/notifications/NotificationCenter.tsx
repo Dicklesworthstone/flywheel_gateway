@@ -14,12 +14,14 @@ import type {
   NotificationCategory,
 } from "../../hooks/useNotifications";
 import {
+  useCreateNotification,
   useExecuteAction,
   useMarkAllAsRead,
   useMarkAsRead,
   useNotificationPreferences,
   useNotificationSubscription,
   useNotifications,
+  useUnreadCount,
   useUpdatePreferences,
 } from "../../hooks/useNotifications";
 import { dropdownVariants } from "../../lib/animations";
@@ -47,8 +49,8 @@ export interface NotificationCenterProps {
 }
 
 /**
- * NotificationCenter component - main notification interface.
- */
+  * NotificationCenter component - main notification interface.
+  */
 export function NotificationCenter({
   userId,
   position = "bottom-right",
@@ -73,6 +75,11 @@ export function NotificationCenter({
     ...filter,
   });
 
+  // Unread badge count hook & create notification hook
+  const { count: liveUnreadCount } = useUnreadCount(userId);
+  const { createNotification, loading: creatingNotif } =
+    useCreateNotification();
+
   // Mutations
   const { markAsRead } = useMarkAsRead();
   const { markAllAsRead } = useMarkAllAsRead();
@@ -96,8 +103,8 @@ export function NotificationCenter({
     [notificationData],
   );
   const unreadCount = useMemo(
-    () => notificationData?.unreadCount ?? 0,
-    [notificationData],
+    () => notificationData?.unreadCount ?? liveUnreadCount ?? 0,
+    [notificationData, liveUnreadCount],
   );
   const total = useMemo(() => notificationData?.total ?? 0, [notificationData]);
   const hasMore = useMemo(
@@ -288,7 +295,7 @@ export function NotificationCenter({
 
             {/* Footer with preferences link */}
             {showPreferencesLink && (
-              <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-2">
+              <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-2 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={onPreferencesClick}
@@ -296,6 +303,24 @@ export function NotificationCenter({
                 >
                   <Settings className="w-4 h-4" />
                   Notification preferences
+                </button>
+                <button
+                  type="button"
+                  disabled={creatingNotif}
+                  onClick={() => {
+                    void createNotification({
+                      type: "system.note",
+                      category: "system",
+                      priority: "low",
+                      title: "Operator Check-in",
+                      body: "Manual notification check triggered from Notification Center.",
+                      recipientId: userId,
+                      source: { type: "system", name: "NotificationCenter" },
+                    }).then(() => refetch());
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                >
+                  {creatingNotif ? "Sending..." : "+ Test Note"}
                 </button>
               </div>
             )}

@@ -925,6 +925,105 @@ function UbsScannerPanel() {
   );
 }
 
+function MetaSkillKnowledgePanel() {
+  const [query, setQuery] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const { data: availData } = useQuery({
+    queryKey: ["utilities", "knowledge", "available"],
+    queryFn: () =>
+      fetchJson<{ data: { available: boolean } }>("/knowledge/available").catch(
+        () => ({ data: { available: false } }),
+      ),
+    staleTime: 30_000,
+  });
+
+  const { data: basesData } = useQuery({
+    queryKey: ["utilities", "knowledge", "bases"],
+    queryFn: () =>
+      fetchJson<{
+        data: {
+          knowledgeBases?: Array<{ name: string; entryCount?: number }>;
+          count?: number;
+        };
+      }>("/knowledge/bases").catch(() => ({
+        data: { knowledgeBases: [], count: 0 },
+      })),
+    staleTime: 30_000,
+  });
+
+  const { data: searchData, isFetching: searching } = useQuery({
+    queryKey: ["utilities", "knowledge", "search", searchTerm],
+    queryFn: () =>
+      fetchJson<{
+        data: {
+          results?: Array<{
+            id: string;
+            title?: string;
+            snippet?: string;
+            score?: number;
+          }>;
+        };
+      }>(`/knowledge/search?q=${encodeURIComponent(searchTerm)}`).catch(() => ({
+        data: { results: [] },
+      })),
+    enabled: searchTerm.trim().length > 0,
+  });
+
+  const available = availData?.data?.available ?? false;
+  const bases = basesData?.data?.knowledgeBases ?? [];
+  const results = searchData?.data?.results ?? [];
+
+  return (
+    <div className="card card--wide">
+      <div className="card__header">
+        <h3>Meta Skill Knowledge Base (ms)</h3>
+        <StatusPill tone={available ? "positive" : "muted"}>
+          {available ? "ms ready" : "standby"} ({bases.length} KBs)
+        </StatusPill>
+      </div>
+      <p className="muted">
+        Hybrid semantic search across Meta Skill knowledge bases
+        (/api/knowledge/bases, /api/knowledge/search).
+      </p>
+      <div className="form-row">
+        <input
+          className="text-input"
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search knowledge entries..."
+        />
+        <button
+          className="primary-button"
+          type="button"
+          disabled={!query.trim() || searching}
+          onClick={() => setSearchTerm(query.trim())}
+        >
+          {searching ? "Searching..." : "Search Knowledge"}
+        </button>
+      </div>
+      {results.length > 0 && (
+        <div className="result-box" style={{ marginTop: "8px" }}>
+          <div className="result-list">
+            {results.slice(0, 5).map((r) => (
+              <div key={r.id} className="result-item">
+                <strong>{r.title ?? r.id}</strong>
+                {r.score !== undefined && (
+                  <StatusPill tone="info">
+                    {(r.score * 100).toFixed(0)}%
+                  </StatusPill>
+                )}
+                {r.snippet && <span className="muted">{r.snippet}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ============================================================================
 // Page
 // ============================================================================
@@ -970,6 +1069,7 @@ export function UtilitiesPage() {
       <ToonPanel />
       <RchPanel />
       <UbsScannerPanel />
+      <MetaSkillKnowledgePanel />
     </div>
   );
 }

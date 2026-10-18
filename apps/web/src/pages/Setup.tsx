@@ -44,6 +44,7 @@ import {
   useInstallTool,
   useReadiness,
   useToolRegistry,
+  useTools,
   useVerifyTool,
 } from "../hooks/useSetup";
 import {
@@ -1071,6 +1072,7 @@ function VerifyStepContent({
 
 export function SetupPage() {
   const { status, loading, error, refresh, isReady } = useReadiness();
+  const { tools: catalogTools } = useTools();
   const { install, installing } = useInstallTool();
   const {
     installAll,
@@ -1300,6 +1302,11 @@ export function SetupPage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {catalogTools.length > 0 && (
+            <StatusPill tone="info">
+              {catalogTools.length} tools in catalog
+            </StatusPill>
+          )}
           {compatSummary && (
             <StatusPill tone="positive">
               Registry ({compatSummary.registrySource}):{" "}

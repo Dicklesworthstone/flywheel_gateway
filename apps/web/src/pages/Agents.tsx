@@ -156,6 +156,50 @@ export function AgentsPage() {
     staleTime: 10_000,
   });
 
+  const { data: agentTemplates } = useQuery({
+    queryKey: ["agents", "templates", mockMode],
+    queryFn: async (): Promise<
+      Array<{
+        id: string;
+        name: string;
+        category?: string;
+        model?: string;
+      }>
+    > => {
+      if (mockMode) return [];
+      const res = await fetch("/api/templates/agents");
+      if (!res.ok) return [];
+      const json = await res.json();
+      const list = json.data ?? [];
+      return Array.isArray(list) ? list : [];
+    },
+    staleTime: 30_000,
+  });
+
+  const instantiateTemplateMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      const res = await fetch(
+        `/api/templates/agents/${encodeURIComponent(templateId)}/instantiate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workspaceId: workingDirectory }),
+        },
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    },
+    onSuccess: (body) => {
+      const data = body?.data ?? body;
+      addToast({
+        type: "success",
+        title: "Preset Instantiated",
+        message: `Spawned preset instance ${data?.instanceId ?? "ready"}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["agents", "list"] });
+    },
+  });
+
   const agentsList: LiveAgentItem[] =
     apiAgents ??
     (allowMockFallback
@@ -448,7 +492,14 @@ export function AgentsPage() {
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card__header">
           <h3>Spawn Agent</h3>
-          <StatusPill tone="muted">Multi-Driver</StatusPill>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {agentTemplates && agentTemplates.length > 0 && (
+              <StatusPill tone="info">
+                {agentTemplates.length} presets
+              </StatusPill>
+            )}
+            <StatusPill tone="muted">Multi-Driver</StatusPill>
+          </div>
         </div>
         <div
           style={{
@@ -504,6 +555,32 @@ export function AgentsPage() {
             {spawnMutation.isPending ? "Spawning..." : "Spawn Agent"}
           </button>
         </div>
+        {agentTemplates && agentTemplates.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              marginTop: 10,
+              alignItems: "center",
+            }}
+          >
+            <span className="muted" style={{ fontSize: 12 }}>
+              Presets:
+            </span>
+            {agentTemplates.slice(0, 4).map((tpl) => (
+              <button
+                key={tpl.id}
+                type="button"
+                className="btn btn--sm btn--secondary"
+                disabled={instantiateTemplateMutation.isPending}
+                onClick={() => instantiateTemplateMutation.mutate(tpl.id)}
+              >
+                {tpl.name}
+              </button>
+            ))}
+          </div>
+        )}
         {spawnMutation.error && (
           <p className="error-text">{(spawnMutation.error as Error).message}</p>
         )}

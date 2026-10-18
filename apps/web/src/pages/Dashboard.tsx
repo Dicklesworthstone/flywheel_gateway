@@ -36,6 +36,10 @@ export function DashboardPage() {
         alertsRes,
         supervisorRes,
         jobsRes,
+        metricsRes,
+        eventsSubsRes,
+        ptStatusRes,
+        wsReplayStatsRes,
       ] = await Promise.all([
         fetch("/api/agents").catch(() => null),
         fetch("/api/beads").catch(() => null),
@@ -47,6 +51,10 @@ export function DashboardPage() {
         fetch("/api/alerts").catch(() => null),
         fetch("/api/supervisor/status").catch(() => null),
         fetch("/api/jobs").catch(() => null),
+        fetch("/api/metrics").catch(() => null),
+        fetch("/api/events/subscriptions").catch(() => null),
+        fetch("/api/processes/status").catch(() => null),
+        fetch("/api/ws-replay/stats").catch(() => null),
       ]);
       const latencyMs = Math.max(1, Math.round(performance.now() - start));
 
@@ -62,6 +70,14 @@ export function DashboardPage() {
         ? await supervisorRes.json()
         : null;
       const jobsJson = jobsRes?.ok ? await jobsRes.json() : null;
+      const metricsJson = metricsRes?.ok ? await metricsRes.json() : null;
+      const eventsSubsJson = eventsSubsRes?.ok
+        ? await eventsSubsRes.json()
+        : null;
+      const ptStatusJson = ptStatusRes?.ok ? await ptStatusRes.json() : null;
+      const wsReplayStatsJson = wsReplayStatsRes?.ok
+        ? await wsReplayStatsRes.json()
+        : null;
 
       const agentsList: Array<{ state?: string; status?: string }> =
         agentsJson?.data ?? agentsJson?.agents ?? [];
@@ -89,6 +105,17 @@ export function DashboardPage() {
       )
         ? jobsJson.data
         : [];
+      const eventSubsList: Array<{ id?: string; enabled?: boolean }> =
+        Array.isArray(eventsSubsJson?.data) ? eventsSubsJson.data : [];
+      const ptAvailable = Boolean(
+        (ptStatusJson?.data ?? ptStatusJson)?.available,
+      );
+      const wsTotalEvents = Number(
+        (wsReplayStatsJson?.data ?? wsReplayStatsJson)?.totalEvents ?? 0,
+      );
+      const metricsTotalRequests = Number(
+        (metricsJson?.data ?? metricsJson)?.http?.totalRequests ?? 0,
+      );
 
       return {
         agentsList: Array.isArray(agentsList) ? agentsList : [],
@@ -106,6 +133,10 @@ export function DashboardPage() {
           (j) => j.status === "running" || j.status === "pending",
         ).length,
         totalJobsCount: jobsList.length,
+        eventSubsCount: eventSubsList.length,
+        ptAvailable,
+        wsTotalEvents,
+        metricsTotalRequests,
         latencyMs,
         healthy: Boolean(healthRes?.ok && healthJson),
         checkedAt: new Date().toLocaleTimeString(),
@@ -186,6 +217,10 @@ export function DashboardPage() {
   const daemonsTotalCount = useLive ? liveData!.daemonsTotalCount : 3;
   const activeJobsCount = useLive ? liveData!.activeJobsCount : 0;
   const totalJobsCount = useLive ? liveData!.totalJobsCount : 4;
+  const eventSubsCount = useLive ? liveData!.eventSubsCount : 2;
+  const ptAvailable = useLive ? liveData!.ptAvailable : true;
+  const wsTotalEvents = useLive ? liveData!.wsTotalEvents : 128;
+  const metricsTotalRequests = useLive ? liveData!.metricsTotalRequests : 1024;
 
   return (
     <div className="page">
@@ -340,6 +375,45 @@ export function DashboardPage() {
           <h4>{totalJobsCount} jobs tracked</h4>
           <p className="muted">
             Long-running indexing, scan & export queue (/api/jobs).
+          </p>
+        </div>
+      </section>
+
+      {/* Wave 10 Operational Telemetry: Metrics Snapshot, Event Subscriptions, Process Triage & WS Replay */}
+      <section className="grid grid--3" style={{ marginTop: "24px" }}>
+        <div className="card card--compact">
+          <div className="card__header">
+            <div className="eyebrow">Metrics & Event Stream</div>
+            <StatusPill tone="positive">{eventSubsCount} webhooks</StatusPill>
+          </div>
+          <h4>{metricsTotalRequests} reqs</h4>
+          <p className="muted">
+            Prometheus telemetry (/api/metrics) & SSE/webhook subscriptions
+            (/api/events/subscriptions).
+          </p>
+        </div>
+
+        <div className="card card--compact">
+          <div className="card__header">
+            <div className="eyebrow">Process Triage (pt)</div>
+            <StatusPill tone={ptAvailable ? "positive" : "neutral"}>
+              {ptAvailable ? "available" : "standby"}
+            </StatusPill>
+          </div>
+          <h4>{ptAvailable ? "Ready" : "CLI Optional"}</h4>
+          <p className="muted">
+            Stuck/suspicious process scanner (/api/processes/status).
+          </p>
+        </div>
+
+        <div className="card card--compact">
+          <div className="card__header">
+            <div className="eyebrow">WS Event Replay Buffer</div>
+            <StatusPill tone="info">{wsTotalEvents} buffered</StatusPill>
+          </div>
+          <h4>{wsTotalEvents} events</h4>
+          <p className="muted">
+            Cursor-based WebSocket reconnection log (/api/ws-replay/stats).
           </p>
         </div>
       </section>

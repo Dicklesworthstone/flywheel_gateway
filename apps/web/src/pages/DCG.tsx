@@ -41,6 +41,7 @@ import {
   useDCGPacks,
   useDCGPending,
   useDCGStats,
+  useDCGStatus,
   useDenyPending,
   useExplainCommand,
   useMarkFalsePositive,
@@ -942,6 +943,7 @@ export function DCGPage() {
   } | null>(null);
 
   // Data hooks
+  const { data: dcgStatus } = useDCGStatus();
   const { data: stats } = useDCGStats();
   const { data: blocks, refetch: refetchBlocks } = useDCGBlocks({ limit: 50 });
   const { data: pending, refetch: refetchPending } = useDCGPending({
@@ -1034,12 +1036,21 @@ export function DCGPage() {
           <Shield size={28} />
           Destructive Command Guard
         </h2>
-        {pending &&
-          pending.filter((p) => p.status === "pending").length > 0 && (
-            <StatusPill tone="warning">
-              {pending.filter((p) => p.status === "pending").length} pending
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {dcgStatus && (
+            <StatusPill tone={dcgStatus.available ? "positive" : "muted"}>
+              {dcgStatus.available
+                ? `DCG ${dcgStatus.version ?? "Active"}`
+                : "Hook Standby"}
             </StatusPill>
           )}
+          {pending &&
+            pending.filter((p) => p.status === "pending").length > 0 && (
+              <StatusPill tone="warning">
+                {pending.filter((p) => p.status === "pending").length} pending
+              </StatusPill>
+            )}
+        </div>
       </div>
 
       {/* Quick Stats */}

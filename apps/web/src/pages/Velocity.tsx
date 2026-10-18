@@ -9,6 +9,7 @@
  * - Historical velocity comparison
  */
 
+import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   AlertTriangle,
@@ -1068,6 +1069,34 @@ function TrendsTab() {
 function HistoryTab() {
   const [period, setPeriod] = useState<"30d" | "60d" | "90d">("30d");
   const { data: history, isLoading } = useVelocityHistory(period);
+  const { data: telemetryHistory } = useQuery({
+    queryKey: ["velocity", "telemetry-snapshots"],
+    queryFn: async () => {
+      const [snapshotsRes, replaysRes, wsReplayRes] = await Promise.all([
+        fetch("/api/metrics/snapshots").catch(() => null),
+        fetch("/api/replays/frames/default/default").catch(() => null),
+        fetch("/api/ws-replay/stats").catch(() => null),
+      ]);
+      const snapshotsJson = snapshotsRes?.ok ? await snapshotsRes.json() : null;
+      const replaysJson = replaysRes?.ok ? await replaysRes.json() : null;
+      const wsReplayJson = wsReplayRes?.ok ? await wsReplayRes.json() : null;
+      const snapshotsList = Array.isArray(snapshotsJson?.data)
+        ? snapshotsJson.data
+        : [];
+      const replayFrames = Array.isArray(replaysJson?.data)
+        ? replaysJson.data
+        : [];
+      const wsBufferedEvents = Number(
+        (wsReplayJson?.data ?? wsReplayJson)?.totalEvents ?? 0,
+      );
+      return {
+        snapshotsCount: snapshotsList.length,
+        replayFramesCount: replayFrames.length,
+        wsBufferedEvents,
+      };
+    },
+    staleTime: 30_000,
+  });
 
   if (isLoading || !history) {
     return (
@@ -1176,6 +1205,34 @@ function HistoryTab() {
             {history.worst.score}
           </div>
           <div className="muted">{formatDate(history.worst.timestamp)}</div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: "16px",
+        }}
+      >
+        <div className="card card--compact">
+          <div className="eyebrow">Named Metrics Snapshots</div>
+          <div className="metric">{telemetryHistory?.snapshotsCount ?? 0}</div>
+          <div className="muted">Saved baselines (/api/metrics/snapshots)</div>
+        </div>
+        <div className="card card--compact">
+          <div className="eyebrow">Recorded Replay Frames</div>
+          <div className="metric">
+            {telemetryHistory?.replayFramesCount ?? 0}
+          </div>
+          <div className="muted">Debug frames (/api/replays/frames)</div>
+        </div>
+        <div className="card card--compact">
+          <div className="eyebrow">WS Replay Buffer</div>
+          <div className="metric">
+            {telemetryHistory?.wsBufferedEvents ?? 0}
+          </div>
+          <div className="muted">Buffered events (/api/ws-replay/stats)</div>
         </div>
       </div>
     </div>

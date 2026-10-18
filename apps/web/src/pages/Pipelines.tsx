@@ -46,6 +46,7 @@ import {
   useResumePipeline,
   useRunPipeline,
   useTogglePipeline,
+  useUpdatePipeline,
 } from "../hooks/usePipelines";
 
 // ============================================================================
@@ -567,6 +568,7 @@ export function PipelinesPage() {
 
   const { mutate: runPipeline, isLoading: isRunning } = useRunPipeline();
   const { mutate: togglePipeline, isLoading: isToggling } = useTogglePipeline();
+  const { mutate: updatePipeline } = useUpdatePipeline();
   const { mutate: createPipeline, isLoading: isCreating } = useCreatePipeline();
   const { mutate: deletePipeline, isLoading: isDeleting } = useDeletePipeline();
 
@@ -577,6 +579,7 @@ export function PipelinesPage() {
 
   const handleToggle = async (pipeline: Pipeline) => {
     await togglePipeline(pipeline.id, !pipeline.enabled);
+    await updatePipeline(pipeline.id, { enabled: !pipeline.enabled });
     refetch();
   };
 

@@ -185,6 +185,66 @@ export function SettingsPage() {
     },
   });
 
+  const { data: governanceData } = useQuery({
+    queryKey: ["settings", "governance-summary", mockMode],
+    queryFn: async () => {
+      if (mockMode) {
+        return {
+          configVersionCount: 1,
+          rbacRolesCount: 4,
+          secretProvidersCount: 2,
+          retryProfilesCount: 4,
+          alertChannelsCount: 2,
+        };
+      }
+      const [
+        configHistRes,
+        rbacRes,
+        secretsRes,
+        retryRes,
+        alertChanRes,
+        alertsChanAliasRes,
+      ] = await Promise.all([
+        fetch("/api/config/history").catch(() => null),
+        fetch("/api/rbac/roles").catch(() => null),
+        fetch("/api/secrets/providers").catch(() => null),
+        fetch("/api/retry-profiles").catch(() => null),
+        fetch("/api/alert-channels").catch(() => null),
+        fetch("/api/alerts/channels").catch(() => null),
+      ]);
+      const configHistJson = configHistRes?.ok
+        ? await configHistRes.json()
+        : null;
+      const rbacJson = rbacRes?.ok ? await rbacRes.json() : null;
+      const secretsJson = secretsRes?.ok ? await secretsRes.json() : null;
+      const retryJson = retryRes?.ok ? await retryRes.json() : null;
+      const alertChanJson = alertChanRes?.ok
+        ? await alertChanRes.json()
+        : alertsChanAliasRes?.ok
+          ? await alertsChanAliasRes.json()
+          : null;
+
+      return {
+        configVersionCount: Array.isArray(configHistJson?.data)
+          ? configHistJson.data.length
+          : 1,
+        rbacRolesCount: Array.isArray(rbacJson?.data)
+          ? rbacJson.data.length
+          : 0,
+        secretProvidersCount: Array.isArray(secretsJson?.data)
+          ? secretsJson.data.length
+          : 0,
+        retryProfilesCount: Array.isArray(retryJson?.data)
+          ? retryJson.data.length
+          : 0,
+        alertChannelsCount: Array.isArray(alertChanJson?.data)
+          ? alertChanJson.data.length
+          : 0,
+      };
+    },
+    staleTime: 30_000,
+  });
+
   const purgeRetentionMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch("/api/backups/retention/purge", {
@@ -198,6 +258,29 @@ export function SettingsPage() {
         type: "info",
         title: "Retention Purge Completed",
         message: "Expired session/job/event logs evaluated",
+      });
+    },
+  });
+
+  const rotateSecretMutation = useMutation({
+    mutationFn: async (secretName: string) => {
+      const res = await fetch("/api/secrets/rotate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: secretName,
+          rotatedBy: "admin",
+          reason: "Manual rotation via Settings UI",
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      addToast({
+        type: "success",
+        title: "Secret Reference Rotated",
+        message: "Audit rotation record persisted via /api/secrets/rotate",
       });
     },
   });
@@ -612,6 +695,51 @@ export function SettingsPage() {
           </div>
         )}
       </div>
+
+      {/* Wave 10 Security, RBAC, Secrets, Retry Profiles & Alert Channels */}
+      {governanceData && (
+        <div className="card card--wide" style={{ marginTop: 16 }}>
+          <div className="card__header">
+            <h3>
+              Config, RBAC, Secrets, Retry Profiles & Alert Channels
+            </h3>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <StatusPill tone="info">
+                Config Versions: {governanceData.configVersionCount}
+              </StatusPill>
+              <StatusPill tone="positive">
+                RBAC Roles: {governanceData.rbacRolesCount}
+              </StatusPill>
+              <StatusPill tone="positive">
+                Secrets Providers: {governanceData.secretProvidersCount}
+              </StatusPill>
+              <StatusPill tone="info">
+                Retry Profiles: {governanceData.retryProfilesCount}
+              </StatusPill>
+              <StatusPill tone="info">
+                Alert Channels: {governanceData.alertChannelsCount}
+              </StatusPill>
+            </div>
+          </div>
+          <p className="muted">
+            Connected to runtime config (/api/config), role-based access control
+            (/api/rbac/roles), secret references (/api/secrets/providers), smart
+            retry profiles (/api/retry-profiles), and external alert channels
+            (/api/alert-channels).
+          </p>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button
+              type="button"
+              disabled={rotateSecretMutation.isPending}
+              onClick={() => rotateSecretMutation.mutate("GATEWAY_ADMIN_KEY")}
+            >
+              {rotateSecretMutation.isPending
+                ? "Rotating..."
+                : "Rotate GATEWAY_ADMIN_KEY Audit Ref"}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="card card--wide" style={{ marginTop: 16 }}>
         <div className="card__header">

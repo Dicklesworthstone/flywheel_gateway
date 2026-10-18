@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { BottomSheet } from "../components/ui/BottomSheet";
 import { Modal } from "../components/ui/Modal";
 import { StatusPill } from "../components/ui/StatusPill";
+import { VirtualizedList } from "../components/VirtualizedList";
 import { mockBeads } from "../lib/mock-data";
 import { useUiStore } from "../stores/ui";
 
@@ -154,6 +156,7 @@ export function BeadsPage() {
   const [closeTarget, setCloseTarget] = useState<Bead | null>(null);
   const [closeReason, setCloseReason] = useState("");
   const [closeLoading, setCloseLoading] = useState(false);
+  const [inspectTarget, setInspectTarget] = useState<Bead | null>(null);
 
   const totalCount = useMemo(() => beads.length, [beads.length]);
 
@@ -470,50 +473,148 @@ export function BeadsPage() {
             <span>Type</span>
             <span>Actions</span>
           </div>
-          {beads.map((bead) => (
-            <div
-              key={bead.id}
-              className="table__row"
-              style={{ gridTemplateColumns: tableGridTemplate }}
-            >
-              <span className="mono">{bead.id}</span>
-              <StatusPill tone={statusTone[bead.status ?? ""] ?? "muted"}>
-                {(bead.status ?? "unknown").replace("_", " ")}
-              </StatusPill>
-              <span>{bead.title}</span>
-              <span>{bead.priority ?? "—"}</span>
-              <span>{bead.issue_type ?? "—"}</span>
-              <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <button
-                  type="button"
-                  className="btn btn--secondary"
-                  onClick={() => openEdit(bead)}
+          {beads.length > 50 ? (
+            <VirtualizedList
+              items={beads}
+              height={480}
+              rowHeight={52}
+              getItemKey={(bead) => bead.id}
+              renderItem={(bead) => (
+                <div
+                  key={bead.id}
+                  className="table__row"
+                  style={{ gridTemplateColumns: tableGridTemplate }}
                 >
-                  Edit
-                </button>
-                {bead.status !== "in_progress" && bead.status !== "closed" && (
+                  <button
+                    type="button"
+                    className="btn btn--ghost mono"
+                    style={{ padding: 0, textAlign: "left" }}
+                    onClick={() => setInspectTarget(bead)}
+                  >
+                    {bead.id}
+                  </button>
+                  <StatusPill tone={statusTone[bead.status ?? ""] ?? "muted"}>
+                    {(bead.status ?? "unknown").replace("_", " ")}
+                  </StatusPill>
+                  <span>{bead.title}</span>
+                  <span>{bead.priority ?? "—"}</span>
+                  <span>{bead.issue_type ?? "—"}</span>
+                  <span
+                    style={{ display: "flex", gap: 8, alignItems: "center" }}
+                  >
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      onClick={() => openEdit(bead)}
+                    >
+                      Edit
+                    </button>
+                    {bead.status !== "in_progress" &&
+                      bead.status !== "closed" && (
+                        <button
+                          type="button"
+                          className="btn btn--secondary"
+                          onClick={() => handleClaim(bead)}
+                        >
+                          Claim
+                        </button>
+                      )}
+                    {bead.status !== "closed" && (
+                      <button
+                        type="button"
+                        className="btn btn--danger"
+                        onClick={() => setCloseTarget(bead)}
+                      >
+                        Close
+                      </button>
+                    )}
+                  </span>
+                </div>
+              )}
+            />
+          ) : (
+            beads.map((bead) => (
+              <div
+                key={bead.id}
+                className="table__row"
+                style={{ gridTemplateColumns: tableGridTemplate }}
+              >
+                <span
+                  className="mono"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => setInspectTarget(bead)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      setInspectTarget(bead);
+                    }
+                  }}
+                >
+                  {bead.id}
+                </span>
+                <StatusPill tone={statusTone[bead.status ?? ""] ?? "muted"}>
+                  {(bead.status ?? "unknown").replace("_", " ")}
+                </StatusPill>
+                <span>{bead.title}</span>
+                <span>{bead.priority ?? "—"}</span>
+                <span>{bead.issue_type ?? "—"}</span>
+                <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <button
                     type="button"
                     className="btn btn--secondary"
-                    onClick={() => handleClaim(bead)}
+                    onClick={() => openEdit(bead)}
                   >
-                    Claim
+                    Edit
                   </button>
-                )}
-                {bead.status !== "closed" && (
-                  <button
-                    type="button"
-                    className="btn btn--danger"
-                    onClick={() => setCloseTarget(bead)}
-                  >
-                    Close
-                  </button>
-                )}
-              </span>
-            </div>
-          ))}
+                  {bead.status !== "in_progress" &&
+                    bead.status !== "closed" && (
+                      <button
+                        type="button"
+                        className="btn btn--secondary"
+                        onClick={() => handleClaim(bead)}
+                      >
+                        Claim
+                      </button>
+                    )}
+                  {bead.status !== "closed" && (
+                    <button
+                      type="button"
+                      className="btn btn--danger"
+                      onClick={() => setCloseTarget(bead)}
+                    >
+                      Close
+                    </button>
+                  )}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       </div>
+
+      <BottomSheet
+        open={inspectTarget !== null}
+        onClose={() => setInspectTarget(null)}
+        title={inspectTarget ? `Bead ${inspectTarget.id}` : "Bead Details"}
+      >
+        {inspectTarget && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div>
+              <strong>{inspectTarget.title}</strong>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <StatusPill
+                tone={statusTone[inspectTarget.status ?? ""] ?? "muted"}
+              >
+                {(inspectTarget.status ?? "unknown").replace("_", " ")}
+              </StatusPill>
+              <span className="muted">
+                Priority: {inspectTarget.priority ?? "—"} · Type:{" "}
+                {inspectTarget.issue_type ?? "—"}
+              </span>
+            </div>
+          </div>
+        )}
+      </BottomSheet>
 
       <Modal
         open={createOpen}

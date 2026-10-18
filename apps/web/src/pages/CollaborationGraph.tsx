@@ -44,6 +44,8 @@ import {
   type ReservationNode,
   useCollabGraphData,
   useCollabGraphStats,
+  useCollabMessages,
+  useFilteredGraph,
   useGraphSelection,
   useGraphSubscription,
   type ViewMode,
@@ -829,6 +831,8 @@ export function CollaborationGraphPage() {
   // Fetch graph data and lightweight stats
   const { data, isLoading, error, refetch } = useCollabGraphData();
   const { data: graphStats } = useCollabGraphStats();
+  const { data: recentCollabMessages } = useCollabMessages(10);
+  const filteredGraph = useFilteredGraph(data, viewMode);
 
   useEffect(() => {
     fetch("/api/conflicts/git/sync-stats")
@@ -1053,6 +1057,16 @@ export function CollaborationGraphPage() {
           ))}
         </div>
         <div className="collab-toolbar__info">
+          <span className="muted">
+            {filteredGraph.nodes.length} nodes · {filteredGraph.edges.length}{" "}
+            edges
+          </span>
+          {recentCollabMessages && recentCollabMessages.length > 0 && (
+            <span className="muted">
+              <MessageSquare size={12} />
+              {recentCollabMessages.length} msgs
+            </span>
+          )}
           {subscription.eventCount > 0 && (
             <span className="muted">
               <Zap size={12} />
