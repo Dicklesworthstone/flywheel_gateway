@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { StatusPill } from "../components/ui/StatusPill";
+import { useSendTestNotification } from "../hooks/useNotifications";
 import { useUiStore } from "../stores/ui";
 
 interface DetailedHealthResponse {
@@ -30,6 +31,15 @@ interface CostCapPolicyItem {
   fallbackModel: string;
 }
 
+interface BackupManifestItem {
+  id: string;
+  workspaceId: string;
+  label: string;
+  integrityCheck: "ok" | "corrupt";
+  checksumSha256: string;
+  createdAt: string;
+}
+
 export function SettingsPage() {
   const queryClient = useQueryClient();
   const theme = useUiStore((state) => state.theme);
@@ -37,8 +47,11 @@ export function SettingsPage() {
   const toggleTheme = useUiStore((state) => state.toggleTheme);
   const toggleMockMode = useUiStore((state) => state.toggleMockMode);
   const addToast = useUiStore((state) => state.addToast);
+  const { sendTest: sendTestNotification, loading: sendingTestNotif } =
+    useSendTestNotification();
 
   const [newFlagKey, setNewFlagKey] = useState("");
+  const [backupLabel, setBackupLabel] = useState("manual-snapshot");
   const [routingResult, setRoutingResult] = useState<string | null>(null);
   const [supportBundleInfo, setSupportBundleInfo] = useState<string | null>(
     null,
@@ -123,6 +136,70 @@ export function SettingsPage() {
       };
     },
     staleTime: 10_000,
+  });
+
+  const { data: backupsData } = useQuery({
+    queryKey: ["settings", "backups", mockMode],
+    queryFn: async (): Promise<BackupManifestItem[]> => {
+      if (mockMode) {
+        return [
+          {
+            id: "bkp_mock_01",
+            workspaceId: "default",
+            label: "daily-auto-snapshot",
+            integrityCheck: "ok",
+            checksumSha256: "e3b0c44298fc1c149afbf4c8996fb924",
+            createdAt: new Date().toISOString(),
+          },
+        ];
+      }
+      const res = await fetch("/api/backups?workspaceId=default");
+      if (!res.ok) return [];
+      const json = await res.json();
+      const list = json.data ?? [];
+      return Array.isArray(list) ? list : [];
+    },
+    staleTime: 15_000,
+  });
+
+  const createBackupMutation = useMutation({
+    mutationFn: async (label: string) => {
+      const res = await fetch("/api/backups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspaceId: "default",
+          label: label || "manual-snapshot",
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings", "backups"] });
+      addToast({
+        type: "success",
+        title: "Workspace Backup Created",
+        message: "SQLite PRAGMA integrity_check passed & SHA-256 signed",
+      });
+    },
+  });
+
+  const purgeRetentionMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/backups/retention/purge", {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      addToast({
+        type: "info",
+        title: "Retention Purge Completed",
+        message: "Expired session/job/event logs evaluated",
+      });
+    },
   });
 
   const createFlagMutation = useMutation({
@@ -244,11 +321,29 @@ export function SettingsPage() {
     },
   });
 
+  const handleSendTestNotification = async () => {
+    try {
+      await sendTestNotification("default", "in_app");
+      addToast({
+        type: "success",
+        title: "Test Notification Sent",
+        message: "Dispatched to recipient 'default'",
+      });
+    } catch {
+      addToast({
+        type: "error",
+        title: "Notification Failed",
+        message: "Could not send test notification",
+      });
+    }
+  };
+
   const components = healthData?.components
     ? Object.entries(healthData.components)
     : [];
   const flagsList = flagsData ?? [];
   const costCapsList = costCapsData ?? [];
+  const backupsList = backupsData ?? [];
   const currentMode = maintenanceData?.mode ?? "normal";
 
   return (
@@ -256,17 +351,29 @@ export function SettingsPage() {
       <div className="grid grid--2">
         <div className="card">
           <div className="card__header">
-            <h3>Theme</h3>
+            <h3>Theme & Notifications</h3>
             <StatusPill tone="muted">{theme}</StatusPill>
           </div>
-          <p className="muted">Switch between dawn and dusk palettes.</p>
-          <button
-            className="primary-button"
-            type="button"
-            onClick={toggleTheme}
-          >
-            Toggle theme
-          </button>
+          <p className="muted">
+            Switch between dawn and dusk palettes or verify notification
+            delivery.
+          </p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={toggleTheme}
+            >
+              Toggle theme
+            </button>
+            <button
+              type="button"
+              onClick={handleSendTestNotification}
+              disabled={sendingTestNotif}
+            >
+              {sendingTestNotif ? "Sending..." : "Send Test Notification"}
+            </button>
+          </div>
         </div>
         <div className="card">
           <div className="card__header">
@@ -428,6 +535,82 @@ export function SettingsPage() {
             </p>
           )}
         </div>
+      </div>
+
+      {/* Wave 9 Workspace Backups & Retention Governance */}
+      <div className="card card--wide" style={{ marginTop: 16 }}>
+        <div className="card__header">
+          <h3>Workspace Backups & Data Retention (/api/backups)</h3>
+          <StatusPill tone="positive">
+            {backupsList.length} snapshots
+          </StatusPill>
+        </div>
+        <p className="muted">
+          Create SHA-256 signed SQLite snapshots with PRAGMA integrity_check
+          verification and run retention purges.
+        </p>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+            marginBottom: 12,
+            alignItems: "center",
+          }}
+        >
+          <input
+            type="text"
+            value={backupLabel}
+            onChange={(e) => setBackupLabel(e.target.value)}
+            placeholder="Snapshot label"
+            aria-label="Backup snapshot label"
+          />
+          <button
+            type="button"
+            className="primary-button"
+            disabled={createBackupMutation.isPending}
+            onClick={() => createBackupMutation.mutate(backupLabel.trim())}
+          >
+            {createBackupMutation.isPending
+              ? "Creating Snapshot..."
+              : "Create Signed Backup"}
+          </button>
+          <button
+            type="button"
+            disabled={purgeRetentionMutation.isPending}
+            onClick={() => purgeRetentionMutation.mutate()}
+          >
+            {purgeRetentionMutation.isPending
+              ? "Purging..."
+              : "Run Retention Purge"}
+          </button>
+        </div>
+        {backupsList.length > 0 && (
+          <div className="table">
+            <div className="table__row table__row--header">
+              <span>ID / Label</span>
+              <span>Integrity</span>
+              <span>SHA-256</span>
+            </div>
+            {backupsList.slice(0, 5).map((bkp) => (
+              <div key={bkp.id} className="table__row">
+                <span className="mono">
+                  {bkp.label} ({bkp.id.slice(0, 10)})
+                </span>
+                <span>
+                  <StatusPill
+                    tone={bkp.integrityCheck === "ok" ? "positive" : "danger"}
+                  >
+                    {bkp.integrityCheck}
+                  </StatusPill>
+                </span>
+                <span className="mono muted">
+                  {bkp.checksumSha256.slice(0, 16)}...
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="card card--wide" style={{ marginTop: 16 }}>

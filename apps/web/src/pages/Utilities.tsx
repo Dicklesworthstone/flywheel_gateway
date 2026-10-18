@@ -689,7 +689,11 @@ function ToonPanel() {
 }
 
 function RchPanel() {
-  const { data: healthData, isFetching: healthFetching, refetch: refetchHealth } = useQuery({
+  const {
+    data: healthData,
+    isFetching: healthFetching,
+    refetch: refetchHealth,
+  } = useQuery({
     queryKey: ["utilities", "rch", "health"],
     queryFn: () =>
       fetchJson<{
@@ -705,7 +709,11 @@ function RchPanel() {
     enabled: false,
   });
 
-  const { data: workersData, isFetching: workersFetching, refetch: refetchWorkers } = useQuery({
+  const {
+    data: workersData,
+    isFetching: workersFetching,
+    refetch: refetchWorkers,
+  } = useQuery({
     queryKey: ["utilities", "rch", "workers"],
     queryFn: () =>
       fetchJson<{
@@ -855,9 +863,7 @@ function UbsScannerPanel() {
         <select
           className="select-input"
           value={scanProfile}
-          onChange={(e) =>
-            setScanProfile(e.target.value as "strict" | "loose")
-          }
+          onChange={(e) => setScanProfile(e.target.value as "strict" | "loose")}
         >
           <option value="strict">Strict Profile</option>
           <option value="loose">Loose Profile</option>
@@ -871,15 +877,19 @@ function UbsScannerPanel() {
           {scanMutation.isPending ? "Scanning..." : "Run UBS Scan"}
         </button>
         {stats && (
-          <StatusPill tone={(stats.openFindings ?? 0) === 0 ? "positive" : "warning"}>
-            {stats.openFindings ?? 0} open findings ({stats.totalScans ?? 0} scans)
+          <StatusPill
+            tone={(stats.openFindings ?? 0) === 0 ? "positive" : "warning"}
+          >
+            {stats.openFindings ?? 0} open findings ({stats.totalScans ?? 0}{" "}
+            scans)
           </StatusPill>
         )}
       </div>
       {scanMutation.isSuccess && (
         <div className="result-box">
           <p className="muted">
-            Scan <code>{scanMutation.data.data.scanId}</code> ({scanMutation.data.data.status}):{" "}
+            Scan <code>{scanMutation.data.data.scanId}</code> (
+            {scanMutation.data.data.status}):{" "}
             {scanMutation.data.data.filesScanned} files scanned,{" "}
             {scanMutation.data.data.findingsCount} findings.
           </p>

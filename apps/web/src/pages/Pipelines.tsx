@@ -609,7 +609,7 @@ export function PipelinesPage() {
           },
         },
       ],
-    } as Partial<Pipeline>);
+    } as unknown as Partial<Pipeline>);
     setNewPipelineName("");
     setNewPipelineDesc("");
     setShowCreateForm(false);

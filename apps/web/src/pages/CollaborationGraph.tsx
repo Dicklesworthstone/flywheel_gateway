@@ -853,7 +853,9 @@ export function CollaborationGraphPage() {
         const d = json?.data;
         if (d) {
           setMailHealth({
-            healthy: Boolean(d.healthy ?? d.status === "healthy" ?? true),
+            healthy: Boolean(
+              d.healthy ?? (d.status ? d.status === "healthy" : true),
+            ),
             status: d.status ?? "healthy",
           });
         }

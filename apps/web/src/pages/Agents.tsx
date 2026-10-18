@@ -69,8 +69,11 @@ export function AgentsPage() {
   const mockMode = useUiStore((state) => state.mockMode);
   const addToast = useUiStore((state) => state.addToast);
   const allowMockFallback = useAllowMockFallback();
-  const { logs: parsedLogs, parse: parseRawLogs, clear: clearParsedLogs } =
-    useLogParser({ maxLogs: 1000 });
+  const {
+    logs: parsedLogs,
+    parse: parseRawLogs,
+    clear: clearParsedLogs,
+  } = useLogParser({ maxLogs: 1000 });
 
   const [driver, setDriver] = useState<"sdk" | "acp" | "tmux" | "ntm">("sdk");
   const [provider, setProvider] = useState<"claude" | "codex" | "gemini">(

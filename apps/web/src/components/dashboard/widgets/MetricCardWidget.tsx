@@ -51,9 +51,10 @@ export function MetricCardWidget({ widget, data }: MetricCardWidgetProps) {
       ? {
           direction: trend as "up" | "down" | "stable",
           value:
-            typeof (metricData as { trendPercent?: number }).trendPercent ===
-            "number"
-              ? (metricData as { trendPercent: number }).trendPercent
+            typeof (metricData as unknown as { trendPercent?: number })
+              .trendPercent === "number"
+              ? ((metricData as unknown as { trendPercent?: number })
+                  .trendPercent ?? 0)
               : 0,
           period: "vs previous",
         }

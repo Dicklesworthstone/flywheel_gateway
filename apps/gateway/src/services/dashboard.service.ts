@@ -1211,30 +1211,15 @@ function getMockDataForWidget(widget: Widget): unknown {
         rows: [
           {
             label: "Mon",
-            cells: [
-              { value: 12 },
-              { value: 45 },
-              { value: 88 },
-              { value: 64 },
-            ],
+            cells: [{ value: 12 }, { value: 45 }, { value: 88 }, { value: 64 }],
           },
           {
             label: "Tue",
-            cells: [
-              { value: 18 },
-              { value: 52 },
-              { value: 94 },
-              { value: 71 },
-            ],
+            cells: [{ value: 18 }, { value: 52 }, { value: 94 }, { value: 71 }],
           },
           {
             label: "Wed",
-            cells: [
-              { value: 15 },
-              { value: 61 },
-              { value: 82 },
-              { value: 59 },
-            ],
+            cells: [{ value: 15 }, { value: 61 }, { value: 82 }, { value: 59 }],
           },
         ],
         showValues: true,
