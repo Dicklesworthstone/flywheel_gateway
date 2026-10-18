@@ -39,9 +39,12 @@ import {
   type ToolCategories,
   type ToolPriority,
   type ToolRegistryDefinition,
+  useBatchInstall,
+  useClearCache,
   useInstallTool,
   useReadiness,
   useToolRegistry,
+  useVerifyTool,
 } from "../hooks/useSetup";
 import {
   fadeVariants,
