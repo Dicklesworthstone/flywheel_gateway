@@ -18,9 +18,11 @@ import {
   Loader2,
   Pause,
   Play,
+  Plus,
   RefreshCw,
   Settings,
   Square,
+  Trash2,
   Webhook,
   XCircle,
   Zap,
@@ -34,7 +36,10 @@ import {
   type PipelineStatus,
   type StepStatus,
   type TriggerType,
+  useApproveStep,
   useCancelPipeline,
+  useCreatePipeline,
+  useDeletePipeline,
   usePausePipeline,
   usePipelineRuns,
   usePipelines,
@@ -113,8 +118,10 @@ interface PipelineCardProps {
   onToggleExpand: () => void;
   onRun: () => void;
   onToggleEnabled: () => void;
+  onDelete: () => void;
   isRunning: boolean;
   isToggling: boolean;
+  isDeleting: boolean;
 }
 
 function PipelineCard({
@@ -123,8 +130,10 @@ function PipelineCard({
   onToggleExpand,
   onRun,
   onToggleEnabled,
+  onDelete,
   isRunning,
   isToggling,
+  isDeleting,
 }: PipelineCardProps) {
   const TriggerIcon = triggerIcons[pipeline.trigger.type];
   const successRate = getSuccessRate(pipeline.stats);
@@ -312,6 +321,23 @@ function PipelineCard({
                 className="btn btn--ghost btn--sm"
                 onClick={(e) => {
                   e.stopPropagation();
+                  onDelete();
+                }}
+                disabled={isDeleting}
+                title="Delete pipeline"
+              >
+                {isDeleting ? (
+                  <Loader2 size={14} className="spin" />
+                ) : (
+                  <Trash2 size={14} />
+                )}
+                Delete
+              </button>
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                onClick={(e) => {
+                  e.stopPropagation();
                   onToggleEnabled();
                 }}
                 disabled={isToggling}
@@ -352,10 +378,18 @@ interface RunRowProps {
   onPause: () => void;
   onResume: () => void;
   onCancel: () => void;
+  onApprove: () => void;
   isLoading: boolean;
 }
 
-function RunRow({ run, onPause, onResume, onCancel, isLoading }: RunRowProps) {
+function RunRow({
+  run,
+  onPause,
+  onResume,
+  onCancel,
+  onApprove,
+  isLoading,
+}: RunRowProps) {
   const StatusIcon = {
     idle: Clock,
     running: Loader2,
@@ -404,6 +438,15 @@ function RunRow({ run, onPause, onResume, onCancel, isLoading }: RunRowProps) {
             <button
               type="button"
               className="btn btn--ghost btn--xs"
+              onClick={onApprove}
+              disabled={isLoading}
+              title="Approve pending step"
+            >
+              <CheckCircle2 size={12} />
+            </button>
+            <button
+              type="button"
+              className="btn btn--ghost btn--xs"
               onClick={onResume}
               disabled={isLoading}
             >
@@ -445,6 +488,7 @@ function PipelineRuns({ pipelineId }: PipelineRunsProps) {
   const { mutate: pause, isLoading: isPausing } = usePausePipeline();
   const { mutate: resume, isLoading: isResuming } = useResumePipeline();
   const { mutate: cancel, isLoading: isCancelling } = useCancelPipeline();
+  const { mutate: approveStep, isLoading: isApproving } = useApproveStep();
 
   if (isLoading) {
     return (
@@ -462,7 +506,8 @@ function PipelineRuns({ pipelineId }: PipelineRunsProps) {
     );
   }
 
-  const isActionLoading = isPausing || isResuming || isCancelling;
+  const isActionLoading =
+    isPausing || isResuming || isCancelling || isApproving;
 
   return (
     <div className="table" style={{ marginTop: "0.5rem" }}>
@@ -481,6 +526,14 @@ function PipelineRuns({ pipelineId }: PipelineRunsProps) {
           onPause={() => pause(pipelineId, run.id).then(refetch)}
           onResume={() => resume(pipelineId, run.id).then(refetch)}
           onCancel={() => cancel(pipelineId, run.id).then(refetch)}
+          onApprove={() =>
+            approveStep(
+              pipelineId,
+              run.id,
+              `step-${run.currentStepIndex + 1}`,
+              "Approved via Pipelines UI",
+            ).then(refetch)
+          }
           isLoading={isActionLoading}
         />
       ))}
@@ -496,6 +549,12 @@ export function PipelinesPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showRuns, setShowRuns] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "enabled" | "disabled">("all");
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newPipelineName, setNewPipelineName] = useState("");
+  const [newPipelineDesc, setNewPipelineDesc] = useState("");
+  const [newStepPrompt, setNewStepPrompt] = useState(
+    "Run verification suite and summarize results",
+  );
 
   const {
     data: pipelines,
@@ -508,6 +567,8 @@ export function PipelinesPage() {
 
   const { mutate: runPipeline, isLoading: isRunning } = useRunPipeline();
   const { mutate: togglePipeline, isLoading: isToggling } = useTogglePipeline();
+  const { mutate: createPipeline, isLoading: isCreating } = useCreatePipeline();
+  const { mutate: deletePipeline, isLoading: isDeleting } = useDeletePipeline();
 
   const handleRun = async (pipelineId: string) => {
     await runPipeline(pipelineId);
@@ -516,6 +577,42 @@ export function PipelinesPage() {
 
   const handleToggle = async (pipeline: Pipeline) => {
     await togglePipeline(pipeline.id, !pipeline.enabled);
+    refetch();
+  };
+
+  const handleDelete = async (pipelineId: string) => {
+    await deletePipeline(pipelineId);
+    refetch();
+  };
+
+  const handleCreate = async () => {
+    if (!newPipelineName.trim()) return;
+    await createPipeline({
+      name: newPipelineName.trim(),
+      description: newPipelineDesc.trim() || "Created from Pipelines UI",
+      trigger: {
+        type: "manual",
+        enabled: true,
+        config: { type: "manual" },
+      },
+      steps: [
+        {
+          id: "step-1",
+          name: "Agent Execution Step",
+          type: "agent_task",
+          status: "pending",
+          config: {
+            type: "agent_task",
+            config: {
+              prompt: newStepPrompt.trim() || "Execute workflow task",
+            },
+          },
+        },
+      ],
+    } as Partial<Pipeline>);
+    setNewPipelineName("");
+    setNewPipelineDesc("");
+    setShowCreateForm(false);
     refetch();
   };
 
@@ -536,12 +633,73 @@ export function PipelinesPage() {
               and approvals.
             </p>
           </div>
-          <button type="button" className="btn btn--ghost" onClick={refetch}>
-            <RefreshCw size={16} />
-            Refresh
-          </button>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => setShowCreateForm((v) => !v)}
+            >
+              <Plus size={16} />
+              New Pipeline
+            </button>
+            <button type="button" className="btn btn--ghost" onClick={refetch}>
+              <RefreshCw size={16} />
+              Refresh
+            </button>
+          </div>
         </div>
       </header>
+
+      {showCreateForm && (
+        <div className="card" style={{ marginBottom: "1rem" }}>
+          <div className="card__header">
+            <h4 style={{ margin: 0 }}>Create Pipeline</h4>
+          </div>
+          <div
+            className="card__body"
+            style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
+          >
+            <input
+              type="text"
+              value={newPipelineName}
+              onChange={(e) => setNewPipelineName(e.target.value)}
+              placeholder="Pipeline name (e.g. CI Verification Workflow)"
+              aria-label="New pipeline name"
+            />
+            <input
+              type="text"
+              value={newPipelineDesc}
+              onChange={(e) => setNewPipelineDesc(e.target.value)}
+              placeholder="Description (optional)"
+              aria-label="New pipeline description"
+            />
+            <input
+              type="text"
+              value={newStepPrompt}
+              onChange={(e) => setNewStepPrompt(e.target.value)}
+              placeholder="Initial agent step prompt..."
+              aria-label="Initial step prompt"
+            />
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button
+                type="button"
+                className="btn btn--primary btn--sm"
+                disabled={!newPipelineName.trim() || isCreating}
+                onClick={() => void handleCreate()}
+              >
+                {isCreating ? "Creating..." : "Create Pipeline"}
+              </button>
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                onClick={() => setShowCreateForm(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ marginBottom: "1rem", display: "flex", gap: "0.5rem" }}>
         <button
@@ -627,8 +785,10 @@ export function PipelinesPage() {
                 }}
                 onRun={() => handleRun(pipeline.id)}
                 onToggleEnabled={() => handleToggle(pipeline)}
+                onDelete={() => handleDelete(pipeline.id)}
                 isRunning={isRunning}
                 isToggling={isToggling}
+                isDeleting={isDeleting}
               />
               {showRuns === pipeline.id && expandedId === pipeline.id && (
                 <div style={{ marginLeft: "1.5rem", marginTop: "0.5rem" }}>

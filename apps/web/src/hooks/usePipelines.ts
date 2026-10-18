@@ -879,10 +879,13 @@ export function useApproveStep(): MutationResult<
       }
 
       try {
-        await fetchAPI<void>(`/${pipelineId}/runs/${runId}/approve`, {
-          method: "POST",
-          body: JSON.stringify({ stepId, decision: "approved", comment }),
-        });
+        await fetchAPI<void>(
+          `/${pipelineId}/runs/${runId}/approve?step_id=${encodeURIComponent(stepId)}&user_id=default`,
+          {
+            method: "POST",
+            body: JSON.stringify({ stepId, decision: "approved", comment }),
+          },
+        );
       } catch (e) {
         const err = e instanceof Error ? e : new Error("Unknown error");
         setError(err);

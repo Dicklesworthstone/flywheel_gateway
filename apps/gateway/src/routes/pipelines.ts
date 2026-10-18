@@ -748,6 +748,69 @@ pipelines.post("/:id/cancel", (c) => {
   }
 });
 
+/**
+ * POST /pipelines/:id/runs/:runId/pause - Pause a running pipeline run by path param
+ */
+pipelines.post("/:id/runs/:runId/pause", (c) => {
+  try {
+    const runId = c.req.param("runId");
+    const run = pauseRun(runId);
+    if (!run) {
+      return sendError(
+        c,
+        "INVALID_STATE",
+        "Run is not in running state or not found",
+        400,
+      );
+    }
+    return sendResource(c, "pipeline_run", serializeRun(run));
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * POST /pipelines/:id/runs/:runId/resume - Resume a paused pipeline run by path param
+ */
+pipelines.post("/:id/runs/:runId/resume", async (c) => {
+  try {
+    const runId = c.req.param("runId");
+    const run = await resumeRun(runId);
+    if (!run) {
+      return sendError(
+        c,
+        "INVALID_STATE",
+        "Run is not in paused state or not found",
+        400,
+      );
+    }
+    return sendResource(c, "pipeline_run", serializeRun(run));
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * POST /pipelines/:id/runs/:runId/cancel - Cancel a pipeline run by path param
+ */
+pipelines.post("/:id/runs/:runId/cancel", (c) => {
+  try {
+    const runId = c.req.param("runId");
+    const run = cancelRun(runId);
+    if (!run) {
+      return sendError(
+        c,
+        "INVALID_STATE",
+        "Run is not in running or paused state or not found",
+        400,
+      );
+    }
+    return sendResource(c, "pipeline_run", serializeRun(run));
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
 // ============================================================================
 // Pipeline Run History Routes
 // ============================================================================

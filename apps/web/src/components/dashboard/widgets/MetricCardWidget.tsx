@@ -46,6 +46,24 @@ export function MetricCardWidget({ widget, data }: MetricCardWidgetProps) {
   }
 
   const { value, label, unit, trend, comparison } = metricData;
+  const normalizedTrend =
+    typeof trend === "string"
+      ? {
+          direction: trend as "up" | "down" | "stable",
+          value:
+            typeof (metricData as { trendPercent?: number }).trendPercent ===
+            "number"
+              ? (metricData as { trendPercent: number }).trendPercent
+              : 0,
+          period: "vs previous",
+        }
+      : trend && typeof trend === "object"
+        ? {
+            direction: trend.direction ?? "stable",
+            value: typeof trend.value === "number" ? trend.value : 0,
+            period: trend.period ?? "",
+          }
+        : undefined;
   const thresholds = widget.config.thresholds;
 
   // Determine color based on thresholds
@@ -73,22 +91,22 @@ export function MetricCardWidget({ widget, data }: MetricCardWidgetProps) {
         {unit && <span className="metric-card-widget__unit">{unit}</span>}
       </div>
 
-      {trend && (
+      {normalizedTrend && (
         <div
-          className={`metric-card-widget__trend metric-card-widget__trend--${trend.direction}`}
+          className={`metric-card-widget__trend metric-card-widget__trend--${normalizedTrend.direction}`}
         >
-          <TrendIcon direction={trend.direction} />
+          <TrendIcon direction={normalizedTrend.direction} />
           <span>
-            {trend.direction !== "stable" && (
+            {normalizedTrend.direction !== "stable" && (
               <>
-                {trend.value > 0 ? "+" : ""}
-                {trend.value.toFixed(1)}%
+                {normalizedTrend.value > 0 ? "+" : ""}
+                {normalizedTrend.value.toFixed(1)}%
               </>
             )}
-            {trend.direction === "stable" && "No change"}
+            {normalizedTrend.direction === "stable" && "No change"}
           </span>
           <span className="metric-card-widget__trend-period">
-            {trend.period}
+            {normalizedTrend.period}
           </span>
         </div>
       )}

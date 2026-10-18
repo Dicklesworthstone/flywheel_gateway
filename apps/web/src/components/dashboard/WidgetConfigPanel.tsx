@@ -33,29 +33,32 @@ const DATA_SOURCE_PRESETS: Record<
   { endpoint: string; label: string }[]
 > = {
   "metric-card": [
-    { endpoint: "/api/analytics/summary", label: "Analytics Summary" },
+    { endpoint: "/api/analytics/fleet", label: "Fleet Analytics Summary" },
     { endpoint: "/api/cost-analytics/summary", label: "Cost Summary" },
-    { endpoint: "/api/agents/stats", label: "Agent Stats" },
+    { endpoint: "/api/agents/health-scores", label: "Agent Health Scores" },
   ],
   "line-chart": [
-    { endpoint: "/api/analytics/timeseries", label: "Analytics Time Series" },
-    { endpoint: "/api/cost-analytics/trends/daily", label: "Cost Trends" },
+    { endpoint: "/api/velocity/trends", label: "Velocity Trends" },
+    { endpoint: "/api/cost-analytics/trends", label: "Cost Trends" },
   ],
   "bar-chart": [
-    { endpoint: "/api/analytics/breakdown", label: "Analytics Breakdown" },
+    { endpoint: "/api/analytics/models", label: "Model Comparison" },
     { endpoint: "/api/cost-analytics/breakdown/model", label: "Cost by Model" },
   ],
   "pie-chart": [
     { endpoint: "/api/cost-analytics/breakdown/model", label: "Cost by Model" },
-    { endpoint: "/api/analytics/distribution", label: "Distribution" },
+    {
+      endpoint: "/api/cost-analytics/breakdown/provider",
+      label: "Cost by Provider",
+    },
   ],
   table: [
     { endpoint: "/api/agents", label: "Agents List" },
-    { endpoint: "/api/sessions", label: "Sessions List" },
+    { endpoint: "/api/beads", label: "Beads List" },
   ],
   "agent-list": [{ endpoint: "/api/agents", label: "Agents" }],
   "activity-feed": [
-    { endpoint: "/api/audit/events", label: "Audit Events" },
+    { endpoint: "/api/audit", label: "Audit Events" },
     { endpoint: "/api/notifications", label: "Notifications" },
   ],
   gauge: [

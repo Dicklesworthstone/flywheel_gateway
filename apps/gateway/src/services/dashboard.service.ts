@@ -1003,64 +1003,154 @@ export async function fetchWidgetData(
 }
 
 function getMockDataForWidget(widget: Widget): unknown {
-  // ... (Same mock data logic as before)
   switch (widget.type) {
     case "metric-card":
       return {
-        value: Math.floor(Math.random() * 1000),
-        previousValue: Math.floor(Math.random() * 1000),
-        trend: Math.random() > 0.5 ? "up" : "down",
-        trendPercent: Math.floor(Math.random() * 30),
+        value: 142,
+        label: widget.title || "Active Metric",
+        unit: "",
+        trend: {
+          direction: "up" as const,
+          value: 12.5,
+          period: "vs last 24h",
+        },
+        comparison: {
+          label: "Previous period",
+          value: 126,
+        },
+        previousValue: 126,
+        trendPercent: 12.5,
       };
 
     case "line-chart":
       return {
+        series: [
+          {
+            name: widget.title || "Usage",
+            color: "#6366f1",
+            data: [
+              { x: "Mon", y: 42 },
+              { x: "Tue", y: 58 },
+              { x: "Wed", y: 65 },
+              { x: "Thu", y: 51 },
+              { x: "Fri", y: 79 },
+              { x: "Sat", y: 63 },
+              { x: "Sun", y: 88 },
+            ],
+          },
+        ],
+        xAxisLabel: "Day",
+        yAxisLabel: "Value",
         labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
         datasets: [
           {
             label: "Usage",
-            data: Array.from({ length: 7 }, () =>
-              Math.floor(Math.random() * 100),
-            ),
+            data: [42, 58, 65, 51, 79, 63, 88],
           },
         ],
       };
 
     case "bar-chart":
+    case "cost-breakdown":
       return {
-        labels: ["Agent A", "Agent B", "Agent C", "Agent D"],
+        items: [
+          { label: "Claude Sonnet 4", value: 420, color: "#6366f1" },
+          { label: "Codex CLI", value: 280, color: "#10b981" },
+          { label: "Gemini 2.5 Pro", value: 190, color: "#f59e0b" },
+          { label: "Claude Haiku 3.5", value: 95, color: "#8b5cf6" },
+        ],
+        horizontal: widget.type === "cost-breakdown",
+        labels: [
+          "Claude Sonnet 4",
+          "Codex CLI",
+          "Gemini 2.5 Pro",
+          "Claude Haiku 3.5",
+        ],
         datasets: [
           {
             label: "Requests",
-            data: Array.from({ length: 4 }, () =>
-              Math.floor(Math.random() * 500),
-            ),
+            data: [420, 280, 190, 95],
           },
         ],
       };
 
     case "pie-chart":
       return {
+        items: [
+          { label: "Claude", value: 45, color: "#6366f1" },
+          { label: "Codex", value: 30, color: "#10b981" },
+          { label: "Gemini", value: 20, color: "#f59e0b" },
+          { label: "Other", value: 5, color: "#8b5cf6" },
+        ],
+        donut: true,
+        centerLabel: "100%",
         labels: ["Claude", "Codex", "Gemini", "Other"],
         data: [45, 30, 20, 5],
       };
 
     case "table":
       return {
-        columns: ["Name", "Status", "Requests", "Latency"],
-        rows: [
-          ["Agent Alpha", "Running", "1,234", "45ms"],
-          ["Agent Beta", "Idle", "567", "32ms"],
-          ["Agent Gamma", "Error", "89", "N/A"],
+        columns: [
+          { key: "name", label: "Name", align: "left" as const },
+          { key: "status", label: "Status", align: "left" as const },
+          {
+            key: "requests",
+            label: "Requests",
+            align: "right" as const,
+            format: "number" as const,
+          },
+          { key: "latency", label: "Latency", align: "right" as const },
         ],
+        rows: [
+          {
+            name: "Agent Alpha",
+            status: "Active",
+            requests: 1234,
+            latency: "45ms",
+          },
+          {
+            name: "Agent Beta",
+            status: "Idle",
+            requests: 567,
+            latency: "32ms",
+          },
+          {
+            name: "Agent Gamma",
+            status: "Error",
+            requests: 89,
+            latency: "N/A",
+          },
+        ],
+        sortable: true,
       };
 
     case "agent-list":
       return {
         agents: [
-          { id: "1", name: "Agent Alpha", status: "running", sessions: 5 },
-          { id: "2", name: "Agent Beta", status: "idle", sessions: 0 },
-          { id: "3", name: "Agent Gamma", status: "error", sessions: 0 },
+          {
+            id: "1",
+            name: "Agent Alpha",
+            status: "active" as const,
+            sessions: 5,
+            currentTask: "Executing verification suite",
+            metrics: { requests: 142, tokens: 48200 },
+          },
+          {
+            id: "2",
+            name: "Agent Beta",
+            status: "idle" as const,
+            sessions: 0,
+            currentTask: "Awaiting assignment",
+            metrics: { requests: 64, tokens: 19400 },
+          },
+          {
+            id: "3",
+            name: "Agent Gamma",
+            status: "error" as const,
+            sessions: 0,
+            currentTask: "Rate limit cooldown",
+            metrics: { requests: 18, tokens: 5100 },
+          },
         ],
       };
 
@@ -1070,19 +1160,28 @@ function getMockDataForWidget(widget: Widget): unknown {
           {
             id: "1",
             type: "session_start",
+            title: "Agent Alpha started session",
+            description: "Spawned SDK driver session",
             message: "Agent Alpha started session",
+            severity: "info" as const,
             timestamp: new Date().toISOString(),
           },
           {
             id: "2",
             type: "task_complete",
+            title: "Task completed successfully",
+            description: "All verification checks passed",
             message: "Task completed successfully",
+            severity: "success" as const,
             timestamp: new Date().toISOString(),
           },
           {
             id: "3",
             type: "error",
+            title: "Rate limit warning",
+            description: "Rotated provider pool automatically",
             message: "Rate limit exceeded",
+            severity: "warning" as const,
             timestamp: new Date().toISOString(),
           },
         ],
@@ -1090,13 +1189,55 @@ function getMockDataForWidget(widget: Widget): unknown {
 
     case "gauge":
       return {
-        value: Math.floor(Math.random() * 100),
+        value: 64,
         min: 0,
         max: 100,
+        label: widget.title || "Budget Utilization",
+        unit: "%",
+        segments: [
+          { from: 0, to: 60, color: "#10b981" },
+          { from: 60, to: 80, color: "#f59e0b" },
+          { from: 80, to: 100, color: "#ef4444" },
+        ],
         thresholds: [
           { value: 70, color: "yellow" },
           { value: 90, color: "red" },
         ],
+      };
+
+    case "heatmap":
+      return {
+        columnLabels: ["00:00", "06:00", "12:00", "18:00"],
+        rows: [
+          {
+            label: "Mon",
+            cells: [
+              { value: 12 },
+              { value: 45 },
+              { value: 88 },
+              { value: 64 },
+            ],
+          },
+          {
+            label: "Tue",
+            cells: [
+              { value: 18 },
+              { value: 52 },
+              { value: 94 },
+              { value: 71 },
+            ],
+          },
+          {
+            label: "Wed",
+            cells: [
+              { value: 15 },
+              { value: 61 },
+              { value: 82 },
+              { value: 59 },
+            ],
+          },
+        ],
+        showValues: true,
       };
 
     default:
