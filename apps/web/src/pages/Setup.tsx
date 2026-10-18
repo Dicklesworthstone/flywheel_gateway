@@ -624,6 +624,13 @@ function DetectStepContent({
 interface InstallStepContentProps {
   tools: DetectedCLI[];
   onInstall: (tool: string) => void;
+  onBatchInstall: (tools: string[]) => void;
+  batchInstalling: boolean;
+  batchProgress: {
+    current: number;
+    total: number;
+    currentTool: string | null;
+  };
   installingTool: string | null;
   toolCategories?: ToolCategories | undefined;
   installOrder?: PhaseOrderEntry[] | undefined;
@@ -635,6 +642,9 @@ interface InstallStepContentProps {
 function InstallStepContent({
   tools,
   onInstall,
+  onBatchInstall,
+  batchInstalling,
+  batchProgress,
   installingTool,
   toolCategories,
   installOrder,
@@ -666,9 +676,37 @@ function InstallStepContent({
             <Download size={20} />
             Install Missing Tools
           </h3>
-          <StatusPill tone={missingTools.length === 0 ? "positive" : "warning"}>
-            {missingTools.length} missing
-          </StatusPill>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            {missingTools.length > 0 && (
+              <button
+                type="button"
+                className="btn btn--sm btn--primary"
+                onClick={() => onBatchInstall(missingTools.map((t) => t.name))}
+                disabled={batchInstalling || installingTool !== null}
+              >
+                {batchInstalling ? (
+                  <>
+                    <Loader2 size={14} className="spin" />
+                    Installing ({batchProgress.current}/{batchProgress.total}
+                    {batchProgress.currentTool
+                      ? `: ${batchProgress.currentTool}`
+                      : ""}
+                    )...
+                  </>
+                ) : (
+                  <>
+                    <Download size={14} />
+                    Install All ({missingTools.length})
+                  </>
+                )}
+              </button>
+            )}
+            <StatusPill
+              tone={missingTools.length === 0 ? "positive" : "warning"}
+            >
+              {missingTools.length} missing
+            </StatusPill>
+          </div>
         </div>
 
         {missingTools.length === 0 ? (
@@ -773,6 +811,9 @@ interface VerifyStepContentProps {
   };
   toolMap?: Map<string, ToolRegistryDefinition>;
   onRefresh: () => void;
+  onVerifyTool: (tool: string) => Promise<DetectedCLI>;
+  verifyingTool: boolean;
+  verifiedToolResult: DetectedCLI | null;
   loading: boolean;
   onBack: () => void;
 }
@@ -781,6 +822,9 @@ function VerifyStepContent({
   status,
   toolMap,
   onRefresh,
+  onVerifyTool,
+  verifyingTool,
+  verifiedToolResult,
   loading,
   onBack,
 }: VerifyStepContentProps) {
@@ -788,6 +832,9 @@ function VerifyStepContent({
   const availableCLIs = allCLIs.filter((cli) => cli.available);
   const totalAvailable = availableCLIs.length;
   const total = allCLIs.length;
+  const [selectedVerifyTool, setSelectedVerifyTool] = useState<string>(
+    allCLIs[0]?.name ?? "claude",
+  );
 
   return (
     <motion.div
@@ -803,20 +850,75 @@ function VerifyStepContent({
             <Shield size={20} />
             Verification Results
           </h3>
-          <button
-            type="button"
-            className="btn btn--sm btn--secondary"
-            onClick={onRefresh}
-            disabled={loading}
-          >
-            {loading ? (
-              <Loader2 size={14} className="spin" />
-            ) : (
-              <RefreshCw size={14} />
-            )}
-            Re-verify
-          </button>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <select
+              className="input"
+              style={{ width: "auto", padding: "4px 8px", fontSize: "12px" }}
+              value={selectedVerifyTool}
+              onChange={(e) => setSelectedVerifyTool(e.target.value)}
+            >
+              {allCLIs.map((cli) => (
+                <option key={cli.name} value={cli.name}>
+                  {cli.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="btn btn--sm btn--secondary"
+              onClick={() => onVerifyTool(selectedVerifyTool)}
+              disabled={verifyingTool || loading}
+            >
+              {verifyingTool ? (
+                <Loader2 size={14} className="spin" />
+              ) : (
+                <Check size={14} />
+              )}
+              Verify Tool
+            </button>
+            <button
+              type="button"
+              className="btn btn--sm btn--secondary"
+              onClick={onRefresh}
+              disabled={loading}
+            >
+              {loading ? (
+                <Loader2 size={14} className="spin" />
+              ) : (
+                <RefreshCw size={14} />
+              )}
+              Re-verify All
+            </button>
+          </div>
         </div>
+
+        {verifiedToolResult && (
+          <div
+            style={{
+              marginBottom: "16px",
+              padding: "10px 14px",
+              borderRadius: "6px",
+              backgroundColor: "var(--color-surface-2)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              fontSize: "13px",
+            }}
+          >
+            <div>
+              <strong>{verifiedToolResult.name}</strong>{" "}
+              {verifiedToolResult.version
+                ? `(${verifiedToolResult.version})`
+                : ""}
+              {verifiedToolResult.path ? ` — ${verifiedToolResult.path}` : ""}
+            </div>
+            <StatusPill
+              tone={verifiedToolResult.available ? "positive" : "danger"}
+            >
+              {verifiedToolResult.available ? "Verified Available" : "Missing"}
+            </StatusPill>
+          </div>
+        )}
 
         {status.ready ? (
           <motion.div
@@ -970,6 +1072,17 @@ function VerifyStepContent({
 export function SetupPage() {
   const { status, loading, error, refresh, isReady } = useReadiness();
   const { install, installing } = useInstallTool();
+  const {
+    installAll,
+    installing: batchInstalling,
+    progress: batchProgress,
+  } = useBatchInstall();
+  const {
+    verify: verifySingleTool,
+    verifying: verifyingSingleTool,
+    result: verifiedToolResult,
+  } = useVerifyTool();
+  const { clear: clearCache, clearing: clearingCache } = useClearCache();
   const { toolMap } = useToolRegistry();
   const [currentStep, setCurrentStep] = useState<SetupStep>("detect");
   const [completedSteps, setCompletedSteps] = useState<SetupStep[]>([]);
@@ -1010,6 +1123,28 @@ export function SetupPage() {
       // Ignore network errors in mock mode
     }
   }, []);
+
+  const handleBatchInstall = useCallback(
+    async (toolNames: string[]) => {
+      if (toolNames.length === 0) return;
+      try {
+        await installAll(toolNames, "easy", true);
+        await refresh(true);
+      } catch {
+        // Error handled by hook
+      }
+    },
+    [installAll, refresh],
+  );
+
+  const handleClearCache = useCallback(async () => {
+    try {
+      await clearCache();
+      await refresh(true);
+    } catch {
+      // Error handled by hook
+    }
+  }, [clearCache, refresh]);
 
   // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState<{
@@ -1181,6 +1316,14 @@ export function SetupPage() {
           </button>
           <button
             type="button"
+            className="btn btn--ghost"
+            onClick={handleClearCache}
+            disabled={clearingCache || loading}
+          >
+            {clearingCache ? "Clearing..." : "Clear Cache"}
+          </button>
+          <button
+            type="button"
             className="btn btn--secondary"
             onClick={handleRefresh}
             disabled={loading}
@@ -1250,6 +1393,9 @@ export function SetupPage() {
           <InstallStepContent
             tools={tools}
             onInstall={handleInstallRequest}
+            onBatchInstall={handleBatchInstall}
+            batchInstalling={batchInstalling}
+            batchProgress={batchProgress}
             installingTool={installingTool}
             toolCategories={status.toolCategories}
             installOrder={status.installOrder}
@@ -1264,6 +1410,9 @@ export function SetupPage() {
             status={status}
             toolMap={toolMap}
             onRefresh={handleRefresh}
+            onVerifyTool={verifySingleTool}
+            verifyingTool={verifyingSingleTool}
+            verifiedToolResult={verifiedToolResult}
             loading={loading}
             onBack={handleBackStep}
           />

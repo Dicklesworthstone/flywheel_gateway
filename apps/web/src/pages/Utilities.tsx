@@ -688,6 +688,233 @@ function ToonPanel() {
   );
 }
 
+function RchPanel() {
+  const { data: healthData, isFetching: healthFetching, refetch: refetchHealth } = useQuery({
+    queryKey: ["utilities", "rch", "health"],
+    queryFn: () =>
+      fetchJson<{
+        data: {
+          available?: boolean;
+          healthy?: boolean;
+          version?: string;
+          daemonRunning?: boolean;
+          workersOnline?: number;
+          workersTotal?: number;
+        };
+      }>("/rch/health"),
+    enabled: false,
+  });
+
+  const { data: workersData, isFetching: workersFetching, refetch: refetchWorkers } = useQuery({
+    queryKey: ["utilities", "rch", "workers"],
+    queryFn: () =>
+      fetchJson<{
+        data: {
+          workers: Array<{
+            name: string;
+            host: string;
+            status?: string;
+            cpu_cores?: number;
+          }>;
+          summary: { total: number; online: number; busy: number };
+        };
+      }>("/rch/workers"),
+    enabled: false,
+  });
+
+  const handleCheck = () => {
+    refetchHealth();
+    refetchWorkers();
+  };
+
+  const health = healthData?.data;
+  const workers = workersData?.data;
+
+  return (
+    <div className="card card--wide">
+      <h3>Remote Compilation Helper (rch)</h3>
+      <p className="muted">
+        Inspect remote compilation workers, daemon health, and offload capacity.
+      </p>
+      <div className="form-row">
+        <button
+          className="primary-button"
+          type="button"
+          onClick={handleCheck}
+          disabled={healthFetching || workersFetching}
+        >
+          {healthFetching || workersFetching
+            ? "Checking RCH..."
+            : "Check RCH Workers & Health"}
+        </button>
+      </div>
+      {(health || workers) && (
+        <div className="result-box">
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+            {health && (
+              <>
+                <StatusPill tone={health.available ? "positive" : "warning"}>
+                  {health.available ? "CLI Installed" : "CLI Not Installed"}
+                </StatusPill>
+                <StatusPill tone={health.healthy ? "positive" : "muted"}>
+                  {health.healthy ? "Healthy" : "Degraded / Offline"}
+                </StatusPill>
+              </>
+            )}
+            {workers && (
+              <span className="muted">
+                Workers: {workers.summary.online}/{workers.summary.total} online
+                ({workers.summary.busy} busy)
+              </span>
+            )}
+          </div>
+          {workers && workers.workers.length > 0 && (
+            <div className="result-list" style={{ marginTop: "8px" }}>
+              {workers.workers.map((w) => (
+                <div key={w.name} className="result-item">
+                  <StatusPill
+                    tone={w.status === "online" ? "positive" : "muted"}
+                  >
+                    {w.status ?? "unknown"}
+                  </StatusPill>
+                  <strong>{w.name}</strong>
+                  <span className="muted">{w.host}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UbsScannerPanel() {
+  const [scanProfile, setScanProfile] = useState<"strict" | "loose">("strict");
+
+  const { data: statsData, refetch: refetchStats } = useQuery({
+    queryKey: ["utilities", "scanner", "stats"],
+    queryFn: () =>
+      fetchJson<{
+        data: {
+          totalScans?: number;
+          openFindings?: number;
+          dismissedFindings?: number;
+          bySeverity?: Record<string, number>;
+        };
+      }>("/scanner/stats"),
+    staleTime: 30_000,
+  });
+
+  const { data: findingsData, refetch: refetchFindings } = useQuery({
+    queryKey: ["utilities", "scanner", "findings"],
+    queryFn: () =>
+      fetchJson<{
+        data: Array<{
+          id: string;
+          severity: string;
+          file: string;
+          line: number;
+          message: string;
+          category: string;
+        }>;
+      }>("/scanner/findings?limit=10"),
+    staleTime: 30_000,
+  });
+
+  const scanMutation = useMutation({
+    mutationFn: () =>
+      fetchJson<{
+        data: {
+          scanId: string;
+          status: string;
+          filesScanned: number;
+          findingsCount: number;
+        };
+      }>("/scanner/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile: scanProfile }),
+      }),
+    onSuccess: () => {
+      refetchStats();
+      refetchFindings();
+    },
+  });
+
+  const stats = statsData?.data;
+  const findings = findingsData?.data ?? [];
+
+  return (
+    <div className="card card--wide">
+      <h3>Ultimate Bug Scanner (ubs)</h3>
+      <p className="muted">
+        Run static bug/security analysis scans and inspect open findings.
+      </p>
+      <div className="form-row">
+        <select
+          className="select-input"
+          value={scanProfile}
+          onChange={(e) =>
+            setScanProfile(e.target.value as "strict" | "loose")
+          }
+        >
+          <option value="strict">Strict Profile</option>
+          <option value="loose">Loose Profile</option>
+        </select>
+        <button
+          className="primary-button"
+          type="button"
+          onClick={() => scanMutation.mutate()}
+          disabled={scanMutation.isPending}
+        >
+          {scanMutation.isPending ? "Scanning..." : "Run UBS Scan"}
+        </button>
+        {stats && (
+          <StatusPill tone={(stats.openFindings ?? 0) === 0 ? "positive" : "warning"}>
+            {stats.openFindings ?? 0} open findings ({stats.totalScans ?? 0} scans)
+          </StatusPill>
+        )}
+      </div>
+      {scanMutation.isSuccess && (
+        <div className="result-box">
+          <p className="muted">
+            Scan <code>{scanMutation.data.data.scanId}</code> ({scanMutation.data.data.status}):{" "}
+            {scanMutation.data.data.filesScanned} files scanned,{" "}
+            {scanMutation.data.data.findingsCount} findings.
+          </p>
+        </div>
+      )}
+      {findings.length > 0 && (
+        <div className="result-box" style={{ marginTop: "8px" }}>
+          <div className="result-list">
+            {findings.slice(0, 5).map((f) => (
+              <div key={f.id} className="result-item">
+                <StatusPill
+                  tone={
+                    f.severity === "critical" || f.severity === "high"
+                      ? "danger"
+                      : "warning"
+                  }
+                >
+                  {f.severity}
+                </StatusPill>
+                <code>
+                  {f.file}:{f.line}
+                </code>
+                <span className="muted">{f.message}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {scanMutation.isError && (
+        <p className="error-text">{(scanMutation.error as Error).message}</p>
+      )}
+    </div>
+  );
+}
+
 // ============================================================================
 // Page
 // ============================================================================
@@ -731,6 +958,8 @@ export function UtilitiesPage() {
       <JfpPanel />
       <AprPanel />
       <ToonPanel />
+      <RchPanel />
+      <UbsScannerPanel />
     </div>
   );
 }

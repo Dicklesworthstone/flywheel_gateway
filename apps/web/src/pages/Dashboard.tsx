@@ -33,6 +33,9 @@ export function DashboardPage() {
         maintRes,
         approvalsRes,
         runbooksRes,
+        alertsRes,
+        supervisorRes,
+        jobsRes,
       ] = await Promise.all([
         fetch("/api/agents").catch(() => null),
         fetch("/api/beads").catch(() => null),
@@ -41,6 +44,9 @@ export function DashboardPage() {
         fetch("/api/system/maintenance").catch(() => null),
         fetch("/api/safety/approvals/stats").catch(() => null),
         fetch("/api/runbooks").catch(() => null),
+        fetch("/api/alerts").catch(() => null),
+        fetch("/api/supervisor/status").catch(() => null),
+        fetch("/api/jobs").catch(() => null),
       ]);
       const latencyMs = Math.max(1, Math.round(performance.now() - start));
 
@@ -51,6 +57,11 @@ export function DashboardPage() {
       const maintJson = maintRes?.ok ? await maintRes.json() : null;
       const approvalsJson = approvalsRes?.ok ? await approvalsRes.json() : null;
       const runbooksJson = runbooksRes?.ok ? await runbooksRes.json() : null;
+      const alertsJson = alertsRes?.ok ? await alertsRes.json() : null;
+      const supervisorJson = supervisorRes?.ok
+        ? await supervisorRes.json()
+        : null;
+      const jobsJson = jobsRes?.ok ? await jobsRes.json() : null;
 
       const agentsList: Array<{ state?: string; status?: string }> =
         agentsJson?.data ?? agentsJson?.agents ?? [];
@@ -69,6 +80,15 @@ export function DashboardPage() {
       };
       const runbooksList: Array<{ id?: string; title?: string }> =
         Array.isArray(runbooksJson?.data) ? runbooksJson.data : [];
+      const alertsList: Array<{ id?: string; severity?: string }> =
+        Array.isArray(alertsJson?.data) ? alertsJson.data : [];
+      const daemonsList: Array<{ name?: string; status?: string }> =
+        Array.isArray(supervisorJson?.data) ? supervisorJson.data : [];
+      const jobsList: Array<{ id?: string; status?: string }> = Array.isArray(
+        jobsJson?.data,
+      )
+        ? jobsJson.data
+        : [];
 
       return {
         agentsList: Array.isArray(agentsList) ? agentsList : [],
@@ -78,6 +98,14 @@ export function DashboardPage() {
         pendingApprovals: approvalStats.pendingCount ?? 0,
         totalApprovals: approvalStats.totalRequests ?? 0,
         runbooksCount: runbooksList.length,
+        activeAlertsCount: alertsList.length,
+        daemonsRunningCount: daemonsList.filter((d) => d.status === "running")
+          .length,
+        daemonsTotalCount: daemonsList.length,
+        activeJobsCount: jobsList.filter(
+          (j) => j.status === "running" || j.status === "pending",
+        ).length,
+        totalJobsCount: jobsList.length,
         latencyMs,
         healthy: Boolean(healthRes?.ok && healthJson),
         checkedAt: new Date().toLocaleTimeString(),
@@ -153,6 +181,11 @@ export function DashboardPage() {
   const pendingApprovals = useLive ? liveData!.pendingApprovals : 0;
   const runbooksCount =
     useLive && liveData!.runbooksCount > 0 ? liveData!.runbooksCount : 6;
+  const activeAlertsCount = useLive ? liveData!.activeAlertsCount : 0;
+  const daemonsRunningCount = useLive ? liveData!.daemonsRunningCount : 3;
+  const daemonsTotalCount = useLive ? liveData!.daemonsTotalCount : 3;
+  const activeJobsCount = useLive ? liveData!.activeJobsCount : 0;
+  const totalJobsCount = useLive ? liveData!.totalJobsCount : 4;
 
   return (
     <div className="page">
@@ -257,6 +290,56 @@ export function DashboardPage() {
           <h4>{runbooksCount} runbooks</h4>
           <p className="muted">
             Automated remediation & drain-mode protection ready.
+          </p>
+        </div>
+      </section>
+
+      {/* Wave 9 Operational Telemetry: System Alerts, Process Supervisor & Background Jobs */}
+      <section className="grid grid--3" style={{ marginTop: "24px" }}>
+        <div className="card card--compact">
+          <div className="card__header">
+            <div className="eyebrow">System Alerts</div>
+            <StatusPill tone={activeAlertsCount > 0 ? "warning" : "positive"}>
+              {activeAlertsCount} active
+            </StatusPill>
+          </div>
+          <h4>
+            {activeAlertsCount === 0
+              ? "All Clear"
+              : `${activeAlertsCount} firing`}
+          </h4>
+          <p className="muted">
+            Real-time alert evaluation engine (/api/alerts).
+          </p>
+        </div>
+
+        <div className="card card--compact">
+          <div className="card__header">
+            <div className="eyebrow">Process Supervisor</div>
+            <StatusPill tone="positive">
+              {daemonsRunningCount}/{daemonsTotalCount} daemons
+            </StatusPill>
+          </div>
+          <h4>
+            {daemonsTotalCount === 0
+              ? "Standby"
+              : `${daemonsRunningCount} running`}
+          </h4>
+          <p className="muted">
+            Managed background daemon lifecycle (/api/supervisor/status).
+          </p>
+        </div>
+
+        <div className="card card--compact">
+          <div className="card__header">
+            <div className="eyebrow">Background Jobs</div>
+            <StatusPill tone={activeJobsCount > 0 ? "info" : "positive"}>
+              {activeJobsCount} active
+            </StatusPill>
+          </div>
+          <h4>{totalJobsCount} jobs tracked</h4>
+          <p className="muted">
+            Long-running indexing, scan & export queue (/api/jobs).
           </p>
         </div>
       </section>

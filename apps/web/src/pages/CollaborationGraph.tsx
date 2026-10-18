@@ -38,10 +38,12 @@ import {
   type ConflictNode,
   formatRelativeTime,
   formatTimeRemaining,
+  type GraphStats,
   getAgentStatusColor,
   getConflictSeverityColor,
   type ReservationNode,
   useCollabGraphData,
+  useCollabGraphStats,
   useGraphSelection,
   useGraphSubscription,
   type ViewMode,
@@ -427,19 +429,19 @@ function GraphVisualization({
 
 interface StatsPanelProps {
   data: CollabGraphData | null;
+  fallbackStats?: GraphStats | null;
   isLoading: boolean;
 }
 
-function StatsPanel({ data, isLoading }: StatsPanelProps) {
-  if (isLoading || !data) {
+function StatsPanel({ data, fallbackStats, isLoading }: StatsPanelProps) {
+  const stats = data?.stats ?? fallbackStats;
+  if (isLoading || !stats) {
     return (
       <div className="collab-stats">
         <Skeleton height={100} />
       </div>
     );
   }
-
-  const { stats } = data;
 
   return (
     <div className="collab-stats">
@@ -813,9 +815,20 @@ export function CollaborationGraphPage() {
     activeBranches: number;
     highRiskPairs: number;
   } | null>(null);
+  const [mailHealth, setMailHealth] = useState<{
+    healthy: boolean;
+    status?: string;
+  } | null>(null);
+  const [handoffStats, setHandoffStats] = useState<{
+    totalHandoffs: number;
+    completedHandoffs: number;
+    averageTransferTimeMs: number;
+    broadcastCount: number;
+  } | null>(null);
 
-  // Fetch graph data
+  // Fetch graph data and lightweight stats
   const { data, isLoading, error, refetch } = useCollabGraphData();
+  const { data: graphStats } = useCollabGraphStats();
 
   useEffect(() => {
     fetch("/api/conflicts/git/sync-stats")
@@ -827,6 +840,45 @@ export function CollaborationGraphPage() {
             queued: d.syncStats?.queued ?? 0,
             activeBranches: d.gitStats?.activeBranches ?? 0,
             highRiskPairs: d.predictionStats?.highRiskPairs ?? 0,
+          });
+        }
+      })
+      .catch(() => {
+        // Ignore if offline or mock mode
+      });
+
+    fetch("/api/mail/health")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const d = json?.data;
+        if (d) {
+          setMailHealth({
+            healthy: Boolean(d.healthy ?? d.status === "healthy" ?? true),
+            status: d.status ?? "healthy",
+          });
+        }
+      })
+      .catch(() => {
+        // Ignore if offline or mock mode
+      });
+
+    Promise.all([
+      fetch("/api/handoffs/stats").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/handoffs/broadcast/default").then((r) =>
+        r.ok ? r.json() : null,
+      ),
+    ])
+      .then(([statsJson, broadcastJson]) => {
+        const s = statsJson?.data;
+        const b = Array.isArray(broadcastJson?.data)
+          ? broadcastJson.data.length
+          : 0;
+        if (s) {
+          setHandoffStats({
+            totalHandoffs: s.totalHandoffs ?? 0,
+            completedHandoffs: s.completedHandoffs ?? 0,
+            averageTransferTimeMs: s.averageTransferTimeMs ?? 0,
+            broadcastCount: b,
           });
         }
       })
@@ -918,6 +970,17 @@ export function CollaborationGraphPage() {
           <p className="muted">Real-time visualization of agent coordination</p>
         </div>
         <div className="page__actions">
+          {mailHealth && (
+            <StatusPill tone={mailHealth.healthy ? "positive" : "warning"}>
+              Agent Mail: {mailHealth.status ?? "healthy"}
+            </StatusPill>
+          )}
+          {handoffStats && (
+            <StatusPill tone="info">
+              Handoffs: {handoffStats.completedHandoffs}/
+              {handoffStats.totalHandoffs} ({handoffStats.broadcastCount} open)
+            </StatusPill>
+          )}
           {gitSyncStats && (
             <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
               <StatusPill tone="info">
@@ -965,7 +1028,11 @@ export function CollaborationGraphPage() {
       </div>
 
       {/* Stats Panel */}
-      <StatsPanel data={data} isLoading={isLoading} />
+      <StatsPanel
+        data={data}
+        fallbackStats={graphStats}
+        isLoading={isLoading}
+      />
 
       {/* View Mode Selector */}
       <div className="collab-toolbar">
