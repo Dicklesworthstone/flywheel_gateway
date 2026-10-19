@@ -49,8 +49,8 @@ export interface NotificationCenterProps {
 }
 
 /**
-  * NotificationCenter component - main notification interface.
-  */
+ * NotificationCenter component - main notification interface.
+ */
 export function NotificationCenter({
   userId,
   position = "bottom-right",

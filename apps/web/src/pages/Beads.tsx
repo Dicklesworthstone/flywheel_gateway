@@ -539,18 +539,14 @@ export function BeadsPage() {
                 className="table__row"
                 style={{ gridTemplateColumns: tableGridTemplate }}
               >
-                <span
-                  className="mono"
-                  style={{ cursor: "pointer" }}
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm mono"
+                  style={{ justifySelf: "start", padding: "2px 6px" }}
                   onClick={() => setInspectTarget(bead)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      setInspectTarget(bead);
-                    }
-                  }}
                 >
                   {bead.id}
-                </span>
+                </button>
                 <StatusPill tone={statusTone[bead.status ?? ""] ?? "muted"}>
                   {(bead.status ?? "unknown").replace("_", " ")}
                 </StatusPill>

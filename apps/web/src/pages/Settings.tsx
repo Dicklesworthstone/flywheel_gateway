@@ -700,9 +700,7 @@ export function SettingsPage() {
       {governanceData && (
         <div className="card card--wide" style={{ marginTop: 16 }}>
           <div className="card__header">
-            <h3>
-              Config, RBAC, Secrets, Retry Profiles & Alert Channels
-            </h3>
+            <h3>Config, RBAC, Secrets, Retry Profiles & Alert Channels</h3>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <StatusPill tone="info">
                 Config Versions: {governanceData.configVersionCount}

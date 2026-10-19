@@ -396,7 +396,7 @@ export function DashboardPage() {
         <div className="card card--compact">
           <div className="card__header">
             <div className="eyebrow">Process Triage (pt)</div>
-            <StatusPill tone={ptAvailable ? "positive" : "neutral"}>
+            <StatusPill tone={ptAvailable ? "positive" : "muted"}>
               {ptAvailable ? "available" : "standby"}
             </StatusPill>
           </div>

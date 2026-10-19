@@ -1087,9 +1087,7 @@ async function resolveWidgetData(widget: Widget): Promise<unknown> {
             description: r.resource,
             message: `${r.action}: ${r.resource}`,
             severity:
-              r.outcome === "failure"
-                ? ("error" as const)
-                : ("info" as const),
+              r.outcome === "failure" ? ("error" as const) : ("info" as const),
             timestamp: r.createdAt.toISOString(),
           })),
           source: "api",
