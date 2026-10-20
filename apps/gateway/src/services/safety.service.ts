@@ -629,6 +629,11 @@ export async function removeRule(
   workspaceId: string,
   ruleId: string,
 ): Promise<boolean> {
+  await db
+    .update(safetyViolations)
+    .set({ ruleId: null })
+    .where(eq(safetyViolations.ruleId, ruleId));
+
   const result = await db
     .delete(safetyRules)
     .where(
@@ -833,8 +838,8 @@ export async function preFlightCheck(
 
       result.violations.push(violation);
 
-      // Persist violation to DB
-      await db.insert(safetyViolations).values({
+      // Persist violation to DB (gracefully handle non-existent FK agentId/ruleId)
+      const violationRow = {
         id: violation.id,
         workspaceId: violation.workspaceId,
         agentId: violation.agentId,
@@ -850,7 +855,28 @@ export async function preFlightCheck(
         recentHistory: JSON.stringify(violation.context.recentHistory),
         correlationId: violation.correlationId,
         timestamp: violation.timestamp,
-      });
+      };
+      try {
+        await db.insert(safetyViolations).values(violationRow);
+      } catch (err) {
+        if (
+          err instanceof Error &&
+          err.message.includes("FOREIGN KEY constraint failed")
+        ) {
+          await db.insert(safetyViolations).values({
+            ...violationRow,
+            agentId: null,
+            ruleId: null,
+            operationDetails: {
+              ...violation.operation.details,
+              _agentId: violation.agentId,
+              _ruleId: violation.rule.id,
+            },
+          });
+        } else {
+          throw err;
+        }
+      }
     }
   }
 

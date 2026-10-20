@@ -1,11 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import {
+  type AgentInfo,
+  MobileAgentCard,
+} from "../components/mobile/MobileAgentCard";
 import { StatusPill } from "../components/ui/StatusPill";
 import {
   type OutputLine,
   VirtualizedOutput,
 } from "../components/VirtualizedOutput";
 import { useLogParser } from "../hooks/useLogParser";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useAllowMockFallback } from "../hooks/useMockFallback";
 import { mockAgents } from "../lib/mock-data";
 import { useUiStore } from "../stores/ui";
@@ -215,6 +220,65 @@ export function AgentsPage() {
       : []);
 
   const activeAgentId = selectedAgentId ?? agentsList[0]?.agentId ?? "agent-1";
+  const { isMobile } = useMediaQuery();
+  const [touchCardMode, setTouchCardMode] = useState(false);
+
+  const { data: autoCheckpointStatus, refetch: refetchAutoCheckpoint } =
+    useQuery({
+      queryKey: ["agents", "auto-checkpoint", activeAgentId, mockMode],
+      queryFn: async (): Promise<{
+        active: boolean;
+        checkpointCount?: number;
+      }> => {
+        if (mockMode) return { active: false };
+        const res = await fetch(
+          `/api/sessions/${encodeURIComponent(activeAgentId)}/checkpoints/auto`,
+        );
+        if (!res.ok) return { active: false };
+        const json = await res.json();
+        const data = json.data ?? json;
+        return {
+          active: Boolean(data?.active),
+          checkpointCount: data?.state?.checkpointCount ?? 0,
+        };
+      },
+      staleTime: 10_000,
+    });
+
+  const toggleAutoCheckpointMutation = useMutation({
+    mutationFn: async (params: { agentId: string; enable: boolean }) => {
+      if (params.enable) {
+        const res = await fetch(
+          `/api/sessions/${encodeURIComponent(params.agentId)}/checkpoints/auto`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              enabled: true,
+              intervalMinutes: 5,
+              triggerNow: true,
+            }),
+          },
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      }
+      const res = await fetch(
+        `/api/sessions/${encodeURIComponent(params.agentId)}/checkpoints/auto`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    },
+    onSuccess: (_body, vars) => {
+      setInspectorStatus(
+        vars.enable
+          ? `Enabled Auto-Checkpoint for ${vars.agentId}`
+          : `Stopped Auto-Checkpoint for ${vars.agentId}`,
+      );
+      void refetchAutoCheckpoint();
+    },
+  });
   const approvalsList = pendingApprovals ?? [];
   const healthScoreMap = new Map(
     (healthScores ?? []).map((s) => [
@@ -597,56 +661,109 @@ export function AgentsPage() {
               </StatusPill>
             )}
             <StatusPill tone="muted">{agentsList.length} total</StatusPill>
+            <button
+              type="button"
+              className="btn btn--sm btn--ghost"
+              onClick={() => setTouchCardMode((v) => !v)}
+            >
+              {touchCardMode || isMobile ? "Table View" : "Touch Cards"}
+            </button>
           </div>
         </div>
         {isLoading && <p className="muted">Loading agents...</p>}
         {error && !allowMockFallback && (
           <p className="error-text">{(error as Error).message}</p>
         )}
-        <div className="table">
-          <div className="table__row table__row--header">
-            <span>Name / Driver</span>
-            <span>Status</span>
-            <span>Model</span>
-            <span>ID / Health</span>
-            <span>Actions</span>
+        {touchCardMode || isMobile ? (
+          <div style={{ display: "grid", gap: 10 }}>
+            {agentsList.map((agent) => {
+              const rawState = agent.state.toLowerCase();
+              const mappedStatus: AgentInfo["status"] =
+                rawState === "ready" ||
+                rawState === "running" ||
+                rawState === "executing"
+                  ? "running"
+                  : rawState === "failed" || rawState === "error"
+                    ? "error"
+                    : rawState === "starting" || rawState === "spawning"
+                      ? "starting"
+                      : rawState === "terminating"
+                        ? "terminating"
+                        : "stopped";
+              const rawModel = (agent.model ?? agent.driver).toLowerCase();
+              const mappedModel: AgentInfo["model"] = rawModel.includes(
+                "claude",
+              )
+                ? "claude"
+                : rawModel.includes("codex") || rawModel.includes("gpt")
+                  ? "codex"
+                  : rawModel.includes("gemini")
+                    ? "gemini"
+                    : "unknown";
+              return (
+                <MobileAgentCard
+                  key={agent.agentId}
+                  agent={{
+                    id: agent.agentId,
+                    name: agent.name ?? `${agent.driver} agent`,
+                    status: mappedStatus,
+                    model: mappedModel,
+                    lastActivity:
+                      Date.parse(agent.lastActivityAt) || Date.now(),
+                  }}
+                  onSelect={(id) => setSelectedAgentId(id)}
+                  onStop={(id) => interruptMutation.mutate(id)}
+                  onDelete={(id) => terminateMutation.mutate(id)}
+                />
+              );
+            })}
           </div>
-          {agentsList.map((agent) => {
-            const score = healthScoreMap.get(agent.agentId);
-            return (
-              <div key={agent.agentId} className="table__row">
-                <span>{agent.name ?? `${agent.driver} agent`}</span>
-                <StatusPill
-                  tone={statusTone[agent.state.toLowerCase()] ?? "muted"}
-                >
-                  {agent.state}
-                </StatusPill>
-                <span>{agent.model ?? agent.driver}</span>
-                <span className="mono">
-                  {agent.agentId}
-                  {score !== undefined ? ` (${score}%)` : ""}
-                </span>
-                <span style={{ display: "flex", gap: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedAgentId(agent.agentId)}
+        ) : (
+          <div className="table">
+            <div className="table__row table__row--header">
+              <span>Name / Driver</span>
+              <span>Status</span>
+              <span>Model</span>
+              <span>ID / Health</span>
+              <span>Actions</span>
+            </div>
+            {agentsList.map((agent) => {
+              const score = healthScoreMap.get(agent.agentId);
+              return (
+                <div key={agent.agentId} className="table__row">
+                  <span>{agent.name ?? `${agent.driver} agent`}</span>
+                  <StatusPill
+                    tone={statusTone[agent.state.toLowerCase()] ?? "muted"}
                   >
-                    Inspect
-                  </button>
-                  {!mockMode && (
+                    {agent.state}
+                  </StatusPill>
+                  <span>{agent.model ?? agent.driver}</span>
+                  <span className="mono">
+                    {agent.agentId}
+                    {score !== undefined ? ` (${score}%)` : ""}
+                  </span>
+                  <span style={{ display: "flex", gap: 8 }}>
                     <button
                       type="button"
-                      onClick={() => terminateMutation.mutate(agent.agentId)}
-                      disabled={terminateMutation.isPending}
+                      onClick={() => setSelectedAgentId(agent.agentId)}
                     >
-                      Terminate
+                      Inspect
                     </button>
-                  )}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+                    {!mockMode && (
+                      <button
+                        type="button"
+                        onClick={() => terminateMutation.mutate(agent.agentId)}
+                        disabled={terminateMutation.isPending}
+                      >
+                        Terminate
+                      </button>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Wave 9 Live Agent Output Stream (VirtualizedOutput + useLogParser) & Interactive Controls */}
@@ -746,6 +863,20 @@ export function AgentsPage() {
               disabled={rotateContextMutation.isPending}
             >
               Rotate Context Window
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                toggleAutoCheckpointMutation.mutate({
+                  agentId: activeAgentId,
+                  enable: !autoCheckpointStatus?.active,
+                })
+              }
+              disabled={toggleAutoCheckpointMutation.isPending}
+            >
+              {autoCheckpointStatus?.active
+                ? `Stop Auto-Checkpoint (${autoCheckpointStatus.checkpointCount ?? 0})`
+                : "Enable Auto-Checkpoint"}
             </button>
           </div>
           {inspectorStatus && <p className="mono">{inspectorStatus}</p>}

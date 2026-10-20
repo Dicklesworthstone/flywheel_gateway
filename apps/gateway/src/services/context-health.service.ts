@@ -26,6 +26,7 @@ import {
 import type { Channel } from "../ws/channels";
 import { getHub } from "../ws/hub";
 import { logger as baseLogger, createChildLogger } from "./logger";
+import { getDefaultRules } from "./safety-rules.engine";
 import { countTokens } from "./tokenizer.service";
 
 // ============================================================================
@@ -776,11 +777,38 @@ export class ContextHealthService {
       -transferConfig.includeRecentMessages,
     );
 
-    // Get active beads (placeholder)
-    const activeBeads: string[] = transferConfig.includeActiveBeads ? [] : [];
+    // Extract active beads & action items from session messages
+    const activeBeads: string[] = [];
+    if (transferConfig.includeActiveBeads) {
+      const seenBeads = new Set<string>();
+      for (const msg of state.messages) {
+        const matches = msg.content.match(/\bbd-[a-z0-9]+(?:\.[0-9]+)?\b/gi);
+        if (matches) {
+          for (const m of matches) {
+            const id = m.toLowerCase();
+            if (!seenBeads.has(id)) {
+              seenBeads.add(id);
+              activeBeads.push(id);
+            }
+          }
+        }
+      }
+      for (const kp of this.extractKeyPoints(state.messages)) {
+        if (activeBeads.length < 10 && !activeBeads.includes(kp)) {
+          activeBeads.push(kp);
+        }
+      }
+    }
 
-    // Get memory rules (placeholder)
-    const memoryRules: string[] = transferConfig.includeMemoryRules ? [] : [];
+    // Populate active memory & safety guardrail rules
+    const memoryRules: string[] = [];
+    if (transferConfig.includeMemoryRules) {
+      for (const rule of getDefaultRules()
+        .filter((r) => r.enabled)
+        .slice(0, 5)) {
+        memoryRules.push(`${rule.name}: ${rule.message}`);
+      }
+    }
 
     const sourceTokens = state.currentTokens;
     const transferContent = this.formatTransferForPrompt({

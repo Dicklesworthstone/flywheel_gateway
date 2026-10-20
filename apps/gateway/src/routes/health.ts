@@ -10,6 +10,7 @@
 import { getDriverRegistry } from "@flywheel/agent-drivers";
 import { count } from "drizzle-orm";
 import { Hono } from "hono";
+import { registerDrivers } from "../config/drivers";
 import { db } from "../db";
 import { agents } from "../db/schema";
 import { getLogger } from "../middleware/correlation";
@@ -90,8 +91,21 @@ health.get("/ready", async (c) => {
   const dbCheck = await checkDatabase();
   checks["database"] = dbCheck;
 
-  // Check drivers (placeholder - would check actual driver health)
-  checks["drivers"] = { status: "pass", message: "SDK driver available" };
+  // Check drivers against live DriverRegistry
+  if (getDriverRegistry().getRegisteredTypes().length === 0) {
+    registerDrivers();
+  }
+  const driverHealth = await checkDriversHealth();
+  checks["drivers"] = {
+    status:
+      driverHealth.status === "unhealthy"
+        ? "fail"
+        : driverHealth.status === "degraded"
+          ? "warn"
+          : "pass",
+    message: driverHealth.message,
+    latencyMs: driverHealth.latencyMs,
+  };
 
   // Determine overall status
   const allPass = Object.values(checks).every(
@@ -363,12 +377,12 @@ async function checkDriversHealth(): Promise<
 
   for (const type of registeredTypes) {
     const capabilities = registry.getCapabilities(type);
-    // Check if there's an active instance for this type
+    // A registered driver type is healthy if it has no active instances or at least one healthy instance
+    const typeEntries = Array.from(healthMap.entries()).filter(([id]) =>
+      id.startsWith(type),
+    );
     const isHealthy =
-      healthMap.size === 0 ||
-      Array.from(healthMap.entries()).some(
-        ([id, healthy]) => id.startsWith(type) && healthy,
-      );
+      typeEntries.length === 0 || typeEntries.some(([, healthy]) => healthy);
 
     registered.push({
       type,

@@ -22,6 +22,7 @@ import {
 import type {
   AgentMailAgentSnapshot,
   AgentMailMessageSummary,
+  AgentMailReservationSnapshot,
   AgentMailSnapshot,
   BeadsPriorityCounts,
   BeadsSnapshot,
@@ -49,6 +50,7 @@ import { getBrList, getBrSyncStatus } from "./br.service";
 import { getBvTriage } from "./bv.service";
 import * as dcgService from "./dcg.service";
 import { incrementCounter, recordHistogram, setGauge } from "./metrics";
+import { listReservations } from "./reservation.service";
 import * as slbService from "./slb.service";
 import { loadToolRegistry } from "./tool-registry.service";
 import { getUBSService } from "./ubs.service";
@@ -1040,11 +1042,39 @@ async function collectAgentMailSnapshot(
     async () => {
       const agentMailDir = path.join(cwd, ".agentmail");
 
+      // Collect live file reservations from reservation.service
+      let activeReservations: AgentMailReservationSnapshot[] = [];
+      try {
+        const [cwdRes, defaultRes] = await Promise.all([
+          listReservations({ projectId: cwd, limit: 50 }),
+          cwd !== "default"
+            ? listReservations({ projectId: "default", limit: 50 })
+            : Promise.resolve({ reservations: [], hasMore: false }),
+        ]);
+        const seenIds = new Set<string>();
+        for (const r of [...cwdRes.reservations, ...defaultRes.reservations]) {
+          if (!seenIds.has(r.id)) {
+            seenIds.add(r.id);
+            activeReservations.push({
+              reservationId: r.id,
+              requesterId: r.agentId,
+              patterns: r.patterns,
+              exclusive: r.mode === "exclusive",
+              expiresAt: r.expiresAt.toISOString(),
+            });
+          }
+        }
+      } catch {
+        activeReservations = [];
+      }
+
       // Check if .agentmail directory exists
       try {
         await fs.access(agentMailDir);
       } catch {
-        return createEmptyAgentMailSnapshot(false);
+        const emptySnapshot = createEmptyAgentMailSnapshot(false);
+        emptySnapshot.reservations = activeReservations;
+        return emptySnapshot;
       }
 
       // Read agents.jsonl
@@ -1120,7 +1150,7 @@ async function collectAgentMailSnapshot(
         available: true,
         status: agents.length > 0 ? "healthy" : "degraded",
         agents,
-        reservations: [], // Reservations are managed by MCP, not local files
+        reservations: activeReservations,
         messages,
       };
       return agentMailResult;

@@ -29,7 +29,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   type TrendRecommendation,
   useLearningMetrics,
@@ -40,6 +40,10 @@ import {
   type VelocityPeriod,
   type VelocityTrend,
 } from "../hooks/useVelocity";
+import {
+  getPerformanceMonitor,
+  type PerformanceMetrics,
+} from "../lib/performance/monitor";
 
 // ============================================================================
 // Tab Types
@@ -1245,6 +1249,18 @@ function HistoryTab() {
 
 export function VelocityPage() {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [perfMetrics, setPerfMetrics] = useState<PerformanceMetrics | null>(
+    null,
+  );
+
+  useEffect(() => {
+    const monitor = getPerformanceMonitor();
+    monitor.updateRuntimeMetrics();
+    setPerfMetrics(monitor.getMetrics());
+    return monitor.subscribe((updated) => {
+      setPerfMetrics(updated);
+    });
+  }, []);
 
   return (
     <div className="page">
@@ -1256,6 +1272,35 @@ export function VelocityPage() {
             opportunities
           </p>
         </div>
+        {perfMetrics && (
+          <div
+            style={{
+              display: "flex",
+              gap: "8px",
+              flexWrap: "wrap",
+              alignItems: "center",
+            }}
+          >
+            <span className="pill pill--muted mono">
+              FCP:{" "}
+              {perfMetrics.fcp !== null
+                ? `${Math.round(perfMetrics.fcp)}ms`
+                : "n/a"}
+            </span>
+            <span className="pill pill--muted mono">
+              LCP:{" "}
+              {perfMetrics.lcp !== null
+                ? `${Math.round(perfMetrics.lcp)}ms`
+                : "n/a"}
+            </span>
+            <span className="pill pill--muted mono">
+              DOM: {perfMetrics.domNodes ?? "n/a"} nodes
+            </span>
+            <span className="pill pill--muted mono">
+              Long Tasks: {perfMetrics.longTasks}
+            </span>
+          </div>
+        )}
       </header>
 
       <nav className="tabs" style={{ marginBottom: "24px" }}>

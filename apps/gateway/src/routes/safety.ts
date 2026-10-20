@@ -22,9 +22,24 @@ import {
   listApprovals,
 } from "../services/approval.service";
 import * as dcgService from "../services/dcg.service";
+import {
+  addRule,
+  clearEmergencyStop,
+  emergencyStop,
+  getConfig as getSafetyConfig,
+  getSafetyStats,
+  getViolationStats,
+  getViolations,
+  preFlightCheck,
+  recordUsage,
+  removeRule,
+  toggleRule,
+  updateConfig as updateSafetyConfig,
+} from "../services/safety.service";
 import type {
   SafetyCategory,
   SafetyRule,
+  SafetySeverity,
 } from "../services/safety-rules.engine";
 import * as slbService from "../services/slb.service";
 import {
@@ -789,6 +804,288 @@ safety.post("/approvals/:id/cancel", async (c) => {
     );
   }
   return sendResource(c, "approval_cancellation", result);
+});
+
+// ============================================================================
+// Safety Guardrail Config, Rules, Pre-Flight, Violations & Emergency Stop
+// (safety.service.ts)
+// ============================================================================
+
+const SafetyRuleCreateSchema = z.object({
+  workspaceId: z.string().default("default"),
+  name: z.string().min(1),
+  description: z.string().default(""),
+  category: z.enum([
+    "filesystem",
+    "git",
+    "network",
+    "execution",
+    "resources",
+    "content",
+  ]),
+  conditions: z
+    .array(
+      z.object({
+        field: z.string().min(1),
+        patternType: z.enum(["glob", "regex", "exact", "prefix", "suffix"]),
+        pattern: z.string().min(1),
+        negate: z.boolean().optional(),
+      }),
+    )
+    .min(1),
+  conditionLogic: z.enum(["and", "or"]).default("and"),
+  action: z.enum(["allow", "deny", "warn", "approve"]).default("deny"),
+  severity: z.enum(["low", "medium", "high", "critical"]).default("high"),
+  message: z.string().min(1),
+  enabled: z.boolean().default(true),
+  alternatives: z.array(z.string()).optional(),
+});
+
+const PreFlightCheckSchema = z.object({
+  workspaceId: z.string().default("default"),
+  agentId: z.string().default("agent-default"),
+  sessionId: z.string().default("session-default"),
+  operation: z.object({
+    type: z.enum([
+      "filesystem",
+      "git",
+      "network",
+      "execution",
+      "resources",
+      "content",
+    ]),
+    fields: z.record(z.string(), z.string()),
+  }),
+  context: z
+    .object({
+      taskDescription: z.string().optional(),
+      recentHistory: z.array(z.string()).optional(),
+    })
+    .optional(),
+  correlationId: z.string().optional(),
+});
+
+const RecordSafetyUsageSchema = z.object({
+  workspaceId: z.string().default("default"),
+  agentId: z.string().min(1),
+  sessionId: z.string().min(1),
+  tokens: z.number().min(0),
+  dollars: z.number().min(0),
+});
+
+const EmergencyStopSchema = z.object({
+  workspaceId: z.string().default("default"),
+  reason: z.string().min(1).default("Operator initiated emergency stop"),
+  initiatedBy: z.string().min(1).default("operator"),
+});
+
+safety.get("/config", async (c) => {
+  const workspaceId = c.req.query("workspaceId") ?? "default";
+  const config = await getSafetyConfig(workspaceId);
+  return sendResource(c, "safety_config", config);
+});
+
+safety.put("/config", async (c) => {
+  const workspaceId = c.req.query("workspaceId") ?? "default";
+  const body = (await c.req.json().catch(() => ({}))) as Record<
+    string,
+    unknown
+  >;
+  const updated = await updateSafetyConfig(workspaceId, {
+    ...(typeof body["name"] === "string" && { name: body["name"] }),
+    ...(typeof body["description"] === "string" && {
+      description: body["description"],
+    }),
+    ...(typeof body["enabled"] === "boolean" && { enabled: body["enabled"] }),
+  });
+  return sendResource(c, "safety_config", updated);
+});
+
+safety.post("/rules", async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const parsed = SafetyRuleCreateSchema.safeParse(body);
+    if (!parsed.success) {
+      return sendValidationError(c, transformZodError(parsed.error));
+    }
+    const { workspaceId, ...ruleInput } = parsed.data;
+    const created = await addRule(workspaceId, {
+      name: ruleInput.name,
+      description: ruleInput.description,
+      category: ruleInput.category,
+      conditions: ruleInput.conditions.map((cond) => ({
+        field: cond.field,
+        patternType: cond.patternType,
+        pattern: cond.pattern,
+        ...(cond.negate !== undefined && { negate: cond.negate }),
+      })),
+      conditionLogic: ruleInput.conditionLogic,
+      action: ruleInput.action,
+      severity: ruleInput.severity,
+      message: ruleInput.message,
+      enabled: ruleInput.enabled,
+      ...(ruleInput.alternatives !== undefined && {
+        alternatives: ruleInput.alternatives,
+      }),
+    });
+    return sendCreated(
+      c,
+      "safety_rule",
+      created,
+      `/safety/rules/${created.id}`,
+    );
+  } catch (error) {
+    return sendError(
+      c,
+      "INVALID_REQUEST",
+      error instanceof Error ? error.message : "Failed to add safety rule",
+      400,
+    );
+  }
+});
+
+safety.patch("/rules/:ruleId/toggle", async (c) => {
+  const ruleId = c.req.param("ruleId");
+  const body = (await c.req.json().catch(() => ({}))) as {
+    workspaceId?: string;
+    enabled?: boolean;
+  };
+  const workspaceId =
+    body.workspaceId ?? c.req.query("workspaceId") ?? "default";
+  const enabled = body.enabled ?? true;
+  const updated = await toggleRule(workspaceId, ruleId, enabled);
+  if (!updated) {
+    return sendNotFound(c, "safety_rule", ruleId);
+  }
+  return sendResource(c, "safety_rule", updated);
+});
+
+safety.delete("/rules/:ruleId", async (c) => {
+  const ruleId = c.req.param("ruleId");
+  const workspaceId = c.req.query("workspaceId") ?? "default";
+  const removed = await removeRule(workspaceId, ruleId);
+  if (!removed) {
+    return sendNotFound(c, "safety_rule", ruleId);
+  }
+  return sendResource(c, "safety_rule_deleted", {
+    deleted: true,
+    ruleId,
+    workspaceId,
+  });
+});
+
+safety.post("/preflight", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = PreFlightCheckSchema.safeParse(body);
+  if (!parsed.success) {
+    return sendValidationError(c, transformZodError(parsed.error));
+  }
+  const data = parsed.data;
+  const result = await preFlightCheck({
+    workspaceId: data.workspaceId,
+    agentId: data.agentId,
+    sessionId: data.sessionId,
+    operation: {
+      type: data.operation.type,
+      fields: data.operation.fields,
+    },
+    ...(data.context !== undefined && {
+      context: {
+        ...(data.context.taskDescription !== undefined && {
+          taskDescription: data.context.taskDescription,
+        }),
+        ...(data.context.recentHistory !== undefined && {
+          recentHistory: data.context.recentHistory,
+        }),
+      },
+    }),
+    ...(data.correlationId !== undefined && {
+      correlationId: data.correlationId,
+    }),
+  });
+  return sendResource(c, "preflight_check_result", result);
+});
+
+safety.post("/usage", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = RecordSafetyUsageSchema.safeParse(body);
+  if (!parsed.success) {
+    return sendValidationError(c, transformZodError(parsed.error));
+  }
+  const { workspaceId, agentId, sessionId, tokens, dollars } = parsed.data;
+  await recordUsage(workspaceId, agentId, sessionId, tokens, dollars);
+  return sendResource(c, "safety_usage_recorded", {
+    recorded: true,
+    workspaceId,
+    agentId,
+    sessionId,
+    tokens,
+    dollars,
+  });
+});
+
+safety.get("/violations", async (c) => {
+  const workspaceId = c.req.query("workspaceId") ?? "default";
+  const agentId = c.req.query("agentId");
+  const sessionId = c.req.query("sessionId");
+  const severity = c.req.query("severity") as SafetySeverity | undefined;
+  const action = c.req.query("action") as
+    | "blocked"
+    | "warned"
+    | "pending_approval"
+    | undefined;
+  const limitParam = c.req.query("limit");
+  const limit = limitParam ? Number.parseInt(limitParam, 10) : 50;
+
+  const items = await getViolations(workspaceId, {
+    ...(agentId !== undefined && { agentId }),
+    ...(sessionId !== undefined && { sessionId }),
+    ...(severity !== undefined && { severity }),
+    ...(action !== undefined && { action }),
+    ...(!Number.isNaN(limit) && { limit }),
+  });
+  return sendList(c, items, { total: items.length });
+});
+
+safety.get("/violations/stats", async (c) => {
+  const workspaceId = c.req.query("workspaceId") ?? "default";
+  const stats = await getViolationStats(workspaceId);
+  return sendResource(c, "safety_violation_stats", stats);
+});
+
+safety.get("/stats", async (c) => {
+  const workspaceId = c.req.query("workspaceId") ?? "default";
+  const stats = await getSafetyStats(workspaceId);
+  return sendResource(c, "safety_stats", stats);
+});
+
+safety.post("/emergency-stop", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = EmergencyStopSchema.safeParse(body);
+  if (!parsed.success) {
+    return sendValidationError(c, transformZodError(parsed.error));
+  }
+  const { workspaceId, reason, initiatedBy } = parsed.data;
+  await emergencyStop(workspaceId, reason, initiatedBy);
+  return sendResource(c, "emergency_stop", {
+    active: true,
+    workspaceId,
+    reason,
+    initiatedBy,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+safety.delete("/emergency-stop", async (c) => {
+  const workspaceId = c.req.query("workspaceId") ?? "default";
+  const clearedBy = c.req.query("clearedBy") ?? "operator";
+  await clearEmergencyStop(workspaceId, clearedBy);
+  return sendResource(c, "emergency_stop", {
+    active: false,
+    workspaceId,
+    clearedBy,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 export { safety };

@@ -16,6 +16,11 @@ import { requireAdminMiddleware } from "../middleware/auth";
 import { getLogger } from "../middleware/correlation";
 import { captureAgentCheckpointState } from "../services/agent";
 import {
+  getAllAutoCheckpointServices,
+  getAutoCheckpointService,
+  removeAutoCheckpointService,
+} from "../services/auto-checkpoint.service";
+import {
   CheckpointError,
   createCheckpoint,
   deleteCheckpoint,
@@ -338,6 +343,130 @@ checkpoints.post("/checkpoints/compact-all", async (c) => {
   } catch (error) {
     return handleError(error, c);
   }
+});
+
+// ============================================================================
+// Auto-Checkpoint Lifecycle Routes (auto-checkpoint.service.ts)
+// ============================================================================
+
+const AutoCheckpointConfigSchema = z.object({
+  enabled: z.boolean().optional(),
+  intervalMinutes: z.number().min(0).max(1440).optional(),
+  messageCountThreshold: z.number().min(0).max(10000).optional(),
+  tokenThreshold: z.number().min(0).max(10000000).optional(),
+  cooldownSeconds: z.number().min(0).max(3600).optional(),
+  compressAutoCheckpoints: z.boolean().optional(),
+  descriptionPrefix: z.string().max(100).optional(),
+  triggerNow: z.boolean().optional(),
+});
+
+/**
+ * GET /sessions/checkpoints/auto - List all active auto-checkpoint services
+ */
+checkpoints.get("/checkpoints/auto", (c) => {
+  const services = getAllAutoCheckpointServices();
+  const items = Array.from(services.entries()).map(([agentId, svc]) => {
+    const state = svc.getState();
+    return {
+      sessionId: agentId,
+      active: true,
+      config: svc.getConfig(),
+      state: {
+        ...state,
+        lastCheckpointAt: state.lastCheckpointAt?.toISOString() ?? null,
+      },
+    };
+  });
+  return sendList(c, items, { total: items.length });
+});
+
+/**
+ * GET /sessions/:sessionId/checkpoints/auto - Get auto-checkpoint status for session
+ */
+checkpoints.get("/:sessionId/checkpoints/auto", (c) => {
+  const sessionId = c.req.param("sessionId");
+  const existing = getAllAutoCheckpointServices().get(sessionId);
+  if (!existing) {
+    return sendResource(c, "auto_checkpoint_status", {
+      sessionId,
+      active: false,
+      config: null,
+      state: null,
+    });
+  }
+  const state = existing.getState();
+  return sendResource(c, "auto_checkpoint_status", {
+    sessionId,
+    active: true,
+    config: existing.getConfig(),
+    state: {
+      ...state,
+      lastCheckpointAt: state.lastCheckpointAt?.toISOString() ?? null,
+    },
+  });
+});
+
+/**
+ * POST /sessions/:sessionId/checkpoints/auto - Configure/start auto-checkpoint (and optionally trigger now)
+ */
+checkpoints.post("/:sessionId/checkpoints/auto", async (c) => {
+  try {
+    const sessionId = c.req.param("sessionId");
+    const body = await c.req.json().catch(() => ({}));
+    const validated = AutoCheckpointConfigSchema.parse(body);
+
+    const { triggerNow, ...configInput } = validated;
+    const configClean: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(configInput)) {
+      if (v !== undefined) configClean[k] = v;
+    }
+
+    const svc = getAutoCheckpointService(sessionId, configClean);
+    svc.setStateProvider(async () => {
+      const live = await captureAgentCheckpointState(sessionId);
+      return {
+        conversationHistory: live?.conversationHistory ?? [],
+        toolState: live?.toolState ?? {},
+        tokenUsage: live?.tokenUsage ?? {
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+        },
+      };
+    });
+    svc.start();
+
+    let triggeredResult = null;
+    if (triggerNow) {
+      triggeredResult = await svc.forceCheckpoint();
+    }
+
+    const state = svc.getState();
+    return sendResource(c, "auto_checkpoint_status", {
+      sessionId,
+      active: true,
+      config: svc.getConfig(),
+      state: {
+        ...state,
+        lastCheckpointAt: state.lastCheckpointAt?.toISOString() ?? null,
+      },
+      ...(triggeredResult !== null && { triggered: triggeredResult }),
+    });
+  } catch (error) {
+    return handleError(error, c);
+  }
+});
+
+/**
+ * DELETE /sessions/:sessionId/checkpoints/auto - Stop and remove auto-checkpoint service for session
+ */
+checkpoints.delete("/:sessionId/checkpoints/auto", (c) => {
+  const sessionId = c.req.param("sessionId");
+  removeAutoCheckpointService(sessionId);
+  return sendResource(c, "auto_checkpoint_status", {
+    sessionId,
+    active: false,
+  });
 });
 
 /**

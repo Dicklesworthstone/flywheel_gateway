@@ -40,7 +40,7 @@ system.use("*", requireAdminMiddleware());
  * - NTM session and agent status
  * - Beads (br/bv) issue tracking state
  * - Tool health (DCG, SLB, UBS)
- * - Agent Mail coordination state (placeholder)
+ * - Agent Mail coordination and live file reservation state
  *
  * Query Parameters:
  * - bypass_cache: Set to "true" to force fresh data collection

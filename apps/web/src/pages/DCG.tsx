@@ -27,7 +27,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { StatusPill } from "../components/ui/StatusPill";
 import {
   type DCGAllowlistEntry,
@@ -952,6 +952,77 @@ export function DCGPage() {
   const { data: packs, refetch: refetchPacks } = useDCGPacks();
   const { data: allowlist, refetch: refetchAllowlist } = useDCGAllowlist();
 
+  // Workspace Guardrail Engine (safety.service) state
+  const [guardrailStats, setGuardrailStats] = useState<{
+    enabled: boolean;
+    totalRules: number;
+    enabledRules: number;
+    categoriesEnabled: string[];
+    violationsTotal: number;
+    violationsBlocked: number;
+  } | null>(null);
+  const [emergencyStopActive, setEmergencyStopActive] = useState(false);
+  const [preflightSummary, setPreflightSummary] = useState<string | null>(null);
+
+  const fetchGuardrailTelemetry = useCallback(async () => {
+    try {
+      const res = await fetch("/api/safety/stats?workspaceId=default");
+      if (res.ok) {
+        const json = await res.json();
+        const d = json.data ?? json;
+        if (d?.config) {
+          setGuardrailStats({
+            enabled: Boolean(d.config.enabled),
+            totalRules: d.config.totalRules ?? 0,
+            enabledRules: d.config.enabledRules ?? 0,
+            categoriesEnabled: Array.isArray(d.config.categoriesEnabled)
+              ? d.config.categoriesEnabled
+              : [],
+            violationsTotal: d.violations?.total ?? 0,
+            violationsBlocked: d.violations?.blocked ?? 0,
+          });
+        }
+      }
+    } catch {
+      // Best-effort telemetry fetch
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchGuardrailTelemetry();
+  }, [fetchGuardrailTelemetry]);
+
+  const handleToggleEmergencyStop = async () => {
+    try {
+      if (emergencyStopActive) {
+        const res = await fetch(
+          "/api/safety/emergency-stop?workspaceId=default&clearedBy=operator",
+          { method: "DELETE" },
+        );
+        if (res.ok) {
+          setEmergencyStopActive(false);
+          await fetchGuardrailTelemetry();
+        }
+      } else {
+        const res = await fetch("/api/safety/emergency-stop", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workspaceId: "default",
+            reason: "Operator triggered emergency stop from DCG console",
+            initiatedBy: "operator",
+          }),
+        });
+        if (res.ok) {
+          setEmergencyStopActive(true);
+          await fetchGuardrailTelemetry();
+        }
+      }
+    } catch {
+      // Ignore network errors
+    }
+  };
+
   // Mutation hooks
   const { approve, isLoading: isApproving } = useApprovePending();
   const { deny, isLoading: isDenying } = useDenyPending();
@@ -979,6 +1050,28 @@ export function DCGPage() {
     setExplainResult(null);
     const result = await test(command);
     setTestResult(result);
+    try {
+      const pfRes = await fetch("/api/safety/preflight", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspaceId: "default",
+          agentId: "dcg-tester",
+          sessionId: "dcg-test-session",
+          operation: { type: "execution", fields: { command } },
+        }),
+      });
+      if (pfRes.ok) {
+        const pfJson = await pfRes.json();
+        const pf = pfJson.data ?? pfJson;
+        setPreflightSummary(
+          `Guardrail Pre-Flight: ${pf.action?.toUpperCase() ?? "ALLOW"} (${pf.violations?.length ?? 0} rule matches, ${pf.evaluationTimeMs ?? 0}ms)`,
+        );
+        await fetchGuardrailTelemetry();
+      }
+    } catch {
+      // Ignore preflight error
+    }
   };
 
   const handleExplain = async (command: string) => {
@@ -1044,6 +1137,23 @@ export function DCGPage() {
                 : "Hook Standby"}
             </StatusPill>
           )}
+          {guardrailStats && (
+            <StatusPill tone={guardrailStats.enabled ? "positive" : "muted"}>
+              Guardrails: {guardrailStats.enabledRules}/
+              {guardrailStats.totalRules} rules (
+              {guardrailStats.violationsTotal} violations)
+            </StatusPill>
+          )}
+          {preflightSummary && (
+            <StatusPill tone="muted">{preflightSummary}</StatusPill>
+          )}
+          <button
+            type="button"
+            className={`btn btn--sm ${emergencyStopActive ? "btn--secondary" : "btn--danger"}`}
+            onClick={handleToggleEmergencyStop}
+          >
+            {emergencyStopActive ? "Clear Emergency Stop" : "Emergency Stop"}
+          </button>
           {pending &&
             pending.filter((p) => p.status === "pending").length > 0 && (
               <StatusPill tone="warning">

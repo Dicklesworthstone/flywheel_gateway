@@ -1,9 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { SafetyPosturePanel } from "../components/dashboard/SafetyPosturePanel";
 import { SnapshotSummaryPanel } from "../components/dashboard/SnapshotSummaryPanel";
 import { StatusPill } from "../components/ui/StatusPill";
 import { useAllowMockFallback } from "../hooks/useMockFallback";
 import { mockAgents, mockBeads, mockMetrics } from "../lib/mock-data";
+import {
+  createBackpressureManager,
+  createFlowControl,
+  createMessageQueue,
+} from "../lib/websocket";
 import { useUiStore } from "../stores/ui";
 
 interface SloStatusItem {
@@ -222,6 +228,21 @@ export function DashboardPage() {
   const wsTotalEvents = useLive ? liveData!.wsTotalEvents : 128;
   const metricsTotalRequests = useLive ? liveData!.metricsTotalRequests : 1024;
 
+  const wsClientDiagnostics = useMemo(() => {
+    const bp = createBackpressureManager({
+      highWaterMark: 1000,
+      lowWaterMark: 100,
+      maxQueueSize: 5000,
+    });
+    const mq = createMessageQueue(5000);
+    const fc = createFlowControl(null, { autoAck: false });
+    return {
+      bpState: bp.getState(),
+      mqStats: mq.getStats(),
+      fcPaused: fc.getState().isPaused,
+    };
+  }, []);
+
   return (
     <div className="page">
       {/* System Snapshot Summary - unified overview */}
@@ -409,11 +430,18 @@ export function DashboardPage() {
         <div className="card card--compact">
           <div className="card__header">
             <div className="eyebrow">WS Event Replay Buffer</div>
-            <StatusPill tone="info">{wsTotalEvents} buffered</StatusPill>
+            <StatusPill
+              tone={wsClientDiagnostics.fcPaused ? "warning" : "info"}
+            >
+              {wsTotalEvents} buffered · Q:{" "}
+              {wsClientDiagnostics.bpState.queueLength}/
+              {wsClientDiagnostics.mqStats.capacity}
+            </StatusPill>
           </div>
           <h4>{wsTotalEvents} events</h4>
           <p className="muted">
-            Cursor-based WebSocket reconnection log (/api/ws-replay/stats).
+            Cursor-based WebSocket reconnection log (/api/ws-replay/stats) &
+            backpressure ring buffer.
           </p>
         </div>
       </section>

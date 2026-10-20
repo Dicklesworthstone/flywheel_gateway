@@ -10,6 +10,7 @@ import {
 
 import { useWebSocket, useWebSocketState } from "../../lib/websocket-context";
 import { useUiStore } from "../../stores/ui";
+import { NotificationCenter } from "../notifications/NotificationCenter";
 import { StatusPill } from "../ui/StatusPill";
 
 /**
@@ -120,6 +121,7 @@ export function Topbar() {
       </div>
       <div className="topbar__actions">
         <ConnectionStatusIndicator />
+        <NotificationCenter userId="default" badgeSize="sm" />
         <StatusPill tone={mockMode ? "positive" : "muted"}>
           <ToggleLeft size={16} />
           {mockMode ? "Mock mode on" : "Mock mode off"}

@@ -21,7 +21,7 @@ import type {
 } from "@flywheel/agent-drivers";
 import { desc, eq, inArray, sql } from "drizzle-orm";
 import { ulid } from "ulid";
-import { checkpoints as checkpointsTable, db } from "../db";
+import { agents, checkpoints as checkpointsTable, db } from "../db";
 import { getCorrelationId, getLogger } from "../middleware/correlation";
 import { incrementCounter, recordHistogram } from "./metrics";
 
@@ -328,13 +328,41 @@ export async function createCheckpoint(
   // Record checkpoint creation start time for metrics
   const createStartTime = performance.now();
 
-  // Persist to DB
-  await db.insert(checkpointsTable).values({
-    id: checkpointId,
-    agentId,
-    state: checkpoint,
-    createdAt: now,
-  });
+  // Persist to DB (ensure parent agent row exists if session checkpoint is created before agent DB record)
+  try {
+    await db.insert(checkpointsTable).values({
+      id: checkpointId,
+      agentId,
+      state: checkpoint,
+      createdAt: now,
+    });
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      err.message.includes("FOREIGN KEY constraint failed")
+    ) {
+      await db
+        .insert(agents)
+        .values({
+          id: agentId,
+          repoUrl: process.cwd(),
+          task: "Auto/session checkpoint",
+          status: "ready",
+          model: "claude-sonnet-4-20250514",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoNothing();
+      await db.insert(checkpointsTable).values({
+        id: checkpointId,
+        agentId,
+        state: checkpoint,
+        createdAt: now,
+      });
+    } else {
+      throw err;
+    }
+  }
 
   // Record metrics
   const createDurationMs = performance.now() - createStartTime;
